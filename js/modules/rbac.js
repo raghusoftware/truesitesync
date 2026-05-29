@@ -237,7 +237,11 @@ export async function logoutUser() {
     try { await sb.auth.signOut(); } catch {}
   }
   _cachedUser = null;
+  _isSignupMode = false;
   sessionStorage.removeItem('mes_current_user');
+  // Reset login form so it can be re-upgraded
+  const loginEl = document.getElementById('loginPage');
+  if (loginEl) delete loginEl.dataset.upgraded;
   showLoginPage();
 }
 

@@ -293,7 +293,7 @@ Object.assign(window, {
   _rbacGoogleLogin: loginWithGoogle,
   _rbacResendConfirmation: resendConfirmation,
   _rbacBackToLogin: backToLogin,
-  _rbacLogout: () => { logoutUser(); },
+  _rbacLogout: () => { _appBooted = false; logoutUser(); },
   _rbacOpenUserForm: openUserForm,
   _rbacSaveUser: saveUser,
   _rbacDeleteUser: deleteUser,
