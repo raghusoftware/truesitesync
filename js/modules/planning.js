@@ -1,0 +1,1009 @@
+/**
+ * ═══════════════════════════════════════════════════════════
+ * True Site Sync — Planning & Scheduling Module
+ * ═══════════════════════════════════════════════════════════
+ * Task management with material requisitions, equipment
+ * linking, pre-flight resource checks, and conflict detection.
+ * ═══════════════════════════════════════════════════════════
+ */
+
+import { state, saveAllData } from './state.js';
+import { showToast, formatINR } from './utils.js';
+
+// ── Status constants ──
+const TASK_STATUSES = ['Not Started', 'Ready to Start', 'In Progress', 'On Hold', 'Completed', 'Cancelled'];
+const TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const MATERIAL_STATUSES = ['Required', 'Ordered', 'Available', 'Insufficient'];
+
+// ═══════════════════════════════════════════════
+//  RENDER — Main Planning View
+// ═══════════════════════════════════════════════
+
+export function renderPlanningView() {
+  const container = document.getElementById('planningViewContent');
+  if (!container) return;
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const tasks = (state.planningTasks || []).filter(t => t.projectId === pid);
+
+  // KPIs
+  const total = tasks.length;
+  const notStarted = tasks.filter(t => t.status === 'Not Started').length;
+  const inProgress = tasks.filter(t => t.status === 'In Progress' || t.status === 'Ready to Start').length;
+  const completed = tasks.filter(t => t.status === 'Completed').length;
+  const conflicts = _getAllConflicts(pid).length;
+  const shortages = _getUpcomingShortages(pid, 3).length;
+
+  container.innerHTML = `
+    <!-- KPI Row -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Total Tasks</p>
+        <p class="text-2xl font-extrabold text-slate-800">${total}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-l-4 border-l-slate-400 shadow-sm">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Not Started</p>
+        <p class="text-2xl font-extrabold text-slate-600">${notStarted}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-l-4 border-l-blue-500 shadow-sm">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">In Progress</p>
+        <p class="text-2xl font-extrabold text-blue-600">${inProgress}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-l-4 border-l-green-500 shadow-sm">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Completed</p>
+        <p class="text-2xl font-extrabold text-green-600">${completed}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-l-4 shadow-sm ${conflicts ? 'border-l-red-500' : 'border-l-slate-200'}">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Conflicts</p>
+        <p class="text-2xl font-extrabold ${conflicts ? 'text-red-600' : 'text-slate-400'}">${conflicts}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-l-4 shadow-sm ${shortages ? 'border-l-amber-500' : 'border-l-slate-200'}">
+        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Shortages (3d)</p>
+        <p class="text-2xl font-extrabold ${shortages ? 'text-amber-600' : 'text-slate-400'}">${shortages}</p>
+      </div>
+    </div>
+
+    <!-- Shortage Alerts Widget -->
+    ${_renderShortageWidget(pid)}
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="planFilterArea" class="p-2 text-xs border border-slate-300 rounded-lg bg-white font-medium" onchange="window._planRefreshList()">
+          <option value="">All Areas</option>
+          ${_getExistingAreas(pid).map(a => `<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <select id="planFilterStatus" class="p-2 text-xs border border-slate-300 rounded-lg bg-white font-medium" onchange="window._planRefreshList()">
+          <option value="">All Statuses</option>
+          ${TASK_STATUSES.map(s => `<option value="${s}">${s}</option>`).join('')}
+        </select>
+        <select id="planFilterPriority" class="p-2 text-xs border border-slate-300 rounded-lg bg-white font-medium" onchange="window._planRefreshList()">
+          <option value="">All Priorities</option>
+          ${TASK_PRIORITIES.map(p => `<option value="${p}">${p}</option>`).join('')}
+        </select>
+        <input type="text" id="planSearchInput" placeholder="Search tasks..." class="p-2 text-xs border border-slate-300 rounded-lg bg-white w-48" oninput="window._planRefreshList()">
+      </div>
+      <button onclick="window._planOpenTaskForm()" class="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm transition">+ Add Task</button>
+    </div>
+
+    <!-- Task List -->
+    <div class="space-y-2" id="planningTaskList">
+      ${_renderTaskList(tasks)}
+    </div>
+  `;
+}
+
+function _renderShortageWidget(pid) {
+  const shortages = _getUpcomingShortages(pid, 3);
+  const conflicts = _getAllConflicts(pid);
+  if (!shortages.length && !conflicts.length) return '';
+
+  let html = '<div class="bg-white rounded-xl border border-amber-200 shadow-sm mb-6 overflow-hidden">';
+  html += '<div class="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center gap-2"><span class="text-base">&#9888;&#65039;</span><h4 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Resource Alerts — Next 3 Days</h4></div>';
+  html += '<div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">';
+
+  shortages.forEach(s => {
+    html += `<div class="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-100">
+      <span class="text-lg mt-0.5">&#128230;</span>
+      <div>
+        <p class="text-xs font-bold text-slate-700">${s.materialName}</p>
+        <p class="text-[10px] text-slate-500">Task: ${s.taskName} &middot; Need: ${s.requiredQty} ${s.unit} &middot; Available: <span class="font-bold text-red-600">${s.availableQty}</span></p>
+        <p class="text-[10px] text-amber-700 font-bold">Shortage: ${s.requiredQty - s.availableQty} ${s.unit}</p>
+      </div>
+    </div>`;
+  });
+
+  conflicts.forEach(c => {
+    html += `<div class="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
+      <span class="text-lg mt-0.5">&#128295;</span>
+      <div>
+        <p class="text-xs font-bold text-slate-700">${c.equipmentName}</p>
+        <p class="text-[10px] text-slate-500">Conflict on ${c.date}: assigned to both "${c.task1}" and "${c.task2}"</p>
+        <p class="text-[10px] text-red-700 font-bold">Resource Conflict</p>
+      </div>
+    </div>`;
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+export function refreshTaskList() {
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const tasks = (state.planningTasks || []).filter(t => t.projectId === pid);
+  const el = document.getElementById('planningTaskList');
+  if (el) el.innerHTML = _renderTaskList(tasks);
+}
+
+function _renderTaskList(tasks) {
+  const areaFilter = document.getElementById('planFilterArea')?.value || '';
+  const statusFilter = document.getElementById('planFilterStatus')?.value || '';
+  const priorityFilter = document.getElementById('planFilterPriority')?.value || '';
+  const search = (document.getElementById('planSearchInput')?.value || '').toLowerCase();
+
+  let filtered = tasks;
+  if (areaFilter) filtered = filtered.filter(t => t.area === areaFilter);
+  if (statusFilter) filtered = filtered.filter(t => t.status === statusFilter);
+  if (priorityFilter) filtered = filtered.filter(t => t.priority === priorityFilter);
+  if (search) filtered = filtered.filter(t => (t.name || '').toLowerCase().includes(search) || (t.description || '').toLowerCase().includes(search) || (t.area || '').toLowerCase().includes(search));
+
+  if (!filtered.length) {
+    return `<div class="text-center py-12 text-slate-400">
+      <p class="text-4xl mb-3">&#128197;</p>
+      <p class="font-bold">No tasks yet</p>
+      <p class="text-xs mt-1">Create your first task to start planning</p>
+    </div>`;
+  }
+
+  // Sort within groups: Critical/High first, then by start date
+  const prioOrder = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+  filtered.sort((a, b) => (prioOrder[a.priority] ?? 3) - (prioOrder[b.priority] ?? 3) || (a.startDate || '').localeCompare(b.startDate || ''));
+
+  // Group by area
+  const groups = {};
+  filtered.forEach(t => {
+    const area = t.area || 'Unassigned';
+    if (!groups[area]) groups[area] = [];
+    groups[area].push(t);
+  });
+
+  const areaNames = Object.keys(groups).sort((a, b) => a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b));
+
+  return areaNames.map(area => {
+    const areaTasks = groups[area];
+    const areaCompleted = areaTasks.filter(t => t.status === 'Completed').length;
+    const areaTotal = areaTasks.length;
+    const areaProgress = areaTotal ? Math.round((areaCompleted / areaTotal) * 100) : 0;
+
+    return `<div class="mb-4">
+      <div class="flex items-center gap-3 mb-2 cursor-pointer select-none group" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.area-chevron').classList.toggle('rotate-90')">
+        <span class="area-chevron text-slate-400 text-[10px] transition-transform rotate-90">&#9654;</span>
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="text-sm">&#128205;</span>
+          <h3 class="text-sm font-extrabold text-slate-700 truncate">${area}</h3>
+          <span class="text-[10px] text-slate-400 font-medium">${areaTotal} task${areaTotal !== 1 ? 's' : ''}</span>
+          <div class="flex-1 max-w-[120px] h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500 rounded-full transition-all" style="width:${areaProgress}%"></div>
+          </div>
+          <span class="text-[10px] font-bold ${areaCompleted === areaTotal && areaTotal > 0 ? 'text-green-600' : 'text-slate-400'}">${areaProgress}%</span>
+        </div>
+      </div>
+      <div class="space-y-2 pl-5 border-l-2 border-slate-200 ml-1.5">
+        ${areaTasks.map(t => _renderTaskCard(t)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _renderTaskCard(t) {
+  const matCount = (state.taskMaterials || []).filter(m => m.taskId === t.id).length;
+  const eqCount = (state.taskEquipment || []).filter(e => e.taskId === t.id).length;
+  const preflight = checkResourceAvailability(t.id);
+  const prioColors = { Critical: '#ef4444', High: '#f97316', Medium: '#3b82f6', Low: '#94a3b8' };
+  const statusColors = { 'Not Started': '#94a3b8', 'Ready to Start': '#10b981', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
+  const pc = prioColors[t.priority] || '#94a3b8';
+  const sc = statusColors[t.status] || '#94a3b8';
+  const progress = t.status === 'Completed' ? 100 : t.status === 'In Progress' ? (parseFloat(t.progress) || 50) : t.status === 'Ready to Start' ? 5 : 0;
+
+  return `<div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden">
+    <div class="flex items-stretch">
+      <div style="width:4px;background:${pc};flex-shrink:0;"></div>
+      <div class="flex-1 p-4">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h4 class="text-sm font-bold text-slate-800 truncate">${t.name}</h4>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;">${t.status}</span>
+              ${t.priority === 'Critical' || t.priority === 'High' ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${pc}15;color:${pc};">&#9650; ${t.priority}</span>` : ''}
+            </div>
+            ${t.description ? `<p class="text-[11px] text-slate-400 truncate">${t.description}</p>` : ''}
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button onclick="window._planOpenTaskDetail('${t.id}')" class="text-[10px] text-blue-500 hover:bg-blue-50 px-2 py-1 rounded font-bold transition" title="View Details">Details</button>
+            <button onclick="window._planOpenTaskForm('${t.id}')" class="text-[10px] text-slate-400 hover:bg-slate-50 px-2 py-1 rounded font-bold transition" title="Edit">&#9998;</button>
+            <button onclick="window._planDeleteTask('${t.id}')" class="text-[10px] text-red-400 hover:bg-red-50 px-2 py-1 rounded font-bold transition" title="Delete">&#128465;</button>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mb-2">
+          ${t.startDate ? `<span>&#128197; ${t.startDate}${t.endDate ? ' → ' + t.endDate : ''}</span>` : ''}
+          ${t.assignedTo ? `<span>&#128100; ${t.assignedTo}</span>` : ''}
+          <span class="font-bold ${matCount ? 'text-green-600' : 'text-slate-300'}">&#128230; ${matCount} materials</span>
+          <span class="font-bold ${eqCount ? 'text-purple-600' : 'text-slate-300'}">&#128295; ${eqCount} equipment</span>
+          ${!preflight.ready && t.status !== 'Completed' && t.status !== 'Cancelled' ? '<span class="text-red-500 font-bold">&#9888; Resource issues</span>' : ''}
+        </div>
+        <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all" style="width:${progress}%;background:${sc};"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+// ═══════════════════════════════════════════════
+//  TASK CRUD
+// ═══════════════════════════════════════════════
+
+export function openTaskForm(taskId) {
+  const existing = taskId ? (state.planningTasks || []).find(t => t.id === taskId) : null;
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Remove existing modal
+  document.getElementById('planTaskFormModal')?.remove();
+
+  const html = `
+    <div id="planTaskFormModal" class="ef-overlay" onclick="if(event.target===this)window._planCloseForm()">
+      <div class="ef-modal" style="max-width:560px;">
+        <div class="ef-header">
+          <h3 class="ef-title">${existing ? 'Edit Task' : 'Create New Task'}</h3>
+          <button onclick="window._planCloseForm()" class="ef-close">&times;</button>
+        </div>
+        <div class="ef-body">
+          <div class="ef-grid">
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Task Name *</label>
+              <input type="text" id="pt_name" class="ef-input" value="${existing?.name || ''}" placeholder="e.g. Column Casting Block-A" required>
+            </div>
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Area / Location *</label>
+              <input type="text" id="pt_area" class="ef-input" list="pt_area_list" value="${existing?.area || ''}" placeholder="e.g. Office Building, Block A, Site Infrastructure">
+              <datalist id="pt_area_list">
+                ${_getExistingAreas(pid).map(a => `<option value="${a}">`).join('')}
+              </datalist>
+            </div>
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Description</label>
+              <textarea id="pt_desc" class="ef-input ef-textarea" rows="2" placeholder="Scope of work...">${existing?.description || ''}</textarea>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Start Date *</label>
+              <input type="date" id="pt_start" class="ef-input" value="${existing?.startDate || today}" required>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">End Date</label>
+              <input type="date" id="pt_end" class="ef-input" value="${existing?.endDate || ''}">
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Priority</label>
+              <select id="pt_priority" class="ef-input">
+                ${TASK_PRIORITIES.map(p => `<option value="${p}" ${(existing?.priority || 'Medium') === p ? 'selected' : ''}>${p}</option>`).join('')}
+              </select>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Status</label>
+              <select id="pt_status" class="ef-input">
+                ${TASK_STATUSES.map(s => `<option value="${s}" ${(existing?.status || 'Not Started') === s ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Assigned To</label>
+              <input type="text" id="pt_assigned" class="ef-input" value="${existing?.assignedTo || ''}" placeholder="Engineer / Supervisor">
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Progress %</label>
+              <input type="number" id="pt_progress" class="ef-input" value="${existing?.progress || 0}" min="0" max="100">
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">BOQ Link</label>
+              <select id="pt_boqItem" class="ef-input">
+                <option value="">-- None --</option>
+                ${_getBoqOptions(pid)}
+              </select>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Dependencies</label>
+              <select id="pt_dependency" class="ef-input">
+                <option value="">-- None --</option>
+                ${(state.planningTasks || []).filter(t => t.projectId === pid && t.id !== taskId).map(t => `<option value="${t.id}" ${existing?.dependsOn === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+              </select>
+            </div>
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Remarks</label>
+              <input type="text" id="pt_remarks" class="ef-input" value="${existing?.remarks || ''}" placeholder="Any notes...">
+            </div>
+          </div>
+        </div>
+        <div class="ef-footer">
+          <button onclick="window._planCloseForm()" class="ef-btn-cancel">Cancel</button>
+          <button onclick="window._planSaveTask('${taskId || ''}')" class="ef-btn-save">${existing ? 'Update Task' : 'Create Task'}</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (existing?.boqItemId) {
+    const sel = document.getElementById('pt_boqItem');
+    if (sel) sel.value = existing.boqItemId;
+  }
+  setTimeout(() => document.getElementById('pt_name')?.focus(), 100);
+}
+
+export function saveTask(taskId) {
+  const name = document.getElementById('pt_name')?.value.trim();
+  if (!name) { showToast('Task name is required', 'error'); return; }
+
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const area = document.getElementById('pt_area')?.value.trim() || '';
+  if (!area) { showToast('Area / Location is required', 'error'); return; }
+
+  const data = {
+    name,
+    area,
+    description: document.getElementById('pt_desc')?.value.trim() || '',
+    startDate: document.getElementById('pt_start')?.value || '',
+    endDate: document.getElementById('pt_end')?.value || '',
+    priority: document.getElementById('pt_priority')?.value || 'Medium',
+    status: document.getElementById('pt_status')?.value || 'Not Started',
+    assignedTo: document.getElementById('pt_assigned')?.value.trim() || '',
+    progress: parseFloat(document.getElementById('pt_progress')?.value) || 0,
+    boqItemId: document.getElementById('pt_boqItem')?.value || '',
+    dependsOn: document.getElementById('pt_dependency')?.value || '',
+    remarks: document.getElementById('pt_remarks')?.value.trim() || '',
+    projectId: pid,
+  };
+
+  // Pre-flight check if moving to "Ready to Start"
+  if (data.status === 'Ready to Start') {
+    const existing = taskId ? (state.planningTasks || []).find(t => t.id === taskId) : null;
+    if (!existing || existing.status !== 'Ready to Start') {
+      // Will validate after save
+    }
+  }
+
+  if (!state.planningTasks) state.planningTasks = [];
+
+  if (taskId) {
+    const idx = state.planningTasks.findIndex(t => t.id === taskId);
+    if (idx >= 0) {
+      state.planningTasks[idx] = { ...state.planningTasks[idx], ...data };
+    }
+  } else {
+    data.id = 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    data.createdAt = new Date().toISOString();
+    state.planningTasks.push(data);
+    taskId = data.id;
+  }
+
+  saveAllData();
+  closeTaskForm();
+
+  // Run pre-flight if Ready to Start
+  if (data.status === 'Ready to Start') {
+    const preflight = checkResourceAvailability(taskId);
+    if (!preflight.ready) {
+      _showPreflightResults(preflight, data.name);
+    }
+  }
+
+  showToast(taskId ? 'Task updated' : 'Task created', 'success');
+  renderPlanningView();
+}
+
+export function deleteTask(taskId) {
+  if (!confirm('Delete this task and all its material/equipment links?')) return;
+  state.planningTasks = (state.planningTasks || []).filter(t => t.id !== taskId);
+  state.taskMaterials = (state.taskMaterials || []).filter(m => m.taskId !== taskId);
+  state.taskEquipment = (state.taskEquipment || []).filter(e => e.taskId !== taskId);
+  saveAllData();
+  showToast('Task deleted', 'success');
+  renderPlanningView();
+}
+
+export function closeTaskForm() {
+  document.getElementById('planTaskFormModal')?.remove();
+}
+
+
+// ═══════════════════════════════════════════════
+//  TASK DETAIL — Requirements Tab
+// ═══════════════════════════════════════════════
+
+export function openTaskDetail(taskId) {
+  const task = (state.planningTasks || []).find(t => t.id === taskId);
+  if (!task) return;
+
+  document.getElementById('planTaskDetailModal')?.remove();
+
+  const materials = (state.taskMaterials || []).filter(m => m.taskId === taskId);
+  const equipment = (state.taskEquipment || []).filter(e => e.taskId === taskId);
+  const preflight = checkResourceAvailability(taskId);
+  const sc = { 'Not Started': '#94a3b8', 'Ready to Start': '#10b981', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
+
+  const html = `
+    <div id="planTaskDetailModal" class="ef-overlay" onclick="if(event.target===this)window._planCloseDetail()">
+      <div class="ef-modal" style="max-width:720px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="ef-header">
+          <div>
+            <h3 class="ef-title">${task.name}</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">${task.startDate || '—'}${task.endDate ? ' → ' + task.endDate : ''} &middot; ${task.assignedTo || 'Unassigned'}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:${sc[task.status] || '#94a3b8'}15;color:${sc[task.status] || '#94a3b8'};">${task.status}</span>
+            <button onclick="window._planCloseDetail()" class="ef-close">&times;</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;">
+          <!-- Tabs -->
+          <div class="flex border-b border-slate-200 px-4 pt-2 bg-slate-50">
+            <button class="plan-tab active text-xs font-bold px-4 py-2 border-b-2 border-blue-500 text-blue-600" onclick="window._planSwitchTab('materials',this)">&#128230; Materials (${materials.length})</button>
+            <button class="plan-tab text-xs font-bold px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-600" onclick="window._planSwitchTab('equipment',this)">&#128295; Equipment (${equipment.length})</button>
+            <button class="plan-tab text-xs font-bold px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-600" onclick="window._planSwitchTab('preflight',this)">&#9989; Pre-flight ${!preflight.ready ? '<span class="text-red-500">&#9888;</span>' : ''}</button>
+          </div>
+
+          <!-- Materials Tab -->
+          <div id="planTab_materials" class="plan-tab-content p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Material Requisition</h4>
+              <button onclick="window._planAddMaterial('${taskId}')" class="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700">+ Add Material</button>
+            </div>
+            ${materials.length ? `<div class="border rounded-lg overflow-hidden">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Material</th>
+                    <th class="px-3 py-2 text-right font-bold text-slate-500">Qty</th>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Unit</th>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Status</th>
+                    <th class="px-3 py-2 text-right font-bold text-slate-500">In Stock</th>
+                    <th class="px-3 py-2 text-center font-bold text-slate-500">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${materials.map(m => {
+                    const avail = _getMaterialStock(m.materialId || m.materialName, task.projectId);
+                    const shortfall = Math.max(0, (m.quantity || 0) - avail);
+                    return `<tr>
+                      <td class="px-3 py-2 font-medium text-slate-700">${m.materialName || '—'}</td>
+                      <td class="px-3 py-2 text-right font-bold">${m.quantity || 0}</td>
+                      <td class="px-3 py-2 text-slate-500">${m.unit || '—'}</td>
+                      <td class="px-3 py-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${shortfall > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${shortfall > 0 ? 'Insufficient' : 'Available'}</span></td>
+                      <td class="px-3 py-2 text-right ${shortfall > 0 ? 'text-red-600 font-bold' : ''}">${avail}</td>
+                      <td class="px-3 py-2 text-center">
+                        <button onclick="window._planRemoveMaterial('${m.id}','${taskId}')" class="text-red-400 hover:text-red-600 text-xs">&#128465;</button>
+                      </td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>` : '<p class="text-xs text-slate-400 text-center py-8">No materials linked. Add materials this task requires.</p>'}
+          </div>
+
+          <!-- Equipment Tab -->
+          <div id="planTab_equipment" class="plan-tab-content p-4 hidden">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Equipment Requisition</h4>
+              <button onclick="window._planAddEquipment('${taskId}')" class="text-[10px] bg-purple-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-purple-700">+ Add Equipment</button>
+            </div>
+            ${equipment.length ? `<div class="border rounded-lg overflow-hidden">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Equipment</th>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Required Date</th>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Duration</th>
+                    <th class="px-3 py-2 text-left font-bold text-slate-500">Conflicts</th>
+                    <th class="px-3 py-2 text-center font-bold text-slate-500">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${equipment.map(e => {
+                    const conflict = _checkEquipmentConflict(e.equipmentId, taskId, task.startDate, task.endDate);
+                    return `<tr>
+                      <td class="px-3 py-2 font-medium text-slate-700">${e.equipmentName || '—'}</td>
+                      <td class="px-3 py-2 text-slate-500">${e.requiredDate || task.startDate || '—'}</td>
+                      <td class="px-3 py-2 text-slate-500">${e.durationDays || 1} day(s)</td>
+                      <td class="px-3 py-2">${conflict ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">&#9888; ${conflict}</span>` : '<span class="text-[10px] font-bold text-green-600">None</span>'}</td>
+                      <td class="px-3 py-2 text-center">
+                        <button onclick="window._planRemoveEquipment('${e.id}','${taskId}')" class="text-red-400 hover:text-red-600 text-xs">&#128465;</button>
+                      </td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>` : '<p class="text-xs text-slate-400 text-center py-8">No equipment linked. Add equipment this task requires.</p>'}
+          </div>
+
+          <!-- Pre-flight Tab -->
+          <div id="planTab_preflight" class="plan-tab-content p-4 hidden">
+            <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Pre-flight Resource Check</h4>
+            ${_renderPreflightDetail(preflight)}
+            <div class="mt-4 text-center">
+              <button onclick="window._planRunPreflight('${taskId}')" class="text-xs bg-slate-700 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800">&#128260; Re-check Resources</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _renderPreflightDetail(pf) {
+  if (pf.ready) {
+    return `<div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+      <p class="text-2xl mb-2">&#9989;</p>
+      <p class="text-sm font-bold text-green-700">All Clear — Task Ready to Start</p>
+      <p class="text-xs text-green-600 mt-1">All materials available &middot; No equipment conflicts</p>
+    </div>`;
+  }
+
+  let html = '';
+  if (pf.materialIssues.length) {
+    html += '<div class="mb-3"><p class="text-xs font-bold text-red-700 mb-2">&#128230; Material Shortages:</p>';
+    pf.materialIssues.forEach(i => {
+      html += `<div class="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded mb-1">
+        <span class="text-xs font-medium text-slate-700">${i.name}</span>
+        <span class="text-[10px] text-red-600 font-bold">Need: ${i.required} | Available: ${i.available} | Short: ${i.shortfall}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (pf.equipmentIssues.length) {
+    html += '<div><p class="text-xs font-bold text-red-700 mb-2">&#128295; Equipment Conflicts:</p>';
+    pf.equipmentIssues.forEach(i => {
+      html += `<div class="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded mb-1">
+        <span class="text-xs font-medium text-slate-700">${i.name}</span>
+        <span class="text-[10px] text-red-600 font-bold">${i.conflict}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (pf.dependencyIssues.length) {
+    html += '<div class="mt-3"><p class="text-xs font-bold text-amber-700 mb-2">&#128279; Dependency Blocks:</p>';
+    pf.dependencyIssues.forEach(i => {
+      html += `<div class="p-2 bg-amber-50 border border-amber-100 rounded mb-1">
+        <span class="text-xs font-medium text-slate-700">${i}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+export function closeTaskDetail() {
+  document.getElementById('planTaskDetailModal')?.remove();
+}
+
+export function switchPlanTab(tabName, btn) {
+  document.querySelectorAll('.plan-tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.plan-tab').forEach(el => {
+    el.classList.remove('active', 'border-blue-500', 'text-blue-600');
+    el.classList.add('border-transparent', 'text-slate-400');
+  });
+  const tab = document.getElementById('planTab_' + tabName);
+  if (tab) tab.classList.remove('hidden');
+  if (btn) {
+    btn.classList.add('active', 'border-blue-500', 'text-blue-600');
+    btn.classList.remove('border-transparent', 'text-slate-400');
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+//  MATERIAL REQUISITION
+// ═══════════════════════════════════════════════
+
+export function addTaskMaterial(taskId) {
+  document.getElementById('planMaterialFormModal')?.remove();
+  const materials = state.rawMaterials || [];
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const projMaterials = materials.filter(m => !m.projectId || m.projectId === pid);
+
+  const html = `
+    <div id="planMaterialFormModal" class="ef-overlay" style="z-index:10001" onclick="if(event.target===this)this.remove()">
+      <div class="ef-modal" style="max-width:420px;">
+        <div class="ef-header">
+          <h3 class="ef-title">Add Material Requirement</h3>
+          <button onclick="document.getElementById('planMaterialFormModal').remove()" class="ef-close">&times;</button>
+        </div>
+        <div class="ef-body">
+          <div class="ef-grid">
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Material *</label>
+              <select id="pm_material" class="ef-input" onchange="window._planOnMaterialSelect()">
+                <option value="">-- Select from Inventory --</option>
+                ${projMaterials.map(m => `<option value="${m.id}" data-name="${m.name}" data-unit="${m.unit || 'Nos'}">${m.name} (${m.unit || 'Nos'})</option>`).join('')}
+                <option value="__custom__">+ Enter Custom Material</option>
+              </select>
+            </div>
+            <div id="pm_customNameWrap" class="ef-field ef-field-full hidden">
+              <label class="ef-label">Material Name *</label>
+              <input type="text" id="pm_customName" class="ef-input" placeholder="e.g. 20mm Aggregate">
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Quantity Required *</label>
+              <input type="number" id="pm_qty" class="ef-input" placeholder="0" step="any" required>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Unit</label>
+              <input type="text" id="pm_unit" class="ef-input" value="Nos" placeholder="Bag / MT / M3">
+            </div>
+          </div>
+        </div>
+        <div class="ef-footer">
+          <button onclick="document.getElementById('planMaterialFormModal').remove()" class="ef-btn-cancel">Cancel</button>
+          <button onclick="window._planSaveMaterial('${taskId}')" class="ef-btn-save">Add Material</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+export function onMaterialSelect() {
+  const sel = document.getElementById('pm_material');
+  const wrap = document.getElementById('pm_customNameWrap');
+  const unitInput = document.getElementById('pm_unit');
+  if (sel.value === '__custom__') {
+    wrap?.classList.remove('hidden');
+  } else {
+    wrap?.classList.add('hidden');
+    const opt = sel.selectedOptions[0];
+    if (opt && unitInput) unitInput.value = opt.dataset.unit || 'Nos';
+  }
+}
+
+export function saveMaterial(taskId) {
+  const sel = document.getElementById('pm_material');
+  const qty = parseFloat(document.getElementById('pm_qty')?.value);
+  const unit = document.getElementById('pm_unit')?.value || 'Nos';
+
+  if (!qty || qty <= 0) { showToast('Enter a valid quantity', 'error'); return; }
+
+  let materialId = '', materialName = '';
+  if (sel.value === '__custom__') {
+    materialName = document.getElementById('pm_customName')?.value.trim();
+    if (!materialName) { showToast('Enter material name', 'error'); return; }
+  } else if (sel.value) {
+    materialId = sel.value;
+    materialName = sel.selectedOptions[0]?.dataset.name || sel.selectedOptions[0]?.textContent || '';
+  } else {
+    showToast('Select a material', 'error'); return;
+  }
+
+  if (!state.taskMaterials) state.taskMaterials = [];
+  state.taskMaterials.push({
+    id: 'tm_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    taskId,
+    materialId,
+    materialName,
+    quantity: qty,
+    unit,
+    status: 'Required',
+    projectId: state.currentProjectId || state.projects?.[0]?.id,
+    createdAt: new Date().toISOString(),
+  });
+
+  saveAllData();
+  document.getElementById('planMaterialFormModal')?.remove();
+  showToast('Material added', 'success');
+  renderPlanningView();
+  openTaskDetail(taskId);
+}
+
+export function removeMaterial(materialLinkId, taskId) {
+  state.taskMaterials = (state.taskMaterials || []).filter(m => m.id !== materialLinkId);
+  saveAllData();
+  showToast('Material removed', 'success');
+  renderPlanningView();
+  openTaskDetail(taskId);
+}
+
+
+// ═══════════════════════════════════════════════
+//  EQUIPMENT REQUISITION
+// ═══════════════════════════════════════════════
+
+export function addTaskEquipment(taskId) {
+  document.getElementById('planEquipFormModal')?.remove();
+  const equipment = state.equipmentList || [];
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const projEquip = equipment.filter(e => !e.projectId || e.projectId === pid);
+  const task = (state.planningTasks || []).find(t => t.id === taskId);
+
+  const html = `
+    <div id="planEquipFormModal" class="ef-overlay" style="z-index:10001" onclick="if(event.target===this)this.remove()">
+      <div class="ef-modal" style="max-width:420px;">
+        <div class="ef-header">
+          <h3 class="ef-title">Add Equipment Requirement</h3>
+          <button onclick="document.getElementById('planEquipFormModal').remove()" class="ef-close">&times;</button>
+        </div>
+        <div class="ef-body">
+          <div class="ef-grid">
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Equipment *</label>
+              <select id="pe_equipment" class="ef-input">
+                <option value="">-- Select Equipment --</option>
+                ${projEquip.map(e => `<option value="${e.id}" data-name="${e.name}">${e.name} ${e.regNo ? '(' + e.regNo + ')' : ''}</option>`).join('')}
+              </select>
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Required From</label>
+              <input type="date" id="pe_date" class="ef-input" value="${task?.startDate || new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="ef-field">
+              <label class="ef-label">Duration (days)</label>
+              <input type="number" id="pe_duration" class="ef-input" value="1" min="1">
+            </div>
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Remarks</label>
+              <input type="text" id="pe_remarks" class="ef-input" placeholder="e.g. With operator">
+            </div>
+          </div>
+        </div>
+        <div class="ef-footer">
+          <button onclick="document.getElementById('planEquipFormModal').remove()" class="ef-btn-cancel">Cancel</button>
+          <button onclick="window._planSaveEquipment('${taskId}')" class="ef-btn-save">Add Equipment</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+export function saveEquipment(taskId) {
+  const sel = document.getElementById('pe_equipment');
+  if (!sel?.value) { showToast('Select equipment', 'error'); return; }
+
+  const equipmentId = sel.value;
+  const equipmentName = sel.selectedOptions[0]?.dataset.name || sel.selectedOptions[0]?.textContent || '';
+  const requiredDate = document.getElementById('pe_date')?.value || '';
+  const durationDays = parseInt(document.getElementById('pe_duration')?.value) || 1;
+  const remarks = document.getElementById('pe_remarks')?.value.trim() || '';
+
+  // Check for conflict before adding
+  const task = (state.planningTasks || []).find(t => t.id === taskId);
+  const conflict = _checkEquipmentConflict(equipmentId, taskId, requiredDate, _addDays(requiredDate, durationDays));
+  if (conflict) {
+    if (!confirm(`Resource Conflict Detected:\n\n${conflict}\n\nAdd anyway?`)) return;
+  }
+
+  if (!state.taskEquipment) state.taskEquipment = [];
+  state.taskEquipment.push({
+    id: 'te_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    taskId,
+    equipmentId,
+    equipmentName,
+    requiredDate,
+    durationDays,
+    remarks,
+    projectId: state.currentProjectId || state.projects?.[0]?.id,
+    createdAt: new Date().toISOString(),
+  });
+
+  saveAllData();
+  document.getElementById('planEquipFormModal')?.remove();
+  showToast(conflict ? 'Equipment added (conflict noted)' : 'Equipment added', conflict ? 'warning' : 'success');
+  renderPlanningView();
+  openTaskDetail(taskId);
+}
+
+export function removeEquipment(equipLinkId, taskId) {
+  state.taskEquipment = (state.taskEquipment || []).filter(e => e.id !== equipLinkId);
+  saveAllData();
+  showToast('Equipment removed', 'success');
+  renderPlanningView();
+  openTaskDetail(taskId);
+}
+
+
+// ═══════════════════════════════════════════════
+//  PRE-FLIGHT CHECK — checkResourceAvailability()
+// ═══════════════════════════════════════════════
+
+export function checkResourceAvailability(taskId) {
+  const task = (state.planningTasks || []).find(t => t.id === taskId);
+  if (!task) return { ready: true, materialIssues: [], equipmentIssues: [], dependencyIssues: [] };
+
+  const result = { ready: true, materialIssues: [], equipmentIssues: [], dependencyIssues: [] };
+
+  // 1. Check materials
+  const materials = (state.taskMaterials || []).filter(m => m.taskId === taskId);
+  materials.forEach(m => {
+    const available = _getMaterialStock(m.materialId || m.materialName, task.projectId);
+    if (available < (m.quantity || 0)) {
+      result.ready = false;
+      result.materialIssues.push({
+        name: m.materialName,
+        required: m.quantity,
+        available,
+        shortfall: (m.quantity || 0) - available,
+        unit: m.unit || '',
+      });
+    }
+  });
+
+  // 2. Check equipment conflicts
+  const equipment = (state.taskEquipment || []).filter(e => e.taskId === taskId);
+  equipment.forEach(e => {
+    const conflict = _checkEquipmentConflict(e.equipmentId, taskId, e.requiredDate || task.startDate, task.endDate);
+    if (conflict) {
+      result.ready = false;
+      result.equipmentIssues.push({ name: e.equipmentName, conflict });
+    }
+  });
+
+  // 3. Check dependencies
+  if (task.dependsOn) {
+    const dep = (state.planningTasks || []).find(t => t.id === task.dependsOn);
+    if (dep && dep.status !== 'Completed') {
+      result.ready = false;
+      result.dependencyIssues.push(`Depends on "${dep.name}" which is "${dep.status}"`);
+    }
+  }
+
+  return result;
+}
+
+export function runPreflight(taskId) {
+  const task = (state.planningTasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  const pf = checkResourceAvailability(taskId);
+  _showPreflightResults(pf, task.name);
+  // Refresh the detail modal preflight tab
+  const tab = document.getElementById('planTab_preflight');
+  if (tab) tab.innerHTML = `<h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Pre-flight Resource Check</h4>${_renderPreflightDetail(pf)}<div class="mt-4 text-center"><button onclick="window._planRunPreflight('${taskId}')" class="text-xs bg-slate-700 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800">&#128260; Re-check Resources</button></div>`;
+}
+
+function _showPreflightResults(pf, taskName) {
+  if (pf.ready) {
+    showToast(`${taskName}: All resources available`, 'success');
+    return;
+  }
+  let msg = [];
+  if (pf.materialIssues.length) msg.push(`${pf.materialIssues.length} material shortage(s)`);
+  if (pf.equipmentIssues.length) msg.push(`${pf.equipmentIssues.length} equipment conflict(s)`);
+  if (pf.dependencyIssues.length) msg.push(`${pf.dependencyIssues.length} dependency block(s)`);
+  showToast(`${taskName}: ${msg.join(', ')}`, 'error');
+}
+
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+
+function _getMaterialStock(materialIdOrName, projectId) {
+  // Check inventory transactions for stock level
+  const txns = state.inventoryTx || [];
+  let stock = 0;
+  txns.forEach(tx => {
+    const match = (tx.rawMaterialId === materialIdOrName) ||
+      (tx.itemId === materialIdOrName) ||
+      ((tx.itemName || '').toLowerCase() === (materialIdOrName || '').toLowerCase());
+    if (!match) return;
+    if (projectId && tx.siteId && tx.siteId !== projectId) return;
+    const qty = parseFloat(tx.qty) || 0;
+    stock += tx.type === 'IN' ? qty : -qty;
+  });
+
+  // Also check rawMaterials for any minStock data
+  const rm = (state.rawMaterials || []).find(r => r.id === materialIdOrName || r.name === materialIdOrName);
+  if (rm && stock === 0 && rm.currentStock) stock = parseFloat(rm.currentStock) || 0;
+
+  return Math.max(0, stock);
+}
+
+function _checkEquipmentConflict(equipmentId, currentTaskId, startDate, endDate) {
+  if (!equipmentId || !startDate) return null;
+  const otherLinks = (state.taskEquipment || []).filter(e => e.equipmentId === equipmentId && e.taskId !== currentTaskId);
+
+  for (const link of otherLinks) {
+    const otherTask = (state.planningTasks || []).find(t => t.id === link.taskId);
+    if (!otherTask || otherTask.status === 'Completed' || otherTask.status === 'Cancelled') continue;
+
+    const otherStart = link.requiredDate || otherTask.startDate;
+    const otherEnd = otherTask.endDate || _addDays(otherStart, link.durationDays || 1);
+
+    // Check date overlap
+    if (startDate <= otherEnd && (endDate || startDate) >= otherStart) {
+      return `Assigned to "${otherTask.name}" (${otherStart}${otherEnd !== otherStart ? ' → ' + otherEnd : ''})`;
+    }
+  }
+  return null;
+}
+
+function _getAllConflicts(projectId) {
+  const conflicts = [];
+  const equipLinks = (state.taskEquipment || []).filter(e => e.projectId === projectId);
+  const seen = new Set();
+
+  equipLinks.forEach(link => {
+    const task = (state.planningTasks || []).find(t => t.id === link.taskId);
+    if (!task || task.status === 'Completed' || task.status === 'Cancelled') return;
+
+    const conflict = _checkEquipmentConflict(link.equipmentId, link.taskId, link.requiredDate || task.startDate, task.endDate);
+    if (conflict) {
+      const key = [link.equipmentId, link.taskId].sort().join('|');
+      if (!seen.has(key)) {
+        seen.add(key);
+        conflicts.push({
+          equipmentName: link.equipmentName,
+          date: link.requiredDate || task.startDate,
+          task1: task.name,
+          task2: conflict.replace('Assigned to "', '').split('"')[0],
+        });
+      }
+    }
+  });
+  return conflicts;
+}
+
+function _getUpcomingShortages(projectId, daysAhead) {
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() + daysAhead);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+
+  const shortages = [];
+  const tasks = (state.planningTasks || []).filter(t =>
+    t.projectId === projectId &&
+    t.status !== 'Completed' && t.status !== 'Cancelled' &&
+    t.startDate && t.startDate >= todayStr && t.startDate <= cutoffStr
+  );
+
+  tasks.forEach(task => {
+    const materials = (state.taskMaterials || []).filter(m => m.taskId === task.id);
+    materials.forEach(m => {
+      const available = _getMaterialStock(m.materialId || m.materialName, projectId);
+      if (available < (m.quantity || 0)) {
+        shortages.push({
+          taskName: task.name,
+          materialName: m.materialName,
+          requiredQty: m.quantity,
+          availableQty: available,
+          unit: m.unit || '',
+          startDate: task.startDate,
+        });
+      }
+    });
+  });
+  return shortages;
+}
+
+function _addDays(dateStr, days) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + (days || 0));
+  return d.toISOString().split('T')[0];
+}
+
+function _getBoqOptions(projectId) {
+  const proj = (state.projects || []).find(p => p.id === projectId);
+  if (!proj) return '';
+  const items = [];
+  (proj.boqs || []).forEach(g => {
+    (g.items || []).forEach(item => {
+      items.push(`<option value="${item.itemNo || item.id || ''}">${item.description || item.name || item.itemNo || '—'} (${item.unit || '—'})</option>`);
+    });
+  });
+  return items.join('');
+}
+
+function _getExistingAreas(projectId) {
+  const areas = new Set();
+  (state.planningTasks || []).forEach(t => {
+    if (t.projectId === projectId && t.area) areas.add(t.area);
+  });
+  return [...areas].sort();
+}

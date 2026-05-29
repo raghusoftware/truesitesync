@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>True Site Sync — Pricing</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-deep:#080c0a;
+  --bg-card:rgba(16,26,20,0.55);
+  --bg-card-hover:rgba(20,34,26,0.7);
+  --emerald:#10b981;
+  --emerald-dim:rgba(16,185,129,0.15);
+  --emerald-glow:rgba(16,185,129,0.35);
+  --emerald-bright:#34d399;
+  --emerald-dark:#064e3b;
+  --gold:#fbbf24;
+  --gold-dim:rgba(251,191,36,0.12);
+  --gold-glow:rgba(251,191,36,0.3);
+  --border:rgba(255,255,255,0.06);
+  --border-hover:rgba(16,185,129,0.25);
+  --text-primary:#f0fdf4;
+  --text-secondary:#94a3b8;
+  --text-muted:#64748b;
+  --radius:20px;
+  --radius-sm:12px;
+  --transition:0.4s cubic-bezier(0.22,1,0.36,1);
+}
+
+@font-face{font-family:'Inter';src:local('Inter');font-display:swap}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg-deep);
+  color:var(--text-primary);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Ambient Background ── */
+.ambient{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+}
+.ambient .orb{
+  position:absolute;border-radius:50%;filter:blur(120px);opacity:.25;
+  animation:orbFloat 18s ease-in-out infinite alternate;
+}
+.ambient .orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(16,185,129,.3),transparent 70%);top:-10%;left:-8%}
+.ambient .orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(6,78,59,.4),transparent 70%);bottom:-5%;right:-5%;animation-delay:-7s}
+.ambient .orb-3{width:350px;height:350px;background:radial-gradient(circle,rgba(52,211,153,.15),transparent 70%);top:40%;left:55%;animation-delay:-12s}
+@keyframes orbFloat{0%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-40px) scale(1.1)}100%{transform:translate(-20px,25px) scale(.95)}}
+
+/* ── Grain Overlay ── */
+.grain{
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Layout ── */
+.pricing-wrapper{
+  position:relative;z-index:2;
+  max-width:1320px;margin:0 auto;
+  padding:60px 24px 80px;
+}
+
+/* ── Header ── */
+.pricing-header{text-align:center;margin-bottom:56px}
+.pricing-header .logo-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;border-radius:16px;margin-bottom:20px;
+  background:linear-gradient(135deg,var(--emerald-dark),rgba(16,185,129,.2));
+  border:1px solid rgba(16,185,129,.2);
+  font-weight:800;font-size:20px;color:var(--emerald-bright);
+  box-shadow:0 0 40px rgba(16,185,129,.15);
+}
+.pricing-header h1{
+  font-size:clamp(28px,5vw,48px);font-weight:800;
+  letter-spacing:-.02em;line-height:1.15;margin-bottom:12px;
+}
+.pricing-header h1 span{
+  background:linear-gradient(135deg,var(--emerald-bright),var(--emerald),#059669);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.pricing-header p{
+  font-size:clamp(15px,1.8vw,18px);color:var(--text-secondary);
+  max-width:560px;margin:0 auto;line-height:1.6;
+}
+
+/* ── Trial Banner ── */
+.trial-banner{
+  display:inline-flex;align-items:center;gap:10px;
+  margin:28px auto 0;padding:12px 28px;
+  background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(251,191,36,.06));
+  border:1px solid rgba(16,185,129,.18);
+  border-radius:100px;
+  font-size:14px;font-weight:600;color:var(--emerald-bright);
+  animation:bannerPulse 3s ease-in-out infinite;
+}
+.trial-banner i{font-size:16px;color:var(--gold)}
+.trial-banner .sep{width:4px;height:4px;border-radius:50%;background:var(--emerald);opacity:.4}
+@keyframes bannerPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.1)}
+  50%{box-shadow:0 0 0 8px rgba(16,185,129,0)}
+}
+
+/* ── Grid ── */
+.pricing-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:20px;
+  align-items:stretch;
+}
+@media(max-width:1080px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.pricing-grid{grid-template-columns:1fr;max-width:420px;margin:0 auto}}
+
+/* ── Card Base ── */
+.price-card{
+  position:relative;
+  display:flex;flex-direction:column;
+  padding:36px 28px 32px;
+  border-radius:var(--radius);
+  background:var(--bg-card);
+  backdrop-filter:blur(24px) saturate(1.4);
+  -webkit-backdrop-filter:blur(24px) saturate(1.4);
+  border:1px solid var(--border);
+  transition:transform var(--transition),box-shadow var(--transition),border-color var(--transition),background var(--transition);
+  overflow:hidden;
+}
+.price-card::before{
+  content:'';position:absolute;inset:0;border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(16,185,129,.03) 0%,transparent 40%);
+  pointer-events:none;transition:opacity var(--transition);opacity:0;
+}
+.price-card:hover{
+  transform:translateY(-6px);
+  border-color:var(--border-hover);
+  background:var(--bg-card-hover);
+  box-shadow:0 20px 60px -12px rgba(0,0,0,.5),0 0 40px -8px rgba(16,185,129,.1);
+}
+.price-card:hover::before{opacity:1}
+
+/* ── Featured Card ── */
+.price-card.featured{
+  border-color:rgba(16,185,129,.25);
+  background:rgba(16,40,28,0.6);
+  box-shadow:0 0 50px -10px rgba(16,185,129,.12);
+}
+.price-card.featured::after{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:60%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--emerald-bright),transparent);
+}
+.price-card.featured:hover{
+  box-shadow:0 24px 70px -12px rgba(0,0,0,.5),0 0 60px -8px rgba(16,185,129,.2);
+  border-color:rgba(16,185,129,.4);
+}
+
+/* ── Popular Badge ── */
+.popular-badge{
+  position:absolute;top:16px;right:16px;
+  padding:5px 14px;border-radius:100px;
+  background:linear-gradient(135deg,var(--emerald),#059669);
+  color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  box-shadow:0 4px 16px rgba(16,185,129,.3);
+}
+
+/* ── Card Content ── */
+.card-icon{
+  width:44px;height:44px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;font-size:20px;
+  background:var(--emerald-dim);color:var(--emerald-bright);
+  border:1px solid rgba(16,185,129,.1);
+  transition:background var(--transition),box-shadow var(--transition);
+}
+.price-card:hover .card-icon{
+  background:rgba(16,185,129,.2);
+  box-shadow:0 0 20px rgba(16,185,129,.15);
+}
+.price-card.featured .card-icon{
+  background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(16,185,129,.08));
+}
+
+.card-tier{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--emerald);margin-bottom:8px}
+.price-card.featured .card-tier{color:var(--emerald-bright)}
+
+.card-price{margin-bottom:6px;line-height:1}
+.card-price .amount{font-size:clamp(32px,3.5vw,40px);font-weight:800;letter-spacing:-.02em;color:var(--text-primary)}
+.card-price .currency{font-size:18px;font-weight:700;color:var(--emerald);vertical-align:super;margin-right:2px}
+.card-price .period{font-size:14px;color:var(--text-muted);font-weight:500;margin-left:4px}
+
+.card-target{font-size:14px;color:var(--text-secondary);line-height:1.5;margin-bottom:24px;min-height:42px}
+
+.card-divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin-bottom:24px}
+
+/* ── Features List ── */
+.card-features{list-style:none;flex:1;margin-bottom:28px}
+.card-features li{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:7px 0;font-size:14px;color:var(--text-secondary);line-height:1.45;
+}
+.card-features li i{
+  flex-shrink:0;margin-top:2px;font-size:13px;
+  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:rgba(16,185,129,.08);color:var(--emerald);
+}
+.card-features li.highlight-feat{color:var(--text-primary);font-weight:500}
+.card-features li.highlight-feat i{background:rgba(16,185,129,.15);color:var(--emerald-bright)}
+
+/* ── CTA Button ── */
+.cta-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:14px 20px;border:none;border-radius:var(--radius-sm);
+  font-family:inherit;font-size:14px;font-weight:700;
+  cursor:pointer;transition:all var(--transition);
+  letter-spacing:.01em;position:relative;overflow:hidden;
+}
+.cta-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.08),transparent);
+  opacity:0;transition:opacity var(--transition);
+}
+.cta-btn:hover::before{opacity:1}
+
+.cta-btn.primary{
+  background:linear-gradient(135deg,var(--emerald),#059669);
+  color:#fff;
+  box-shadow:0 4px 20px rgba(16,185,129,.25),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.cta-btn.primary:hover{
+  box-shadow:0 8px 32px rgba(16,185,129,.35),inset 0 1px 0 rgba(255,255,255,.15);
+  transform:translateY(-1px);
+}
+.cta-btn.primary:active{transform:translateY(0)}
+
+.cta-btn.secondary{
+  background:rgba(16,185,129,.08);
+  color:var(--emerald-bright);
+  border:1px solid rgba(16,185,129,.15);
+}
+.cta-btn.secondary:hover{
+  background:rgba(16,185,129,.14);
+  border-color:rgba(16,185,129,.3);
+  box-shadow:0 4px 20px rgba(16,185,129,.1);
+  transform:translateY(-1px);
+}
+.cta-btn.secondary:active{transform:translateY(0)}
+
+.cta-btn i{font-size:13px;transition:transform .3s ease}
+.cta-btn:hover i{transform:translateX(3px)}
+
+/* ── Footer Note ── */
+.pricing-footer{
+  text-align:center;margin-top:48px;
+  color:var(--text-muted);font-size:13px;line-height:1.7;
+}
+.pricing-footer a{color:var(--emerald);text-decoration:none;font-weight:600;transition:color .2s}
+.pricing-footer a:hover{color:var(--emerald-bright)}
+.pricing-footer .guarantee{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:12px;padding:8px 20px;
+  background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.1);
+  border-radius:100px;color:var(--text-secondary);font-size:13px;font-weight:500;
+}
+.pricing-footer .guarantee i{color:var(--emerald)}
+
+/* ── Per-User Cost ── */
+.per-user{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:20px;padding:6px 12px;
+  background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.1);
+  border-radius:8px;font-size:12px;color:var(--gold);font-weight:600;
+  width:fit-content;
+}
+.per-user i{font-size:11px}
+
+/* ── Animations ── */
+.price-card{opacity:0;transform:translateY(30px)}
+.price-card.visible{opacity:1;transform:translateY(0);transition:opacity .6s ease,transform .6s ease}
+.price-card:nth-child(2).visible{transition-delay:.1s}
+.price-card:nth-child(3).visible{transition-delay:.2s}
+.price-card:nth-child(4).visible{transition-delay:.3s}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(16,185,129,.2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+<div class="grain"></div>
+
+<section class="pricing-wrapper">
+
+  <!-- Header -->
+  <header class="pricing-header">
+    <div class="logo-mark">TS</div>
+    <h1>Choose <span>Your Scale</span></h1>
+    <p>Transparent annual pricing built for Indian construction. Every plan includes the full True Site Sync platform — only the team size changes.</p>
+    <div class="trial-banner">
+      <i class="fa-solid fa-bolt"></i>
+      Start your 7-Day Unrestricted Trial immediately
+      <span class="sep"></span>
+      No Google Auth or Credit Card required
+    </div>
+  </header>
+
+  <!-- Pricing Grid -->
+  <div class="pricing-grid">
+
+    <!-- 1 · Small Enterprise -->
+    <div class="price-card" data-tier="small">
+      <div class="card-icon"><i class="fa-solid fa-cubes"></i></div>
+      <div class="card-tier">Small Enterprise</div>
+      <div class="card-price">
+        <span class="currency">₹</span><span class="amount">4,999</span><span class="period">/ 12 months</span>
+      </div>
+      <div class="per-user"><i class="fa-solid fa-user"></i> Up to 5 Users</div>
+      <p class="card-target">Lean contractors & specialist teams managing focused project scopes.</p>
+      <div class="card-divider"></div>
+      <ul class="card-features">
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Full platform access</li>
+        <li><i class="fa-solid fa-check"></i>Measurement sheets & billing</li>
+        <li><i class="fa-solid fa-check"></i>Material & inventory tracking</li>
+        <li><i class="fa-solid fa-check"></i>Daily micro-planning</li>
+        <li><i class="fa-solid fa-check"></i>Cloud sync & offline mode</li>
+        <li><i class="fa-solid fa-check"></i>PDF report generation</li>
+      </ul>
+      <button class="cta-btn secondary" onclick="startTrial('small','Small Enterprise')">
+        Start 7-Day Free Trial <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- 2 · Mid Enterprise (Featured) -->
+    <div class="price-card featured" data-tier="mid">
+      <span class="popular-badge">Most Popular</span>
+      <div class="card-icon"><i class="fa-solid fa-building"></i></div>
+      <div class="card-tier">Mid Enterprise</div>
+      <div class="card-price">
+        <span class="currency">₹</span><span class="amount">12,000</span><span class="period">/ 12 months</span>
+      </div>
+      <div class="per-user"><i class="fa-solid fa-users"></i> Up to 12 Users</div>
+      <p class="card-target">Growing firms with multiple active sites needing real-time coordination.</p>
+      <div class="card-divider"></div>
+      <ul class="card-features">
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Everything in Small, plus:</li>
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Multi-site management</li>
+        <li><i class="fa-solid fa-check"></i>Advanced cost abstracts</li>
+        <li><i class="fa-solid fa-check"></i>Vendor & sub-contractor ledger</li>
+        <li><i class="fa-solid fa-check"></i>Equipment log & maintenance</li>
+        <li><i class="fa-solid fa-check"></i>Priority email support</li>
+      </ul>
+      <button class="cta-btn primary" onclick="startTrial('mid','Mid Enterprise')">
+        Start 7-Day Free Trial <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- 3 · Large Scale -->
+    <div class="price-card" data-tier="large">
+      <div class="card-icon"><i class="fa-solid fa-city"></i></div>
+      <div class="card-tier">Large Scale</div>
+      <div class="card-price">
+        <span class="currency">₹</span><span class="amount">25,000</span><span class="period">/ 12 months</span>
+      </div>
+      <div class="per-user"><i class="fa-solid fa-users"></i> Up to 50 Users</div>
+      <p class="card-target">Established Tier-2 contractors running concurrent large-scale projects.</p>
+      <div class="card-divider"></div>
+      <ul class="card-features">
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Everything in Mid, plus:</li>
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Role-based access control</li>
+        <li><i class="fa-solid fa-check"></i>Advanced reporting suite</li>
+        <li><i class="fa-solid fa-check"></i>Recipe & estimation engine</li>
+        <li><i class="fa-solid fa-check"></i>Labour & attendance module</li>
+        <li><i class="fa-solid fa-check"></i>Dedicated onboarding call</li>
+      </ul>
+      <button class="cta-btn secondary" onclick="startTrial('large','Large Scale')">
+        Start 7-Day Free Trial <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- 4 · Enterprise Unlimited -->
+    <div class="price-card" data-tier="unlimited">
+      <div class="card-icon"><i class="fa-solid fa-globe"></i></div>
+      <div class="card-tier">Enterprise Unlimited</div>
+      <div class="card-price">
+        <span class="currency">₹</span><span class="amount">50,000</span><span class="period">/ 12 months</span>
+      </div>
+      <div class="per-user"><i class="fa-solid fa-infinity"></i> Unlimited Users</div>
+      <p class="card-target">Pan-India Tier-1 EPC corporations requiring enterprise-grade control.</p>
+      <div class="card-divider"></div>
+      <ul class="card-features">
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Everything in Large, plus:</li>
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Unlimited user seats</li>
+        <li><i class="fa-solid fa-check"></i>Custom branding & white-label</li>
+        <li><i class="fa-solid fa-check"></i>API access & integrations</li>
+        <li><i class="fa-solid fa-check"></i>Audit trail & compliance logs</li>
+        <li><i class="fa-solid fa-check"></i>Dedicated account manager</li>
+      </ul>
+      <button class="cta-btn secondary" onclick="startTrial('unlimited','Enterprise Unlimited')">
+        Start 7-Day Free Trial <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="pricing-footer">
+    <p>All prices are in INR and billed annually. GST as applicable.<br>
+    Need a custom deployment? <a href="mailto:hello@truesitesync.com">Contact our team</a></p>
+    <div class="guarantee">
+      <i class="fa-solid fa-shield-halved"></i>
+      Your data stays yours — encrypted, synced, and always exportable
+    </div>
+  </footer>
+
+</section>
+
+<script>
+/* ── Trial Initiation ── */
+function startTrial(tierKey, tierName) {
+  const trialData = {
+    tier: tierKey,
+    tierName: tierName,
+    startedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'active'
+  };
+
+  console.log('[True Site Sync] Trial initiated:', trialData);
+
+  // ── localStorage trial logic placeholder ──
+  // localStorage.setItem('tss_trial', JSON.stringify(trialData));
+  // window.location.href = '/app';
+
+  const btn = document.querySelector(`.price-card[data-tier="${tierKey}"] .cta-btn`);
+  if (btn) {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Redirecting...';
+    btn.style.pointerEvents = 'none';
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.style.pointerEvents = '';
+      alert(`${tierName} — 7-Day Trial\n\nTrial would start now.\nExpires: ${trialData.expiresAt.split('T')[0]}\n\nThis is where the app redirect logic goes.`);
+    }, 1200);
+  }
+}
+
+/* ── Intersection Observer for card reveal ── */
+document.addEventListener('DOMContentLoaded', () => {
+  const cards = document.querySelectorAll('.price-card');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  cards.forEach(card => observer.observe(card));
+});
+</script>
+</body>
+</html>

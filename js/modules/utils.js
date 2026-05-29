@@ -1,0 +1,330 @@
+import { $ } from '../lib/dom.js';
+import { state } from './state.js';
+
+/** @param {string} msg @param {'success'|'error'|'warning'} [type] */
+export function showToast(msg, type = 'success') {
+  const div = document.createElement('div');
+  div.className = `toast toast-${type}`;
+  div.textContent = msg;
+  document.getElementById('toastContainer').appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+}
+
+/** @returns {Array<{id:string, name:string, type:string}>} */
+export function getAllLocations() {
+  const combined = state.locations.map(l => ({ id: l.id, name: l.name, type: l.type }));
+  state.clients.forEach(c => combined.push({ id: c.id, name: c.projectName + ' (' + c.name + ')', type: 'Site' }));
+  return combined;
+}
+
+/** @param {string} newName @param {string|null} [skipRmId] @returns {string|false} */
+export function isNameTaken(newName, skipRmId = null) {
+  const nameLower = newName.toLowerCase().trim();
+  if (state.rawMaterials.some(rm => rm.id !== skipRmId && rm.name.toLowerCase().trim() === nameLower)) {
+    return 'Name already exists as a Material/Tool.';
+  }
+  for (const cId in state.items) {
+    for (const code in state.items[cId]) {
+      if (state.items[cId][code].code.toLowerCase().trim() === nameLower ||
+          state.items[cId][code].description.toLowerCase().trim() === nameLower) {
+        return 'Name already exists as an Execution Item.';
+      }
+    }
+  }
+  return false;
+}
+
+/** Refresh material dropdowns in purchase rows */
+export function refreshPurchaseDropdowns() {
+  let rmOptions = '<option value="">-- Select Material / Asset --</option>';
+  state.rawMaterials.forEach(rm => {
+    rmOptions += `<option value="${rm.id}">${rm.name} (${rm.unit}) [${rm.type}]</option>`;
+  });
+  document.querySelectorAll('.pur-mat').forEach(select => {
+    const currentVal = select.value;
+    select.innerHTML = rmOptions;
+    select.value = currentVal;
+  });
+}
+
+/** Populate all dropdown selects from state */
+export function populateDropdowns() {
+  const cSelects = [
+    'sheetClientSelect', 'accInClient', 'accExpClient', 'hubClientSelect',
+    'itemMasterClientSelect', 'abstractFilterClient', 'billingClientSelect',
+    'estClient', 'recipeClientSelect', 'repConsSite'
+  ];
+  cSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const val = el.value;
+      el.innerHTML = id === 'accExpClient'
+        ? '<option value="">-- No Project (Overhead) --</option>'
+        : '<option value="">-- Select Client / Project --</option>';
+      state.clients.forEach(c => {
+        el.innerHTML += `<option value="${c.id}">${c.name} - ${c.projectName}</option>`;
+      });
+      el.value = val;
+    }
+  });
+
+  const allLocs = getAllLocations();
+  ['purSite', 'invSiteSelect'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const val = el.value;
+      el.innerHTML = '<option value="">-- Select Site / Location --</option>';
+      allLocs.forEach(l => {
+        el.innerHTML += `<option value="${l.id}">${l.name} (${l.type})</option>`;
+      });
+      el.value = val;
+    }
+  });
+
+  ['accInAccount', 'accExpAccount', 'venPayAccount', 'eqLogAccount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const val = el.value;
+      el.innerHTML = '';
+      state.accounts.forEach(a => {
+        el.innerHTML += `<option value="${a.id}">${a.name} (${a.type})</option>`;
+      });
+      if (val) el.value = val;
+    }
+  });
+
+  ['purVendor', 'venPayVendor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const val = el.value;
+      el.innerHTML = '<option value="">-- Select Vendor --</option>';
+      state.vendors.forEach(v => {
+        el.innerHTML += `<option value="${v.id}">${v.name}</option>`;
+      });
+      if (val) el.value = val;
+    }
+  });
+
+  const elInvMat = document.getElementById('invMaterial');
+  if (elInvMat) {
+    const val = elInvMat.value;
+    elInvMat.innerHTML = '<option value="">-- Select Material / Tool --</option>';
+    state.rawMaterials.forEach(r => {
+      elInvMat.innerHTML += `<option value="${r.id}">${r.name} (${r.type})</option>`;
+    });
+    if (val) elInvMat.value = val;
+  }
+}
+
+/** Set all date fields to today */
+export function setDateFields() {
+  const today = new Date().toISOString().split('T')[0];
+  ['sheetDate', 'accInDate', 'accExpDate', 'venPayDate', 'estDate', 'purDate', 'invDate', 'maintDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+}
+
+/** @param {number} n @returns {string} formatted with currency settings */
+export function formatINR(n) {
+  const cs = state.currencySettings || {};
+  const sym = cs.symbol || '₹';
+  const locale = cs.locale || 'en-IN';
+  const dec = cs.decimals ?? 0;
+  return sym + (n || 0).toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+/** @param {number} n @returns {string} formatted with 2 decimals minimum */
+export function formatINR2(n) {
+  const cs = state.currencySettings || {};
+  const sym = cs.symbol || '₹';
+  const locale = cs.locale || 'en-IN';
+  return sym + (n || 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Get currency symbol from settings */
+export function getCurrencySymbol() {
+  return (state.currencySettings || {}).symbol || '₹';
+}
+
+/** Get resolved header settings with defaults */
+export function getHeaderSettings() {
+  const hs = state.headerSettings || {};
+  return {
+    showHeader: hs.showHeader !== false,
+    showLogo: hs.showLogo !== false,
+    showCompanyName: hs.showCompanyName !== false,
+    showAddress: hs.showAddress !== false,
+    showPhone: hs.showPhone !== false,
+    showEmail: hs.showEmail !== false,
+    showGST: hs.showGST !== false,
+    companyNameSize: hs.companyNameSize || 18,
+    companyNameFont: hs.companyNameFont || 'helvetica',
+    companyNameStyle: hs.companyNameStyle || 'bold',
+    companyNameAlign: hs.companyNameAlign || 'center',
+    companyNameColor: hs.companyNameColor || '#1e3a8a',
+    detailsSize: hs.detailsSize || 9,
+    detailsFont: hs.detailsFont || 'helvetica',
+    detailsAlign: hs.detailsAlign || 'center',
+    detailsColor: hs.detailsColor || '#64748b',
+    gstSize: hs.gstSize || 9,
+    gstStyle: hs.gstStyle || 'bold',
+    showSeparator: hs.showSeparator !== false,
+    separatorColor: hs.separatorColor || '#f97316',
+    separatorWidth: hs.separatorWidth || 0.6,
+    headerSpacing: hs.headerSpacing ?? 5,
+    logoWidth: hs.logoWidth || 22,
+    logoHeight: hs.logoHeight || 22
+  };
+}
+
+function _hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return [r, g, b];
+}
+
+function _pdfAlignX(align, pw, ml, mr) {
+  if (align === 'center') return pw / 2;
+  if (align === 'right') return pw - mr;
+  return ml;
+}
+
+/** Print a section by ID */
+export function printReport(elemId, title) {
+  const sourceElem = document.getElementById(elemId);
+  if (!sourceElem) return;
+  let printContainer = document.getElementById('print-container');
+  if (!printContainer) {
+    printContainer = document.createElement('div');
+    printContainer.id = 'print-container';
+    document.body.appendChild(printContainer);
+  }
+  const cp = state.companyProfile;
+  const hs = getHeaderSettings();
+  const timestamp = new Date().toLocaleString();
+  const align = hs.companyNameAlign;
+  const dtAlign = hs.detailsAlign;
+
+  let headerHtml = '';
+  if (hs.showHeader) {
+    headerHtml += `<div style="text-align:${align};margin-bottom:20px;">`;
+    if (hs.showLogo && cp.logo) {
+      headerHtml += `<img src="${cp.logo}" style="height:${hs.logoHeight * 2}px;margin:${align === 'center' ? '0 auto 8px' : align === 'right' ? '0 0 8px auto' : '0 auto 8px 0'};display:block;">`;
+    }
+    if (hs.showCompanyName) {
+      headerHtml += `<h1 style="color:${hs.companyNameColor};font-size:${hs.companyNameSize}px;font-weight:${hs.companyNameStyle === 'bold' ? '800' : '400'};font-family:${hs.companyNameFont},sans-serif;margin-bottom:4px;text-transform:uppercase;text-align:${align};">${cp.CompanyName || 'True Site Sync'}</h1>`;
+    }
+    const detailLines = [];
+    if (hs.showAddress && cp.Address) detailLines.push(cp.Address);
+    const contactParts = [];
+    if (hs.showPhone && cp.Phone) contactParts.push(cp.Phone);
+    if (hs.showEmail && cp.Email) contactParts.push(cp.Email);
+    if (contactParts.length) detailLines.push(contactParts.join('  |  '));
+    if (hs.showGST && cp.GST) detailLines.push('GSTIN: ' + cp.GST);
+    detailLines.forEach(line => {
+      headerHtml += `<p style="color:${hs.detailsColor};font-size:${hs.detailsSize}px;font-family:${hs.detailsFont},sans-serif;margin:2px 0;text-align:${dtAlign};">${line}</p>`;
+    });
+    if (hs.showSeparator) {
+      headerHtml += `<div style="border-bottom:${hs.separatorWidth * 2}px solid ${hs.separatorColor};margin:12px 0;"></div>`;
+    }
+    headerHtml += `<h2 style="font-size:18px;font-weight:bold;display:inline-block;padding-bottom:4px;text-align:${align};">${title}</h2>`;
+    headerHtml += `<p style="font-size:12px;color:#94a3b8;margin-top:8px;text-align:${dtAlign};">Generated on: ${timestamp}</p>`;
+    headerHtml += '</div>';
+  } else {
+    headerHtml = `<div style="text-align:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:bold;">${title}</h2>
+      <p style="font-size:12px;color:#94a3b8;margin-top:4px;">Generated on: ${timestamp}</p>
+    </div>`;
+  }
+  printContainer.innerHTML = headerHtml + sourceElem.outerHTML;
+  window.print();
+}
+
+/** Get company header for jsPDF documents */
+export function getCompanyHeaderForPDF(doc) {
+  const cp = state.companyProfile;
+  const hs = getHeaderSettings();
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = 14, mr = 14;
+  let y = 15;
+
+  if (!hs.showHeader) {
+    return y;
+  }
+
+  const nameColor = _hexToRgb(hs.companyNameColor);
+  const dtColor = _hexToRgb(hs.detailsColor);
+  const nameAlign = hs.companyNameAlign;
+  const dtAlign = hs.detailsAlign;
+  const nameX = _pdfAlignX(nameAlign, pw, ml, mr);
+  const dtX = _pdfAlignX(dtAlign, pw, ml, mr);
+
+  if (hs.showLogo && cp.logo) {
+    try {
+      const lw = hs.logoWidth, lh = hs.logoHeight;
+      const lx = nameAlign === 'center' ? pw/2 - lw/2 : nameAlign === 'right' ? pw - mr - lw : ml;
+      doc.addImage(cp.logo, 'PNG', lx, y - 5, lw, lh);
+      if (nameAlign === 'center') { y += lh + 2; } else { y += 0; }
+    } catch {}
+  }
+
+  const hasLogoLeft = hs.showLogo && cp.logo && nameAlign !== 'center';
+  const textXOff = hasLogoLeft ? ml + hs.logoWidth + 4 : nameX;
+
+  if (hs.showCompanyName) {
+    doc.setFontSize(hs.companyNameSize);
+    doc.setFont(hs.companyNameFont, hs.companyNameStyle);
+    doc.setTextColor(nameColor[0], nameColor[1], nameColor[2]);
+    if (hasLogoLeft) {
+      doc.text(cp.CompanyName || 'YOUR COMPANY NAME', textXOff, y + 2);
+    } else {
+      doc.text(cp.CompanyName || 'YOUR COMPANY NAME', nameX, y + 2, { align: nameAlign });
+    }
+    y += hs.companyNameSize * 0.4 + 2;
+  }
+
+  doc.setFontSize(hs.detailsSize);
+  doc.setFont(hs.detailsFont, 'normal');
+  doc.setTextColor(dtColor[0], dtColor[1], dtColor[2]);
+
+  if (hs.showAddress && cp.Address) {
+    if (hasLogoLeft) {
+      doc.text(cp.Address, textXOff, y + 4);
+    } else {
+      doc.text(cp.Address, dtX, y + 4, { align: dtAlign });
+    }
+    y += hs.detailsSize * 0.5 + 2;
+  }
+
+  const contactParts = [];
+  if (hs.showPhone && cp.Phone) contactParts.push(cp.Phone);
+  if (hs.showEmail && cp.Email) contactParts.push(cp.Email);
+  if (contactParts.length) {
+    if (hasLogoLeft) {
+      doc.text(contactParts.join('  |  '), textXOff, y + 4);
+    } else {
+      doc.text(contactParts.join('  |  '), dtX, y + 4, { align: dtAlign });
+    }
+    y += hs.detailsSize * 0.5 + 2;
+  }
+
+  if (hs.showGST && cp.GST) {
+    doc.setFontSize(hs.gstSize);
+    doc.setFont(hs.detailsFont, hs.gstStyle);
+    if (hasLogoLeft) {
+      doc.text('GSTIN: ' + cp.GST, textXOff, y + 4);
+    } else {
+      doc.text('GSTIN: ' + cp.GST, dtX, y + 4, { align: dtAlign });
+    }
+    y += hs.gstSize * 0.5 + 2;
+  }
+
+  y += 2;
+  if (hs.showSeparator) {
+    const sepColor = _hexToRgb(hs.separatorColor);
+    doc.setDrawColor(sepColor[0], sepColor[1], sepColor[2]);
+    doc.setLineWidth(hs.separatorWidth);
+    doc.line(ml, y, pw - mr, y);
+  }
+  return y + hs.headerSpacing;
+}
