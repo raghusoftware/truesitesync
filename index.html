@@ -303,11 +303,11 @@ footer{position:relative;z-index:2;padding:60px 24px 30px;border-top:1px solid v
       <h2>Get True Site Sync</h2>
       <p>Download the desktop app for the best experience — works offline, syncs when connected. Or use the web app directly in your browser.</p>
       <div class="download-btns">
-        <a href="https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync-Setup.exe" class="dl-btn windows">
+        <a href="#" onclick="openDownloadGate('windows');return false" class="dl-btn windows">
           <i class="fa-brands fa-windows"></i>
           <div style="text-align:left"><div style="font-size:16px">Windows</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Windows 10 / 11 — 64-bit</div></div>
         </a>
-        <a href="https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync.apk" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25)">
+        <a href="#" onclick="openDownloadGate('android');return false" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25)">
           <i class="fa-brands fa-android"></i>
           <div style="text-align:left"><div style="font-size:16px">Android</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Android 8.0+ — APK</div></div>
         </a>
@@ -405,6 +405,115 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 const style = document.createElement('style');
 style.textContent = '.nav-links.show{display:flex!important;position:fixed;top:60px;left:0;right:0;flex-direction:column;background:rgba(5,10,8,.95);backdrop-filter:blur(20px);padding:20px 24px;gap:16px;border-bottom:1px solid rgba(255,255,255,.06)}';
 document.head.appendChild(style);
+</script>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<!-- Download Gate Modal -->
+<div id="dlGateOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);align-items:center;justify-content:center">
+  <div style="background:#111;border:1px solid rgba(16,185,129,.2);border-radius:20px;width:90%;max-width:420px;padding:36px 32px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <button onclick="closeDlGate()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#666;font-size:22px;cursor:pointer;line-height:1">&times;</button>
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#10b981,#059669);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px">
+        <i class="fa-solid fa-download" style="font-size:22px;color:#fff"></i>
+      </div>
+      <h3 style="font-size:20px;font-weight:800;color:#fff;margin:0 0 6px">Download True Site Sync</h3>
+      <p style="font-size:13px;color:#888;margin:0">Enter your details to start the download</p>
+    </div>
+    <form id="dlGateForm" onsubmit="submitDownloadGate(event)" style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="dlPlatform" value="">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Full Name</label>
+        <input type="text" id="dlName" required placeholder="Your name" style="width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:14px;outline:none">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Phone Number</label>
+        <div style="display:flex;gap:8px">
+          <span style="padding:12px 10px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.05);color:#aaa;font-size:14px;white-space:nowrap">+91</span>
+          <input type="tel" id="dlPhone" required placeholder="9876543210" pattern="[0-9]{10}" maxlength="10" style="flex:1;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:14px;outline:none">
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Email <span style="color:#555;font-weight:400">(optional)</span></label>
+        <input type="email" id="dlEmail" placeholder="you@company.com" style="width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:14px;outline:none">
+      </div>
+      <button type="submit" id="dlSubmitBtn" style="margin-top:6px;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s">
+        <i class="fa-solid fa-download"></i> Download Now
+      </button>
+    </form>
+    <p style="text-align:center;font-size:11px;color:#555;margin:14px 0 0">By downloading you agree to our Terms of Service</p>
+  </div>
+</div>
+
+<script>
+const DL_URLS = {
+  windows: 'https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync-Setup.exe',
+  android: 'https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync.apk'
+};
+
+const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
+let _sb = null;
+function getSB() {
+  if (!_sb && window.supabase?.createClient) _sb = window.supabase.createClient(SB_URL, SB_KEY);
+  return _sb;
+}
+
+function openDownloadGate(platform) {
+  document.getElementById('dlPlatform').value = platform;
+  const overlay = document.getElementById('dlGateOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('dlName').focus();
+}
+
+function closeDlGate() {
+  document.getElementById('dlGateOverlay').style.display = 'none';
+  document.getElementById('dlGateForm').reset();
+}
+
+document.getElementById('dlGateOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDlGate();
+});
+
+async function submitDownloadGate(e) {
+  e.preventDefault();
+  const btn = document.getElementById('dlSubmitBtn');
+  const platform = document.getElementById('dlPlatform').value;
+  const name = document.getElementById('dlName').value.trim();
+  const phone = document.getElementById('dlPhone').value.trim();
+  const email = document.getElementById('dlEmail').value.trim();
+
+  if (phone.length !== 10) { alert('Please enter a valid 10-digit phone number'); return; }
+
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting download...';
+  btn.style.opacity = '0.7';
+  btn.disabled = true;
+
+  try {
+    const sb = getSB();
+    if (sb) {
+      await sb.from('download_leads').insert([{
+        name, phone: '+91' + phone, email: email || null, platform,
+        downloaded_at: new Date().toISOString()
+      }]).catch(() => {});
+    }
+  } catch (_) {}
+
+  window.location.href = DL_URLS[platform];
+
+  setTimeout(() => {
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Download started!';
+    btn.style.background = 'linear-gradient(135deg,#059669,#047857)';
+    setTimeout(() => closeDlGate(), 2000);
+    setTimeout(() => {
+      btn.innerHTML = '<i class="fa-solid fa-download"></i> Download Now';
+      btn.style.opacity = '1';
+      btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+      btn.disabled = false;
+    }, 2500);
+  }, 1000);
+}
 </script>
 </body>
 </html>
