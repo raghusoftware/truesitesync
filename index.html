@@ -18,7 +18,7 @@
 <body class="h-screen flex overflow-hidden">
 
     <!-- ═══ Login Page (replaced dynamically by rbac.js) ═══ -->
-    <div id="loginPage" style="display:none;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);align-items:center;justify-content:center;">
+    <div id="loginPage" style="display:flex;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);align-items:center;justify-content:center;">
       <!-- Loading spinner shown until JS upgrades this -->
       <div style="text-align:center;">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div id="appContainer" class="h-screen flex overflow-hidden w-full">
+    <div id="appContainer" class="h-screen flex overflow-hidden w-full" style="display:none">
 
     <div id="autocomplete-list" class="absolute z-[100] bg-white border border-slate-300 rounded shadow-xl max-h-48 overflow-y-auto hide no-print"></div>
 

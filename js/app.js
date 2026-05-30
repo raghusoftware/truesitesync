@@ -310,35 +310,36 @@ Object.assign(window, {
 let _appBooted = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize RBAC (seeds default roles/users if first run)
   initRBAC();
 
   const sb = getSupabase();
   if (sb) {
-    // Listen for OAuth redirect / auth state changes (Google, etc.)
+    // Listen for future auth changes (logout, OAuth redirect after page load)
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session && !_appBooted) {
+      console.log('[auth] event:', event, 'booted:', _appBooted);
+      if (event === 'SIGNED_OUT') {
+        _appBooted = false;
+        return;
+      }
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
         _ensureRbacUser(session.user);
         await loadFromCloud();
         _bootApp();
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
       }
-      if (event === 'SIGNED_OUT') {
-        _appBooted = false;
-      }
     });
 
-    // Check for existing session (includes OAuth redirect tokens in URL)
+    // Check existing session on page load
     try {
       const { data: { session } } = await sb.auth.getSession();
-      if (session) {
+      if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         await loadFromCloud();
         _bootApp();
         return;
       }
     } catch (e) {
-      console.warn('[auth] session check failed, using local:', e);
+      console.warn('[auth] session check failed:', e);
     }
   }
 
@@ -348,7 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Not logged in — show login page
+  // Not logged in
   showLoginPage();
 });
 
