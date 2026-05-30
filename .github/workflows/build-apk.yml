@@ -18,10 +18,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Prepare web assets
+        run: |
+          mkdir -p www
+          cp app.html www/index.html
+          cp -r css www/
+          cp -r js www/
+          cp -r assets www/
+
       - name: Install dependencies
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "True Site Sync" "com.truesitesync.app" --web-dir .
+          npx cap init "True Site Sync" "com.truesitesync.app" --web-dir www
           npx cap add android
 
       - name: Copy web assets to Android
