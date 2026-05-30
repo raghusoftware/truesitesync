@@ -28,9 +28,7 @@
     },
     "nsis": {
       "oneClick": true,
-      "allowToChangeInstallationDirectory": false,
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png"
+      "allowToChangeInstallationDirectory": false
     },
     "mac": {
       "target": "dmg",
