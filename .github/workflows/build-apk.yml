@@ -8,6 +8,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,13 +28,15 @@ jobs:
           cp -r js www/
           cp -r assets www/
 
-      - name: Install dependencies
+      - name: Install Capacitor
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+
+      - name: Init and add Android
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "True Site Sync" "com.truesitesync.app" --web-dir www
           npx cap add android
 
-      - name: Copy web assets to Android
+      - name: Sync web assets
         run: npx cap sync android
 
       - name: Build APK
