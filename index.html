@@ -449,7 +449,7 @@ document.head.appendChild(style);
 <script>
 const DL_URLS = {
   windows: 'https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync-Setup.exe',
-  android: 'https://github.com/raghusoftware/truesitesync/releases/latest/download/TrueSiteSync.apk'
+  android: 'https://cuxblomxefwgdcijmpjk.supabase.co/storage/v1/object/public/downloads/TrueSiteSync.apk'
 };
 
 const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
@@ -460,10 +460,20 @@ function getSB() {
   return _sb;
 }
 
+function triggerFileDownload(platform) {
+  const url = DL_URLS[platform];
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function openDownloadGate(platform) {
   document.getElementById('dlPlatform').value = platform;
-  const overlay = document.getElementById('dlGateOverlay');
-  overlay.style.display = 'flex';
+  document.getElementById('dlGateOverlay').style.display = 'flex';
   document.getElementById('dlName').focus();
 }
 
@@ -486,7 +496,7 @@ async function submitDownloadGate(e) {
 
   if (phone.length !== 10) { alert('Please enter a valid 10-digit phone number'); return; }
 
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting download...';
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing download...';
   btn.style.opacity = '0.7';
   btn.disabled = true;
 
@@ -500,19 +510,17 @@ async function submitDownloadGate(e) {
     }
   } catch (_) {}
 
-  window.location.href = DL_URLS[platform];
+  triggerFileDownload(platform);
 
+  btn.innerHTML = '<i class="fa-solid fa-check"></i> Download started!';
+  btn.style.background = 'linear-gradient(135deg,#059669,#047857)';
   setTimeout(() => {
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> Download started!';
-    btn.style.background = 'linear-gradient(135deg,#059669,#047857)';
-    setTimeout(() => closeDlGate(), 2000);
-    setTimeout(() => {
-      btn.innerHTML = '<i class="fa-solid fa-download"></i> Download Now';
-      btn.style.opacity = '1';
-      btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
-      btn.disabled = false;
-    }, 2500);
-  }, 1000);
+    closeDlGate();
+    btn.innerHTML = '<i class="fa-solid fa-download"></i> Download Now';
+    btn.style.opacity = '1';
+    btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+    btn.disabled = false;
+  }, 2500);
 }
 </script>
 </body>
