@@ -401,6 +401,9 @@ function _bootApp() {
     if (!e.target.closest('#autocomplete-list') && !e.target.classList.contains('table-input')) {
       hideAutocomplete();
     }
+    if (!e.target.closest('.boq-dropdown') && !e.target.classList.contains('code-input') && !e.target.classList.contains('desc-input')) {
+      closeBoqDropdowns();
+    }
   });
 
   const attDate = document.getElementById('attDate');

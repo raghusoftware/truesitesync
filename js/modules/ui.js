@@ -1614,7 +1614,9 @@ export function createNewSheet() {
 }
 
 export function confirmCloseSheet() {
-  // Check if sheet has any data
+  closeBoqDropdowns();
+  document.querySelectorAll('[style*="z-index:100000"]').forEach(el => el.remove());
+
   const tbody = document.getElementById('entryTableBody');
   const hasEntries = tbody && Array.from(tbody.rows).some(r => {
     const code = r.querySelector('.code-input')?.value || '';
@@ -1627,12 +1629,10 @@ export function confirmCloseSheet() {
     });
 
   if (!hasEntries && !hasBBS) {
-    // No data — close directly
     switchView('measurementListView');
     return;
   }
 
-  // Show save/discard dialog
   const choice = confirm('You have unsaved data in this sheet.\n\nClick OK to Save & Close, or Cancel to discard and close.');
   if (choice) {
     saveEntries();

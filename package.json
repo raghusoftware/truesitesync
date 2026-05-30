@@ -28,7 +28,8 @@
     },
     "nsis": {
       "oneClick": true,
-      "allowToChangeInstallationDirectory": false
+      "allowToChangeInstallationDirectory": false,
+      "artifactName": "TrueSiteSync-Setup.${ext}"
     },
     "mac": {
       "target": "dmg",
