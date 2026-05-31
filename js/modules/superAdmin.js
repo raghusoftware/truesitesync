@@ -15,6 +15,9 @@ export async function isSuperAdmin() {
   const sb = getSupabase();
   if (!sb) return false;
   try {
+    // Try getSession first (cached, faster), fallback to getUser
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) return SUPER_ADMINS.includes(session.user.email);
     const { data: { user } } = await sb.auth.getUser();
     return user && SUPER_ADMINS.includes(user.email);
   } catch { return false; }

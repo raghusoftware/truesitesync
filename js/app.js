@@ -295,7 +295,16 @@ Object.assign(window, {
   _rbacGoogleLogin: loginWithGoogle,
   _rbacResendConfirmation: resendConfirmation,
   _rbacBackToLogin: backToLogin,
-  _rbacLogout: () => { _appBooted = false; logoutUser(); },
+  _rbacLogout: async () => {
+    _appBooted = false;
+    try { await logoutUser(); } catch(e) { console.warn('[logout]', e); }
+    // Force UI reset
+    const app = document.getElementById('appContainer');
+    if (app) app.style.display = 'none';
+    const sidebar = document.getElementById('appSidebar');
+    if (sidebar) sidebar.style.display = '';
+    showLoginPage();
+  },
   _rbacOpenUserForm: openUserForm,
   _rbacSaveUser: saveUser,
   _rbacDeleteUser: deleteUser,
@@ -423,11 +432,16 @@ function _bootApp() {
   bindOrgWindowFunctions();
   bindSuperAdminFunctions();
 
-  // Show super admin nav if user is admin
-  isSuperAdmin().then(isAdmin => {
-    const saNav = document.getElementById('superAdminNav');
-    if (saNav) saNav.style.display = isAdmin ? '' : 'none';
-  });
+  // Show super admin nav if user is admin (retry after 2s if session not ready)
+  const _checkSuperAdmin = () => {
+    isSuperAdmin().then(isAdmin => {
+      console.log('[boot] isSuperAdmin:', isAdmin);
+      const saNav = document.getElementById('superAdminNav');
+      if (saNav) saNav.style.display = isAdmin ? '' : 'none';
+    }).catch(() => {});
+  };
+  _checkSuperAdmin();
+  setTimeout(_checkSuperAdmin, 2000);
 
   // Load user's organization (async, non-blocking)
   loadUserOrg().then(async (org) => {
