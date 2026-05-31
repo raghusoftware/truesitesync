@@ -252,12 +252,13 @@ export async function loginWithGoogle() {
   const sb = getSupabase();
   if (!sb) { showToast('Supabase not initialized', 'error'); return; }
 
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname
-    }
-  });
+  // In desktop app (file:// protocol), don't set redirectTo — Supabase will use the site URL
+  const isDesktop = window.location.protocol === 'file:';
+  const opts = { provider: 'google' };
+  if (!isDesktop) {
+    opts.options = { redirectTo: window.location.origin + window.location.pathname };
+  }
+  const { error } = await sb.auth.signInWithOAuth(opts);
   if (error) {
     showToast('Google sign-in failed: ' + error.message, 'error');
   }

@@ -56,11 +56,14 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Prevent navigation to external sites
+  // Block ALL navigation away from the app — stay on app.html
   mainWindow.webContents.on('will-navigate', (e, url) => {
-    const appOrigin = `file://`;
-    if (!url.startsWith(appOrigin) && !url.startsWith('https://cuxblomxefwgdcijmpjk.supabase.co') && !url.startsWith('https://accounts.google.com')) {
-      e.preventDefault();
+    // Allow file:// (local app) and Supabase auth callbacks
+    if (url.startsWith('file://')) return;
+    if (url.includes('cuxblomxefwgdcijmpjk.supabase.co/auth/')) return;
+    // Block everything else — open in external browser if needed
+    e.preventDefault();
+    if (url.startsWith('http') && !url.includes('truesitesync.com')) {
       shell.openExternal(url);
     }
   });
