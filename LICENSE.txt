@@ -1,0 +1,36 @@
+TRUE SITE SYNC — END USER LICENSE AGREEMENT
+
+Copyright (c) 2026 True Site Sync. All rights reserved.
+
+This software is provided by True Site Sync ("the Company") and is licensed,
+not sold, to you. By installing or using this software, you agree to the
+following terms:
+
+1. LICENSE GRANT
+   The Company grants you a non-exclusive, non-transferable license to install
+   and use the software for your business operations, subject to the terms of
+   your subscription plan.
+
+2. RESTRICTIONS
+   You may not reverse engineer, decompile, or disassemble the software.
+   You may not redistribute, sublicense, or resell the software.
+   You may not remove any copyright or proprietary notices.
+
+3. DATA & PRIVACY
+   Your data is stored securely and belongs to you. We do not sell or share
+   your data with third parties. Data is encrypted in transit and at rest.
+
+4. SUBSCRIPTION
+   Access to the software requires an active subscription. Features and seat
+   limits are determined by your subscription plan.
+
+5. DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE COMPANY
+   SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
+
+6. SUPPORT
+   For support, contact: info@truesitesync.com
+   Website: https://truesitesync.com
+
+By clicking "I Agree" or installing this software, you acknowledge that you
+have read and agree to this End User License Agreement.

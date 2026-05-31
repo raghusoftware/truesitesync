@@ -1,7 +1,12 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
 
+// Prevent multiple instances
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) { app.quit(); }
+
 let mainWindow;
+const IS_DEV = !app.isPackaged;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -13,29 +18,58 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
     },
-    backgroundColor: '#0f172a',
-    show: false
+    backgroundColor: '#0a0f1a',
+    show: false,
+    titleBarStyle: 'default',
+    autoHideMenuBar: false,
   });
 
+  // Load the app
   mainWindow.loadFile(path.join(__dirname, '..', 'app.html'));
 
+  // Show window when ready — with 8s timeout fallback
+  const showTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 8000);
+
   mainWindow.once('ready-to-show', () => {
+    clearTimeout(showTimeout);
     mainWindow.show();
+    mainWindow.focus();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  // Open external links in browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http')) shell.openExternal(url);
+    return { action: 'deny' };
   });
 
-  const menu = Menu.buildFromTemplate([
+  // Prevent navigation to external sites
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    const appOrigin = `file://`;
+    if (!url.startsWith(appOrigin) && !url.startsWith('https://cuxblomxefwgdcijmpjk.supabase.co') && !url.startsWith('https://accounts.google.com')) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
+  mainWindow.on('closed', () => { mainWindow = null; });
+
+  // Build menu
+  const template = [
     {
       label: 'True Site Sync',
       submenu: [
-        { role: 'about' },
+        { label: 'About True Site Sync', click: () => showAbout() },
         { type: 'separator' },
-        { role: 'quit' }
+        { role: 'quit', label: 'Exit' }
       ]
     },
     {
@@ -53,9 +87,9 @@ function createWindow() {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        { role: 'reload', label: 'Refresh' },
+        { role: 'forceReload', label: 'Hard Refresh' },
+        ...(IS_DEV ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -63,10 +97,38 @@ function createWindow() {
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Visit Website', click: () => shell.openExternal('https://truesitesync.com') },
+        { label: 'Contact Support', click: () => shell.openExternal('mailto:info@truesitesync.com') },
+        { type: 'separator' },
+        { label: 'Check for Updates', click: () => shell.openExternal('https://truesitesync.com/#download') },
+      ]
     }
-  ]);
-  Menu.setApplicationMenu(menu);
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+function showAbout() {
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'About True Site Sync',
+    message: 'True Site Sync',
+    detail: `Version: ${app.getVersion()}\nConstruction Management Platform\n\nBuilt for Indian contractors.\nOffline-first. Cloud-synced.\n\n© 2026 True Site Sync. All rights reserved.\nwww.truesitesync.com`,
+    buttons: ['OK'],
+    icon: path.join(__dirname, '..', 'assets', 'icon.png')
+  });
+}
+
+// Second instance — focus existing window
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 app.whenReady().then(createWindow);
 

@@ -325,11 +325,13 @@ Object.assign(window, {
 let _appBooted = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window._splashStatus) window._splashStatus('Loading modules...');
   initRBAC();
 
   const sb = getSupabase();
   if (sb) {
-    // Listen for future auth changes (logout, OAuth redirect after page load)
+    if (window._splashStatus) window._splashStatus('Connecting to cloud...');
+
     sb.auth.onAuthStateChange(async (event, session) => {
       console.log('[auth] event:', event, 'booted:', _appBooted);
       if (event === 'SIGNED_OUT') {
@@ -338,19 +340,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
         _ensureRbacUser(session.user);
+        if (window._splashStatus) window._splashStatus('Syncing your data...');
         await loadFromCloud();
         _bootApp();
+        if (window._hideSplash) window._hideSplash();
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
       }
     });
 
-    // Check existing session on page load
     try {
+      if (window._splashStatus) window._splashStatus('Checking session...');
       const { data: { session } } = await sb.auth.getSession();
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
+        if (window._splashStatus) window._splashStatus('Loading your projects...');
         await loadFromCloud();
         _bootApp();
+        if (window._hideSplash) window._hideSplash();
         return;
       }
     } catch (e) {
@@ -358,13 +364,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // No Supabase session — check legacy login
   if (isLoggedIn()) {
     _bootApp();
+    if (window._hideSplash) window._hideSplash();
     return;
   }
 
-  // Not logged in
+  if (window._hideSplash) window._hideSplash();
   showLoginPage();
 });
 

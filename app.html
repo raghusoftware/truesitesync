@@ -18,11 +18,47 @@
 </head>
 <body class="h-screen flex overflow-hidden">
 
+    <!-- ═══ Splash / Loading Screen ═══ -->
+    <div id="splashScreen" style="display:flex;position:fixed;inset:0;z-index:9999999;background:linear-gradient(135deg,#0a0f1a 0%,#0f1f35 50%,#0a0f1a 100%);align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+      <div style="text-align:center;">
+        <div style="width:72px;height:72px;background:linear-gradient(135deg,#10b981,#059669);border-radius:18px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 8px 32px rgba(16,185,129,.3);">
+          <span style="color:#fff;font-size:24px;font-weight:900;letter-spacing:1px;">TS</span>
+        </div>
+        <h1 style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px;">True Site Sync</h1>
+        <p style="color:#64748b;font-size:12px;font-weight:500;margin:0 0 24px;">Construction Management Platform</p>
+        <div id="splashProgress" style="width:200px;height:3px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:0 auto;">
+          <div style="width:30%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px;animation:splashLoad 2s ease-in-out infinite;"></div>
+        </div>
+        <p id="splashStatus" style="color:#475569;font-size:11px;font-weight:500;margin-top:12px;">Initializing...</p>
+      </div>
+      <p style="position:absolute;bottom:20px;color:#334155;font-size:10px;font-weight:500;">v1.3.0 &bull; &copy; 2026 True Site Sync</p>
+    </div>
+    <style>
+      @keyframes splashLoad { 0%{transform:translateX(-100%)} 50%{transform:translateX(250%)} 100%{transform:translateX(-100%)} }
+    </style>
+    <script>
+      // Update splash status as things load
+      window._splashStatus = function(msg) {
+        const el = document.getElementById('splashStatus');
+        if (el) el.textContent = msg;
+      };
+      window._hideSplash = function() {
+        const splash = document.getElementById('splashScreen');
+        if (splash) {
+          splash.style.transition = 'opacity .4s ease';
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 400);
+        }
+      };
+      // Failsafe — remove splash after 15s no matter what
+      setTimeout(() => window._hideSplash(), 15000);
+    </script>
+
     <!-- ═══ Login Page (replaced dynamically by rbac.js) ═══ -->
     <div id="loginPage" style="display:flex;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);align-items:center;justify-content:center;">
       <!-- Loading spinner shown until JS upgrades this -->
       <div style="text-align:center;">
-        <div style="width:56px;height:56px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
           <span style="color:#fff;font-size:12px;font-weight:900;letter-spacing:0.5px;">TS</span>
         </div>
         <p style="color:#94a3b8;font-size:13px;font-weight:600;">Loading...</p>

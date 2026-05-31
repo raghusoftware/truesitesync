@@ -15,15 +15,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Build Windows exe
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List build output
+        run: dir dist /b
+        shell: cmd
+
       - uses: actions/upload-artifact@v4
         with:
           name: TrueSiteSync-Windows
           path: dist/TrueSiteSync-Setup.exe
+
       - name: Upload to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
