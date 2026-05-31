@@ -666,7 +666,6 @@ export function switchView(viewId) {
   if (!viewEl) { console.warn('View not found:', viewId); return; }
   viewEl.classList.remove('hide');
   // Measurement entry opens as full-screen overlay — hide sidebar
-  const sidebar = document.getElementById('appSidebar');
   if (viewId === 'entrySheet') {
     viewEl.classList.add('fullscreen-sheet');
     if (sidebar) sidebar.style.display = 'none';
