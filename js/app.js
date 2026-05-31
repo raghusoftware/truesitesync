@@ -296,14 +296,19 @@ Object.assign(window, {
   _rbacResendConfirmation: resendConfirmation,
   _rbacBackToLogin: backToLogin,
   _rbacLogout: async () => {
+    console.log('[logout] Starting logout...');
     _appBooted = false;
-    try { await logoutUser(); } catch(e) { console.warn('[logout]', e); }
-    // Force UI reset
+    try { await logoutUser(); } catch(e) { console.warn('[logout] error:', e); }
+    // Force full UI reset
     const app = document.getElementById('appContainer');
     if (app) app.style.display = 'none';
     const sidebar = document.getElementById('appSidebar');
     if (sidebar) sidebar.style.display = '';
+    // Clear local session data
+    localStorage.removeItem('mes_current_user');
+    sessionStorage.clear();
     showLoginPage();
+    console.log('[logout] Done');
   },
   _rbacOpenUserForm: openUserForm,
   _rbacSaveUser: saveUser,

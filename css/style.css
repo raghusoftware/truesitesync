@@ -174,7 +174,8 @@ aside {
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 /* Logo zone */
