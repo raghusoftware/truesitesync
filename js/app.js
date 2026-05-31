@@ -2,6 +2,7 @@ import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, mi
 import { getSupabase } from './database/supabase.js';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js';
+import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js';
 import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
@@ -308,6 +309,8 @@ Object.assign(window, {
   getSupabase,
   // Organization
   renderOrgSettings, getCurrentOrg,
+  // Super Admin
+  renderSuperAdminDashboard,
   // Mobile
   toggleMobileSidebar() {
     const sidebar = document.getElementById('appSidebar');
@@ -398,8 +401,15 @@ function _bootApp() {
   loadCompanyProfile();
   addPurchaseRow(3);
 
-  // Bind organization module
+  // Bind organization & super admin modules
   bindOrgWindowFunctions();
+  bindSuperAdminFunctions();
+
+  // Show super admin nav if user is admin
+  isSuperAdmin().then(isAdmin => {
+    const saNav = document.getElementById('superAdminNav');
+    if (saNav) saNav.style.display = isAdmin ? '' : 'none';
+  });
 
   // Load user's organization (async, non-blocking)
   loadUserOrg().then(async (org) => {

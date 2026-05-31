@@ -117,6 +117,11 @@
         <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#128295;</span> Settings</button>
         <button onclick="switchView('companyProfileView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="companyProfileView"><span style="font-size:13px">&#127970;</span> Company</button>
         <button onclick="switchView('orgSettingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="orgSettingsView"><span style="font-size:13px">&#127963;</span> Organization</button>
+        <!-- Super Admin (hidden by default, shown only for admin emails) -->
+        <div id="superAdminNav" style="display:none;">
+          <p class="px-3 text-[9px] font-bold text-red-400 uppercase tracking-widest mt-4 mb-1.5">Super Admin</p>
+          <button onclick="switchView('superAdminView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="superAdminView" style="color:rgba(239,68,68,.7)"><span style="font-size:13px">&#128737;</span> Admin Panel</button>
+        </div>
       </nav>
     </aside>
 
@@ -983,6 +988,20 @@
             <div class="bg-white rounded-xl shadow-sm border p-6 mt-8" id="usersRolesSection">
               <div id="usersRolesContent"></div>
             </div>
+        </div>
+
+        <!-- ═══════ SUPER ADMIN DASHBOARD ═══════ -->
+        <div id="superAdminView" class="view-section hide">
+          <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+              <div style="width:44px;height:44px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;">&#128737;</div>
+              <div>
+                <h2 class="text-2xl font-extrabold text-slate-800">Super Admin</h2>
+                <p class="text-xs text-slate-400 font-medium">Manage all organizations, users & billing</p>
+              </div>
+            </div>
+          </div>
+          <div id="superAdminContent"></div>
         </div>
 
         <!-- ═══════ ORGANIZATION MODULE ═══════ -->
