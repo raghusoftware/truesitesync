@@ -1037,10 +1037,23 @@ export function onMeasureItemInput(input) {
 }
 
 function _positionDropdown(dd, input) {
-  document.body.appendChild(dd);
+  // Append to the fullscreen sheet if active, otherwise body
+  const sheet = document.querySelector('.fullscreen-sheet');
+  const container = sheet || document.body;
+  container.appendChild(dd);
+
   const rect = input.getBoundingClientRect();
-  dd.style.top = (rect.bottom + window.scrollY + 2) + 'px';
-  dd.style.left = (rect.left + window.scrollX) + 'px';
+  if (sheet) {
+    // Inside fullscreen sheet — use viewport-relative positioning with fixed
+    dd.style.position = 'fixed';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.zIndex = '100000';
+  } else {
+    dd.style.position = 'absolute';
+    dd.style.top = (rect.bottom + window.scrollY + 2) + 'px';
+    dd.style.left = (rect.left + window.scrollX) + 'px';
+  }
 }
 
 /** Searchable BOQ dropdown on measurement row description input */

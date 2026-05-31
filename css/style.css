@@ -1172,7 +1172,7 @@ div[id$="FormPanel"]:not(.hidden) {
    BOQ DROPDOWN — Auto-suggestion for measurements
 ═══════════════════════════════════════════════ */
 .boq-dropdown {
-  position: absolute;
+  position: fixed;
   z-index: 100000;
   background: #fff;
   border: 1px solid var(--gray-200);
