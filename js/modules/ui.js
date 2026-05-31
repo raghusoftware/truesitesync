@@ -654,6 +654,11 @@ export function switchView(viewId) {
     const allowed = window.enforceAccess(viewId);
     if (allowed === false) return;
   }
+  // Close mobile sidebar on navigation
+  const sidebar = document.getElementById('appSidebar');
+  const overlay = document.getElementById('mobileOverlay');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (overlay) overlay.classList.remove('active');
   // Remove fullscreen from any previous sheet
   document.querySelectorAll('.fullscreen-sheet').forEach(el => el.classList.remove('fullscreen-sheet'));
   document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));

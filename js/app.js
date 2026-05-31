@@ -305,6 +305,15 @@ Object.assign(window, {
   // Cloud Sync
   loadFromCloud, pushAllToCloud, getSyncStatus,
   getSupabase,
+  // Mobile
+  toggleMobileSidebar() {
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('mobileOverlay');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.contains('mobile-open');
+    sidebar.classList.toggle('mobile-open', !isOpen);
+    if (overlay) overlay.classList.toggle('active', !isOpen);
+  },
 });
 
 let _appBooted = false;
