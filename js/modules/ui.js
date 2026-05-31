@@ -724,6 +724,7 @@ export function switchView(viewId) {
   if (viewId === 'purchaseAssetsView') renderFixedAssets();
   if (viewId === 'settingsView') { if (typeof window.renderSettingsView === 'function') window.renderSettingsView(); }
   if (viewId === 'companyProfileView') { if (typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile(); }
+  if (viewId === 'orgSettingsView') { if (typeof window.renderOrgSettings === 'function') window.renderOrgSettings(); }
 
   // Auto-open sidebar dropdown if navigating to a submenu view
   const peViews = ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView'];

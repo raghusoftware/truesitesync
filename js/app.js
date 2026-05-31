@@ -1,6 +1,7 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud } from './modules/state.js';
 import { getSupabase } from './database/supabase.js';
 import { getSyncStatus } from './database/sync.js';
+import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js';
 import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
@@ -305,6 +306,8 @@ Object.assign(window, {
   // Cloud Sync
   loadFromCloud, pushAllToCloud, getSyncStatus,
   getSupabase,
+  // Organization
+  renderOrgSettings, getCurrentOrg,
   // Mobile
   toggleMobileSidebar() {
     const sidebar = document.getElementById('appSidebar');
@@ -394,6 +397,27 @@ function _bootApp() {
   setDateFields();
   loadCompanyProfile();
   addPurchaseRow(3);
+
+  // Bind organization module
+  bindOrgWindowFunctions();
+
+  // Load user's organization (async, non-blocking)
+  loadUserOrg().then(async (org) => {
+    if (!org) {
+      // New user — auto-create org from their name/email
+      const sb = getSupabase();
+      if (sb) {
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) {
+          const orgName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'My Company';
+          await createOrganization(orgName + "'s Team", user.id, user.email);
+        }
+      }
+    }
+    // Pre-load members and invites
+    await loadOrgMembers();
+    await loadOrgInvites();
+  }).catch(e => console.warn('[org] load failed:', e));
 
   // Hide sidebar items user can't access
   hideRestrictedSidebar();
