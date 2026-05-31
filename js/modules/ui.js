@@ -976,9 +976,7 @@ function _calcUsedQtyPerBOQ(projId) {
 export function onMeasureItemInput(input) {
   closeBoqDropdowns();
   const val = input.value.trim().toLowerCase();
-  const items = _currentSheetBoqItems;
-  console.log('[BOQ] onMeasureItemInput:', val, 'available items:', items.length, 'currentProjectId:', state.currentProjectId);
-  if (!items.length) {
+  if (!_currentSheetBoqItems.length) {
     // Try loading context if not loaded yet
     if (state.currentProjectId) {
       _loadSheetProjectContext(state.currentProjectId);
@@ -994,6 +992,9 @@ export function onMeasureItemInput(input) {
     }
   }
   if (!val) return;
+
+  // Always read the CURRENT array (not a stale reference)
+  const items = _currentSheetBoqItems;
 
   // Get used quantities
   const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId;
@@ -1060,8 +1061,7 @@ function _positionDropdown(dd, input) {
 export function onMeasureDescInput(input) {
   closeBoqDropdowns();
   const val = input.value.trim().toLowerCase();
-  const items = _currentSheetBoqItems;
-  if (!items.length) {
+  if (!_currentSheetBoqItems.length) {
     if (state.currentProjectId) {
       _loadSheetProjectContext(state.currentProjectId);
     }
@@ -1077,6 +1077,7 @@ export function onMeasureDescInput(input) {
   }
   if (!val) return;
 
+  const items = _currentSheetBoqItems;
   const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId;
   const usedQty = _calcUsedQtyPerBOQ(projId);
 
