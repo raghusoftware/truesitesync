@@ -817,10 +817,12 @@ let _currentSheetBoqItems = []; // filtered BOQ items for current selection
 /** Load project context into measurement form — auto-detect from currentProjectId */
 function _loadSheetProjectContext(projId) {
   const proj = (state.projects || []).find(p => p.id === projId);
+  console.log('[BOQ] Loading project context:', projId, 'found:', !!proj, 'boqs:', proj?.boqs?.length || 0, 'boqItems:', proj?.boqItems?.length || 0);
   // Build flat BOQ items with boqRef for multiple BOQ/PO support
   _allSheetBoqItems = [];
   if (proj?.boqs?.length) {
     proj.boqs.forEach(g => {
+      console.log('[BOQ] Group:', g.name, 'items:', (g.items || []).length);
       (g.items || []).forEach((item, i) => {
         _allSheetBoqItems.push({ ...item, _boqRef: g.id + ':' + i, _boqGroupName: g.name || g.type, _boqGroupId: g.id });
       });
@@ -828,6 +830,7 @@ function _loadSheetProjectContext(projId) {
   } else if (proj?.boqItems?.length) {
     _allSheetBoqItems = (proj.boqItems || []).map((item, i) => ({ ...item, _idx: i }));
   }
+  console.log('[BOQ] Total items loaded:', _allSheetBoqItems.length);
 
   // Populate BOQ group selector dropdown
   const grpSel = document.getElementById('sheetBoqGroupSelect');
@@ -974,7 +977,23 @@ export function onMeasureItemInput(input) {
   closeBoqDropdowns();
   const val = input.value.trim().toLowerCase();
   const items = _currentSheetBoqItems;
-  if (!items.length || !val) return;
+  console.log('[BOQ] onMeasureItemInput:', val, 'available items:', items.length, 'currentProjectId:', state.currentProjectId);
+  if (!items.length) {
+    // Try loading context if not loaded yet
+    if (state.currentProjectId) {
+      _loadSheetProjectContext(state.currentProjectId);
+    }
+    if (!_currentSheetBoqItems.length) {
+      if (val) {
+        const dd = document.createElement('div');
+        dd.className = 'boq-dropdown';
+        dd.innerHTML = '<div class="boq-dd-empty" style="padding:12px;font-size:11px;color:#94a3b8;">No BOQ items in this project.<br>Add BOQ items in Project Settings first.</div>';
+        _positionDropdown(dd, input);
+      }
+      return;
+    }
+  }
+  if (!val) return;
 
   // Get used quantities
   const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId;
@@ -1029,7 +1048,21 @@ export function onMeasureDescInput(input) {
   closeBoqDropdowns();
   const val = input.value.trim().toLowerCase();
   const items = _currentSheetBoqItems;
-  if (!items.length || !val) return;
+  if (!items.length) {
+    if (state.currentProjectId) {
+      _loadSheetProjectContext(state.currentProjectId);
+    }
+    if (!_currentSheetBoqItems.length) {
+      if (val) {
+        const dd = document.createElement('div');
+        dd.className = 'boq-dropdown';
+        dd.innerHTML = '<div class="boq-dd-empty" style="padding:12px;font-size:11px;color:#94a3b8;">No BOQ items in this project.<br>Add BOQ items in Project Settings first.</div>';
+        _positionDropdown(dd, input);
+      }
+      return;
+    }
+  }
+  if (!val) return;
 
   const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId;
   const usedQty = _calcUsedQtyPerBOQ(projId);
@@ -1097,8 +1130,11 @@ function _selectBOQItemFromRow(tr, item) {
 /** Auto-load current project context into measurement form */
 function _ensureSheetProjectContext() {
   const projId = state.currentProjectId;
+  console.log('[BOQ] _ensureSheetProjectContext, projId:', projId);
   if (projId) {
     _loadSheetProjectContext(projId);
+  } else {
+    console.warn('[BOQ] No currentProjectId — BOQ auto-suggestion will not work');
   }
 }
 
