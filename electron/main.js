@@ -31,13 +31,18 @@ function createWindow() {
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '..', 'app.html'));
 
-  // Show window when ready — with 8s timeout fallback
+  // Open DevTools in dev mode OR if launched with --debug flag
+  if (IS_DEV || process.argv.includes('--debug')) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  // Show window when ready — with 5s timeout fallback
   const showTimeout = setTimeout(() => {
     if (mainWindow && !mainWindow.isVisible()) {
       mainWindow.show();
       mainWindow.focus();
     }
-  }, 8000);
+  }, 5000);
 
   mainWindow.once('ready-to-show', () => {
     clearTimeout(showTimeout);

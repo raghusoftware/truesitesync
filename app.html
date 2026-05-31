@@ -33,6 +33,7 @@
           <div style="width:30%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px;animation:splashLoad 2s ease-in-out infinite;"></div>
         </div>
         <p id="splashStatus" style="color:#475569;font-size:11px;font-weight:500;margin-top:12px;">Initializing...</p>
+        <div id="errorDisplay" style="max-width:400px;margin-top:16px;text-align:left;"></div>
       </div>
       <p style="position:absolute;bottom:20px;color:#334155;font-size:10px;font-weight:500;">v1.3.0 &bull; &copy; 2026 True Site Sync</p>
     </div>
@@ -53,8 +54,30 @@
           setTimeout(() => splash.remove(), 400);
         }
       };
-      // Failsafe — remove splash after 15s no matter what
-      setTimeout(() => window._hideSplash(), 15000);
+      // Failsafe — remove splash after 12s no matter what
+      setTimeout(() => {
+        window._hideSplash();
+        // If app still hasn't booted, show login page
+        const appC = document.getElementById('appContainer');
+        if (appC && appC.style.display === 'none') {
+          const lp = document.getElementById('loginPage');
+          if (lp) lp.style.display = 'flex';
+        }
+      }, 12000);
+
+      // Global error handler — shows errors on screen for debugging
+      window.onerror = function(msg, src, line, col, err) {
+        console.error('[APP ERROR]', msg, src, line);
+        const el = document.getElementById('splashStatus');
+        if (el) el.textContent = 'Error: ' + msg;
+        const errBox = document.getElementById('errorDisplay');
+        if (errBox) errBox.innerHTML += '<div style="color:#f87171;font-size:10px;margin-top:4px;">'+msg+' ('+src+':'+line+')</div>';
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('[PROMISE ERROR]', e.reason);
+        const el = document.getElementById('splashStatus');
+        if (el) el.textContent = 'Error: ' + (e.reason?.message || e.reason || 'Unknown');
+      });
     </script>
 
     <!-- ═══ Login Page (replaced dynamically by rbac.js) ═══ -->

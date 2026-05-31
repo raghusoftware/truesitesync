@@ -325,10 +325,18 @@ Object.assign(window, {
 let _appBooted = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[boot] DOMContentLoaded fired');
   if (window._splashStatus) window._splashStatus('Loading modules...');
-  initRBAC();
+
+  try {
+    initRBAC();
+  } catch (e) {
+    console.error('[boot] initRBAC failed:', e);
+  }
 
   const sb = getSupabase();
+  console.log('[boot] Supabase client:', sb ? 'OK' : 'FAILED');
+
   if (sb) {
     if (window._splashStatus) window._splashStatus('Connecting to cloud...');
 
@@ -341,26 +349,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
-        await loadFromCloud();
+        try { await loadFromCloud(); } catch (e) { console.warn('[auth] cloud load failed:', e); }
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
       }
     });
 
+    // Session check with 8s timeout — don't hang forever
     try {
       if (window._splashStatus) window._splashStatus('Checking session...');
-      const { data: { session } } = await sb.auth.getSession();
+      const sessionPromise = sb.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timed out')), 8000));
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
-        await loadFromCloud();
+        try { await loadFromCloud(); } catch (e) { console.warn('[boot] cloud load failed:', e); }
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         return;
       }
     } catch (e) {
-      console.warn('[auth] session check failed:', e);
+      console.warn('[auth] session check failed or timed out:', e.message);
     }
   }
 
@@ -370,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  console.log('[boot] No session — showing login');
   if (window._hideSplash) window._hideSplash();
   showLoginPage();
 });
