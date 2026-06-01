@@ -31,13 +31,73 @@ jobs:
       - name: Install Capacitor
         run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
 
-      - name: Init and add Android
-        run: |
-          npx cap init "True Site Sync" "com.truesitesync.app" --web-dir www
-          npx cap add android
+      - name: Add Android platform
+        run: npx cap add android
 
       - name: Sync web assets
         run: npx cap sync android
+
+      - name: Configure Android to keep links in-app
+        run: |
+          # Override AndroidManifest to handle all links inside WebView
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          # Add internet permission and usesCleartextTraffic
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
+
+          # Create custom WebView client to prevent opening Chrome
+          mkdir -p android/app/src/main/java/com/truesitesync/app
+          cat > android/app/src/main/java/com/truesitesync/app/MainActivity.java << 'JAVAEOF'
+          package com.truesitesync.app;
+
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebSettings;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+              }
+
+              @Override
+              public void onStart() {
+                  super.onStart();
+                  WebView webView = getBridge().getWebView();
+                  if (webView != null) {
+                      WebSettings settings = webView.getSettings();
+                      settings.setJavaScriptEnabled(true);
+                      settings.setDomStorageEnabled(true);
+                      settings.setDatabaseEnabled(true);
+                      settings.setAllowFileAccess(true);
+                      settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                      settings.setUserAgentString(settings.getUserAgentString() + " TrueSiteSync-Android/1.4.0");
+                  }
+              }
+          }
+          JAVAEOF
+
+          # Add network security config for HTTPS
+          mkdir -p android/app/src/main/res/xml
+          cat > android/app/src/main/res/xml/network_security_config.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <base-config cleartextTrafficPermitted="false">
+                  <trust-anchors>
+                      <certificates src="system" />
+                  </trust-anchors>
+              </base-config>
+              <domain-config cleartextTrafficPermitted="false">
+                  <domain includeSubdomains="true">supabase.co</domain>
+                  <domain includeSubdomains="true">googleapis.com</domain>
+                  <domain includeSubdomains="true">github.com</domain>
+              </domain-config>
+          </network-security-config>
+          XMLEOF
+
+          # Reference network security config in manifest
+          sed -i 's/android:usesCleartextTraffic="true"/android:usesCleartextTraffic="false" android:networkSecurityConfig="@xml\/network_security_config"/' "$MANIFEST"
 
       - name: Build APK
         working-directory: android

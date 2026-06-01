@@ -1,0 +1,30 @@
+{
+  "appId": "com.truesitesync.app",
+  "appName": "True Site Sync",
+  "webDir": "www",
+  "backgroundColor": "#0a0f1a",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "cuxblomxefwgdcijmpjk.supabase.co",
+      "accounts.google.com",
+      "*.google.com",
+      "api.github.com",
+      "checkout.razorpay.com",
+      "api.razorpay.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0a0f1a",
+      "showSpinner": false,
+      "launchAutoHide": true
+    }
+  }
+}
