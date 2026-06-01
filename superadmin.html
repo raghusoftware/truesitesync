@@ -69,6 +69,15 @@
     .empty{text-align:center;padding:60px 20px;color:#94a3b8;font-size:14px}
     .empty-icon{font-size:36px;margin-bottom:10px;opacity:.5}
 
+    .abtn{padding:4px 10px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:5px;cursor:pointer;font-family:inherit;margin:1px;transition:.15s;white-space:nowrap}
+    .abtn:hover{background:#e2e8f0;color:#1e293b}
+    .abtn-red{border-color:#fecaca;color:#dc2626;background:#fef2f2}
+    .abtn-red:hover{background:#fee2e2}
+    .abtn-blue{border-color:#bfdbfe;color:#2563eb;background:#eff6ff}
+    .abtn-blue:hover{background:#dbeafe}
+    .abtn-green{border-color:#a7f3d0;color:#059669;background:#ecfdf5}
+    .abtn-green:hover{background:#d1fae5}
+
     @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.container{padding:12px}.tbl{font-size:11px}.tbl th,.tbl td{padding:8px 10px}}
   </style>
@@ -210,7 +219,7 @@ function renderUsers() {
   const c = document.getElementById('tabContent');
   if (!_data?.users?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
   const now = Date.now();
-  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Status</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Data</th></tr></thead><tbody>';
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Status</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Actions</th></tr></thead><tbody>';
 
   _data.users.forEach(u => {
     const su = new Date(u.created_at);
@@ -231,7 +240,18 @@ function renderUsers() {
     h += '<td class="center">'+st+'</td>';
     h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+su.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})+'</td>';
     h += '<td class="center nowrap"><span style="font-size:11px;font-weight:600;color:'+ac+';">'+al+'</span></td>';
-    h += '<td class="center mono" style="font-size:11px;color:#94a3b8;">'+u.data_keys+'</td></tr>';
+    const oid = u.org_id || '';
+    let acts = '';
+    if (oid) {
+      acts += '<button class="abtn" onclick="editSeats(\''+oid+'\','+u.max_seats+')">Seats</button>';
+      acts += '<button class="abtn" onclick="changePlan(\''+oid+'\',\''+(u.org_plan||'free')+'\')">Plan</button>';
+      acts += '<button class="abtn" onclick="extendTrial(\''+oid+'\')">+Trial</button>';
+      acts += '<button class="abtn abtn-red" onclick="toggleActive(\''+oid+'\')">On/Off</button>';
+    } else {
+      acts += '<button class="abtn abtn-blue" onclick="createOrgForUser(\''+u.id+'\')">+ Org</button>';
+    }
+    acts += '<button class="abtn abtn-red" onclick="deleteUser(\''+u.id+'\',\''+u.email+'\')">Del</button>';
+    h += '<td class="center nowrap">'+acts+'</td></tr>';
   });
   c.innerHTML = h + '</tbody></table></div>';
 }
@@ -258,7 +278,7 @@ function renderOrgs() {
   const c = document.getElementById('tabContent');
   const orgs = _data?.orgs || [];
   if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations created yet</div>'; return; }
-  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th></tr></thead><tbody>';
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th><th class="center">Actions</th></tr></thead><tbody>';
 
   orgs.forEach(o => {
     const te = o.trial_ends_at ? new Date(o.trial_ends_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
@@ -267,9 +287,58 @@ function renderOrgs() {
     h += '<td class="center" style="font-weight:700;">'+o.max_seats+'</td>';
     h += '<td class="center"><span class="chip '+(o.is_active?'chip-green':'chip-red')+'">'+(o.is_active?'Active':'Disabled')+'</span></td>';
     h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+te+'</td>';
-    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</td></tr>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</td>';
+    h += '<td class="center nowrap"><button class="abtn" onclick="editSeats(\''+o.id+'\','+o.max_seats+')">Seats</button><button class="abtn" onclick="changePlan(\''+o.id+'\',\''+o.plan+'\')">Plan</button><button class="abtn" onclick="extendTrial(\''+o.id+'\')">+Trial</button><button class="abtn '+(o.is_active?'abtn-red':'abtn-green')+'" onclick="toggleActive(\''+o.id+'\')">'+(o.is_active?'Disable':'Enable')+'</button></td></tr>';
   });
   c.innerHTML = h + '</tbody></table></div>';
+}
+
+// ═══ Admin Actions ═══
+async function adminAction(action, params) {
+  if (!sb) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { alert('Session expired'); return; }
+    const res = await fetch(SB_URL + '/functions/v1/admin-action', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...params })
+    });
+    const result = await res.json();
+    if (result.error) { alert('Error: ' + result.error); return; }
+    await loadData();
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+
+function editSeats(orgId, current) {
+  const v = prompt('Change seat limit (current: ' + current + '):', current);
+  if (v && !isNaN(v) && parseInt(v) > 0) adminAction('update_seats', { org_id: orgId, value: v });
+}
+
+function changePlan(orgId, current) {
+  const v = prompt('Change plan (current: ' + current + ')\n\nOptions: free, starter, business, enterprise', current);
+  if (v && ['free','starter','business','enterprise'].includes(v)) adminAction('update_plan', { org_id: orgId, value: v });
+}
+
+function extendTrial(orgId) {
+  const v = prompt('Extend trial by how many days?', '7');
+  if (v && !isNaN(v) && parseInt(v) > 0) adminAction('extend_trial', { org_id: orgId, value: v });
+}
+
+function toggleActive(orgId) {
+  if (confirm('Toggle active status for this organization?')) adminAction('toggle_active', { org_id: orgId });
+}
+
+function createOrgForUser(userId) {
+  if (confirm('Create a new organization for this user?')) adminAction('create_org', { user_id: userId });
+}
+
+function deleteUser(userId, email) {
+  if (confirm('DELETE user ' + email + '?\n\nThis will remove ALL their data permanently. This cannot be undone.')) {
+    if (confirm('Are you REALLY sure? Type the email to confirm.\n\n' + email)) {
+      adminAction('delete_user', { user_id: userId });
+    }
+  }
 }
 
 document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
