@@ -477,6 +477,9 @@ function _bootApp() {
     searchInput.addEventListener('input', () => renderSavedSheets());
   }
 
+  // In-app update checker (for web & APK — EXE uses electron-updater)
+  _checkForAppUpdate();
+
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#autocomplete-list') && !e.target.classList.contains('table-input')) {
       hideAutocomplete();
@@ -579,3 +582,59 @@ function _updateSyncBadge() {
 }
 // Update sync badge every 10s
 setInterval(_updateSyncBadge, 10000);
+
+// ══════════════════════════════════════
+// IN-APP UPDATE CHECKER
+// ══════════════════════════════════════
+const APP_VERSION = '1.4.0';
+const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
+
+async function _checkForAppUpdate() {
+  // Skip in Electron (uses electron-updater)
+  if (window.process?.versions?.electron) return;
+
+  try {
+    const res = await fetch(GH_RELEASES_API);
+    if (!res.ok) return;
+    const release = await res.json();
+    const latest = (release.tag_name || '').replace('v', '');
+    if (!latest) return;
+
+    if (_isNewerVersion(latest, APP_VERSION)) {
+      _showUpdateBanner(latest, release.html_url);
+    }
+  } catch {}
+}
+
+function _isNewerVersion(latest, current) {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((l[i] || 0) > (c[i] || 0)) return true;
+    if ((l[i] || 0) < (c[i] || 0)) return false;
+  }
+  return false;
+}
+
+function _showUpdateBanner(version, url) {
+  const existing = document.getElementById('updateBanner');
+  if (existing) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#fff;border:1px solid #bfdbfe;border-radius:14px;padding:16px 20px;box-shadow:0 8px 30px rgba(0,0,0,.12);max-width:340px;font-family:Inter,sans-serif;animation:fadeIn .3s ease;';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🚀</div>
+      <div style="flex:1;">
+        <p style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 4px;">Update Available — v${version}</p>
+        <p style="font-size:11px;color:#64748b;margin:0 0 10px;">A new version of True Site Sync is available with bug fixes and new features.</p>
+        <div style="display:flex;gap:8px;">
+          <button onclick="window.open('https://truesitesync.com/#download','_blank')" style="padding:6px 14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Update Now</button>
+          <button onclick="this.closest('#updateBanner').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Later</button>
+        </div>
+      </div>
+      <button onclick="this.closest('#updateBanner').remove()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:0;line-height:1;">×</button>
+    </div>`;
+  document.body.appendChild(banner);
+}

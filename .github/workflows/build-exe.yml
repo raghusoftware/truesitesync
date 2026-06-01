@@ -19,22 +19,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Windows exe
-        run: npx electron-builder --win --x64 --publish never
+      - name: Build and publish Windows exe
+        run: npx electron-builder --win --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: List build output
-        run: dir dist /b
-        shell: cmd
 
       - uses: actions/upload-artifact@v4
         with:
           name: TrueSiteSync-Windows
-          path: dist/TrueSiteSync-Setup.exe
-
-      - name: Upload to Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/TrueSiteSync-Setup.exe
+          path: |
+            dist/TrueSiteSync-Setup.exe
+            dist/latest.yml

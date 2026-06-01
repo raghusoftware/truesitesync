@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 
 // Prevent multiple instances
@@ -6,8 +6,67 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); }
 
 let mainWindow;
+let autoUpdater = null;
 const IS_DEV = !app.isPackaged;
 
+// ══════════════════════════════════════
+// AUTO UPDATER
+// ══════════════════════════════════════
+function initAutoUpdater() {
+  if (IS_DEV) return;
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('checking-for-update', () => {
+      sendToRenderer('update-status', { status: 'checking' });
+    });
+    autoUpdater.on('update-available', (info) => {
+      sendToRenderer('update-status', { status: 'available', version: info.version });
+    });
+    autoUpdater.on('update-not-available', () => {
+      sendToRenderer('update-status', { status: 'latest' });
+    });
+    autoUpdater.on('download-progress', (progress) => {
+      sendToRenderer('update-status', { status: 'downloading', percent: Math.round(progress.percent) });
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      sendToRenderer('update-status', { status: 'ready', version: info.version });
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update Ready',
+        message: `Version ${info.version} is ready to install`,
+        detail: 'The update will be installed when you restart the app.',
+        buttons: ['Restart Now', 'Later'],
+        defaultId: 0
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+    autoUpdater.on('error', (err) => {
+      console.log('[updater] error:', err.message);
+    });
+
+    // Check for updates 5 seconds after launch, then every 4 hours
+    setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
+    setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+  } catch (e) {
+    console.log('[updater] not available:', e.message);
+  }
+}
+
+function sendToRenderer(channel, data) {
+  if (mainWindow?.webContents) {
+    mainWindow.webContents.executeJavaScript(
+      `window.dispatchEvent(new CustomEvent('${channel}', { detail: ${JSON.stringify(data)} }))`
+    ).catch(() => {});
+  }
+}
+
+// ══════════════════════════════════════
+// WINDOW
+// ══════════════════════════════════════
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -28,40 +87,31 @@ function createWindow() {
     autoHideMenuBar: false,
   });
 
-  // Load the app
   mainWindow.loadFile(path.join(__dirname, '..', 'app.html'));
 
-  // Open DevTools in dev mode OR if launched with --debug flag
   if (IS_DEV || process.argv.includes('--debug')) {
     mainWindow.webContents.openDevTools();
   }
 
-  // Show window when ready — with 5s timeout fallback
   const showTimeout = setTimeout(() => {
-    if (mainWindow && !mainWindow.isVisible()) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    if (mainWindow && !mainWindow.isVisible()) { mainWindow.show(); mainWindow.focus(); }
   }, 5000);
 
   mainWindow.once('ready-to-show', () => {
     clearTimeout(showTimeout);
     mainWindow.show();
     mainWindow.focus();
+    initAutoUpdater();
   });
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  // Block ALL navigation away from the app — stay on app.html
   mainWindow.webContents.on('will-navigate', (e, url) => {
-    // Allow file:// (local app) and Supabase auth callbacks
     if (url.startsWith('file://')) return;
     if (url.includes('cuxblomxefwgdcijmpjk.supabase.co/auth/')) return;
-    // Block everything else — open in external browser if needed
     e.preventDefault();
     if (url.startsWith('http') && !url.includes('truesitesync.com')) {
       shell.openExternal(url);
@@ -70,12 +120,13 @@ function createWindow() {
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
-  // Build menu
   const template = [
     {
       label: 'True Site Sync',
       submenu: [
         { label: 'About True Site Sync', click: () => showAbout() },
+        { type: 'separator' },
+        { label: 'Check for Updates', click: () => { if (autoUpdater) autoUpdater.checkForUpdates().catch(() => {}); else shell.openExternal('https://truesitesync.com/#download'); }},
         { type: 'separator' },
         { role: 'quit', label: 'Exit' }
       ]
@@ -83,13 +134,8 @@ function createWindow() {
     {
       label: 'Edit',
       submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' }
+        { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+        { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }
       ]
     },
     {
@@ -99,9 +145,7 @@ function createWindow() {
         { role: 'forceReload', label: 'Hard Refresh' },
         ...(IS_DEV ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
@@ -111,8 +155,6 @@ function createWindow() {
       submenu: [
         { label: 'Visit Website', click: () => shell.openExternal('https://truesitesync.com') },
         { label: 'Contact Support', click: () => shell.openExternal('mailto:info@truesitesync.com') },
-        { type: 'separator' },
-        { label: 'Check for Updates', click: () => shell.openExternal('https://truesitesync.com/#download') },
       ]
     }
   ];
@@ -121,29 +163,16 @@ function createWindow() {
 
 function showAbout() {
   dialog.showMessageBox(mainWindow, {
-    type: 'info',
-    title: 'About True Site Sync',
-    message: 'True Site Sync',
-    detail: `Version: ${app.getVersion()}\nConstruction Management Platform\n\nBuilt for Indian contractors.\nOffline-first. Cloud-synced.\n\n© 2026 True Site Sync. All rights reserved.\nwww.truesitesync.com`,
-    buttons: ['OK'],
-    icon: path.join(__dirname, '..', 'assets', 'icon.png')
+    type: 'info', title: 'About True Site Sync', message: 'True Site Sync',
+    detail: `Version: ${app.getVersion()}\nConstruction Management Platform\n\n© 2026 True Site Sync.\nwww.truesitesync.com`,
+    buttons: ['OK'], icon: path.join(__dirname, '..', 'assets', 'icon.png')
   });
 }
 
-// Second instance — focus existing window
 app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
+  if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
 });
 
 app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
