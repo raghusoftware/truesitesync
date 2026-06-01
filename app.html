@@ -1735,6 +1735,7 @@
       <div class="flex items-center gap-2"><h3 class="font-extrabold text-lg text-blue-900 uppercase tracking-wider" id="selectedPartyName">PARTY NAME</h3><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200" id="selectedPartyType">TYPE</span></div>
       <div class="flex gap-2" id="partyActionButtons"></div>
     </div>
+    <div id="partyInfoCard"></div>
     <div class="p-2 border-b border-slate-100 bg-slate-50 flex justify-between items-center px-4"><h4 class="font-bold text-slate-600 text-sm">Transactions</h4><button onclick="printReport('partyLedgerPrintZone', document.getElementById('selectedPartyName').textContent + ' Ledger')" class="text-slate-500 hover:text-slate-800 font-bold text-xl" title="Print Ledger">🖨️</button></div>
     <div class="flex-1 overflow-y-auto" id="partyLedgerPrintZone">
       <table class="min-w-full text-sm"><thead class="bg-white sticky top-0 border-b border-slate-200 z-0"><tr class="text-left text-[11px] font-bold uppercase text-slate-400"><th class="px-4 py-3">Type</th><th class="px-4 py-3">Number / Ref</th><th class="px-4 py-3">Date</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-right">Balance</th><th class="px-4 py-3 text-center">Status</th></tr></thead><tbody id="partyTransactionsBody" class="divide-y divide-slate-100 bg-white"></tbody></table>

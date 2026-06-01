@@ -4548,7 +4548,8 @@ export function renderPartiesList() {
       else if (p.balance < 0) { colorClass = 'text-green-600'; formattedBal = Math.abs(p.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
     }
     const isSelected = state.currentSelectedParty?.id === p.id ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-slate-50 border-l-4 border-transparent';
-    container.innerHTML += `<div class="cursor-pointer p-3 flex justify-between items-center transition ${isSelected}" onclick="selectParty('${p.id}', '${p.type}')"><div><p class="font-bold text-slate-800 text-xs truncate w-40" title="${p.name}">${p.name}</p></div><span class="font-bold ${colorClass} text-sm">${formattedBal}</span></div>`;
+    const typeIcon = p.type === 'Client' ? '🏢' : p.type === 'Vendor' ? '🏭' : '👷';
+    container.innerHTML += `<div class="cursor-pointer p-3 flex justify-between items-center transition ${isSelected}" onclick="selectParty('${p.id}', '${p.type}')"><div class="flex items-center gap-2"><span style="font-size:14px;">${typeIcon}</span><div><p class="font-bold text-slate-800 text-xs truncate w-32" title="${p.name}">${p.name}</p><p class="text-[9px] text-slate-400 font-medium">${p.type}</p></div></div><span class="font-bold ${colorClass} text-sm">${formattedBal}</span></div>`;
   });
 }
 
@@ -4600,6 +4601,109 @@ export function selectParty(id, type) {
   document.getElementById('partyEmptyState').style.display = 'none';
   renderPartiesList();
   renderPartyTransactions();
+  _renderPartyInfoCard(id, type);
+}
+
+function _renderPartyInfoCard(id, type) {
+  let infoEl = document.getElementById('partyInfoCard');
+  if (!infoEl) return;
+  let party = null;
+  if (type === 'Client') party = state.clients.find(c => c.id === id);
+  else if (type === 'Vendor') party = state.vendors.find(v => v.id === id);
+  else if (type === 'Labour') party = state.labourMaster.find(l => l.id === id);
+  if (!party) { infoEl.innerHTML = ''; return; }
+
+  const phone = party.contact || party.phone || '';
+  const gst = party.gst || party.gstNumber || '';
+  const addr = party.address || '';
+  const email = party.email || '';
+
+  infoEl.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:16px;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:11px;align-items:center;">
+      ${phone ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Phone:</strong> ${phone}</span>` : ''}
+      ${gst ? `<span style="color:#475569;"><strong style="color:#94a3b8;">GST:</strong> ${gst}</span>` : ''}
+      ${email ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Email:</strong> ${email}</span>` : ''}
+      ${addr ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Address:</strong> ${addr}</span>` : ''}
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button onclick="_editParty('${id}','${type}')" style="padding:3px 10px;font-size:10px;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;cursor:pointer;">Edit</button>
+        <button onclick="_deleteParty('${id}','${type}')" style="padding:3px 10px;font-size:10px;font-weight:600;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;cursor:pointer;">Delete</button>
+      </div>
+    </div>`;
+}
+
+export function _editParty(id, type) {
+  if (type === 'Client') {
+    const c = state.clients.find(x => x.id === id);
+    if (!c) return;
+    const name = prompt('Client Name:', c.name);
+    if (!name) return;
+    c.name = name;
+    const phone = prompt('Phone:', c.contact || c.phone || '');
+    if (phone !== null) c.contact = phone;
+    const gst = prompt('GST Number:', c.gst || '');
+    if (gst !== null) c.gst = gst;
+    const addr = prompt('Address:', c.address || '');
+    if (addr !== null) c.address = addr;
+    const email = prompt('Email:', c.email || '');
+    if (email !== null) c.email = email;
+    saveAllData();
+    showToast('Client updated', 'success');
+  } else if (type === 'Vendor') {
+    const v = state.vendors.find(x => x.id === id);
+    if (!v) return;
+    const name = prompt('Vendor Name:', v.name);
+    if (!name) return;
+    v.name = name;
+    const phone = prompt('Phone:', v.contact || '');
+    if (phone !== null) v.contact = phone;
+    const gst = prompt('GST Number:', v.gst || '');
+    if (gst !== null) v.gst = gst;
+    const addr = prompt('Address:', v.address || '');
+    if (addr !== null) v.address = addr;
+    saveAllData();
+    showToast('Vendor updated', 'success');
+  } else if (type === 'Labour') {
+    const l = state.labourMaster.find(x => x.id === id);
+    if (!l) return;
+    const name = prompt('Labour Name:', l.name);
+    if (!name) return;
+    l.name = name;
+    const phone = prompt('Phone:', l.phone || '');
+    if (phone !== null) l.phone = phone;
+    const rate = prompt('Daily Rate:', l.dailyRate || '');
+    if (rate !== null) l.dailyRate = parseFloat(rate) || 0;
+    saveAllData();
+    showToast('Labour updated', 'success');
+  }
+  renderPartiesList();
+  renderPartyTransactions();
+  _renderPartyInfoCard(id, type);
+  populateDropdowns();
+}
+
+export function _deleteParty(id, type) {
+  let name = '';
+  if (type === 'Client') name = state.clients.find(x => x.id === id)?.name;
+  else if (type === 'Vendor') name = state.vendors.find(x => x.id === id)?.name;
+  else if (type === 'Labour') name = state.labourMaster.find(x => x.id === id)?.name;
+
+  if (!confirm(`Delete "${name}" (${type})?\n\nThis will NOT delete their transactions (invoices, payments, etc). Only the party record will be removed.`)) return;
+
+  if (type === 'Client') {
+    state.clients = state.clients.filter(x => x.id !== id);
+  } else if (type === 'Vendor') {
+    state.vendors = state.vendors.filter(x => x.id !== id);
+  } else if (type === 'Labour') {
+    state.labourMaster = state.labourMaster.filter(x => x.id !== id);
+  }
+
+  state.currentSelectedParty = null;
+  saveAllData();
+  showToast(`${type} "${name}" deleted`, 'error');
+  document.getElementById('partyEmptyState').style.display = '';
+  document.getElementById('partyInfoCard').innerHTML = '';
+  renderPartiesList();
+  populateDropdowns();
 }
 
 export function openLabourPaymentModal(labourId) {
