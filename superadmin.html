@@ -4,75 +4,83 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>True Site Sync — Super Admin</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <script src="js/vendor/supabase.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+    body{font-family:'Inter',-apple-system,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh}
     .mono{font-family:'JetBrains Mono',monospace}
-    a{color:#60a5fa;text-decoration:none}
+
     /* Login */
-    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f172a,#1e293b)}
-    .login-box{background:#1e293b;border:1px solid #334155;border-radius:20px;padding:40px;width:400px;box-shadow:0 25px 50px rgba(0,0,0,.4)}
-    .login-box h1{font-size:20px;font-weight:800;margin-bottom:4px}
-    .login-box p{font-size:12px;color:#64748b;margin-bottom:24px}
-    .login-box input{width:100%;padding:12px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
-    .login-box input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-    .login-box button{width:100%;padding:12px;background:linear-gradient(135deg,#dc2626,#991b1b);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
-    .login-box button:hover{opacity:.9}
-    .login-box .err{color:#f87171;font-size:12px;margin-bottom:12px;display:none}
+    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#f1f5f9,#e2e8f0)}
+    .login-box{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:36px;width:380px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+    .login-box h1{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px}
+    .login-box p{font-size:12px;color:#94a3b8;margin-bottom:20px}
+    .login-box input{width:100%;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;color:#1e293b;font-size:13px;outline:none;margin-bottom:10px;font-family:inherit}
+    .login-box input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+    .login-box .btn{width:100%;padding:10px;background:#dc2626;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;font-family:inherit}
+    .login-box .btn:hover{background:#b91c1c}
+    .err{color:#dc2626;font-size:12px;margin-bottom:10px;display:none;background:#fef2f2;border:1px solid #fecaca;padding:8px 12px;border-radius:8px}
+
     /* Dashboard */
     #dashboard{display:none}
-    .topbar{background:#1e293b;border-bottom:1px solid #334155;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-    .topbar h1{font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px}
-    .topbar .badge{font-size:10px;background:#dc2626;color:#fff;padding:3px 8px;border-radius:6px;font-weight:700}
-    .topbar button{padding:6px 14px;background:#334155;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer}
-    .topbar button:hover{background:#475569;color:#fff}
-    .container{max-width:1200px;margin:0 auto;padding:20px 24px}
+    .topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .topbar h1{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px}
+    .topbar .badge{font-size:9px;background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.5px}
+    .top-btn{padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+    .top-btn:hover{background:#e2e8f0;color:#1e293b}
+    .top-btn-red{border-color:#fecaca;color:#dc2626;background:#fef2f2}
+    .top-btn-red:hover{background:#fee2e2}
+    .container{max-width:1100px;margin:0 auto;padding:24px}
+
     /* KPI */
-    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:24px}
-    .kpi{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;border-left:3px solid #3b82f6}
-    .kpi-val{font-size:22px;font-weight:800;color:#fff}
-    .kpi-label{font-size:9px;color:#64748b;text-transform:uppercase;font-weight:600;margin-top:3px;letter-spacing:.5px}
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+    .kpi{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;border-left:3px solid #3b82f6}
+    .kpi-val{font-size:24px;font-weight:800;color:#0f172a}
+    .kpi-label{font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;margin-top:2px;letter-spacing:.3px}
+
     /* Tabs */
-    .tabs{display:flex;gap:2px;background:#1e293b;border-radius:10px;padding:3px;margin-bottom:16px;border:1px solid #334155}
-    .tab{flex:1;padding:9px;font-size:12px;font-weight:600;border:none;background:none;color:#64748b;border-radius:8px;cursor:pointer;transition:.15s}
-    .tab:hover{color:#cbd5e1}
-    .tab.active{background:#334155;color:#fff}
+    .tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e2e8f0}
+    .tab{padding:10px 20px;font-size:13px;font-weight:600;border:none;background:none;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit;transition:.15s}
+    .tab:hover{color:#475569}
+    .tab.active{color:#1e293b;border-bottom-color:#2563eb}
+
     /* Table */
-    .tbl{width:100%;border-collapse:collapse;font-size:12px}
-    .tbl th{text-align:left;padding:10px 12px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:52px}
-    .tbl td{padding:10px 12px;border-bottom:1px solid #1e293b;vertical-align:middle}
-    .tbl tr:hover td{background:#1e293b}
+    .tbl-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .tbl th{text-align:left;padding:12px 16px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e8f0;background:#f8fafc;white-space:nowrap}
+    .tbl td{padding:12px 16px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .tbl tbody tr:hover{background:#f8fafc}
     .tbl .center{text-align:center}
     .tbl .right{text-align:right}
-    .chip{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase}
-    .chip-green{color:#10b981;background:rgba(16,185,129,.1)}
-    .chip-amber{color:#f59e0b;background:rgba(245,158,11,.1)}
-    .chip-red{color:#ef4444;background:rgba(239,68,68,.1)}
-    .chip-blue{color:#3b82f6;background:rgba(59,130,246,.1)}
-    .chip-purple{color:#8b5cf6;background:rgba(139,92,246,.1)}
-    .chip-gray{color:#94a3b8;background:rgba(148,163,184,.1)}
-    .user-name{font-weight:600;color:#f1f5f9;font-size:12px}
-    .user-email{font-size:10px;color:#64748b}
-    .user-org{font-size:9px;color:#818cf8;font-weight:600;margin-top:2px}
-    .empty{text-align:center;padding:40px;color:#475569}
-    .empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
-    /* Scrollable */
-    .tbl-wrap{overflow-x:auto;background:#0f172a;border:1px solid #334155;border-radius:12px}
-    /* Responsive */
-    @media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.container{padding:12px}}
+    .tbl .nowrap{white-space:nowrap}
+
+    .chip{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+    .chip-green{color:#059669;background:#ecfdf5;border:1px solid #a7f3d0}
+    .chip-amber{color:#d97706;background:#fffbeb;border:1px solid #fde68a}
+    .chip-red{color:#dc2626;background:#fef2f2;border:1px solid #fecaca}
+    .chip-blue{color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe}
+    .chip-purple{color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe}
+    .chip-gray{color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0}
+
+    .user-name{font-weight:700;color:#0f172a;font-size:13px}
+    .user-email{font-size:11px;color:#94a3b8;margin-top:1px}
+    .user-org{font-size:10px;color:#6366f1;font-weight:600;margin-top:2px}
+    .empty{text-align:center;padding:60px 20px;color:#94a3b8;font-size:14px}
+    .empty-icon{font-size:36px;margin-bottom:10px;opacity:.5}
+
+    @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.container{padding:12px}.tbl{font-size:11px}.tbl th,.tbl td{padding:8px 10px}}
   </style>
 </head>
 <body>
 
-<!-- Login Screen -->
+<!-- Login -->
 <div id="loginScreen">
   <div class="login-box">
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="width:52px;height:52px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
-        <span style="color:#fff;font-size:18px;">🛡️</span>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;">
+        <span style="color:#fff;font-size:20px;font-weight:900;">SA</span>
       </div>
       <h1>Super Admin</h1>
       <p>True Site Sync — Internal Dashboard</p>
@@ -80,35 +88,28 @@
     <div id="loginErr" class="err"></div>
     <input type="email" id="adminEmail" placeholder="Admin email" autofocus>
     <input type="password" id="adminPass" placeholder="Password">
-    <button onclick="doLogin()">Sign In</button>
+    <button class="btn" onclick="doLogin()">Sign In</button>
   </div>
 </div>
 
 <!-- Dashboard -->
 <div id="dashboard">
   <div class="topbar">
-    <h1>
-      <span style="font-size:18px;">🛡️</span> True Site Sync
-      <span class="badge">SUPER ADMIN</span>
-    </h1>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span id="adminName" style="font-size:11px;color:#64748b;"></span>
-      <button onclick="doRefresh()">↻ Refresh</button>
-      <button onclick="doLogout()" style="border-color:#dc2626;color:#f87171;">Logout</button>
+    <h1>True Site Sync <span class="badge">SUPER ADMIN</span></h1>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="adminName" style="font-size:11px;color:#94a3b8;font-weight:500;"></span>
+      <button class="top-btn" onclick="loadData()">Refresh</button>
+      <button class="top-btn top-btn-red" onclick="doLogout()">Logout</button>
     </div>
   </div>
 
   <div class="container">
-    <!-- KPIs -->
     <div class="kpi-grid" id="kpiGrid"></div>
-
-    <!-- Tabs -->
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('users',this)">👥 Users</button>
-      <button class="tab" onclick="switchTab('leads',this)">📥 Download Leads</button>
-      <button class="tab" onclick="switchTab('orgs',this)">🏢 Organizations</button>
+      <button class="tab active" onclick="switchTab('users',this)">Users</button>
+      <button class="tab" onclick="switchTab('leads',this)">Download Leads</button>
+      <button class="tab" onclick="switchTab('orgs',this)">Organizations</button>
     </div>
-
     <div id="tabContent"></div>
   </div>
 </div>
@@ -117,25 +118,17 @@
 const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
 const ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
+let sb = null, _data = null;
 
-let sb = null;
-let _data = null;
-
-try {
-  sb = window.supabase.createClient(SB_URL, SB_KEY);
-} catch(e) {
-  document.getElementById('loginErr').textContent = 'Failed to initialize: ' + e.message;
-  document.getElementById('loginErr').style.display = 'block';
+try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch(e) {
+  const el = document.getElementById('loginErr');
+  el.textContent = 'Failed to load. Refresh the page.'; el.style.display = 'block';
 }
 
-// Check existing session on load
-if (sb) {
-  sb.auth.getSession().then(({ data: { session } }) => {
-    if (session && session.user && ADMINS.includes(session.user.email)) {
-      showDashboard(session.user.email);
-    }
-  }).catch(() => {});
-}
+// Auto-login from existing session
+if (sb) sb.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user && ADMINS.includes(session.user.email)) showDashboard(session.user.email);
+}).catch(() => {});
 
 function showDashboard(email) {
   document.getElementById('adminName').textContent = email;
@@ -147,181 +140,139 @@ function showDashboard(email) {
 async function doLogin() {
   const email = document.getElementById('adminEmail').value.trim();
   const pass = document.getElementById('adminPass').value;
-  const errEl = document.getElementById('loginErr');
-  errEl.style.display = 'none';
-  if (!sb) { errEl.textContent = 'System not ready. Refresh page.'; errEl.style.display = 'block'; return; }
-  if (!ADMINS.includes(email)) { errEl.textContent = 'Access denied. Not a super admin.'; errEl.style.display = 'block'; return; }
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  if (!sb) { err.textContent = 'System not ready.'; err.style.display = 'block'; return; }
+  if (!ADMINS.includes(email)) { err.textContent = 'Access denied.'; err.style.display = 'block'; return; }
   try {
     const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+    if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
     showDashboard(email);
-  } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+  } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
 }
 
 async function doLogout() {
-  await sb.auth.signOut();
+  if (sb) await sb.auth.signOut();
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('adminEmail').value = '';
-  document.getElementById('adminPass').value = '';
-}
-
-async function doRefresh() {
-  await loadData();
 }
 
 async function loadData() {
   if (!sb) return;
   const kpiEl = document.getElementById('kpiGrid');
   const tabEl = document.getElementById('tabContent');
-  if (kpiEl) kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#64748b;">Loading data...</div>';
-  if (tabEl) tabEl.innerHTML = '<div class="empty">Loading...</div>';
+  kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#94a3b8;">Loading...</div>';
+  tabEl.innerHTML = '';
 
   try {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { tabEl.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div>No session. Please login again.</div>'; return; }
-
-    const res = await fetch(`${SB_URL}/functions/v1/admin-data`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
+    if (!session) { tabEl.innerHTML = '<div class="empty">Session expired. Please login again.</div>'; return; }
+    const res = await fetch(SB_URL + '/functions/v1/admin-data', {
+      headers: { 'Authorization': 'Bearer ' + session.access_token }
     });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(res.status + ': ' + errText);
-    }
+    if (!res.ok) throw new Error('Error ' + res.status);
     _data = await res.json();
     if (_data.error) throw new Error(_data.error);
     renderKPIs();
     renderUsers();
-  } catch (e) {
-    if (kpiEl) kpiEl.innerHTML = '';
-    if (tabEl) tabEl.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load: ' + e.message + '</div>';
+  } catch(e) {
+    kpiEl.innerHTML = '';
+    tabEl.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>' + e.message + '</div>';
   }
 }
 
 function renderKPIs() {
   if (!_data) return;
   const s = _data.stats;
-  const grid = document.getElementById('kpiGrid');
-  grid.innerHTML = [
-    kpi(s.totalUsers, 'Total Users', '#3b82f6'),
-    kpi(s.activeToday, 'Active Today', '#10b981'),
-    kpi(s.activeWeek, 'Active 7 Days', '#059669'),
-    kpi(s.withProjects, 'With Projects', '#8b5cf6'),
-    kpi(s.totalOrgs, 'Organizations', '#f59e0b'),
-    kpi(s.paidOrgs, 'Paid Plans', '#10b981'),
-    kpi('₹' + (s.totalRevenue || 0).toLocaleString('en-IN'), 'Revenue', '#10b981'),
+  document.getElementById('kpiGrid').innerHTML = [
+    kpi(s.totalUsers, 'Total Users', '#2563eb'),
+    kpi(s.activeToday, 'Active Today', '#059669'),
+    kpi(s.activeWeek, 'Active 7 Days', '#0891b2'),
+    kpi(s.withProjects, 'With Projects', '#7c3aed'),
+    kpi(s.totalOrgs, 'Organizations', '#d97706'),
+    kpi(s.paidOrgs, 'Paid Plans', '#059669'),
+    kpi('₹' + (s.totalRevenue||0).toLocaleString('en-IN'), 'Revenue', '#059669'),
     kpi(s.totalLeads, 'Downloads', '#ea580c'),
   ].join('');
 }
 
-function kpi(val, label, color) {
-  return `<div class="kpi" style="border-left-color:${color}"><div class="kpi-val mono">${val}</div><div class="kpi-label">${label}</div></div>`;
+function kpi(v,l,c) {
+  return '<div class="kpi" style="border-left-color:'+c+'"><div class="kpi-val mono">'+v+'</div><div class="kpi-label">'+l+'</div></div>';
 }
 
-function switchTab(tab, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function switchTab(t, btn) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (tab === 'users') renderUsers();
-  else if (tab === 'leads') renderLeads();
-  else if (tab === 'orgs') renderOrgs();
+  if (t==='users') renderUsers(); else if (t==='leads') renderLeads(); else renderOrgs();
 }
 
 function renderUsers() {
   const c = document.getElementById('tabContent');
-  if (!_data || !_data.users.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
-  const now = new Date();
-
-  let html = `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr>
-      <th>User</th><th class="center">Projects</th><th class="center">Plan</th>
-      <th class="center">Status</th><th class="center">Signed Up</th><th class="center">Last Active</th><th class="center">Data</th>
-    </tr></thead><tbody>`;
+  if (!_data?.users?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
+  const now = Date.now();
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Status</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Data</th></tr></thead><tbody>';
 
   _data.users.forEach(u => {
-    const signedUp = new Date(u.created_at);
-    const lastActive = u.last_sign_in ? new Date(u.last_sign_in) : null;
-    const daysAgo = lastActive ? Math.floor((now - lastActive) / 86400000) : 999;
-    const activeColor = daysAgo === 0 ? '#10b981' : daysAgo <= 7 ? '#f59e0b' : '#ef4444';
-    const activeLabel = daysAgo === 0 ? 'Today' : daysAgo <= 1 ? 'Yesterday' : lastActive ? daysAgo + 'd ago' : 'Never';
+    const su = new Date(u.created_at);
+    const la = u.last_sign_in ? new Date(u.last_sign_in) : null;
+    const days = la ? Math.floor((now - la) / 86400000) : 999;
+    const ac = days===0 ? '#059669' : days<=7 ? '#d97706' : '#dc2626';
+    const al = days===0 ? 'Today' : days===1 ? 'Yesterday' : la ? days+'d ago' : 'Never';
+    const te = u.trial_ends ? new Date(u.trial_ends) : new Date(su.getTime()+7*86400000);
+    const td = Math.max(0, Math.ceil((te - now) / 86400000));
+    const free = !u.org_plan || u.org_plan==='free';
+    const exp = free && td<=0;
+    let st = !free ? '<span class="chip chip-green">Paid</span>' : exp ? '<span class="chip chip-red">Expired</span>' : '<span class="chip chip-amber">Trial '+td+'d</span>';
+    const pc = {free:'chip-gray',starter:'chip-blue',business:'chip-purple',enterprise:'chip-green'};
 
-    const trialEnd = u.trial_ends ? new Date(u.trial_ends) : new Date(signedUp.getTime() + 7 * 86400000);
-    const trialDays = Math.max(0, Math.ceil((trialEnd - now) / 86400000));
-    const isFree = u.org_plan === 'free' || !u.org_plan;
-    const expired = isFree && trialDays <= 0;
-
-    let statusChip = '';
-    if (!isFree) statusChip = '<span class="chip chip-green">Paid</span>';
-    else if (expired) statusChip = '<span class="chip chip-red">Trial Expired</span>';
-    else statusChip = `<span class="chip chip-amber">Trial ${trialDays}d</span>`;
-
-    const planChips = { free:'chip-gray', starter:'chip-blue', business:'chip-purple', enterprise:'chip-green' };
-
-    html += `<tr>
-      <td>
-        <div class="user-name">${u.name || u.email.split('@')[0]}</div>
-        <div class="user-email">${u.email}</div>
-        ${u.org_name ? `<div class="user-org">${u.org_name}</div>` : ''}
-      </td>
-      <td class="center" style="font-weight:700;color:#f1f5f9;">${u.projects}</td>
-      <td class="center"><span class="chip ${planChips[u.org_plan] || 'chip-gray'}">${u.org_plan || 'free'}</span></td>
-      <td class="center">${statusChip}</td>
-      <td class="center" style="font-size:11px;color:#64748b;">${signedUp.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})}</td>
-      <td class="center"><span style="font-size:11px;font-weight:600;color:${activeColor};">${activeLabel}</span></td>
-      <td class="center" style="font-size:11px;color:#475569;">${u.data_keys}</td>
-    </tr>`;
+    h += '<tr><td><div class="user-name">'+(u.name||u.email.split('@')[0])+'</div><div class="user-email">'+u.email+'</div>'+(u.org_name?'<div class="user-org">'+u.org_name+'</div>':'')+'</td>';
+    h += '<td class="center" style="font-weight:700;">'+u.projects+'</td>';
+    h += '<td class="center"><span class="chip '+(pc[u.org_plan]||'chip-gray')+'">'+(u.org_plan||'free')+'</span></td>';
+    h += '<td class="center">'+st+'</td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+su.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})+'</td>';
+    h += '<td class="center nowrap"><span style="font-size:11px;font-weight:600;color:'+ac+';">'+al+'</span></td>';
+    h += '<td class="center mono" style="font-size:11px;color:#94a3b8;">'+u.data_keys+'</td></tr>';
   });
-
-  html += '</tbody></table></div>';
-  c.innerHTML = html;
+  c.innerHTML = h + '</tbody></table></div>';
 }
 
 function renderLeads() {
   const c = document.getElementById('tabContent');
   const leads = _data?.leads || [];
   if (!leads.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">📥</div>No download leads yet</div>'; return; }
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th class="center">Platform</th><th class="center nowrap">Date</th></tr></thead><tbody>';
 
-  let html = `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="center">Platform</th><th class="center">Date</th></tr></thead><tbody>`;
-
-  leads.forEach(l => {
-    const platChip = l.platform === 'windows' ? 'chip-blue' : 'chip-green';
-    html += `<tr>
-      <td style="font-weight:600;color:#f1f5f9;">${l.name || '—'}</td>
-      <td class="mono" style="font-size:12px;color:#cbd5e1;">${l.phone || '—'}</td>
-      <td style="font-size:11px;color:#64748b;">${l.email || '—'}</td>
-      <td class="center"><span class="chip ${platChip}">${l.platform || '—'}</span></td>
-      <td class="center" style="font-size:11px;color:#64748b;">${l.downloaded_at ? new Date(l.downloaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
-    </tr>`;
+  leads.forEach((l,i) => {
+    const pc = l.platform==='windows' ? 'chip-blue' : 'chip-green';
+    h += '<tr><td style="color:#94a3b8;font-weight:600;font-size:11px;">'+(i+1)+'</td>';
+    h += '<td style="font-weight:600;">'+(l.name||'—')+'</td>';
+    h += '<td class="mono" style="font-size:12px;">'+(l.phone||'—')+'</td>';
+    h += '<td style="font-size:12px;color:#64748b;">'+(l.email||'—')+'</td>';
+    h += '<td class="center"><span class="chip '+pc+'">'+(l.platform||'—')+'</span></td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+(l.downloaded_at ? new Date(l.downloaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—')+'</td></tr>';
   });
-
-  html += '</tbody></table></div>';
-  c.innerHTML = html;
+  c.innerHTML = h + '</tbody></table></div>';
 }
 
 function renderOrgs() {
   const c = document.getElementById('tabContent');
   const orgs = _data?.orgs || [];
-  if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations yet</div>'; return; }
-
-  let html = `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center">Created</th></tr></thead><tbody>`;
+  if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations created yet</div>'; return; }
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th></tr></thead><tbody>';
 
   orgs.forEach(o => {
-    html += `<tr>
-      <td><div style="font-weight:600;color:#f1f5f9;">${o.name}</div><div style="font-size:10px;color:#64748b;">${o.email || o.slug || ''}</div></td>
-      <td class="center"><span class="chip chip-blue">${o.plan}</span></td>
-      <td class="center" style="font-weight:600;color:#f1f5f9;">${o.max_seats}</td>
-      <td class="center"><span class="chip ${o.is_active ? 'chip-green' : 'chip-red'}">${o.is_active ? 'Active' : 'Disabled'}</span></td>
-      <td class="center" style="font-size:11px;color:#64748b;">${new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</td>
-    </tr>`;
+    const te = o.trial_ends_at ? new Date(o.trial_ends_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
+    h += '<tr><td><div style="font-weight:700;">'+o.name+'</div><div style="font-size:10px;color:#94a3b8;">'+(o.email||o.slug||'')+'</div></td>';
+    h += '<td class="center"><span class="chip chip-blue">'+o.plan+'</span></td>';
+    h += '<td class="center" style="font-weight:700;">'+o.max_seats+'</td>';
+    h += '<td class="center"><span class="chip '+(o.is_active?'chip-green':'chip-red')+'">'+(o.is_active?'Active':'Disabled')+'</span></td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+te+'</td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</td></tr>';
   });
-
-  html += '</tbody></table></div>';
-  c.innerHTML = html;
+  c.innerHTML = h + '</tbody></table></div>';
 }
 
-// Enter key on password field
-document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
 </script>
 </body>
 </html>
