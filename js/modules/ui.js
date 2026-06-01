@@ -10,9 +10,11 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 
 const MODULE_CARDS = [
   { id: 'planningView', icon: '&#128197;', label: 'Planning', desc: 'Tasks, scheduling & resources', color: '#0ea5e9', stateKey: 'planningTasks' },
+  { id: 'microPlanView', icon: '&#128221;', label: 'Micro Planning', desc: 'Daily task decomposition & labor', color: '#6366f1', stateKey: 'microTasks' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
   { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
   { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#10b981', stateKey: 'rawMaterials' },
+  { id: 'recipeView', icon: '&#129514;', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
   { id: 'assetsView', icon: '&#128295;', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
   { id: 'measurementListView', icon: '&#128208;', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
   { id: 'abstractsView', icon: '&#128209;', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
