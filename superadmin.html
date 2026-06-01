@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>True Site Sync — Super Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+    .mono{font-family:'JetBrains Mono',monospace}
+    a{color:#60a5fa;text-decoration:none}
+    /* Login */
+    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f172a,#1e293b)}
+    .login-box{background:#1e293b;border:1px solid #334155;border-radius:20px;padding:40px;width:400px;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+    .login-box h1{font-size:20px;font-weight:800;margin-bottom:4px}
+    .login-box p{font-size:12px;color:#64748b;margin-bottom:24px}
+    .login-box input{width:100%;padding:12px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
+    .login-box input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+    .login-box button{width:100%;padding:12px;background:linear-gradient(135deg,#dc2626,#991b1b);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
+    .login-box button:hover{opacity:.9}
+    .login-box .err{color:#f87171;font-size:12px;margin-bottom:12px;display:none}
+    /* Dashboard */
+    #dashboard{display:none}
+    .topbar{background:#1e293b;border-bottom:1px solid #334155;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .topbar h1{font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px}
+    .topbar .badge{font-size:10px;background:#dc2626;color:#fff;padding:3px 8px;border-radius:6px;font-weight:700}
+    .topbar button{padding:6px 14px;background:#334155;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer}
+    .topbar button:hover{background:#475569;color:#fff}
+    .container{max-width:1200px;margin:0 auto;padding:20px 24px}
+    /* KPI */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:24px}
+    .kpi{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;border-left:3px solid #3b82f6}
+    .kpi-val{font-size:22px;font-weight:800;color:#fff}
+    .kpi-label{font-size:9px;color:#64748b;text-transform:uppercase;font-weight:600;margin-top:3px;letter-spacing:.5px}
+    /* Tabs */
+    .tabs{display:flex;gap:2px;background:#1e293b;border-radius:10px;padding:3px;margin-bottom:16px;border:1px solid #334155}
+    .tab{flex:1;padding:9px;font-size:12px;font-weight:600;border:none;background:none;color:#64748b;border-radius:8px;cursor:pointer;transition:.15s}
+    .tab:hover{color:#cbd5e1}
+    .tab.active{background:#334155;color:#fff}
+    /* Table */
+    .tbl{width:100%;border-collapse:collapse;font-size:12px}
+    .tbl th{text-align:left;padding:10px 12px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:52px}
+    .tbl td{padding:10px 12px;border-bottom:1px solid #1e293b;vertical-align:middle}
+    .tbl tr:hover td{background:#1e293b}
+    .tbl .center{text-align:center}
+    .tbl .right{text-align:right}
+    .chip{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase}
+    .chip-green{color:#10b981;background:rgba(16,185,129,.1)}
+    .chip-amber{color:#f59e0b;background:rgba(245,158,11,.1)}
+    .chip-red{color:#ef4444;background:rgba(239,68,68,.1)}
+    .chip-blue{color:#3b82f6;background:rgba(59,130,246,.1)}
+    .chip-purple{color:#8b5cf6;background:rgba(139,92,246,.1)}
+    .chip-gray{color:#94a3b8;background:rgba(148,163,184,.1)}
+    .user-name{font-weight:600;color:#f1f5f9;font-size:12px}
+    .user-email{font-size:10px;color:#64748b}
+    .user-org{font-size:9px;color:#818cf8;font-weight:600;margin-top:2px}
+    .empty{text-align:center;padding:40px;color:#475569}
+    .empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+    /* Scrollable */
+    .tbl-wrap{overflow-x:auto;background:#0f172a;border:1px solid #334155;border-radius:12px}
+    /* Responsive */
+    @media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.container{padding:12px}}
+  </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+        <span style="color:#fff;font-size:18px;">🛡️</span>
+      </div>
+      <h1>Super Admin</h1>
+      <p>True Site Sync — Internal Dashboard</p>
+    </div>
+    <div id="loginErr" class="err"></div>
+    <input type="email" id="adminEmail" placeholder="Admin email" autofocus>
+    <input type="password" id="adminPass" placeholder="Password">
+    <button onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="topbar">
+    <h1>
+      <span style="font-size:18px;">🛡️</span> True Site Sync
+      <span class="badge">SUPER ADMIN</span>
+    </h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="adminName" style="font-size:11px;color:#64748b;"></span>
+      <button onclick="doRefresh()">↻ Refresh</button>
+      <button onclick="doLogout()" style="border-color:#dc2626;color:#f87171;">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('users',this)">👥 Users</button>
+      <button class="tab" onclick="switchTab('leads',this)">📥 Download Leads</button>
+      <button class="tab" onclick="switchTab('orgs',this)">🏢 Organizations</button>
+    </div>
+
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
+const ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
+
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+let _data = null;
+
+// Check existing session
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && ADMINS.includes(session.user.email)) {
+    document.getElementById('adminName').textContent = session.user.email;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = '';
+    await loadData();
+  }
+})();
+
+async function doLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass = document.getElementById('adminPass').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+
+  if (!ADMINS.includes(email)) {
+    errEl.textContent = 'Access denied. Not a super admin.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  document.getElementById('adminName').textContent = email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = '';
+  await loadData();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('adminEmail').value = '';
+  document.getElementById('adminPass').value = '';
+}
+
+async function doRefresh() {
+  await loadData();
+}
+
+async function loadData() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+
+  try {
+    const res = await fetch(`${SB_URL}/functions/v1/admin-data`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!res.ok) throw new Error('Failed: ' + res.status);
+    _data = await res.json();
+    renderKPIs();
+    renderUsers();
+  } catch (e) {
+    document.getElementById('tabContent').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Failed to load data: ${e.message}</div>`;
+  }
+}
+
+function renderKPIs() {
+  if (!_data) return;
+  const s = _data.stats;
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = [
+    kpi(s.totalUsers, 'Total Users', '#3b82f6'),
+    kpi(s.activeToday, 'Active Today', '#10b981'),
+    kpi(s.activeWeek, 'Active 7 Days', '#059669'),
+    kpi(s.withProjects, 'With Projects', '#8b5cf6'),
+    kpi(s.totalOrgs, 'Organizations', '#f59e0b'),
+    kpi(s.paidOrgs, 'Paid Plans', '#10b981'),
+    kpi('₹' + (s.totalRevenue || 0).toLocaleString('en-IN'), 'Revenue', '#10b981'),
+    kpi(s.totalLeads, 'Downloads', '#ea580c'),
+  ].join('');
+}
+
+function kpi(val, label, color) {
+  return `<div class="kpi" style="border-left-color:${color}"><div class="kpi-val mono">${val}</div><div class="kpi-label">${label}</div></div>`;
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'users') renderUsers();
+  else if (tab === 'leads') renderLeads();
+  else if (tab === 'orgs') renderOrgs();
+}
+
+function renderUsers() {
+  const c = document.getElementById('tabContent');
+  if (!_data || !_data.users.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
+  const now = new Date();
+
+  let html = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr>
+      <th>User</th><th class="center">Projects</th><th class="center">Plan</th>
+      <th class="center">Status</th><th class="center">Signed Up</th><th class="center">Last Active</th><th class="center">Data</th>
+    </tr></thead><tbody>`;
+
+  _data.users.forEach(u => {
+    const signedUp = new Date(u.created_at);
+    const lastActive = u.last_sign_in ? new Date(u.last_sign_in) : null;
+    const daysAgo = lastActive ? Math.floor((now - lastActive) / 86400000) : 999;
+    const activeColor = daysAgo === 0 ? '#10b981' : daysAgo <= 7 ? '#f59e0b' : '#ef4444';
+    const activeLabel = daysAgo === 0 ? 'Today' : daysAgo <= 1 ? 'Yesterday' : lastActive ? daysAgo + 'd ago' : 'Never';
+
+    const trialEnd = u.trial_ends ? new Date(u.trial_ends) : new Date(signedUp.getTime() + 7 * 86400000);
+    const trialDays = Math.max(0, Math.ceil((trialEnd - now) / 86400000));
+    const isFree = u.org_plan === 'free' || !u.org_plan;
+    const expired = isFree && trialDays <= 0;
+
+    let statusChip = '';
+    if (!isFree) statusChip = '<span class="chip chip-green">Paid</span>';
+    else if (expired) statusChip = '<span class="chip chip-red">Trial Expired</span>';
+    else statusChip = `<span class="chip chip-amber">Trial ${trialDays}d</span>`;
+
+    const planChips = { free:'chip-gray', starter:'chip-blue', business:'chip-purple', enterprise:'chip-green' };
+
+    html += `<tr>
+      <td>
+        <div class="user-name">${u.name || u.email.split('@')[0]}</div>
+        <div class="user-email">${u.email}</div>
+        ${u.org_name ? `<div class="user-org">${u.org_name}</div>` : ''}
+      </td>
+      <td class="center" style="font-weight:700;color:#f1f5f9;">${u.projects}</td>
+      <td class="center"><span class="chip ${planChips[u.org_plan] || 'chip-gray'}">${u.org_plan || 'free'}</span></td>
+      <td class="center">${statusChip}</td>
+      <td class="center" style="font-size:11px;color:#64748b;">${signedUp.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})}</td>
+      <td class="center"><span style="font-size:11px;font-weight:600;color:${activeColor};">${activeLabel}</span></td>
+      <td class="center" style="font-size:11px;color:#475569;">${u.data_keys}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  c.innerHTML = html;
+}
+
+function renderLeads() {
+  const c = document.getElementById('tabContent');
+  const leads = _data?.leads || [];
+  if (!leads.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">📥</div>No download leads yet</div>'; return; }
+
+  let html = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="center">Platform</th><th class="center">Date</th></tr></thead><tbody>`;
+
+  leads.forEach(l => {
+    const platChip = l.platform === 'windows' ? 'chip-blue' : 'chip-green';
+    html += `<tr>
+      <td style="font-weight:600;color:#f1f5f9;">${l.name || '—'}</td>
+      <td class="mono" style="font-size:12px;color:#cbd5e1;">${l.phone || '—'}</td>
+      <td style="font-size:11px;color:#64748b;">${l.email || '—'}</td>
+      <td class="center"><span class="chip ${platChip}">${l.platform || '—'}</span></td>
+      <td class="center" style="font-size:11px;color:#64748b;">${l.downloaded_at ? new Date(l.downloaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  c.innerHTML = html;
+}
+
+function renderOrgs() {
+  const c = document.getElementById('tabContent');
+  const orgs = _data?.orgs || [];
+  if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations yet</div>'; return; }
+
+  let html = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center">Created</th></tr></thead><tbody>`;
+
+  orgs.forEach(o => {
+    html += `<tr>
+      <td><div style="font-weight:600;color:#f1f5f9;">${o.name}</div><div style="font-size:10px;color:#64748b;">${o.email || o.slug || ''}</div></td>
+      <td class="center"><span class="chip chip-blue">${o.plan}</span></td>
+      <td class="center" style="font-weight:600;color:#f1f5f9;">${o.max_seats}</td>
+      <td class="center"><span class="chip ${o.is_active ? 'chip-green' : 'chip-red'}">${o.is_active ? 'Active' : 'Disabled'}</span></td>
+      <td class="center" style="font-size:11px;color:#64748b;">${new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  c.innerHTML = html;
+}
+
+// Enter key on password field
+document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>
