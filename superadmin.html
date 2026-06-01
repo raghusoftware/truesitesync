@@ -118,43 +118,44 @@ const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
 const ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
 
-const sb = window.supabase.createClient(SB_URL, SB_KEY);
+let sb = null;
 let _data = null;
 
-// Check existing session
-(async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session && ADMINS.includes(session.user.email)) {
-    document.getElementById('adminName').textContent = session.user.email;
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').style.display = '';
-    await loadData();
-  }
-})();
+try {
+  sb = window.supabase.createClient(SB_URL, SB_KEY);
+} catch(e) {
+  document.getElementById('loginErr').textContent = 'Failed to initialize: ' + e.message;
+  document.getElementById('loginErr').style.display = 'block';
+}
+
+// Check existing session on load
+if (sb) {
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (session && session.user && ADMINS.includes(session.user.email)) {
+      showDashboard(session.user.email);
+    }
+  }).catch(() => {});
+}
+
+function showDashboard(email) {
+  document.getElementById('adminName').textContent = email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadData();
+}
 
 async function doLogin() {
   const email = document.getElementById('adminEmail').value.trim();
   const pass = document.getElementById('adminPass').value;
   const errEl = document.getElementById('loginErr');
   errEl.style.display = 'none';
-
-  if (!ADMINS.includes(email)) {
-    errEl.textContent = 'Access denied. Not a super admin.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) {
-    errEl.textContent = error.message;
-    errEl.style.display = 'block';
-    return;
-  }
-
-  document.getElementById('adminName').textContent = email;
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('dashboard').style.display = '';
-  await loadData();
+  if (!sb) { errEl.textContent = 'System not ready. Refresh page.'; errEl.style.display = 'block'; return; }
+  if (!ADMINS.includes(email)) { errEl.textContent = 'Access denied. Not a super admin.'; errEl.style.display = 'block'; return; }
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+    showDashboard(email);
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
 }
 
 async function doLogout() {
@@ -170,19 +171,30 @@ async function doRefresh() {
 }
 
 async function loadData() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return;
+  if (!sb) return;
+  const kpiEl = document.getElementById('kpiGrid');
+  const tabEl = document.getElementById('tabContent');
+  if (kpiEl) kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#64748b;">Loading data...</div>';
+  if (tabEl) tabEl.innerHTML = '<div class="empty">Loading...</div>';
 
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { tabEl.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div>No session. Please login again.</div>'; return; }
+
     const res = await fetch(`${SB_URL}/functions/v1/admin-data`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}` }
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
     });
-    if (!res.ok) throw new Error('Failed: ' + res.status);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(res.status + ': ' + errText);
+    }
     _data = await res.json();
+    if (_data.error) throw new Error(_data.error);
     renderKPIs();
     renderUsers();
   } catch (e) {
-    document.getElementById('tabContent').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Failed to load data: ${e.message}</div>`;
+    if (kpiEl) kpiEl.innerHTML = '';
+    if (tabEl) tabEl.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load: ' + e.message + '</div>';
   }
 }
 
