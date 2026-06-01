@@ -31,6 +31,14 @@ export async function createOrganization(name, userId, userEmail) {
   const sb = getSupabase();
   if (!sb) return null;
 
+  // Check if user already has an org — prevent duplicates
+  const { data: existing } = await sb.from('org_members').select('org_id').eq('user_id', userId).eq('is_active', true).limit(1);
+  if (existing && existing.length > 0) {
+    console.log('[org] User already has org, skipping create');
+    const { data: existingOrg } = await sb.from('organizations').select('*').eq('id', existing[0].org_id).single();
+    if (existingOrg) { _currentOrg = existingOrg; return existingOrg; }
+  }
+
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
 
   const { data: org, error } = await sb.from('organizations').insert({
