@@ -4774,6 +4774,36 @@ export function saveLabourPayment() {
   showToast('Labour Payment Recorded!', 'success');
 }
 
+// ── Bulk Labour Payment ──
+window._bulkLabourPayment = function() {
+  const labours = state.labourMaster.filter(l => l.projectId === state.currentProjectId || !state.currentProjectId);
+  if (!labours.length) { showToast('No labour records found', 'error'); return; }
+  const amount = prompt(`Bulk Payment for ${labours.length} labourers.\n\nEnter amount per person (₹):`);
+  if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+  const amt = parseFloat(amount);
+
+  // Select account
+  if (!state.accounts.length) { showToast('Create a payment account first (Bank & Cash)', 'error'); return; }
+  const accList = state.accounts.map((a, i) => `${i + 1}. ${a.name} (${a.type})`).join('\n');
+  const accIdx = parseInt(prompt(`Select payment account:\n${accList}\n\nEnter number:`)) - 1;
+  if (isNaN(accIdx) || !state.accounts[accIdx]) { showToast('Invalid account', 'error'); return; }
+  const accountId = state.accounts[accIdx].id;
+  const date = new Date().toISOString().split('T')[0];
+
+  if (!confirm(`Pay ₹${amt.toLocaleString('en-IN')} to each of ${labours.length} labourers?\nTotal: ₹${(amt * labours.length).toLocaleString('en-IN')}\nFrom: ${state.accounts[accIdx].name}`)) return;
+
+  labours.forEach(l => {
+    state.labourPayments.push({
+      id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      labourId: l.id, date, accountId, amount: amt,
+      ref: 'Bulk Payment'
+    });
+  });
+  saveAllData();
+  showToast(`Paid ₹${amt.toLocaleString('en-IN')} × ${labours.length} = ₹${(amt * labours.length).toLocaleString('en-IN')}`, 'success');
+  renderPartiesList();
+};
+
 // ==========================================
 // PURCHASE FORM PANEL (Full-page overlay)
 // ==========================================

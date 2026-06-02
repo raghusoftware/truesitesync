@@ -64,7 +64,8 @@ const STORAGE_KEYS = {
   microPlanProgress: 'mes_micro_progress',
   productivityMatrix: 'mes_prod_matrix',
   microTasks: 'mes_micro_tasks',
-  headerSettings: 'mes_header_settings'
+  headerSettings: 'mes_header_settings',
+  accountTransfers: 'mes_account_transfers'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -144,6 +145,7 @@ export const state = {
   productivityMatrix: load(STORAGE_KEYS.productivityMatrix, {}),
   microTasks: load(STORAGE_KEYS.microTasks, []),
   headerSettings: load(STORAGE_KEYS.headerSettings, {}),
+  accountTransfers: load(STORAGE_KEYS.accountTransfers, []),
 
   currentProjectId: null,
   currentSheetId: null,
