@@ -5217,88 +5217,99 @@ window._recordDeduction = function() {
   });
 };
 
-/** processBulkPayment — net payout for all workers (salary − advances − deductions) */
+/** processBulkPayment — enter ONE amount, apply to selected workers, deduct each one's advances */
 window._bulkLabourPayment = function() {
-  // Include workers for this project OR untagged workers (legacy)
   const labours = state.labourMaster.filter(l => !l.projectId || l.projectId === state.currentProjectId);
   if (!labours.length) { showToast('No labour records found. Add labour first.', 'error'); return; }
   if (!state.accounts.length) { showToast('Create a payment account first (Bank & Cash)', 'error'); return; }
 
-  // Compute net payable per worker
-  const rows = labours.map(l => ({ l, ...(_labourNetPayable(l.id)) })).filter(r => r.net > 0);
-  if (!rows.length) {
-    // Fallback: no computed dues → manual flat-amount payout to all
-    _manualBulkPayment(labours);
-    return;
-  }
-  const grandTotal = rows.reduce((s, r) => s + r.net, 0);
+  const cur = getCurrencySymbol();
   const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
 
-  const rowsHtml = rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
-    <td style="padding:6px 10px;font-weight:600;">${r.l.name}</td>
-    <td style="padding:6px 10px;text-align:right;color:#2563eb;">${getCurrencySymbol()}${r.salary.toLocaleString('en-IN')}</td>
-    <td style="padding:6px 10px;text-align:right;color:#ea580c;">${r.advances ? '−' + getCurrencySymbol() + r.advances.toLocaleString('en-IN') : '—'}</td>
-    <td style="padding:6px 10px;text-align:right;color:#dc2626;">${r.deductions ? '−' + getCurrencySymbol() + r.deductions.toLocaleString('en-IN') : '—'}</td>
-    <td style="padding:6px 10px;text-align:right;font-weight:700;color:#059669;">${getCurrencySymbol()}${r.net.toLocaleString('en-IN')}</td>
-  </tr>`).join('');
+  // Build worker checklist rows with their pending advance shown
+  const rowsHtml = labours.map(l => {
+    const adv = (state.labourAdvances || []).filter(a => a.labourId === l.id && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+    return `<tr data-lid="${l.id}" data-adv="${adv}" style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:7px 10px;"><input type="checkbox" class="bp-chk" value="${l.id}" checked style="width:16px;height:16px;" onchange="window._bpRecalc()"></td>
+      <td style="padding:7px 10px;font-weight:600;">${l.name}<div style="font-size:10px;color:#94a3b8;">${l.trade || '—'}</div></td>
+      <td style="padding:7px 10px;text-align:right;color:#ea580c;font-size:11px;">${adv ? '−' + cur + adv.toLocaleString('en-IN') : '—'}</td>
+      <td class="bp-net" style="padding:7px 10px;text-align:right;font-weight:700;color:#059669;">—</td>
+    </tr>`;
+  }).join('');
 
-  _payrollModal('Bulk Payout Sheet', `
-    <div style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+  _payrollModal('Bulk Payment', `
+    <label class="pm-l">Amount per worker (₹)</label>
+    <input type="number" id="bpAmount" class="pm-i" placeholder="e.g. 500" oninput="window._bpRecalc()">
+    <label class="pm-l">Pay from account</label>
+    <select id="pmAccount" class="pm-i">${accOpts}</select>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#475569;cursor:pointer;"><input type="checkbox" id="bpSelectAll" checked onchange="document.querySelectorAll('.bp-chk').forEach(c=>c.checked=this.checked);window._bpRecalc()" style="width:16px;height:16px;"> Select All</label>
+      <span style="font-size:11px;color:#94a3b8;"><span id="bpCount">${labours.length}</span> selected</span>
+    </div>
+    <div style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:#f8fafc;position:sticky;top:0;">
-          <th style="padding:8px 10px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;">Worker</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Salary</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Advance</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Deduct</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Net Pay</th>
-        </tr></thead><tbody>${rowsHtml}</tbody>
+          <th style="padding:7px 10px;width:30px;"></th>
+          <th style="padding:7px 10px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;">Worker</th>
+          <th style="padding:7px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Advance</th>
+          <th style="padding:7px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Net Pay</th>
+        </tr></thead><tbody id="bpBody">${rowsHtml}</tbody>
       </table>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;">
-      <span style="font-size:12px;font-weight:600;">${rows.length} workers • Total Payout</span>
-      <span style="font-size:18px;font-weight:800;color:#10b981;">${getCurrencySymbol()}${grandTotal.toLocaleString('en-IN')}</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-top:12px;">
+      <span style="font-size:12px;font-weight:600;">Total Payout</span>
+      <span id="bpTotal" style="font-size:18px;font-weight:800;color:#10b981;">${cur}0</span>
     </div>
-    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
   `, () => {
+    const amt = parseFloat(document.getElementById('bpAmount').value) || 0;
     const accountId = document.getElementById('pmAccount').value;
+    if (amt <= 0) { showToast('Enter amount per worker', 'error'); return false; }
+    const checked = [...document.querySelectorAll('.bp-chk:checked')];
+    if (!checked.length) { showToast('Select at least one worker', 'error'); return false; }
     const date = new Date().toISOString().split('T')[0];
-    rows.forEach(r => {
-      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), labourId: r.l.id, date, accountId, amount: r.net, ref: 'Bulk Payout (net of advances/deductions)' });
-      // Mark advances & deductions settled
-      (state.labourAdvances || []).filter(a => a.labourId === r.l.id && !a.settled).forEach(a => a.settled = true);
-      (state.labourDeductions || []).filter(d => d.labourId === r.l.id && !d.settled).forEach(d => d.settled = true);
+    let totalPaid = 0;
+    checked.forEach(c => {
+      const lid = c.value;
+      const adv = (state.labourAdvances || []).filter(a => a.labourId === lid && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+      const net = Math.max(0, amt - adv);
+      // Record payment (net of advance)
+      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), labourId: lid, date, accountId, amount: net, ref: adv ? `Bulk Pay (₹${amt} − ₹${adv} advance)` : 'Bulk Payment' });
+      // Settle that worker's advances
+      (state.labourAdvances || []).filter(a => a.labourId === lid && !a.settled).forEach(a => a.settled = true);
+      totalPaid += net;
     });
     saveAllData(); renderMonthlyMuster(); renderPartiesList();
-    showToast(`Paid ${getCurrencySymbol()}${grandTotal.toLocaleString('en-IN')} to ${rows.length} workers`, 'success');
+    showToast(`Paid ${cur}${totalPaid.toLocaleString('en-IN')} to ${checked.length} workers (advances deducted)`, 'success');
     return true;
-  }, 'Pay All', 520);
+  }, 'Pay Selected', 480);
+
+  setTimeout(() => window._bpRecalc(), 30);
 };
 
-/** Fallback: flat-amount payout when no computed dues exist */
-function _manualBulkPayment(labours) {
-  const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
-  const workerOpts = labours.map(l => `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;"><input type="checkbox" class="mbp-chk" value="${l.id}" checked style="width:16px;height:16px;"> ${l.name} <span style="color:#94a3b8;font-size:11px;">(${l.trade || '—'})</span></label>`).join('');
-  _payrollModal('Bulk Payment', `
-    <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">No salaries posted yet. Pay a flat amount to selected workers.</p>
-    <label class="pm-l">Amount per worker (₹)</label><input type="number" id="mbpAmount" class="pm-i" placeholder="0">
-    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
-    <label class="pm-l">Workers (<span id="mbpCount">${labours.length}</span> selected)</label>
-    <div style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-top:4px;" onchange="document.getElementById('mbpCount').textContent=document.querySelectorAll('.mbp-chk:checked').length">${workerOpts}</div>
-  `, () => {
-    const amt = parseFloat(document.getElementById('mbpAmount').value) || 0;
-    const accountId = document.getElementById('pmAccount').value;
-    if (amt <= 0) { showToast('Enter valid amount', 'error'); return false; }
-    const selected = [...document.querySelectorAll('.mbp-chk:checked')].map(c => c.value);
-    if (!selected.length) { showToast('Select at least one worker', 'error'); return false; }
-    const date = new Date().toISOString().split('T')[0];
-    selected.forEach(id => {
-      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), labourId: id, date, accountId, amount: amt, ref: 'Bulk Payment' });
-    });
-    saveAllData(); renderMonthlyMuster(); renderPartiesList();
-    showToast(`Paid ${getCurrencySymbol()}${(amt * selected.length).toLocaleString('en-IN')} to ${selected.length} workers`, 'success');
-    return true;
-  }, 'Pay Selected', 420);
-}
+/** Recalculate net pay per worker = amount − their advance */
+window._bpRecalc = function() {
+  const amt = parseFloat(document.getElementById('bpAmount')?.value) || 0;
+  const cur = getCurrencySymbol();
+  let total = 0, count = 0;
+  document.querySelectorAll('#bpBody tr').forEach(tr => {
+    const chk = tr.querySelector('.bp-chk');
+    const adv = parseFloat(tr.dataset.adv) || 0;
+    const netCell = tr.querySelector('.bp-net');
+    if (chk && chk.checked) {
+      const net = Math.max(0, amt - adv);
+      netCell.textContent = cur + net.toLocaleString('en-IN');
+      netCell.style.color = '#059669';
+      total += net; count++;
+    } else {
+      netCell.textContent = '—';
+      netCell.style.color = '#cbd5e1';
+    }
+  });
+  const totalEl = document.getElementById('bpTotal');
+  if (totalEl) totalEl.textContent = cur + total.toLocaleString('en-IN');
+  const countEl = document.getElementById('bpCount');
+  if (countEl) countEl.textContent = count;
+};
 
 /** calculateFinalSettlement — worker leaving the site */
 window._finalSettlement = function() {
