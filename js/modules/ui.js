@@ -4669,7 +4669,8 @@ export function renderMonthlyMuster() {
     if (myLogs.length === 0) return;
     const existingSal = state.labourSalaries.find(s => s.labourId === l.id && s.month === selMonth);
     const actionBtn = existingSal ? `<span class="text-green-600 font-bold text-[10px] bg-green-50 px-2 py-1 rounded border border-green-200">✓ Posted to Ledger</span>` : `<button onclick="generateLabourSalary('${l.id}', '${selMonth}', ${wages})" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-[10px] font-bold uppercase transition">Post Salary</button>`;
-    tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold text-slate-800">${l.name}</td><td class="px-3 py-2 text-slate-500">${l.trade}</td><td class="px-3 py-2 text-center font-bold text-green-700">${present}</td><td class="px-3 py-2 text-center font-bold text-orange-600">${half}</td><td class="px-3 py-2 text-right font-bold text-slate-800">${getCurrencySymbol()}${wages.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-3 py-2 text-center">${actionBtn}</td></tr>`;
+    const musterBtn = `<button onclick="downloadMusterCard('${l.id}')" title="Download this worker's muster card" class="bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-1 rounded border border-purple-200 text-[10px] font-bold transition ml-1">📋</button>`;
+    tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold text-slate-800">${l.name}</td><td class="px-3 py-2 text-slate-500">${l.trade}</td><td class="px-3 py-2 text-center font-bold text-green-700">${present}</td><td class="px-3 py-2 text-center font-bold text-orange-600">${half}</td><td class="px-3 py-2 text-right font-bold text-slate-800">${getCurrencySymbol()}${wages.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-3 py-2 text-center">${actionBtn}${musterBtn}</td></tr>`;
   });
   if (!tbody.innerHTML) tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No attendance records for selected month.</td></tr>';
 }
@@ -4684,20 +4685,55 @@ export function generateLabourSalary(labourId, month, amount) {
   renderPartiesList();
 }
 
-export function downloadMusterCard() {
+/** Chooser: All labour vs individual muster card */
+window._musterCardChooser = function() {
+  const labours = state.labourMaster || [];
+  if (!labours.length) { showToast('No labour records found', 'error'); return; }
   const monthFilter = document.getElementById('attMonthFilter');
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
-  const doc = new window.jspdf.jsPDF('l', 'mm', 'a4');
-  let nextY = getCompanyHeaderForPDF(doc);
-  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
-  doc.text(`LABOUR MUSTER CARD — ${selMonth}`, 148, nextY, null, null, 'center');
-  nextY += 8;
+
+  const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
+  const html = `<div id="musterChooser" style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;width:90%;max-width:380px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+      <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">Generate Muster Card</h3>
+      <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Month: ${selMonth}</p>
+      <button onclick="document.getElementById('musterChooser').remove();downloadMusterCard(null)" style="width:100%;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">📋 All Labour (Combined)</button>
+      <div style="border-top:1px solid #e2e8f0;padding-top:14px;">
+        <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:6px;">Or individual worker</label>
+        <select id="musterIndivSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:10px;">${opts}</select>
+        <button onclick="const id=document.getElementById('musterIndivSelect').value;document.getElementById('musterChooser').remove();downloadMusterCard(id)" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">👤 Individual Card</button>
+      </div>
+      <button onclick="document.getElementById('musterChooser').remove()" style="width:100%;padding:10px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-top:10px;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+export function downloadMusterCard(labourId) {
+  const monthFilter = document.getElementById('attMonthFilter');
+  const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
   const [yr, mo] = selMonth.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Individual card → single labourer
+  const labourList = labourId
+    ? state.labourMaster.filter(l => l.id === labourId)
+    : state.labourMaster;
+  if (!labourList.length) { showToast('Labour not found', 'error'); return; }
+
+  const doc = new window.jspdf.jsPDF('l', 'mm', 'a4');
+  let nextY = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
+  const title = labourId
+    ? `MUSTER CARD — ${labourList[0].name} — ${selMonth}`
+    : `LABOUR MUSTER CARD — ${selMonth}`;
+  doc.text(title, 148, nextY, null, null, 'center');
+  nextY += 8;
+
   const headRow = ['Labour Name', 'Trade', ...days.map(d => String(d)), 'P', 'H', 'A', `Wages(${getCurrencySymbol()})`];
-  const bodyRows = state.labourMaster.map(l => {
-    const row = [l.name, l.trade];
+  const bodyRows = labourList.map(l => {
+    const row = [l.name, l.trade || '—'];
     let p = 0, h = 0, a = 0;
     days.forEach(d => {
       const dateStr = `${selMonth}-${String(d).padStart(2, '0')}`;
@@ -4710,7 +4746,9 @@ export function downloadMusterCard() {
     return row;
   });
   doc.autoTable({ startY: nextY, head: [headRow], body: bodyRows, theme: 'grid', styles: { fontSize: 5.5, cellPadding: 1, overflow: 'linebreak' }, headStyles: { fillColor: [30, 58, 138], fontSize: 5.5 }, columnStyles: { 0: { cellWidth: 26, overflow: 'linebreak' }, 1: { cellWidth: 14 } } });
-  mobileSavePDF(doc,`Muster_${selMonth}.pdf`);
+
+  const fname = labourId ? `Muster_${labourList[0].name.replace(/\s+/g,'_')}_${selMonth}.pdf` : `Muster_All_${selMonth}.pdf`;
+  mobileSavePDF(doc, fname);
   showToast('Muster Card Downloaded!', 'success');
 }
 
