@@ -4601,11 +4601,12 @@ export function saveLabour() {
 export function renderLabourMasterList() {
   const container = document.getElementById('labourMasterList');
   if (!container) return;
-  if (state.labourMaster.length === 0) {
-    container.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No labour added yet.</p>';
+  const labours = _projectLabour();
+  if (labours.length === 0) {
+    container.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No labour added for this project yet.</p>';
     return;
   }
-  container.innerHTML = state.labourMaster.map(l => `<div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg border"><div><p class="font-bold text-slate-800 text-sm">${l.name}</p><p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day</p></div><button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold">Del</button></div>`).join('');
+  container.innerHTML = labours.map(l => `<div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg border"><div><p class="font-bold text-slate-800 text-sm">${l.name}</p><p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day</p></div><button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold">Del</button></div>`).join('');
 }
 
 export function deleteLabour(id) {
@@ -4614,58 +4615,43 @@ export function deleteLabour(id) {
   saveLabourData(); renderLabourMasterList(); renderMonthlyMuster();
 }
 
+/** Labour belonging to the current project (untagged legacy ones excluded once project scoping is active) */
+function _projectLabour() {
+  return (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId);
+}
+
 export function loadAttendanceSheet() {
   const date = document.getElementById('attDate').value;
   const siteId = document.getElementById('attSite').value;
   if (!date || !siteId) return showToast('Select date and WO/site first', 'error');
-  if (state.labourMaster.length === 0) return showToast('Add labour first via "+ Add Labour"', 'warning');
+  const labours = _projectLabour();
+  if (labours.length === 0) return showToast('Add labour for this project first via "👤 Add"', 'warning');
   const site = _siteLabel(siteId);
   const existing = {};
   state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a);
 
-  // Fullscreen overlay (hides sidebar like measurement sheet)
-  const sidebar = document.getElementById('appSidebar');
-  if (sidebar) sidebar.style.display = 'none';
-
-  let overlay = document.getElementById('attFullscreen');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'attFullscreen';
-    document.body.appendChild(overlay);
-  }
-  overlay.className = 'fullscreen-sheet';
-  overlay.style.display = 'block';
-
-  overlay.innerHTML = `
-    <div style="max-width:1100px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button onclick="_closeAttendanceSheet()" style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:18px;cursor:pointer;color:#64748b;">✕</button>
-          <div><h2 style="font-size:18px;font-weight:800;color:#0f172a;">Attendance Sheet</h2><p style="font-size:12px;color:#94a3b8;">${date} • ${site}</p></div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button onclick="_attMarkAll('P')" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ All Present</button>
-          <button onclick="_attMarkAll('A')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✕ All Absent</button>
-          <button onclick="_attMarkAll('H')" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">◐ Half</button>
-          <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💾 Save</button>
-        </div>
-      </div>
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-        <div id="attSheetContainer"></div>
-      </div>
-    </div>`;
-
   const container = document.getElementById('attSheetContainer');
+  if (!container) return;
   container.innerHTML = `
-    <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
-      <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
-      <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
-      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">P</th>
-      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Half</th>
-      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Absent</th>
-      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
-      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
-    </tr></thead><tbody class="divide-y">${state.labourMaster.map(l => {
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1e293b;color:#fff;flex-wrap:wrap;gap:8px;">
+        <h3 style="font-size:14px;font-weight:700;">${date} • ${site}</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="_attMarkAll('P')" style="background:rgba(16,185,129,.2);color:#a7f3d0;border:1px solid rgba(16,185,129,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✓ All Present</button>
+          <button onclick="_attMarkAll('A')" style="background:rgba(239,68,68,.2);color:#fecaca;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✕ All Absent</button>
+          <button onclick="_attMarkAll('H')" style="background:rgba(245,158,11,.2);color:#fde68a;border:1px solid rgba(245,158,11,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">◐ Half</button>
+          <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">💾 Save</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
+        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
+        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">P</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Half</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Absent</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
+      </tr></thead><tbody class="divide-y">${labours.map(l => {
     const rec = existing[l.id] || {};
     const s = rec.status || 'A';
     const ot = rec.ot || 0;
@@ -4679,20 +4665,19 @@ export function loadAttendanceSheet() {
       <td class="px-3 py-2.5 text-center"><input type="number" id="ot_${l.id}" value="${ot}" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td>
       <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1 border rounded text-xs outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
     </tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table></div>
+    </div>`;
 }
 
-/** Close the fullscreen attendance sheet */
+/** (legacy no-op) close handler kept for safety */
 window._closeAttendanceSheet = function() {
-  const overlay = document.getElementById('attFullscreen');
-  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('fullscreen-sheet'); }
   const sidebar = document.getElementById('appSidebar');
   if (sidebar) sidebar.style.display = '';
 };
 
 /** Bulk mark all workers in the sheet */
 window._attMarkAll = function(status) {
-  state.labourMaster.forEach(l => {
+  _projectLabour().forEach(l => {
     const radio = document.querySelector(`input[name="att_${l.id}"][value="${status}"]`);
     if (radio) radio.checked = true;
   });
@@ -4713,7 +4698,7 @@ export function saveAttendance() {
   const siteId = document.getElementById('attSite').value;
   if (!date || !siteId) return showToast('Load attendance sheet first', 'error');
   state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && a.siteId === siteId));
-  state.labourMaster.forEach(l => {
+  _projectLabour().forEach(l => {
     const radios = document.querySelectorAll(`input[name="att_${l.id}"]`);
     let status = 'A';
     radios.forEach(r => { if (r.checked) status = r.value; });
@@ -4795,7 +4780,7 @@ export function renderMonthlyMuster() {
   const tbody = document.getElementById('musterBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  state.labourMaster.forEach(l => {
+  _projectLabour().forEach(l => {
     const myLogs = monthly.filter(a => a.labourId === l.id);
     const present = myLogs.filter(a => a.status === 'P').length;
     const half = myLogs.filter(a => a.status === 'H').length;
@@ -4825,7 +4810,7 @@ export function generateLabourSalary(labourId, month, amount) {
 
 /** Chooser: All labour vs individual muster card */
 window._musterCardChooser = function() {
-  const labours = state.labourMaster || [];
+  const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records found', 'error'); return; }
   const monthFilter = document.getElementById('attMonthFilter');
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
@@ -5168,7 +5153,7 @@ function _labourNetPayable(labourId) {
 
 /** recordAdvancePayment — log kharchi (mid-week cash advance) */
 window._recordAdvance = function() {
-  const labours = state.labourMaster || [];
+  const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records', 'error'); return; }
   const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
   const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
@@ -5194,7 +5179,7 @@ window._recordAdvance = function() {
 
 /** recordDeduction — lost tools, PPE, penalties */
 window._recordDeduction = function() {
-  const labours = state.labourMaster || [];
+  const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records', 'error'); return; }
   const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
   _payrollModal('Record Deduction', `
@@ -5219,7 +5204,7 @@ window._recordDeduction = function() {
 
 /** processBulkPayment — enter ONE amount, apply to selected workers, deduct each one's advances */
 window._bulkLabourPayment = function() {
-  const labours = state.labourMaster.filter(l => !l.projectId || l.projectId === state.currentProjectId);
+  const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records found. Add labour first.', 'error'); return; }
   if (!state.accounts.length) { showToast('Create a payment account first (Bank & Cash)', 'error'); return; }
 
@@ -5313,7 +5298,7 @@ window._bpRecalc = function() {
 
 /** calculateFinalSettlement — worker leaving the site */
 window._finalSettlement = function() {
-  const labours = state.labourMaster || [];
+  const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records', 'error'); return; }
   const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
   const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
