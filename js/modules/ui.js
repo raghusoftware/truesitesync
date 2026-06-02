@@ -4616,18 +4616,62 @@ export function deleteLabour(id) {
 export function loadAttendanceSheet() {
   const date = document.getElementById('attDate').value;
   const siteId = document.getElementById('attSite').value;
-  if (!date || !siteId) return showToast('Select date and site first', 'error');
+  if (!date || !siteId) return showToast('Select date and WO/site first', 'error');
   if (state.labourMaster.length === 0) return showToast('Add labour first via "+ Add Labour"', 'warning');
-  const allLocs = getAllLocations();
-  const site = allLocs.find(l => l.id === siteId);
-  document.getElementById('attSheetTitle').textContent = `Attendance: ${date} | ${site?.name || ''}`;
+  const site = _siteLabel(siteId);
+  document.getElementById('attSheetTitle').textContent = `Attendance: ${date} | ${site}`;
   const existing = {};
-  state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a.status);
+  state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a);
   const container = document.getElementById('attSheetContainer');
-  container.innerHTML = `<div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr><th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th><th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th><th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Present</th><th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Half Day</th><th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Absent</th><th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th></tr></thead><tbody class="divide-y">${state.labourMaster.map(l => {
-    const s = existing[l.id] || 'A';
-    return `<tr class="hover:bg-slate-50"><td class="px-3 py-2.5 font-bold text-slate-800">${l.name}</td><td class="px-3 py-2.5 text-slate-500 text-xs">${l.trade}</td><td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="P" ${s === 'P' ? 'checked' : ''} class="w-4 h-4 accent-green-500"></td><td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="H" ${s === 'H' ? 'checked' : ''} class="w-4 h-4 accent-orange-500"></td><td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="A" ${s === 'A' ? 'checked' : ''} class="w-4 h-4 accent-red-400"></td><td class="px-3 py-2.5 text-center"><input type="number" id="ot_${l.id}" value="0" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td></tr>`;
-  }).join('')}</tbody></table></div><div class="mt-3 flex gap-3 text-xs font-bold text-slate-500"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Present (P)</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span> Half Day (H)</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span> Absent (A)</span></div>`;
+
+  container.innerHTML = `
+    <div class="flex gap-2 mb-3 flex-wrap">
+      <button onclick="_attMarkAll('P')" class="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-100">✓ All Present</button>
+      <button onclick="_attMarkAll('A')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">✕ All Absent</button>
+      <button onclick="_attMarkAll('H')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-orange-100">◐ All Half-Day</button>
+    </div>
+    <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
+      <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
+      <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
+      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">P</th>
+      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Half</th>
+      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Absent</th>
+      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
+      <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
+    </tr></thead><tbody class="divide-y">${state.labourMaster.map(l => {
+    const rec = existing[l.id] || {};
+    const s = rec.status || 'A';
+    const ot = rec.ot || 0;
+    const shift = rec.shift || 'Day';
+    return `<tr class="hover:bg-slate-50" data-label="">
+      <td class="px-3 py-2.5 font-bold text-slate-800" data-label="Name">${l.name}</td>
+      <td class="px-3 py-2.5 text-slate-500 text-xs" data-label="Trade">${l.trade || '—'}</td>
+      <td class="px-3 py-2.5 text-center" data-label="Present"><input type="radio" name="att_${l.id}" value="P" ${s === 'P' ? 'checked' : ''} class="w-4 h-4 accent-green-500"></td>
+      <td class="px-3 py-2.5 text-center" data-label="Half"><input type="radio" name="att_${l.id}" value="H" ${s === 'H' ? 'checked' : ''} class="w-4 h-4 accent-orange-500"></td>
+      <td class="px-3 py-2.5 text-center" data-label="Absent"><input type="radio" name="att_${l.id}" value="A" ${s === 'A' ? 'checked' : ''} class="w-4 h-4 accent-red-400"></td>
+      <td class="px-3 py-2.5 text-center" data-label="OT Hours"><input type="number" id="ot_${l.id}" value="${ot}" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td>
+      <td class="px-3 py-2.5 text-center" data-label="Shift"><select id="shift_${l.id}" class="p-1 border rounded text-xs outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
+    </tr>`;
+  }).join('')}</tbody></table></div>
+    <div class="mt-3 flex gap-3 text-xs font-bold text-slate-500 flex-wrap"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Present</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span> Half Day</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span> Absent</span></div>`;
+}
+
+/** Bulk mark all workers in the sheet */
+window._attMarkAll = function(status) {
+  state.labourMaster.forEach(l => {
+    const radio = document.querySelector(`input[name="att_${l.id}"][value="${status}"]`);
+    if (radio) radio.checked = true;
+  });
+  showToast(`Marked all as ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : 'Half-Day'}`, 'info');
+};
+
+/** Resolve a site/WO id to a readable label */
+function _siteLabel(siteId) {
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const g = proj?.boqs?.find(b => b.id === siteId);
+  if (g) return (g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ');
+  const loc = getAllLocations().find(l => l.id === siteId);
+  return loc?.name || siteId || '';
 }
 
 export function saveAttendance() {
@@ -4640,11 +4684,66 @@ export function saveAttendance() {
     let status = 'A';
     radios.forEach(r => { if (r.checked) status = r.value; });
     const ot = parseFloat(document.getElementById('ot_' + l.id)?.value) || 0;
-    state.attendanceLogs.push({ id: 'att_' + Date.now() + '_' + l.id, date, siteId, labourId: l.id, status, ot });
+    const shift = document.getElementById('shift_' + l.id)?.value || 'Day';
+    state.attendanceLogs.push({ id: 'att_' + Date.now() + '_' + l.id, date, siteId, labourId: l.id, status, ot, shift });
   });
   saveLabourData(); renderMonthlyMuster();
   showToast('Attendance Saved!', 'success');
 }
+
+// ──────────────────────────────────────────
+// DAILY MUSTER ROLL — headcount for a site/day
+// ──────────────────────────────────────────
+window._dailyMusterRoll = function() {
+  const date = document.getElementById('attDate')?.value || new Date().toISOString().split('T')[0];
+  const siteId = document.getElementById('attSite')?.value || '';
+  const logs = state.attendanceLogs.filter(a => a.date === date && (!siteId || a.siteId === siteId) && a.status !== 'A');
+  if (!logs.length) { showToast('No attendance marked for this date/site', 'warning'); return; }
+
+  // Group by trade
+  const byTrade = {};
+  logs.forEach(log => {
+    const l = state.labourMaster.find(x => x.id === log.labourId);
+    if (!l) return;
+    const trade = l.trade || 'Other';
+    if (!byTrade[trade]) byTrade[trade] = [];
+    byTrade[trade].push({ name: l.name, status: log.status, ot: log.ot || 0, shift: log.shift || 'Day' });
+  });
+
+  const totalHead = logs.length;
+  const dayShift = logs.filter(x => (x.shift || 'Day') === 'Day').length;
+  const nightShift = logs.filter(x => x.shift === 'Night').length;
+  const totalOT = logs.reduce((s, x) => s + (x.ot || 0), 0);
+
+  let html = `<div style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;width:92%;max-width:560px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;">
+        <div><h3 style="font-size:15px;font-weight:800;">Daily Muster Roll</h3><p style="font-size:11px;opacity:.85;">${date} • ${_siteLabel(siteId) || 'All Sites'}</p></div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;cursor:pointer;">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#1e3a8a;">${totalHead}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Headcount</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#f59e0b;">${dayShift}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Day Shift</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#6366f1;">${nightShift}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Night Shift</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#10b981;">${totalOT}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">OT Hours</div></div>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:14px;">`;
+  Object.keys(byTrade).sort().forEach(trade => {
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">${trade} (${byTrade[trade].length})</div>
+      ${byTrade[trade].map(w => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;">
+        <span style="font-weight:600;color:#1e293b;">${w.name}</span>
+        <span style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;${w.status === 'P' ? 'background:#ecfdf5;color:#059669;' : 'background:#fffbeb;color:#d97706;'}">${w.status === 'P' ? 'Present' : 'Half'}</span>
+          <span style="font-size:9px;color:#64748b;">${w.shift}</span>
+          ${w.ot ? `<span style="font-size:9px;color:#10b981;font-weight:700;">+${w.ot}h OT</span>` : ''}
+        </span>
+      </div>`).join('')}
+    </div>`;
+  });
+  html += `</div></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
 
 export function renderMonthlyMuster() {
   const monthFilter = document.getElementById('attMonthFilter');
@@ -4665,12 +4764,16 @@ export function renderMonthlyMuster() {
     const myLogs = monthly.filter(a => a.labourId === l.id);
     const present = myLogs.filter(a => a.status === 'P').length;
     const half = myLogs.filter(a => a.status === 'H').length;
-    const wages = (present + half * 0.5) * l.dayRate;
+    const otHours = myLogs.reduce((s, a) => s + (a.ot || 0), 0);
+    const wages = (present + half * 0.5) * l.dayRate + otHours * ((l.dayRate || 0) / 8) * 1.5;
     if (myLogs.length === 0) return;
     const existingSal = state.labourSalaries.find(s => s.labourId === l.id && s.month === selMonth);
-    const actionBtn = existingSal ? `<span class="text-green-600 font-bold text-[10px] bg-green-50 px-2 py-1 rounded border border-green-200">✓ Posted to Ledger</span>` : `<button onclick="generateLabourSalary('${l.id}', '${selMonth}', ${wages})" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-[10px] font-bold uppercase transition">Post Salary</button>`;
-    const musterBtn = `<button onclick="downloadMusterCard('${l.id}')" title="Download this worker's muster card" class="bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-1 rounded border border-purple-200 text-[10px] font-bold transition ml-1">📋</button>`;
-    tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold text-slate-800">${l.name}</td><td class="px-3 py-2 text-slate-500">${l.trade}</td><td class="px-3 py-2 text-center font-bold text-green-700">${present}</td><td class="px-3 py-2 text-center font-bold text-orange-600">${half}</td><td class="px-3 py-2 text-right font-bold text-slate-800">${getCurrencySymbol()}${wages.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-3 py-2 text-center">${actionBtn}${musterBtn}</td></tr>`;
+    const actionBtn = existingSal ? `<span class="text-green-600 font-bold text-[10px] bg-green-50 px-2 py-1 rounded border border-green-200">✓ Posted</span>` : `<button onclick="generateLabourSalary('${l.id}', '${selMonth}', ${Math.round(wages)})" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-[10px] font-bold uppercase transition">Post Salary</button>`;
+    const [yr, mo] = selMonth.split('-').map(Number);
+    const mEnd = `${selMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`;
+    const musterBtn = `<button onclick="downloadMusterCard('${l.id}','${selMonth}-01','${mEnd}')" title="Download this worker's timesheet" class="bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-1 rounded border border-purple-200 text-[10px] font-bold transition ml-1">📋</button>`;
+    const otBadge = otHours ? ` <span class="text-[9px] text-emerald-600 font-bold">+${otHours}h OT</span>` : '';
+    tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold text-slate-800">${l.name}</td><td class="px-3 py-2 text-slate-500">${l.trade}${otBadge}</td><td class="px-3 py-2 text-center font-bold text-green-700">${present}</td><td class="px-3 py-2 text-center font-bold text-orange-600">${half}</td><td class="px-3 py-2 text-right font-bold text-slate-800">${getCurrencySymbol()}${wages.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-3 py-2 text-center">${actionBtn}${musterBtn}</td></tr>`;
   });
   if (!tbody.innerHTML) tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No attendance records for selected month.</td></tr>';
 }
@@ -4692,16 +4795,25 @@ window._musterCardChooser = function() {
   const monthFilter = document.getElementById('attMonthFilter');
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
 
+  const [yr, mo] = selMonth.split('-').map(Number);
+  const lastDay = new Date(yr, mo, 0).getDate();
+  const mStart = `${selMonth}-01`;
+  const mEnd = `${selMonth}-${String(lastDay).padStart(2, '0')}`;
+
   const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
   const html = `<div id="musterChooser" style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
-    <div style="background:#fff;border-radius:16px;width:90%;max-width:380px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+    <div style="background:#fff;border-radius:16px;width:90%;max-width:400px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
       <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">Generate Muster Card</h3>
-      <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Month: ${selMonth}</p>
-      <button onclick="document.getElementById('musterChooser').remove();downloadMusterCard(null)" style="width:100%;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">📋 All Labour (Combined)</button>
+      <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Tracks present, half-days & OT hours</p>
+      <button onclick="document.getElementById('musterChooser').remove();downloadMusterCard(null,'${mStart}','${mEnd}')" style="width:100%;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 All Labour Muster Roll (${selMonth})</button>
       <div style="border-top:1px solid #e2e8f0;padding-top:14px;">
-        <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:6px;">Or individual worker</label>
+        <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:6px;">Individual worker timesheet</label>
         <select id="musterIndivSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:10px;">${opts}</select>
-        <button onclick="const id=document.getElementById('musterIndivSelect').value;document.getElementById('musterChooser').remove();downloadMusterCard(id)" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">👤 Individual Card</button>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">From</label><input type="date" id="musterStart" value="${mStart}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
+          <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">To</label><input type="date" id="musterEnd" value="${mEnd}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
+        </div>
+        <button onclick="const id=document.getElementById('musterIndivSelect').value;const s=document.getElementById('musterStart').value;const e=document.getElementById('musterEnd').value;document.getElementById('musterChooser').remove();downloadMusterCard(id,s,e)" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">👤 Individual Timesheet</button>
       </div>
       <button onclick="document.getElementById('musterChooser').remove()" style="width:100%;padding:10px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-top:10px;">Cancel</button>
     </div>
@@ -4709,45 +4821,63 @@ window._musterCardChooser = function() {
   document.body.insertAdjacentHTML('beforeend', html);
 };
 
-export function downloadMusterCard(labourId) {
-  const monthFilter = document.getElementById('attMonthFilter');
-  const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
-  const [yr, mo] = selMonth.split('-').map(Number);
-  const daysInMonth = new Date(yr, mo, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+export function downloadMusterCard(labourId, startDate, endDate) {
+  // Default to current/selected month if no range given
+  if (!startDate || !endDate) {
+    const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
+    const [yr, mo] = selMonth.split('-').map(Number);
+    startDate = `${selMonth}-01`;
+    endDate = `${selMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`;
+  }
 
-  // Individual card → single labourer
-  const labourList = labourId
-    ? state.labourMaster.filter(l => l.id === labourId)
-    : state.labourMaster;
+  // Build list of date strings in range
+  const dateList = [];
+  let d = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  while (d <= end) { dateList.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
+  if (!dateList.length) { showToast('Invalid date range', 'error'); return; }
+
+  const labourList = labourId ? state.labourMaster.filter(l => l.id === labourId) : state.labourMaster;
   if (!labourList.length) { showToast('Labour not found', 'error'); return; }
 
   const doc = new window.jspdf.jsPDF('l', 'mm', 'a4');
   let nextY = getCompanyHeaderForPDF(doc);
   doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
   const title = labourId
-    ? `MUSTER CARD — ${labourList[0].name} — ${selMonth}`
-    : `LABOUR MUSTER CARD — ${selMonth}`;
+    ? `MUSTER CARD — ${labourList[0].name}`
+    : `LABOUR MUSTER ROLL`;
   doc.text(title, 148, nextY, null, null, 'center');
-  nextY += 8;
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+  doc.text(`Period: ${startDate} to ${endDate}`, 148, nextY + 5, null, null, 'center');
+  nextY += 11;
 
-  const headRow = ['Labour Name', 'Trade', ...days.map(d => String(d)), 'P', 'H', 'A', `Wages(${getCurrencySymbol()})`];
+  const dayLabels = dateList.map(ds => String(parseInt(ds.split('-')[2])));
+  const headRow = ['Name', 'Trade', ...dayLabels, 'P', 'H', 'A', 'OT', `Wages(${getCurrencySymbol()})`];
   const bodyRows = labourList.map(l => {
     const row = [l.name, l.trade || '—'];
-    let p = 0, h = 0, a = 0;
-    days.forEach(d => {
-      const dateStr = `${selMonth}-${String(d).padStart(2, '0')}`;
-      const log = state.attendanceLogs.find(att => att.labourId === l.id && att.date === dateStr);
-      const s = log ? log.status : '-';
-      row.push(s);
-      if (s === 'P') p++; else if (s === 'H') h++; else if (s === 'A') a++;
+    let p = 0, h = 0, a = 0, ot = 0;
+    dateList.forEach(ds => {
+      const log = state.attendanceLogs.find(att => att.labourId === l.id && att.date === ds);
+      let cell = '-';
+      if (log) {
+        cell = log.status;
+        if (log.status === 'P') p++; else if (log.status === 'H') h++; else if (log.status === 'A') a++;
+        ot += (log.ot || 0);
+        if (log.shift === 'Night' && log.status !== 'A') cell += '*';
+      }
+      row.push(cell);
     });
-    row.push(p, h, a, Math.round((p + h * 0.5) * l.dayRate));
+    const wages = Math.round((p + h * 0.5) * (l.dayRate || 0) + ot * ((l.dayRate || 0) / 8) * 1.5);
+    row.push(p, h, a, ot, wages);
     return row;
   });
-  doc.autoTable({ startY: nextY, head: [headRow], body: bodyRows, theme: 'grid', styles: { fontSize: 5.5, cellPadding: 1, overflow: 'linebreak' }, headStyles: { fillColor: [30, 58, 138], fontSize: 5.5 }, columnStyles: { 0: { cellWidth: 26, overflow: 'linebreak' }, 1: { cellWidth: 14 } } });
+  doc.autoTable({ startY: nextY, head: [headRow], body: bodyRows, theme: 'grid', styles: { fontSize: 5.5, cellPadding: 1, overflow: 'linebreak' }, headStyles: { fillColor: [30, 58, 138], fontSize: 5.5 }, columnStyles: { 0: { cellWidth: 24, overflow: 'linebreak' }, 1: { cellWidth: 13 } } });
 
-  const fname = labourId ? `Muster_${labourList[0].name.replace(/\s+/g,'_')}_${selMonth}.pdf` : `Muster_All_${selMonth}.pdf`;
+  let fy = doc.lastAutoTable.finalY + 6;
+  doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+  doc.text('Legend: P=Present  H=Half-day  A=Absent  *=Night shift  OT=Overtime hours (paid at 1.5x)', 14, fy);
+
+  const fname = labourId ? `Muster_${labourList[0].name.replace(/\s+/g, '_')}_${startDate}_${endDate}.pdf` : `Muster_Roll_${startDate}_${endDate}.pdf`;
   mobileSavePDF(doc, fname);
   showToast('Muster Card Downloaded!', 'success');
 }
