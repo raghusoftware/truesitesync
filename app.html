@@ -1718,6 +1718,11 @@
       <div style="font-size:14px;font-weight:700;color:#0f172a;">Contractors / Gangs</div>
       <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Mukadam & gang payouts</div>
     </div>
+    <div onclick="_openLabourSection('piecerate')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+      <div style="width:54px;height:54px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📏</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;">Piece-Rate Work</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Rate card, measure & payout</div>
+    </div>
   </div>
 
   <!-- Back button (shown when a section is open) -->
@@ -1764,6 +1769,17 @@
       <button onclick="_addContractorQuick()" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-sky-700">+ Add Contractor</button>
     </div>
     <div id="contractorsList" class="space-y-3"></div>
+  </div>
+
+  <!-- Section: Piece-Rate Work -->
+  <div id="labourSecPiecerate" class="labour-section hide">
+    <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl" style="max-width:fit-content;">
+      <button onclick="_prTab('rates',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-sm">📋 Rate Card</button>
+      <button onclick="_prTab('measure',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">📏 Log Work</button>
+      <button onclick="_prTab('approve',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">✓ Approvals</button>
+      <button onclick="_prTab('payout',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">💰 Gang Payout</button>
+    </div>
+    <div id="prContent"></div>
   </div>
 </div>
 
@@ -1986,6 +2002,14 @@
             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Daily Rate (₹) *</label>
             <input type="number" id="labDayRate" placeholder="0" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
           </div>
+        </div>
+        <!-- Compensation type -->
+        <div class="mb-3">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Compensation Type</label>
+          <select id="labCompType" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+            <option value="DAILY_WAGE">Daily Wage (attendance-based)</option>
+            <option value="PIECE_RATE">Piece-Rate (work volume-based — excluded from daily bulk pay)</option>
+          </select>
         </div>
         <!-- KYC Documents -->
         <div class="bg-slate-50 rounded-lg p-3 mb-3">
