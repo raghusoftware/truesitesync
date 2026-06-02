@@ -776,6 +776,70 @@ div[id$="FormPanel"]:not(.hidden) {
   }
   .fullscreen-sheet .sheet-scroll-area { padding: 0 !important; }
 
+  /* ── Measurement entry table → CARD layout on mobile ── */
+  #tableContainer { max-height: none !important; overflow-x: visible !important; }
+  #entryTable { min-width: 0 !important; width: 100% !important; display: block !important; }
+  #entryTable thead { display: none !important; }
+  #entryTable tbody { display: block !important; }
+  #entryTable tbody tr {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  #entryTable tbody td {
+    display: flex !important;
+    flex-direction: column;
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+  #entryTable tbody td::before {
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #94a3b8;
+    margin-bottom: 3px;
+  }
+  #entryTable tbody td[data-label=""]::before { content: ""; }
+  /* Code & Description span full width */
+  #entryTable tbody td[data-label="Code"],
+  #entryTable tbody td[data-label="Description"] { grid-column: 1 / -1 !important; }
+  /* Quantity highlighted */
+  #entryTable tbody td[data-label="Quantity"] {
+    grid-column: 1 / -1 !important;
+    background: #eff6ff !important;
+    border-radius: 8px;
+    padding: 8px !important;
+  }
+  #entryTable tbody td .table-input {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+    background: #f8fafc !important;
+  }
+  #entryTable tbody td .qty-input { background: #fff !important; font-size: 20px !important; }
+  /* Remove button full width */
+  #entryTable tbody td[data-label=""] { grid-column: 1 / -1 !important; }
+  #entryTable tbody td[data-label=""] button {
+    width: 100%;
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 8px;
+    padding: 10px !important;
+    font-size: 13px !important;
+    font-weight: 700;
+  }
+
   /* Modals — full width on mobile */
   .fixed.inset-0 > div {
     width: 95% !important;

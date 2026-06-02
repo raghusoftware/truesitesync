@@ -663,6 +663,130 @@ function _buildIconGrid(containerId, items) {
   </div>`;
 }
 
+// ==========================================
+// ANALYTICS / EXECUTIVE MIS DASHBOARD
+// ==========================================
+export function renderAnalyticsDashboard() {
+  const c = document.getElementById('analyticsContent');
+  if (!c) return;
+  const cur = getCurrencySymbol();
+  const fmt = (n) => cur + (n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+  // ── Compute company-wide metrics ──
+  const projects = state.projects || [];
+  const activeProjects = projects.filter(p => (p.status || 'Active') === 'Active').length;
+
+  // Revenue: abstracts + sale invoices + invoices tax
+  let totalBilled = 0, totalReceived = 0;
+  (state.abstracts || []).forEach(a => totalBilled += (a.totalAmount || 0));
+  (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') totalBilled += (i.grandTotal || i.total || 0); });
+  (state.paymentsIn || []).forEach(p => totalReceived += (parseFloat(p.amount) || 0));
+  const outstanding = totalBilled - totalReceived;
+
+  // Expenses
+  let totalExpenses = 0, totalPurchases = 0, totalLabour = 0;
+  (state.expenses || []).forEach(e => totalExpenses += (parseFloat(e.amount) || 0));
+  (state.vendorMaterials || []).forEach(m => totalPurchases += (m.totalAmount || parseFloat(m.amount) || 0));
+  (state.labourPayments || []).forEach(l => totalLabour += (parseFloat(l.amount) || 0));
+  const netProfit = totalReceived - totalExpenses - totalPurchases - totalLabour;
+
+  // Counts
+  const clientCount = (state.clients || []).length;
+  const vendorCount = (state.vendors || []).length;
+  const labourCount = (state.labourMaster || []).length;
+  const sheetCount = (state.sheets || []).length;
+  const equipCount = (state.equipmentList || []).length;
+  const poCount = (state.purchaseOrders || []).length;
+
+  // Bank balances
+  let totalCash = 0;
+  (state.accounts || []).forEach(acc => {
+    let bal = 0;
+    (state.paymentsIn || []).filter(p => p.accountId === acc.id).forEach(p => bal += (parseFloat(p.amount) || 0));
+    (state.expenses || []).filter(e => e.accountId === acc.id).forEach(e => bal -= (parseFloat(e.amount) || 0));
+    (state.vendorPayments || []).filter(v => v.accountId === acc.id).forEach(v => bal -= (parseFloat(v.amount) || 0));
+    (state.labourPayments || []).filter(l => l.accountId === acc.id).forEach(l => bal -= (parseFloat(l.amount) || 0));
+    totalCash += bal;
+  });
+
+  const hero = (label, value, color, sub) => `
+    <div style="background:linear-gradient(135deg,${color},${color}dd);border-radius:16px;padding:20px;color:#fff;box-shadow:0 4px 16px ${color}40;">
+      <p style="font-size:11px;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.5px;">${label}</p>
+      <p style="font-size:26px;font-weight:800;margin-top:6px;font-family:'JetBrains Mono',monospace;">${value}</p>
+      ${sub ? `<p style="font-size:11px;opacity:.8;margin-top:4px;">${sub}</p>` : ''}
+    </div>`;
+
+  const stat = (icon, label, value, color) => `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;border-left:3px solid ${color};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:16px;">${icon}</span><span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;">${label}</span></div>
+      <p style="font-size:22px;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">${value}</p>
+    </div>`;
+
+  c.innerHTML = `
+    <!-- Financial Hero Cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
+      ${hero('Total Billed', fmt(totalBilled), '#2563eb', 'Revenue across all projects')}
+      ${hero('Received', fmt(totalReceived), '#059669', 'Payments collected')}
+      ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection')}
+      ${hero('Net Profit', fmt(netProfit), netProfit >= 0 ? '#10b981' : '#dc2626', 'Received − all costs')}
+    </div>
+
+    <!-- Cost Breakdown -->
+    <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">💸 Cost Breakdown</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
+      ${stat('🛒', 'Purchases', fmt(totalPurchases), '#f59e0b')}
+      ${stat('👷', 'Labour Paid', fmt(totalLabour), '#8b5cf6')}
+      ${stat('🧾', 'Expenses', fmt(totalExpenses), '#ef4444')}
+      ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#10b981')}
+    </div>
+
+    <!-- Operational Stats -->
+    <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📊 Operations</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px;">
+      ${stat('🏗️', 'Projects', activeProjects + ' / ' + projects.length, '#2563eb')}
+      ${stat('📐', 'Measurements', sheetCount, '#0ea5e9')}
+      ${stat('🏢', 'Clients', clientCount, '#7c3aed')}
+      ${stat('🏭', 'Vendors', vendorCount, '#f59e0b')}
+      ${stat('👷', 'Labourers', labourCount, '#8b5cf6')}
+      ${stat('🚜', 'Equipment', equipCount, '#6366f1')}
+      ${stat('📋', 'Purchase Orders', poCount, '#ea580c')}
+    </div>
+
+    <!-- Project-wise breakdown -->
+    <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">🏗️ Project Performance</h3>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:#f8fafc;">
+            <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Project</th>
+            <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Billed</th>
+            <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Received</th>
+            <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Outstanding</th>
+            <th style="text-align:center;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Status</th>
+          </tr></thead><tbody>
+          ${projects.map(p => {
+            const clientIds = (state.clients || []).filter(cl => cl.projectId === p.id).map(cl => cl.id);
+            let pBilled = 0, pRecv = 0;
+            (state.abstracts || []).filter(a => a.projectId === p.id || clientIds.includes(a.clientId)).forEach(a => pBilled += (a.totalAmount || 0));
+            (state.paymentsIn || []).filter(pm => clientIds.includes(pm.clientId)).forEach(pm => pRecv += (parseFloat(pm.amount) || 0));
+            const pOut = pBilled - pRecv;
+            const stColor = (p.status || 'Active') === 'Active' ? '#059669' : '#94a3b8';
+            return `<tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:10px 14px;font-weight:600;color:#0f172a;">${p.name}</td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#2563eb;">${fmt(pBilled)}</td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#059669;">${fmt(pRecv)}</td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:${pOut > 0 ? '#ea580c' : '#94a3b8'};">${fmt(pOut)}</td>
+              <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status || 'Active'}</span></td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="5" style="padding:30px;text-align:center;color:#94a3b8;">No projects yet</td></tr>'}
+        </tbody></table>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:16px;font-size:11px;color:#94a3b8;">
+      Need detailed reports? <a onclick="switchView('reportsView')" style="color:#2563eb;font-weight:600;cursor:pointer;">Open Report Engine →</a>
+    </p>`;
+}
+
 function _renderMasterDataGrid() {
   _buildIconGrid('masterDataGrid', [
     { icon: '🏢', label: 'Clients', desc: 'Manage client list', color: '#2563eb', action: "document.getElementById('masterDataGrid').innerHTML='';renderClientTable();document.getElementById('masterDataTables').style.display=''" },
@@ -735,6 +859,7 @@ export function switchView(viewId) {
   if (viewId === 'planningView') { if (typeof window.renderPlanningView === 'function') window.renderPlanningView(); }
   if (viewId === 'microPlanView') { if (typeof window.renderMicroPlanningView === 'function') window.renderMicroPlanningView(); }
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
+  if (viewId === 'analyticsView') renderAnalyticsDashboard();
   if (viewId === 'salesLedgerView') { renderSalesLedger(); renderSaleInvoices(); }
   if (viewId === 'proformaInvoiceView') renderProformaInvoices();
   if (viewId === 'paymentInView') renderPaymentInList();
@@ -752,20 +877,12 @@ export function switchView(viewId) {
   if (viewId === 'purchaseAssetsView') renderFixedAssets();
   if (viewId === 'settingsView') {
     if (typeof window.renderSettingsView === 'function') window.renderSettingsView();
-    // Load company profile into merged tab
-    if (typeof window.loadCompanyProfile === 'function') {
-      const cp = document.getElementById('settCompanyContent');
-      const cpOld = document.getElementById('companyProfileContent');
-      if (cp && cpOld) cp.innerHTML = cpOld.innerHTML;
-      window.loadCompanyProfile();
-    }
-    // Load org settings into merged tab
-    if (typeof window.renderOrgSettings === 'function') {
-      const orgOld = document.getElementById('orgSettingsContent');
-      const orgNew = document.getElementById('settOrgContent');
-      if (orgNew && orgOld) orgNew.innerHTML = orgOld.innerHTML;
-      window.renderOrgSettings();
-    }
+    // Move the company profile form into the merged Company tab (once)
+    const cpTab = document.getElementById('settCompanyContent');
+    const cpForm = document.getElementById('companyProfileFormWrap');
+    if (cpTab && cpForm && cpForm.parentElement !== cpTab) cpTab.appendChild(cpForm);
+    if (typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile();
+    if (typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
   }
   if (viewId === 'companyProfileView') { switchView('settingsView'); return; }
   if (viewId === 'orgSettingsView') { switchView('settingsView'); return; }
@@ -1880,30 +1997,30 @@ function _buildCustomCellsForPosition(position, entryData) {
 
 function _buildRowHTML(hasBOQ, e) {
   const v = e || {};
-  return `<td class="p-1 border relative">
+  return `<td class="p-1 border relative" data-label="Code">
       <input type="text" class="table-input code-input font-mono uppercase font-bold text-blue-700" autocomplete="off" placeholder="${hasBOQ ? 'Type code...' : 'Code'}" value="${v.code || ''}" oninput="onMeasureItemInput(this)">
       <input type="hidden" class="boq-index-input" value="${v.boqIndex ?? ''}">
     </td>
-    <td class="p-1 border">
+    <td class="p-1 border" data-label="Description">
       <input type="text" class="table-input desc-input font-semibold text-slate-700" placeholder="${hasBOQ ? 'Type description...' : 'Item description'}" value="${v.description || ''}" autocomplete="off" oninput="onMeasureDescInput(this)">
       <input type="hidden" class="uom-input" value="${v.uom || ''}">
     </td>
-    <td class="p-1 border text-center"><span class="text-xs font-bold text-slate-500 uom-display">${v.uom || '—'}</span></td>
-    <td class="p-1 border"><input type="number" class="table-input nos-input" value="${v.nos || ''}" oninput="calcQty(this)"></td>
+    <td class="p-1 border text-center" data-label="Unit"><span class="text-xs font-bold text-slate-500 uom-display">${v.uom || '—'}</span></td>
+    <td class="p-1 border" data-label="Nos"><input type="number" class="table-input nos-input" value="${v.nos || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-nos', v)}
-    <td class="p-1 border"><input type="number" class="table-input l-input" value="${v.l || ''}" oninput="calcQty(this)"></td>
+    <td class="p-1 border" data-label="Length"><input type="number" class="table-input l-input" value="${v.l || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-l', v)}
-    <td class="p-1 border"><input type="number" class="table-input b-input" value="${v.b || ''}" oninput="calcQty(this)"></td>
+    <td class="p-1 border" data-label="Breadth"><input type="number" class="table-input b-input" value="${v.b || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-b', v)}
-    <td class="p-1 border"><input type="number" class="table-input h-input" value="${v.h || ''}" oninput="calcQty(this)"></td>
+    <td class="p-1 border" data-label="Height"><input type="number" class="table-input h-input" value="${v.h || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-h', v)}
-    <td class="p-1 border"><input type="number" class="table-input coef-input font-bold" value="${v.coef || ''}" oninput="calcQty(this)"></td>
+    <td class="p-1 border" data-label="Coef"><input type="number" class="table-input coef-input font-bold" value="${v.coef || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-coef', v)}
-    <td class="p-1 border bg-slate-50"><input type="text" class="table-input qty-input font-bold text-blue-700 text-lg" value="${v.qty || ''}" readonly></td>
+    <td class="p-1 border bg-slate-50" data-label="Quantity"><input type="text" class="table-input qty-input font-bold text-blue-700 text-lg" value="${v.qty || ''}" readonly></td>
     ${_buildCustomCellsForPosition('after-qty', v)}
-    <td class="p-1 border"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
+    <td class="p-1 border" data-label="Remarks"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
     ${_buildCustomCellsForPosition('after-remarks', v)}
-    <td class="p-1 border text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+    <td class="p-1 border text-center" data-label=""><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕ Remove Row</button></td>`;
 }
 
 export function addMoreEntries(count = 1) {

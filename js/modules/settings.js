@@ -6,7 +6,7 @@ import { showToast } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js';
 
 // ─── Tab Navigation ───
-let _activeSettingsTab = 'settPrint';
+let _activeSettingsTab = 'settCompany';
 export function switchSettingsTab(tabId) {
   _activeSettingsTab = tabId;
   document.querySelectorAll('.sett-tab-btn').forEach(b => {
@@ -23,6 +23,8 @@ export function switchSettingsTab(tabId) {
   if (tabId === 'settCurrency') renderCurrencyTab();
   if (tabId === 'settAutoNum') renderAutoNumberingTab();
   if (tabId === 'settBackup') renderBackupTab();
+  if (tabId === 'settCompany' && typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile();
+  if (tabId === 'settOrg' && typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
 }
 
 // ─── Render the Settings view on load ───

@@ -360,7 +360,8 @@ function _openRazorpayCheckout(order) {
 
 /** Render the Organization Settings view */
 export function renderOrgSettings() {
-  const container = document.getElementById('orgSettingsContent');
+  // Prefer the merged Settings tab container, fall back to standalone view
+  const container = document.getElementById('settOrgContent') || document.getElementById('orgSettingsContent');
   if (!container) return;
 
   if (!_currentOrg) {
