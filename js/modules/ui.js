@@ -805,13 +805,14 @@ window._openLabourSection = function(section) {
   if (grid) grid.style.display = 'none';
   if (backBtn) backBtn.style.display = 'inline-block';
 
-  const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster' };
+  const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster', contractors: 'labourSecContractors' };
   const el = document.getElementById(map[section]);
   if (el) el.classList.remove('hide');
 
   // Render the section content
   if (section === 'sheet') { if (typeof window.renderMonthlyMuster === 'function') window.renderMonthlyMuster(); }
   if (section === 'master') { if (typeof window.renderLabourMasterList === 'function') window.renderLabourMasterList(); }
+  if (section === 'contractors') { if (typeof window.renderContractorsList === 'function') window.renderContractorsList(); }
   if (section === 'markAtt') {
     const d = document.getElementById('attDate');
     if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
@@ -4587,6 +4588,7 @@ export function openLabourModal(editId) {
   const ids = ['labName','labPhone','labTrade','labDayRate','labAadhar','labPan','labEmergName','labEmergPhone','labAddress'];
   ids.forEach(id => setV(id, ''));
   document.getElementById('labEditId').value = editId || '';
+  _populateContractorDropdown(editId ? state.labourMaster.find(x => x.id === editId)?.contractorId : '');
   document.getElementById('labPhotoPreview').style.display = 'none';
   document.getElementById('labPhotoPlaceholder').style.display = '';
   document.getElementById('labIdDocName').textContent = 'No file';
@@ -4648,6 +4650,7 @@ export function saveLabour() {
     emergName: document.getElementById('labEmergName').value.trim(),
     emergPhone: document.getElementById('labEmergPhone').value.trim(),
     address: document.getElementById('labAddress').value.trim(),
+    contractorId: document.getElementById('labContractor')?.value || '',
     photo: _labPhotoData || '',
     idDoc: _labIdDocData || '',
   };
@@ -4689,7 +4692,7 @@ export function renderLabourMasterList() {
         ${avatar}
         <div class="min-w-0">
           <p class="font-bold text-slate-800 text-sm truncate">${l.name} ${l.labourCode ? `<span class="text-[9px] text-indigo-500 font-mono">${l.labourCode}</span>` : ''}</p>
-          <p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day${l.phone ? ' · 📞 ' + l.phone : ''}</p>
+          <p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day${l.phone ? ' · 📞 ' + l.phone : ''}${(() => { const c = (state.labourContractors||[]).find(x => x.id === l.contractorId); return c ? ' · 🧑‍🔧 ' + c.name : ''; })()}</p>
         </div>
       </div>
       <div class="flex gap-1 flex-shrink-0">
@@ -4710,6 +4713,141 @@ export function deleteLabour(id) {
 function _projectLabour() {
   return (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId);
 }
+
+// ══════════════════════════════════════════
+// CONTRACTOR / GANG MANAGEMENT
+// ══════════════════════════════════════════
+function _projectContractors() {
+  return (state.labourContractors || []).filter(c => !c.projectId || c.projectId === state.currentProjectId);
+}
+
+/** Populate the contractor dropdown in the labour onboarding modal */
+function _populateContractorDropdown(selected) {
+  const sel = document.getElementById('labContractor');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Direct (No Contractor) —</option>';
+  _projectContractors().forEach(c => {
+    sel.innerHTML += `<option value="${c.id}" ${selected === c.id ? 'selected' : ''}>${c.name}${c.phone ? ' (' + c.phone + ')' : ''}</option>`;
+  });
+}
+
+/** Quick-add a contractor / gang leader */
+window._addContractorQuick = function() {
+  const name = prompt('Contractor / Gang Leader (Mukadam) name:');
+  if (!name || !name.trim()) return;
+  const phone = prompt('Phone number (optional):') || '';
+  const c = { id: 'ctr_' + Date.now(), name: name.trim(), phone: phone.trim(), projectId: state.currentProjectId || null };
+  if (!state.labourContractors) state.labourContractors = [];
+  state.labourContractors.push(c);
+  saveAllData();
+  _populateContractorDropdown(c.id);
+  if (document.getElementById('labContractor')) document.getElementById('labContractor').value = c.id;
+  renderContractorsList();
+  showToast(`Contractor "${c.name}" added`, 'success');
+};
+
+/** linkLabourToContractor — render gangs with aggregate attendance + payout */
+window.renderContractorsList = function() {
+  const container = document.getElementById('contractorsList');
+  if (!container) return;
+  const contractors = _projectContractors();
+  if (!contractors.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">🧑‍🔧</div>No contractors yet. Add a Gang Leader (Mukadam) to group workers.</div>';
+    return;
+  }
+  const cur = getCurrencySymbol();
+  const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
+
+  container.innerHTML = contractors.map(c => {
+    const gang = _projectLabour().filter(l => l.contractorId === c.id);
+    // Aggregate this month's attendance-derived wages for the gang
+    let gangWages = 0, gangPresent = 0;
+    gang.forEach(l => {
+      const logs = (state.attendanceLogs || []).filter(a => a.labourId === l.id && a.date.startsWith(selMonth));
+      const p = logs.filter(a => a.status === 'P').length;
+      const h = logs.filter(a => a.status === 'H').length;
+      const ot = logs.reduce((s, a) => s + (a.ot || 0), 0);
+      gangWages += (p + h * 0.5) * (l.dayRate || 0) + ot * ((l.dayRate || 0) / 8) * 1.5;
+      gangPresent += p + h;
+    });
+    const gangList = gang.map(l => `<span style="display:inline-block;background:#f1f5f9;color:#475569;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;margin:2px;">${l.name} · ${l.trade}</span>`).join('') || '<span style="font-size:11px;color:#94a3b8;">No workers assigned yet — set this contractor in a worker\'s profile.</span>';
+
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a;">${c.name} ${c.phone ? `<span style="font-size:11px;color:#94a3b8;font-weight:500;">📞 ${c.phone}</span>` : ''}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">${gang.length} workers · ${gangPresent} man-days (${selMonth})</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${Math.round(gangWages).toLocaleString('en-IN')}</div>
+          <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;">Gang Wages (${selMonth})</div>
+        </div>
+      </div>
+      <div style="margin:10px 0;">${gangList}</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_payContractor('${c.id}')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Gang (${cur}${Math.round(gangWages).toLocaleString('en-IN')})</button>
+        <button onclick="_deleteContractor('${c.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window._deleteContractor = function(id) {
+  const c = (state.labourContractors || []).find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`Delete contractor "${c.name}"? Workers stay but become direct (no contractor).`)) return;
+  state.labourContractors = state.labourContractors.filter(x => x.id !== id);
+  (state.labourMaster || []).forEach(l => { if (l.contractorId === id) l.contractorId = ''; });
+  saveAllData();
+  renderContractorsList();
+  showToast('Contractor deleted', 'error');
+};
+
+/** Pay the whole gang's aggregate wages to the contractor */
+window._payContractor = function(id) {
+  const c = (state.labourContractors || []).find(x => x.id === id);
+  if (!c) return;
+  if (!state.accounts.length) { showToast('Create a payment account first', 'error'); return; }
+  const cur = getCurrencySymbol();
+  const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
+  const gang = _projectLabour().filter(l => l.contractorId === id);
+  if (!gang.length) { showToast('No workers in this gang', 'warning'); return; }
+
+  let gangWages = 0;
+  const breakdown = gang.map(l => {
+    const logs = (state.attendanceLogs || []).filter(a => a.labourId === l.id && a.date.startsWith(selMonth));
+    const p = logs.filter(a => a.status === 'P').length;
+    const h = logs.filter(a => a.status === 'H').length;
+    const ot = logs.reduce((s, a) => s + (a.ot || 0), 0);
+    const w = (p + h * 0.5) * (l.dayRate || 0) + ot * ((l.dayRate || 0) / 8) * 1.5;
+    gangWages += w;
+    return { name: l.name, days: p + h * 0.5, wage: Math.round(w) };
+  });
+  gangWages = Math.round(gangWages);
+  if (gangWages <= 0) { showToast('No wages to pay — mark attendance first', 'warning'); return; }
+
+  const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
+  const rows = breakdown.map(b => `<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 10px;">${b.name}</td><td style="padding:5px 10px;text-align:right;color:#64748b;">${b.days} days</td><td style="padding:5px 10px;text-align:right;font-weight:700;">${cur}${b.wage.toLocaleString('en-IN')}</td></tr>`).join('');
+
+  _payrollModal(`Pay Gang — ${c.name}`, `
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:10px;">Aggregate wages for ${gang.length} workers (${selMonth})</p>
+    <div style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>${rows}</tbody></table>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;"><span style="font-weight:600;">Total to ${c.name}</span><span style="font-size:18px;font-weight:800;color:#10b981;">${cur}${gangWages.toLocaleString('en-IN')}</span></div>
+    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
+    <label class="pm-l">Amount (editable)</label><input type="number" id="pmAmount" class="pm-i" value="${gangWages}">
+  `, () => {
+    const accountId = document.getElementById('pmAccount').value;
+    const amount = parseFloat(document.getElementById('pmAmount').value) || gangWages;
+    const date = new Date().toISOString().split('T')[0];
+    // Record one expense to the contractor (gang payout)
+    state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Contractor Payout', amount, remarks: `Gang payout to ${c.name} (${gang.length} workers, ${selMonth})`, projectId: state.currentProjectId });
+    saveAllData(); renderContractorsList();
+    showToast(`Paid ${cur}${amount.toLocaleString('en-IN')} to ${c.name}`, 'success');
+    return true;
+  }, 'Pay Contractor', 440);
+};
 
 export function loadAttendanceSheet() {
   const date = document.getElementById('attDate').value;
