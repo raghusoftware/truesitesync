@@ -5141,9 +5141,24 @@ export function saveLabourPayment() {
 // PAYROLL — advances, deductions, settlement
 // ══════════════════════════════════════════
 
-/** Net outstanding for a worker = salary posted − payments − advances(unsettled) − deductions */
+/** Earned wages from attendance logs (all-time) for a worker, incl. OT at 1.5x */
+function _labourEarnedFromAttendance(labourId) {
+  const l = state.labourMaster.find(x => x.id === labourId);
+  if (!l) return 0;
+  const logs = (state.attendanceLogs || []).filter(a => a.labourId === labourId);
+  const present = logs.filter(a => a.status === 'P').length;
+  const half = logs.filter(a => a.status === 'H').length;
+  const ot = logs.reduce((s, a) => s + (a.ot || 0), 0);
+  const rate = l.dayRate || 0;
+  return Math.round((present + half * 0.5) * rate + ot * (rate / 8) * 1.5);
+}
+
+/** Net outstanding for a worker. Uses posted salary if any, else earned-from-attendance. */
 function _labourNetPayable(labourId) {
-  const salary = (state.labourSalaries || []).filter(s => s.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const postedSalary = (state.labourSalaries || []).filter(s => s.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const earned = _labourEarnedFromAttendance(labourId);
+  // Use the larger of posted salary vs earned-from-attendance so workers always show
+  const salary = Math.max(postedSalary, earned);
   const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   const advances = (state.labourAdvances || []).filter(a => a.labourId === labourId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   const deductions = (state.labourDeductions || []).filter(d => d.labourId === labourId && !d.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
@@ -5209,7 +5224,11 @@ window._bulkLabourPayment = function() {
 
   // Compute net payable per worker
   const rows = labours.map(l => ({ l, ...(_labourNetPayable(l.id)) })).filter(r => r.net > 0);
-  if (!rows.length) { showToast('No pending payouts. Post salaries from Attendance Sheet first.', 'warning'); return; }
+  if (!rows.length) {
+    // Fallback: no computed dues → manual flat-amount payout to all
+    _manualBulkPayment(labours);
+    return;
+  }
   const grandTotal = rows.reduce((s, r) => s + r.net, 0);
   const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
 
@@ -5252,6 +5271,32 @@ window._bulkLabourPayment = function() {
     return true;
   }, 'Pay All', 520);
 };
+
+/** Fallback: flat-amount payout when no computed dues exist */
+function _manualBulkPayment(labours) {
+  const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
+  const workerOpts = labours.map(l => `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;"><input type="checkbox" class="mbp-chk" value="${l.id}" checked style="width:16px;height:16px;"> ${l.name} <span style="color:#94a3b8;font-size:11px;">(${l.trade || '—'})</span></label>`).join('');
+  _payrollModal('Bulk Payment', `
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">No salaries posted yet. Pay a flat amount to selected workers.</p>
+    <label class="pm-l">Amount per worker (₹)</label><input type="number" id="mbpAmount" class="pm-i" placeholder="0">
+    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
+    <label class="pm-l">Workers (<span id="mbpCount">${labours.length}</span> selected)</label>
+    <div style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-top:4px;" onchange="document.getElementById('mbpCount').textContent=document.querySelectorAll('.mbp-chk:checked').length">${workerOpts}</div>
+  `, () => {
+    const amt = parseFloat(document.getElementById('mbpAmount').value) || 0;
+    const accountId = document.getElementById('pmAccount').value;
+    if (amt <= 0) { showToast('Enter valid amount', 'error'); return false; }
+    const selected = [...document.querySelectorAll('.mbp-chk:checked')].map(c => c.value);
+    if (!selected.length) { showToast('Select at least one worker', 'error'); return false; }
+    const date = new Date().toISOString().split('T')[0];
+    selected.forEach(id => {
+      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), labourId: id, date, accountId, amount: amt, ref: 'Bulk Payment' });
+    });
+    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    showToast(`Paid ${getCurrencySymbol()}${(amt * selected.length).toLocaleString('en-IN')} to ${selected.length} workers`, 'success');
+    return true;
+  }, 'Pay Selected', 420);
+}
 
 /** calculateFinalSettlement — worker leaving the site */
 window._finalSettlement = function() {
