@@ -176,9 +176,7 @@
         <!-- ── System ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
         <button onclick="switchView('masterData')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="masterData"><span style="font-size:13px">&#9881;</span> Master Data</button>
-        <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#128295;</span> Settings</button>
-        <button onclick="switchView('companyProfileView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="companyProfileView"><span style="font-size:13px">&#127970;</span> Company</button>
-        <button onclick="switchView('orgSettingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="orgSettingsView"><span style="font-size:13px">&#127963;</span> Organization</button>
+        <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#9881;</span> Settings & Config</button>
         <!-- Super Admin (hidden by default, shown only for admin emails) -->
         <div id="superAdminNav" style="display:none;">
           <p class="px-3 text-[9px] font-bold text-red-400 uppercase tracking-widest mt-4 mb-1.5">Super Admin</p>
@@ -1005,7 +1003,12 @@
 
         <!-- ═══════ MASTER DATA ═══════ -->
         <div id="masterData" class="view-section hide">
-            <h2 class="text-3xl font-extrabold text-slate-800 mb-6">Master Data</h2>
+            <h2 class="text-3xl font-extrabold text-slate-800 mb-2">Master Data</h2>
+            <p class="text-sm text-slate-400 mb-5">Manage clients, items, materials & team roles</p>
+            <div id="masterDataGrid"></div>
+            <div id="masterDataTables" style="display:none;">
+              <button onclick="switchView('masterData')" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Master Data</button>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="bg-white rounded-xl shadow-sm border p-6">
                     <div class="flex justify-between items-center mb-4">
@@ -1092,11 +1095,31 @@
               </div>
             </div>
             <div class="flex gap-1 mb-5 bg-slate-100 p-1 rounded-xl flex-wrap" style="max-width:fit-content;">
-              <button onclick="switchSettingsTab('settPrint')" data-tab="settPrint" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-blue-600 text-white transition">&#128424; Print Config</button>
-              <button onclick="switchSettingsTab('settThemes')" data-tab="settThemes" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#127912; PDF Themes</button>
+              <button onclick="switchSettingsTab('settCompany')" data-tab="settCompany" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-blue-600 text-white transition">&#127970; Company</button>
+              <button onclick="switchSettingsTab('settOrg')" data-tab="settOrg" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#127963; Organization</button>
+              <button onclick="switchSettingsTab('settPrint')" data-tab="settPrint" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#128424; Print</button>
+              <button onclick="switchSettingsTab('settThemes')" data-tab="settThemes" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#127912; Themes</button>
               <button onclick="switchSettingsTab('settCurrency')" data-tab="settCurrency" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#128176; Currency</button>
               <button onclick="switchSettingsTab('settAutoNum')" data-tab="settAutoNum" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#128290; Numbering</button>
               <button onclick="switchSettingsTab('settBackup')" data-tab="settBackup" class="sett-tab-btn px-4 py-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 transition">&#128190; Backup</button>
+            </div>
+            <!-- Company Profile (merged into settings) -->
+            <div id="settCompany" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">&#127970;</span>
+                <div><h3 class="text-base font-bold text-slate-800">Company Profile</h3>
+                <p class="text-[10px] text-slate-400">Logo, name, address, GST & contact details</p></div>
+              </div>
+              <div id="settCompanyContent"></div>
+            </div>
+            <!-- Organization (merged into settings) -->
+            <div id="settOrg" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">&#127963;</span>
+                <div><h3 class="text-base font-bold text-slate-800">Organization & Team</h3>
+                <p class="text-[10px] text-slate-400">Team members, invites, billing & seat limits</p></div>
+              </div>
+              <div id="settOrgContent"></div>
             </div>
             <div id="settPrint" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5">
               <div class="flex items-center gap-2 mb-3">

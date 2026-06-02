@@ -648,6 +648,33 @@ function _showDropdown(btn, menuId, items) {
 window._showAbsDropdown = _showDropdown;
 
 // ==========================================
+// ICON GRID BUILDER
+// ==========================================
+function _buildIconGrid(containerId, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+    ${items.map(m => `
+      <div onclick="${m.action}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px 16px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.08)';this.style.borderColor='#bfdbfe'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)';this.style.borderColor='#e2e8f0'">
+        <div style="width:48px;height:48px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">${m.icon}</div>
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:3px;">${m.label}</div>
+        <div style="font-size:10px;color:#94a3b8;line-height:1.3;">${m.desc}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function _renderMasterDataGrid() {
+  _buildIconGrid('masterDataGrid', [
+    { icon: '🏢', label: 'Clients', desc: 'Manage client list', color: '#2563eb', action: "document.getElementById('masterDataGrid').innerHTML='';renderClientTable();document.getElementById('masterDataTables').style.display=''" },
+    { icon: '📋', label: 'Items Master', desc: 'Execution items', color: '#f97316', action: "document.getElementById('masterDataGrid').innerHTML='';renderItemMasterTable();document.getElementById('masterDataTables').style.display=''" },
+    { icon: '📦', label: 'Materials', desc: 'Raw materials & tools', color: '#10b981', action: "document.getElementById('masterDataGrid').innerHTML='';renderRawMaterialTable();document.getElementById('masterDataTables').style.display=''" },
+    { icon: '👥', label: 'Users & Roles', desc: 'Team permissions', color: '#7c3aed', action: "document.getElementById('masterDataGrid').innerHTML='';if(typeof renderUsersRolesPanel==='function')renderUsersRolesPanel();document.getElementById('masterDataTables').style.display=''" },
+  ]);
+  const tables = document.getElementById('masterDataTables');
+  if (tables) tables.style.display = 'none';
+}
+
+// ==========================================
 // VIEW SWITCHING
 // ==========================================
 export function switchView(viewId) {
@@ -688,7 +715,7 @@ export function switchView(viewId) {
     document.getElementById('billingAbstractsContainer').classList.add('hide');
     renderInvoiceHistory();
   }
-  if (viewId === 'masterData') { renderClientTable(); renderItemMasterTable(); renderRawMaterialTable(); if(typeof window.renderUsersRolesPanel==='function') window.renderUsersRolesPanel(); }
+  if (viewId === 'masterData') _renderMasterDataGrid();
   if (viewId === 'clientDashboardView') renderClientHub();
   if (viewId === 'partiesLedgerView') renderPartiesList();
   if (viewId === 'equipmentView') {
@@ -723,9 +750,25 @@ export function switchView(viewId) {
   if (viewId === 'purchaseOrderView') renderPurchaseOrders();
   if (viewId === 'purchaseReturnView') renderPurchaseReturns();
   if (viewId === 'purchaseAssetsView') renderFixedAssets();
-  if (viewId === 'settingsView') { if (typeof window.renderSettingsView === 'function') window.renderSettingsView(); }
-  if (viewId === 'companyProfileView') { if (typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile(); }
-  if (viewId === 'orgSettingsView') { if (typeof window.renderOrgSettings === 'function') window.renderOrgSettings(); }
+  if (viewId === 'settingsView') {
+    if (typeof window.renderSettingsView === 'function') window.renderSettingsView();
+    // Load company profile into merged tab
+    if (typeof window.loadCompanyProfile === 'function') {
+      const cp = document.getElementById('settCompanyContent');
+      const cpOld = document.getElementById('companyProfileContent');
+      if (cp && cpOld) cp.innerHTML = cpOld.innerHTML;
+      window.loadCompanyProfile();
+    }
+    // Load org settings into merged tab
+    if (typeof window.renderOrgSettings === 'function') {
+      const orgOld = document.getElementById('orgSettingsContent');
+      const orgNew = document.getElementById('settOrgContent');
+      if (orgNew && orgOld) orgNew.innerHTML = orgOld.innerHTML;
+      window.renderOrgSettings();
+    }
+  }
+  if (viewId === 'companyProfileView') { switchView('settingsView'); return; }
+  if (viewId === 'orgSettingsView') { switchView('settingsView'); return; }
   if (viewId === 'superAdminView') { if (typeof window.renderSuperAdminDashboard === 'function') window.renderSuperAdminDashboard(); }
 
   // Auto-open sidebar dropdown if navigating to a submenu view
