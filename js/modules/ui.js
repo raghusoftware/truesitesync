@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, mobileSavePDF, mobileDownloadBlob } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
 import { getActiveThemeId, renderWithTheme, getThemeList, THEMES } from './pdfThemes.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
@@ -435,7 +435,7 @@ export function downloadBOQTemplate() {
   ws['!cols'] = [{ wch: 12 }, { wch: 40 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 8 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'BOQ Template');
-  XLSX.writeFile(wb, 'BOQ_Template.xlsx');
+  mobileSaveXLSX(wb, 'BOQ_Template.xlsx');
   showToast('Template downloaded!');
 }
 
@@ -3043,7 +3043,7 @@ export function exportDetailedMeasurementExcel() {
   if (bbsWs) XLSX.utils.book_append_sheet(wb, bbsWs, 'BBS');
   XLSX.utils.book_append_sheet(wb, absWs, 'Abstract');
 
-  XLSX.writeFile(wb, `RA_Bill_${s.sheetNum}_${s.date}.xlsx`);
+  mobileSaveXLSX(wb, `RA_Bill_${s.sheetNum}_${s.date}.xlsx`);
   showToast('Detailed RA Excel exported', 'success');
 }
 
@@ -3483,7 +3483,7 @@ export function exportDetailedAbstractExcel(id) {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Detailed Abstract');
-  XLSX.writeFile(wb, `Detailed_${a.abstractNum}.xlsx`);
+  mobileSaveXLSX(wb, `Detailed_${a.abstractNum}.xlsx`);
 }
 
 export function exportRABillExcel(abstractId) {
@@ -3709,7 +3709,7 @@ export function exportRABillExcel(abstractId) {
   XLSX.utils.book_append_sheet(wb, mesWs, 'RA Measurement');
   if (bbsWs) XLSX.utils.book_append_sheet(wb, bbsWs, 'BBS');
   XLSX.utils.book_append_sheet(wb, absWs, 'Abstract');
-  XLSX.writeFile(wb, `RA_Bill_${a.abstractNum}_${a.date}.xlsx`);
+  mobileSaveXLSX(wb, `RA_Bill_${a.abstractNum}_${a.date}.xlsx`);
   showToast('RA Bill Excel exported', 'success');
 }
 

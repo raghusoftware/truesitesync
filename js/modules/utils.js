@@ -329,13 +329,72 @@ export function getCompanyHeaderForPDF(doc) {
   return y + hs.headerSpacing;
 }
 
+/** Is the app running inside the Capacitor Android WebView? */
+function _isCapacitor() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+/** Convert a Blob to base64 string (no data: prefix) */
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Save a file on device via Capacitor Filesystem, then open Share sheet */
+async function _capacitorSaveAndShare(base64, filename, mimeType) {
+  const { Filesystem } = window.Capacitor.Plugins;
+  // Write to cache directory (no permission needed). Use string enum value.
+  const result = await Filesystem.writeFile({
+    path: filename,
+    data: base64,
+    directory: 'CACHE',
+  });
+  // Open share/open sheet so user can save or open the file
+  try {
+    const { Share } = window.Capacitor.Plugins;
+    if (Share) {
+      await Share.share({
+        title: filename,
+        url: result.uri,
+        dialogTitle: 'Save or open ' + filename,
+      });
+      return;
+    }
+  } catch (_) {}
+  // Fallback: try FileOpener
+  try {
+    const { FileOpener } = window.Capacitor.Plugins;
+    if (FileOpener) { await FileOpener.open({ filePath: result.uri, contentType: mimeType }); return; }
+  } catch (_) {}
+}
+
 /**
- * Mobile-friendly file download helper.
- * On Capacitor/mobile, doc.save() may not work — use blob + data URI fallback.
+ * Mobile-friendly PDF save.
+ * - Capacitor APK → Filesystem + Share
+ * - Web/Desktop → standard download
  */
 export function mobileSavePDF(doc, filename) {
-  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  if (isMobile) {
+  if (_isCapacitor()) {
+    (async () => {
+      try {
+        const blob = doc.output('blob');
+        const base64 = await _blobToBase64(blob);
+        await _capacitorSaveAndShare(base64, filename, 'application/pdf');
+        showToast('PDF ready — choose where to save', 'success');
+      } catch (e) {
+        try { window.open(doc.output('datauristring'), '_blank'); } catch(_) {}
+        showToast('Download failed: ' + (e.message || e), 'error');
+      }
+    })();
+    return;
+  }
+  // Web / Desktop
+  const isMobileBrowser = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobileBrowser) {
     try {
       const blob = doc.output('blob');
       const url = URL.createObjectURL(blob);
@@ -344,16 +403,39 @@ export function mobileSavePDF(doc, filename) {
       document.body.appendChild(a); a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
     } catch(e) {
-      // Fallback: open as data URI in new tab
-      const dataUri = doc.output('datauristring');
-      window.open(dataUri, '_blank');
+      window.open(doc.output('datauristring'), '_blank');
     }
   } else {
     doc.save(filename);
   }
 }
 
+/** Mobile-friendly XLSX workbook save (Capacitor APK or web) */
+export function mobileSaveXLSX(wb, filename) {
+  try {
+    const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    mobileDownloadBlob(blob, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  } catch (e) {
+    // Fallback to native writeFile (desktop browsers)
+    try { window.XLSX.writeFile(wb, filename); } catch(_) {}
+  }
+}
+
+/** Mobile-friendly blob download (for Excel etc.) */
 export function mobileDownloadBlob(blob, filename, mimeType) {
+  if (_isCapacitor()) {
+    (async () => {
+      try {
+        const base64 = await _blobToBase64(blob);
+        await _capacitorSaveAndShare(base64, filename, mimeType || 'application/octet-stream');
+        showToast('File ready — choose where to save', 'success');
+      } catch (e) {
+        showToast('Download failed: ' + (e.message || e), 'error');
+      }
+    })();
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.target = '_blank';

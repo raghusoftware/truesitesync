@@ -589,7 +589,13 @@ const APP_VERSION = '1.4.1';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
+  // Electron handles its own updates
   if (window.process?.versions?.electron) return;
+  // The WEB app (truesitesync.com) is ALWAYS the latest on refresh — never show banner.
+  // Only the installed APK (fixed version) needs an update check.
+  const isAPK = navigator.userAgent.includes('TrueSiteSync-Android');
+  if (!isAPK) return;
+
   const dismissed = localStorage.getItem('tss_update_dismissed');
   try {
     const res = await fetch(GH_RELEASES_API);
@@ -597,7 +603,6 @@ async function _checkForAppUpdate() {
     const release = await res.json();
     const latest = (release.tag_name || '').replace('v', '');
     if (!latest) return;
-    // Don't show if already on latest or user dismissed this version
     if (!_isNewerVersion(latest, APP_VERSION)) return;
     if (dismissed === latest) return;
     _showUpdateBanner(latest);

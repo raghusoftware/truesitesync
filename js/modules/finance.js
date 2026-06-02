@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF } from './utils.js';
 
 export function calcPurchaseTotal() {
   let subtotal = 0;
@@ -492,7 +492,7 @@ export function exportMasterList(type) {
     });
     doc.autoTable({ startY: y + 15, head: [['Vendor Name', 'Total Supplied ('+getCurrencySymbol()+')', 'Total Paid ('+getCurrencySymbol()+')', 'Balance Payable ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 40 }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 45 } } });
   }
-  doc.save(`${type}_MasterList.pdf`);
+  mobileSavePDF(doc, `${type}_MasterList.pdf`);
 }
 
 export function exportVendorLedgerPDF() {
@@ -518,7 +518,7 @@ export function exportVendorLedgerPDF() {
     rows.push([l.date, l.desc, l.debit ? getCurrencySymbol() + l.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', l.credit ? getCurrencySymbol() + l.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', getCurrencySymbol() + bal.toLocaleString('en-IN', {minimumFractionDigits: 2})]);
   });
   doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+getCurrencySymbol()+')', 'Credit ('+getCurrencySymbol()+')', 'Balance ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
-  doc.save(`VendorLedger_${v.name}.pdf`);
+  mobileSavePDF(doc, `VendorLedger_${v.name}.pdf`);
 }
 
 export function exportClientStatementPDF() {
@@ -539,7 +539,7 @@ export function exportClientStatementPDF() {
     rows.push([s.date, cleanDesc, s.debit ? getCurrencySymbol() + s.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', s.credit ? getCurrencySymbol() + s.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', getCurrencySymbol() + bal.toLocaleString('en-IN', {minimumFractionDigits: 2})]);
   });
   doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+getCurrencySymbol()+')', 'Credit ('+getCurrencySymbol()+')', 'Balance ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
-  doc.save(`Ledger_${c.name}.pdf`);
+  mobileSavePDF(doc, `Ledger_${c.name}.pdf`);
 }
 
 function updateDashboard() {
