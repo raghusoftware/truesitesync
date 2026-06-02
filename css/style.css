@@ -823,6 +823,64 @@ div[id$="FormPanel"]:not(.hidden) {
 
   /* Login page mobile */
   #loginPage > div { width: 95% !important; max-width: 100% !important; padding: 24px 20px !important; }
+
+  /* ── Measurement sheet mobile overhaul ── */
+  .fullscreen-sheet .excel-table {
+    font-size: 11px !important;
+    min-width: auto !important;
+  }
+  .fullscreen-sheet .excel-table th {
+    font-size: 9px !important;
+    padding: 4px 3px !important;
+    white-space: nowrap;
+  }
+  .fullscreen-sheet .excel-table td {
+    padding: 2px 1px !important;
+  }
+  .fullscreen-sheet .table-input {
+    font-size: 12px !important;
+    padding: 6px 4px !important;
+    min-height: 32px;
+  }
+  /* Hide less-used columns on small screens */
+  .fullscreen-sheet .excel-table .col-coef,
+  .fullscreen-sheet .excel-table .col-remarks {
+    display: none;
+  }
+  /* Measurement header — stack on mobile */
+  .fullscreen-sheet .flex.items-center.justify-between {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .fullscreen-sheet .flex.items-center.justify-between .flex.gap-3 {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  /* Project info banner — compact */
+  .fullscreen-sheet .grid.grid-cols-3 {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  /* Quick actions — wrap */
+  .fullscreen-sheet .flex.gap-3 { flex-wrap: wrap; gap: 6px !important; }
+
+  /* ── Parties Ledger mobile ── */
+  #partiesLedgerView {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  #partiesLedgerView > div:first-child {
+    width: 100% !important;
+    max-height: 200px;
+  }
+  #partiesLedgerView > div:last-child {
+    width: 100% !important;
+  }
+
+  /* ── Splash screen mobile ── */
+  #splashScreen h1 { font-size: 18px !important; }
+  #splashScreen p { font-size: 11px !important; }
 }
 
 /* Extra small phones */

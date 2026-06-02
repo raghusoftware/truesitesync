@@ -419,9 +419,8 @@ function _bootApp() {
   // Show sync badge
   _updateSyncBadge();
 
-  if (!state.clients.length && !state.sheets.length) {
-    seedDemoData();
-  }
+  // No demo data — fresh start for new users
+  // if (!state.clients.length && !state.sheets.length) { seedDemoData(); }
   // Migrate existing data to projects if needed
   if (state.projects.length && state.clients.some(c => !c.projectId)) {
     migrateToProjects();
@@ -586,23 +585,22 @@ setInterval(_updateSyncBadge, 10000);
 // ══════════════════════════════════════
 // IN-APP UPDATE CHECKER
 // ══════════════════════════════════════
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
-  // Skip in Electron (uses electron-updater)
   if (window.process?.versions?.electron) return;
-
+  const dismissed = localStorage.getItem('tss_update_dismissed');
   try {
     const res = await fetch(GH_RELEASES_API);
     if (!res.ok) return;
     const release = await res.json();
     const latest = (release.tag_name || '').replace('v', '');
     if (!latest) return;
-
-    if (_isNewerVersion(latest, APP_VERSION)) {
-      _showUpdateBanner(latest, release.html_url);
-    }
+    // Don't show if already on latest or user dismissed this version
+    if (!_isNewerVersion(latest, APP_VERSION)) return;
+    if (dismissed === latest) return;
+    _showUpdateBanner(latest);
   } catch {}
 }
 
@@ -616,25 +614,16 @@ function _isNewerVersion(latest, current) {
   return false;
 }
 
-function _showUpdateBanner(version, url) {
-  const existing = document.getElementById('updateBanner');
-  if (existing) return;
-
-  const banner = document.createElement('div');
-  banner.id = 'updateBanner';
-  banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#fff;border:1px solid #bfdbfe;border-radius:14px;padding:16px 20px;box-shadow:0 8px 30px rgba(0,0,0,.12);max-width:340px;font-family:Inter,sans-serif;animation:fadeIn .3s ease;';
-  banner.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:12px;">
-      <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🚀</div>
-      <div style="flex:1;">
-        <p style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 4px;">Update Available — v${version}</p>
-        <p style="font-size:11px;color:#64748b;margin:0 0 10px;">A new version of True Site Sync is available with bug fixes and new features.</p>
-        <div style="display:flex;gap:8px;">
-          <button onclick="window.open('https://truesitesync.com/#download','_blank')" style="padding:6px 14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Update Now</button>
-          <button onclick="this.closest('#updateBanner').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Later</button>
-        </div>
-      </div>
-      <button onclick="this.closest('#updateBanner').remove()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:0;line-height:1;">×</button>
-    </div>`;
-  document.body.appendChild(banner);
+function _showUpdateBanner(version) {
+  if (document.getElementById('updateBanner')) return;
+  const b = document.createElement('div');
+  b.id = 'updateBanner';
+  b.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#fff;border:1px solid #bfdbfe;border-radius:14px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,.12);max-width:320px;font-family:Inter,sans-serif;';
+  b.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:20px;">🚀</span>
+    <div style="flex:1;"><p style="font-size:12px;font-weight:700;color:#0f172a;margin:0;">Update v${version}</p><p style="font-size:10px;color:#64748b;margin:2px 0 0;">New version available</p></div>
+    <button onclick="window.open('https://truesitesync.com/#download','_blank')" style="padding:5px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">Update</button>
+    <button onclick="localStorage.setItem('tss_update_dismissed','${version}');this.closest('#updateBanner').remove()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;">×</button>
+  </div>`;
+  document.body.appendChild(b);
 }

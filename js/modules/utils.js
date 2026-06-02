@@ -328,3 +328,35 @@ export function getCompanyHeaderForPDF(doc) {
   }
   return y + hs.headerSpacing;
 }
+
+/**
+ * Mobile-friendly file download helper.
+ * On Capacitor/mobile, doc.save() may not work — use blob + data URI fallback.
+ */
+export function mobileSavePDF(doc, filename) {
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile) {
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.target = '_blank';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    } catch(e) {
+      // Fallback: open as data URI in new tab
+      const dataUri = doc.output('datauristring');
+      window.open(dataUri, '_blank');
+    }
+  } else {
+    doc.save(filename);
+  }
+}
+
+export function mobileDownloadBlob(blob, filename, mimeType) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.target = '_blank';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}

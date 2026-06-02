@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 import { getActiveThemeId, renderWithTheme, getThemeList, THEMES } from './pdfThemes.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
@@ -2461,7 +2461,7 @@ export function exportSimpleMeasurementPdf() {
     const doc = new window.jspdf.jsPDF(themeId === 'compact_onsite' ? 'portrait' : 'landscape');
     const data = { sheetNum: s.sheetNum, date: s.date, area: s.area || '', clientName: c?.name || proj?.clientName || '', projectName: proj?.name || '', entries: s.entries || [], customColumns: s.customColumns || [] };
     renderWithTheme('measurement', themeId, doc, data);
-    doc.save(`Measurement_${s.sheetNum}.pdf`);
+    mobileSavePDF(doc,`Measurement_${s.sheetNum}.pdf`);
     return;
   }
 
@@ -2538,7 +2538,7 @@ export function exportSimpleMeasurementPdf() {
     });
   }
 
-  doc.save(`Measurement_${s.sheetNum}.pdf`);
+  mobileSavePDF(doc,`Measurement_${s.sheetNum}.pdf`);
 }
 
 /** Detailed RA Bill / Measurement Sheet PDF (VMC format) */
@@ -2743,7 +2743,7 @@ export function exportDetailedMeasurementPdf() {
     });
   }
 
-  doc.save(`Detailed_Measurement_${s.sheetNum}.pdf`);
+  mobileSavePDF(doc,`Detailed_Measurement_${s.sheetNum}.pdf`);
 }
 
 export function exportToExcel() {
@@ -3197,7 +3197,7 @@ export function exportAbstractPDF(id) {
     const doc = new window.jspdf.jsPDF();
     const data = { abstractNum: a.abstractNum, date: a.date, sheetNum: a.sheetNum, area: a.area, clientName: c?.name || '', projectName: c?.projectName || proj?.name || '', items: a.items || [], totalAmount: a.totalAmount || 0, gstType: a.gstType, taxPct: a.taxPct, taxAmount: a.taxAmount, subtotal: a.subtotal };
     renderWithTheme('abstract', themeId, doc, data);
-    doc.save(`${a.abstractNum}.pdf`);
+    mobileSavePDF(doc,`${a.abstractNum}.pdf`);
     return;
   }
 
@@ -3216,7 +3216,7 @@ export function exportAbstractPDF(id) {
   doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
   doc.text(`Grand Total Amount: ${formatINR2(a.totalAmount)}`, 14, doc.lastAutoTable.finalY + 12);
-  doc.save(`${a.abstractNum}.pdf`);
+  mobileSavePDF(doc,`${a.abstractNum}.pdf`);
 }
 
 export function exportDetailedAbstractPDF(id) {
@@ -3336,7 +3336,7 @@ export function exportDetailedAbstractPDF(id) {
   doc.text('Checked By', pw / 2 - 15, finalY); doc.line(pw / 2 - 25, finalY + 2, pw / 2 + 15, finalY + 2);
   doc.text('Approved By', pw - 40, finalY); doc.line(pw - 50, finalY + 2, pw - 10, finalY + 2);
 
-  doc.save(`Detailed_${a.abstractNum}.pdf`);
+  mobileSavePDF(doc,`Detailed_${a.abstractNum}.pdf`);
 }
 
 export function exportDetailedAbstractExcel(id) {
@@ -3757,7 +3757,7 @@ export function exportInvoicePDF(id) {
     });
     const data = { invoiceNum: inv.invoiceNum, date: inv.date, clientName: c?.name || '', projectName: c?.projectName || proj?.name || '', status: inv.status, items, subtotal: inv.subtotal, taxAmount: inv.taxAmount, gstType: inv.gstType, taxPct: inv.taxPct, totalAmount: inv.totalAmount };
     renderWithTheme('invoice', themeId, doc, data);
-    doc.save(`${inv.invoiceNum}.pdf`);
+    mobileSavePDF(doc,`${inv.invoiceNum}.pdf`);
     return;
   }
 
@@ -3788,7 +3788,7 @@ export function exportInvoicePDF(id) {
   }
   doc.setFontSize(12); doc.setTextColor(249, 115, 22);
   doc.text(`Grand Total:`, 120, tY + 4); doc.text(formatINR2(inv.totalAmount), 196, tY + 4, null, null, "right");
-  doc.save(`${inv.invoiceNum}.pdf`);
+  mobileSavePDF(doc,`${inv.invoiceNum}.pdf`);
 }
 
 export function cancelInvoice(id) {
@@ -3892,7 +3892,7 @@ export function exportEstimatePDF(id) {
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
   doc.text(`Total Estimate Value: ${formatINR2(e.total)}`, 14, tY);
   if (e.terms) { tY += 15; doc.setFontSize(10); doc.text("Terms & Conditions:", 14, tY); doc.setFont("helvetica", "normal"); doc.text(e.terms, 14, tY + 6, { maxWidth: 180 }); }
-  doc.save(`${e.estNum}.pdf`);
+  mobileSavePDF(doc,`${e.estNum}.pdf`);
 }
 
 // ==========================================
@@ -4507,7 +4507,7 @@ export function downloadMusterCard() {
     return row;
   });
   doc.autoTable({ startY: nextY, head: [headRow], body: bodyRows, theme: 'grid', styles: { fontSize: 5.5, cellPadding: 1, overflow: 'linebreak' }, headStyles: { fillColor: [30, 58, 138], fontSize: 5.5 }, columnStyles: { 0: { cellWidth: 26, overflow: 'linebreak' }, 1: { cellWidth: 14 } } });
-  doc.save(`Muster_${selMonth}.pdf`);
+  mobileSavePDF(doc,`Muster_${selMonth}.pdf`);
   showToast('Muster Card Downloaded!', 'success');
 }
 
@@ -6306,7 +6306,7 @@ export function exportSaleInvoicePDF(id) {
     const items = (inv.items || []).map((it, idx) => ({ sn: idx+1, ref: it.hsn || '', desc: it.desc, qty: it.qty, unit: it.unit, rate: it.rate, taxPct: it.taxPct, amount: it.amount }));
     const data = { invoiceNum: inv.invoiceNo || '', date: inv.date, clientName, projectName: inv.projectName || '', status: inv.status || 'Active', items, subtotal: inv.subtotal, taxAmount: inv.gstAmount || 0, gstType: inv.gstType, taxPct: inv.taxPct, totalAmount: inv.grandTotal || inv.subtotal + (inv.gstAmount||0), payType: inv.payType };
     renderWithTheme('invoice', themeId, doc, data);
-    doc.save(`SaleInvoice_${inv.invoiceNo || id}.pdf`);
+    mobileSavePDF(doc,`SaleInvoice_${inv.invoiceNo || id}.pdf`);
     return;
   }
 
@@ -6353,7 +6353,7 @@ export function exportSaleInvoicePDF(id) {
     doc.text(label + ':', pw - 70, y); doc.text(val, pw - 14, y, { align: 'right' }); y += 5;
   });
   if (inv.notes) { y += 4; doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.text('Notes: ' + inv.notes, 14, y); }
-  doc.save((inv.invoiceNo || 'Invoice') + '.pdf');
+  mobileSavePDF(doc,(inv.invoiceNo || 'Invoice') + '.pdf');
   showToast('PDF downloaded!');
 }
 
@@ -6395,7 +6395,7 @@ export function exportSalesLedgerPDF() {
     styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'linebreak' }, margin: { left: 8, right: 8 },
     columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 18 }, 2: { cellWidth: 28, overflow: 'linebreak' }, 3: { cellWidth: 28, overflow: 'linebreak' }, 4: { cellWidth: 18 }, 5: { halign: 'right', cellWidth: 22 }, 6: { halign: 'right', cellWidth: 18 }, 7: { halign: 'right', cellWidth: 22 }, 8: { halign: 'right', cellWidth: 22 }, 9: { halign: 'right', cellWidth: 22 }, 10: { cellWidth: 16 } }
   });
-  doc.save('Sales_Ledger_' + new Date().toISOString().slice(0, 10) + '.pdf');
+  mobileSavePDF(doc,'Sales_Ledger_' + new Date().toISOString().slice(0, 10) + '.pdf');
   showToast('Sales Ledger PDF downloaded!');
 }
 
