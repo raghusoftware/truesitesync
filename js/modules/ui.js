@@ -879,6 +879,7 @@ export function switchView(viewId) {
     const today = new Date().toISOString().split('T')[0];
     if (document.getElementById('eqLogDate')) document.getElementById('eqLogDate').value = today;
     renderEquipmentView();
+    if (typeof window._openEquipSection === 'function') window._openEquipSection(null);
   }
   if (viewId === 'masterFinancialView') { renderMasterClientList(); renderMasterVendorList(); }
   if (viewId === 'measurementListView') renderMeasurementList();

@@ -211,6 +211,28 @@ export function saveEquipment() {
   showToast('Equipment Added', 'success');
 }
 
+/** App-icon section navigation for Equipment module */
+window._openEquipSection = function(section) {
+  const grid = document.getElementById('equipGrid');
+  const backBtn = document.getElementById('equipBackBtn');
+  document.querySelectorAll('.equip-section').forEach(s => s.classList.add('hide'));
+  if (!section) {
+    if (grid) grid.style.display = 'grid';
+    if (backBtn) backBtn.style.display = 'none';
+    return;
+  }
+  if (grid) grid.style.display = 'none';
+  if (backBtn) backBtn.style.display = 'inline-block';
+  const map = { fleet: 'equipSecFleet', log: 'equipSecLog', activity: 'equipSecActivity' };
+  const el = document.getElementById(map[section]);
+  if (el) el.classList.remove('hide');
+  if (section === 'log') {
+    const d = document.getElementById('eqLogDate');
+    if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
+  }
+  if (section === 'activity') renderEquipmentLog();
+};
+
 export function renderEquipmentView() {
   const fleet = document.getElementById('equipmentFleetList');
   const eqLogAsset = document.getElementById('eqLogAsset');
