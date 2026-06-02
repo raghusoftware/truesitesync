@@ -17,6 +17,11 @@ import { getEntryFormButton, hasEntryForm } from '../modules/formEngine.js';
 
 const engine = new ReportEngine();
 
+// Executive MIS / Dashboard reports now live in the dedicated Analytics page.
+// Exclude that category from the Reports module so it shows operational reports only.
+const HIDDEN_CATEGORY_IDS = ['dashboard'];
+const VISIBLE_CATEGORIES = REPORT_CATEGORIES.filter(c => !HIDDEN_CATEGORY_IDS.includes(c.id));
+
 let _currentCategoryId = null;
 let _currentReportId = null;
 let _breadcrumb = [];
@@ -38,8 +43,8 @@ export function renderReportsDashboard() {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
 
-  const totalReports = ReportEngine.getTotalReportCount();
-  const totalCats = REPORT_CATEGORIES.length;
+  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + c.reports.length, 0);
+  const totalCats = VISIBLE_CATEGORIES.length;
 
   // Summary KPI bar
   const projectCount = (state.projects || []).length;
@@ -84,7 +89,7 @@ export function renderReportsDashboard() {
     <div class="rpt-category-grid" id="reportCategoryGrid">
   `;
 
-  REPORT_CATEGORIES.forEach(cat => {
+  VISIBLE_CATEGORIES.forEach(cat => {
     html += `
       <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${cat.reports.length} reports)">
         <div class="rpt-app-icon-circle" style="background:linear-gradient(135deg, ${cat.color}22, ${cat.color}44); border-color: ${cat.color}55;">
@@ -645,7 +650,7 @@ export function searchReports(query) {
 
   const q = query.toLowerCase();
   const matches = [];
-  REPORT_CATEGORIES.forEach(cat => {
+  VISIBLE_CATEGORIES.forEach(cat => {
     cat.reports.forEach(r => {
       if (r.name.toLowerCase().includes(q) || r.id.includes(q) || cat.name.toLowerCase().includes(q)) {
         matches.push({ ...r, catName: cat.name, catIcon: cat.icon, catId: cat.id });
