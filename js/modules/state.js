@@ -65,7 +65,9 @@ const STORAGE_KEYS = {
   productivityMatrix: 'mes_prod_matrix',
   microTasks: 'mes_micro_tasks',
   headerSettings: 'mes_header_settings',
-  accountTransfers: 'mes_account_transfers'
+  accountTransfers: 'mes_account_transfers',
+  labourAdvances: 'mes_labour_advances',
+  labourDeductions: 'mes_labour_deductions'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -146,6 +148,8 @@ export const state = {
   microTasks: load(STORAGE_KEYS.microTasks, []),
   headerSettings: load(STORAGE_KEYS.headerSettings, {}),
   accountTransfers: load(STORAGE_KEYS.accountTransfers, []),
+  labourAdvances: load(STORAGE_KEYS.labourAdvances, []),
+  labourDeductions: load(STORAGE_KEYS.labourDeductions, []),
 
   currentProjectId: null,
   currentSheetId: null,

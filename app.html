@@ -1686,9 +1686,12 @@
   <div class="flex justify-between items-end mb-4">
     <div><h2>Labour Management</h2><p class="text-slate-500 font-medium mt-1">Attendance, wages, muster cards & payments</p></div>
     <div class="flex gap-2">
-      <button onclick="openLabourModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition">👤 Add Labour</button>
-      <button onclick="_musterCardChooser()" class="bg-[#f97316] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-orange-600 transition">📋 Muster Card</button>
-      <button onclick="_bulkLabourPayment()" class="bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-emerald-700 transition">💰 Bulk Payment</button>
+      <button onclick="openLabourModal()" class="bg-blue-600 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition text-sm">👤 Add</button>
+      <button onclick="_musterCardChooser()" class="bg-[#f97316] text-white px-3 py-2.5 rounded-lg font-bold hover:bg-orange-600 transition text-sm">📋 Muster</button>
+      <button onclick="_recordAdvance()" class="bg-amber-500 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-amber-600 transition text-sm">💵 Advance</button>
+      <button onclick="_recordDeduction()" class="bg-rose-500 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-rose-600 transition text-sm">➖ Deduction</button>
+      <button onclick="_bulkLabourPayment()" class="bg-emerald-600 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-emerald-700 transition text-sm">💰 Bulk Pay</button>
+      <button onclick="_finalSettlement()" class="bg-slate-700 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-slate-800 transition text-sm">🤝 Settle</button>
     </div>
   </div>
 

@@ -5137,34 +5137,193 @@ export function saveLabourPayment() {
 }
 
 // ── Bulk Labour Payment ──
+// ══════════════════════════════════════════
+// PAYROLL — advances, deductions, settlement
+// ══════════════════════════════════════════
+
+/** Net outstanding for a worker = salary posted − payments − advances(unsettled) − deductions */
+function _labourNetPayable(labourId) {
+  const salary = (state.labourSalaries || []).filter(s => s.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const advances = (state.labourAdvances || []).filter(a => a.labourId === labourId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const deductions = (state.labourDeductions || []).filter(d => d.labourId === labourId && !d.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  return { salary, paid, advances, deductions, net: salary - paid - advances - deductions };
+}
+
+/** recordAdvancePayment — log kharchi (mid-week cash advance) */
+window._recordAdvance = function() {
+  const labours = state.labourMaster || [];
+  if (!labours.length) { showToast('No labour records', 'error'); return; }
+  const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
+  const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
+  _payrollModal('Record Advance (Kharchi)', `
+    <label class="pm-l">Worker</label><select id="pmWorker" class="pm-i">${opts}</select>
+    <label class="pm-l">Amount (₹)</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
+    <label class="pm-l">Date</label><input type="date" id="pmDate" class="pm-i" value="${new Date().toISOString().split('T')[0]}">
+    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
+    <label class="pm-l">Note</label><input type="text" id="pmNote" class="pm-i" placeholder="Advance / Kharchi">
+  `, () => {
+    const labourId = document.getElementById('pmWorker').value;
+    const amount = parseFloat(document.getElementById('pmAmount').value) || 0;
+    const date = document.getElementById('pmDate').value;
+    const accountId = document.getElementById('pmAccount').value;
+    const note = document.getElementById('pmNote').value || 'Advance';
+    if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
+    state.labourAdvances.push({ id: 'adv_' + Date.now(), labourId, amount, date, accountId, note, settled: false });
+    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    showToast(`Advance ₹${amount.toLocaleString('en-IN')} recorded`, 'success');
+    return true;
+  });
+};
+
+/** recordDeduction — lost tools, PPE, penalties */
+window._recordDeduction = function() {
+  const labours = state.labourMaster || [];
+  if (!labours.length) { showToast('No labour records', 'error'); return; }
+  const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
+  _payrollModal('Record Deduction', `
+    <label class="pm-l">Worker</label><select id="pmWorker" class="pm-i">${opts}</select>
+    <label class="pm-l">Type</label><select id="pmType" class="pm-i"><option>Lost Tool</option><option>Damaged PPE</option><option>Penalty</option><option>Damage</option><option>Other</option></select>
+    <label class="pm-l">Amount (₹)</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
+    <label class="pm-l">Date</label><input type="date" id="pmDate" class="pm-i" value="${new Date().toISOString().split('T')[0]}">
+    <label class="pm-l">Note</label><input type="text" id="pmNote" class="pm-i" placeholder="Details">
+  `, () => {
+    const labourId = document.getElementById('pmWorker').value;
+    const deductionType = document.getElementById('pmType').value;
+    const amount = parseFloat(document.getElementById('pmAmount').value) || 0;
+    const date = document.getElementById('pmDate').value;
+    const note = document.getElementById('pmNote').value || '';
+    if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
+    state.labourDeductions.push({ id: 'ded_' + Date.now(), labourId, deductionType, amount, date, note, settled: false });
+    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    showToast(`Deduction ₹${amount.toLocaleString('en-IN')} (${deductionType}) recorded`, 'success');
+    return true;
+  });
+};
+
+/** processBulkPayment — net payout for all workers (salary − advances − deductions) */
 window._bulkLabourPayment = function() {
   const labours = state.labourMaster.filter(l => l.projectId === state.currentProjectId || !state.currentProjectId);
   if (!labours.length) { showToast('No labour records found', 'error'); return; }
-  const amount = prompt(`Bulk Payment for ${labours.length} labourers.\n\nEnter amount per person (₹):`);
-  if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
-  const amt = parseFloat(amount);
-
-  // Select account
   if (!state.accounts.length) { showToast('Create a payment account first (Bank & Cash)', 'error'); return; }
-  const accList = state.accounts.map((a, i) => `${i + 1}. ${a.name} (${a.type})`).join('\n');
-  const accIdx = parseInt(prompt(`Select payment account:\n${accList}\n\nEnter number:`)) - 1;
-  if (isNaN(accIdx) || !state.accounts[accIdx]) { showToast('Invalid account', 'error'); return; }
-  const accountId = state.accounts[accIdx].id;
-  const date = new Date().toISOString().split('T')[0];
 
-  if (!confirm(`Pay ₹${amt.toLocaleString('en-IN')} to each of ${labours.length} labourers?\nTotal: ₹${(amt * labours.length).toLocaleString('en-IN')}\nFrom: ${state.accounts[accIdx].name}`)) return;
+  // Compute net payable per worker
+  const rows = labours.map(l => ({ l, ...(_labourNetPayable(l.id)) })).filter(r => r.net > 0);
+  if (!rows.length) { showToast('No pending payouts. Post salaries from Attendance Sheet first.', 'warning'); return; }
+  const grandTotal = rows.reduce((s, r) => s + r.net, 0);
+  const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
 
-  labours.forEach(l => {
-    state.labourPayments.push({
-      id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      labourId: l.id, date, accountId, amount: amt,
-      ref: 'Bulk Payment'
+  const rowsHtml = rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
+    <td style="padding:6px 10px;font-weight:600;">${r.l.name}</td>
+    <td style="padding:6px 10px;text-align:right;color:#2563eb;">${getCurrencySymbol()}${r.salary.toLocaleString('en-IN')}</td>
+    <td style="padding:6px 10px;text-align:right;color:#ea580c;">${r.advances ? '−' + getCurrencySymbol() + r.advances.toLocaleString('en-IN') : '—'}</td>
+    <td style="padding:6px 10px;text-align:right;color:#dc2626;">${r.deductions ? '−' + getCurrencySymbol() + r.deductions.toLocaleString('en-IN') : '—'}</td>
+    <td style="padding:6px 10px;text-align:right;font-weight:700;color:#059669;">${getCurrencySymbol()}${r.net.toLocaleString('en-IN')}</td>
+  </tr>`).join('');
+
+  _payrollModal('Bulk Payout Sheet', `
+    <div style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead><tr style="background:#f8fafc;position:sticky;top:0;">
+          <th style="padding:8px 10px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;">Worker</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Salary</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Advance</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Deduct</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;">Net Pay</th>
+        </tr></thead><tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;">
+      <span style="font-size:12px;font-weight:600;">${rows.length} workers • Total Payout</span>
+      <span style="font-size:18px;font-weight:800;color:#10b981;">${getCurrencySymbol()}${grandTotal.toLocaleString('en-IN')}</span>
+    </div>
+    <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
+  `, () => {
+    const accountId = document.getElementById('pmAccount').value;
+    const date = new Date().toISOString().split('T')[0];
+    rows.forEach(r => {
+      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), labourId: r.l.id, date, accountId, amount: r.net, ref: 'Bulk Payout (net of advances/deductions)' });
+      // Mark advances & deductions settled
+      (state.labourAdvances || []).filter(a => a.labourId === r.l.id && !a.settled).forEach(a => a.settled = true);
+      (state.labourDeductions || []).filter(d => d.labourId === r.l.id && !d.settled).forEach(d => d.settled = true);
     });
-  });
-  saveAllData();
-  showToast(`Paid ₹${amt.toLocaleString('en-IN')} × ${labours.length} = ₹${(amt * labours.length).toLocaleString('en-IN')}`, 'success');
-  renderPartiesList();
+    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    showToast(`Paid ${getCurrencySymbol()}${grandTotal.toLocaleString('en-IN')} to ${rows.length} workers`, 'success');
+    return true;
+  }, 'Pay All', 520);
 };
+
+/** calculateFinalSettlement — worker leaving the site */
+window._finalSettlement = function() {
+  const labours = state.labourMaster || [];
+  if (!labours.length) { showToast('No labour records', 'error'); return; }
+  const opts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
+  const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
+  _payrollModal('Final Settlement', `
+    <label class="pm-l">Worker leaving</label><select id="pmWorker" class="pm-i" onchange="window._fsPreview()">${opts}</select>
+    <div id="fsBreakdown" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:10px 0;font-size:12px;"></div>
+    <label class="pm-l">Settle via account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
+  `, () => {
+    const labourId = document.getElementById('pmWorker').value;
+    const accountId = document.getElementById('pmAccount').value;
+    const calc = _labourNetPayable(labourId);
+    const date = new Date().toISOString().split('T')[0];
+    if (calc.net > 0) {
+      state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId, date, accountId, amount: calc.net, ref: 'Final Settlement' });
+    } else if (calc.net < 0) {
+      // Worker owes — record as recovery (negative settlement note)
+      showToast(`Worker owes ${getCurrencySymbol()}${Math.abs(calc.net).toLocaleString('en-IN')} — recover before exit`, 'warning');
+    }
+    (state.labourAdvances || []).filter(a => a.labourId === labourId).forEach(a => a.settled = true);
+    (state.labourDeductions || []).filter(d => d.labourId === labourId).forEach(d => d.settled = true);
+    const l = state.labourMaster.find(x => x.id === labourId);
+    if (l) l.status = 'Settled';
+    saveAllData(); renderMonthlyMuster(); renderPartiesList(); renderLabourMasterList();
+    showToast(`Final settlement done for ${l?.name || 'worker'}`, 'success');
+    return true;
+  }, 'Settle & Close', 460);
+  setTimeout(() => window._fsPreview(), 50);
+};
+
+window._fsPreview = function() {
+  const sel = document.getElementById('pmWorker');
+  const box = document.getElementById('fsBreakdown');
+  if (!sel || !box) return;
+  const c = _labourNetPayable(sel.value);
+  const cur = getCurrencySymbol();
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Total Salary Earned</span><span style="font-weight:700;color:#2563eb;">${cur}${c.salary.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Already Paid</span><span style="font-weight:700;">−${cur}${c.paid.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Pending Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${c.advances.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Deductions</span><span style="font-weight:700;color:#dc2626;">−${cur}${c.deductions.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Final ${c.net >= 0 ? 'Payable' : 'Recoverable'}</span><span style="font-weight:800;font-size:15px;color:${c.net >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.abs(c.net).toLocaleString('en-IN')}</span></div>`;
+};
+
+/** Reusable payroll modal */
+function _payrollModal(title, bodyHtml, onSave, saveLabel = 'Save', maxW = 380) {
+  const existing = document.getElementById('payrollModal');
+  if (existing) existing.remove();
+  const html = `<div id="payrollModal" style="position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;width:92%;max-width:${maxW}px;max-height:88vh;overflow-y:auto;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+      <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:14px;">${title}</h3>
+      <div>${bodyHtml}</div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button id="pmCancel" style="flex:1;padding:11px;background:#f1f5f9;color:#64748b;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+        <button id="pmSave" style="flex:2;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">${saveLabel}</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  // Inject small styles for labels/inputs once
+  if (!document.getElementById('pmStyles')) {
+    const st = document.createElement('style');
+    st.id = 'pmStyles';
+    st.textContent = '.pm-l{display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;margin:10px 0 4px;}.pm-i{width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;}';
+    document.head.appendChild(st);
+  }
+  document.getElementById('pmCancel').onclick = () => document.getElementById('payrollModal').remove();
+  document.getElementById('pmSave').onclick = () => { if (onSave() !== false) document.getElementById('payrollModal').remove(); };
+}
 
 // ==========================================
 // PURCHASE FORM PANEL (Full-page overlay)
