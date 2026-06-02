@@ -1934,14 +1934,64 @@
       </div>
     </div>
     <div id="labourModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">
-      <div class="bg-white rounded-xl w-full max-w-md p-6">
-        <div class="flex justify-between items-center mb-5"><h3 class="text-lg font-bold text-slate-800">👤 Add Labour</h3><button onclick="document.getElementById('labourModal').classList.add('hidden')" class="text-red-500 font-bold text-xl leading-none">✕</button></div>
-        <div class="space-y-3">
-          <input type="text" id="labName" placeholder="Full Name *" class="w-full p-3 border rounded-lg text-sm outline-none focus:border-blue-500">
-          <div class="flex gap-3"><input type="text" id="labTrade" placeholder="Trade (Mason, Helper...)" class="w-1/2 p-3 border rounded-lg text-sm outline-none focus:border-blue-500"><input type="number" id="labDayRate" placeholder="Day Rate (₹)" class="w-1/2 p-3 border rounded-lg text-sm outline-none focus:border-blue-500"></div>
-          <input type="tel" id="labPhone" placeholder="Phone (Optional)" class="w-full p-3 border rounded-lg text-sm outline-none focus:border-blue-500">
+      <div class="bg-white rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800" id="labModalTitle">👤 Worker Onboarding</h3><button onclick="document.getElementById('labourModal').classList.add('hidden')" class="text-red-500 font-bold text-xl leading-none">✕</button></div>
+        <input type="hidden" id="labEditId">
+        <!-- Photo + ID -->
+        <div class="flex gap-4 mb-4">
+          <div class="flex flex-col items-center gap-2">
+            <div onclick="document.getElementById('labPhotoInput').click()" style="width:80px;height:80px;border-radius:12px;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#f8fafc;">
+              <img id="labPhotoPreview" style="width:100%;height:100%;object-fit:cover;display:none;">
+              <span id="labPhotoPlaceholder" style="font-size:24px;">📷</span>
+            </div>
+            <input type="file" id="labPhotoInput" accept="image/*" class="hidden" onchange="_labPhotoUpload(event)">
+            <span class="text-[10px] text-slate-400">Photo</span>
+          </div>
+          <div class="flex-1 space-y-2">
+            <input type="text" id="labName" placeholder="Full Name *" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+            <input type="tel" id="labPhone" placeholder="Phone Number" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+            <div class="text-[10px] text-slate-400 font-mono" id="labIdDisplay"></div>
+          </div>
         </div>
-        <div class="flex gap-3 mt-5"><button onclick="document.getElementById('labourModal').classList.add('hidden')" class="flex-1 p-3 border rounded-lg font-bold text-slate-600 hover:bg-slate-50">Cancel</button><button onclick="saveLabour()" class="flex-1 p-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">Save Labour</button></div>
+        <!-- Skill & Rate -->
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Trade / Skill *</label>
+            <select id="labTrade" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+              <option value="">-- Select Trade --</option>
+              <option>Mason</option><option>Bar Bender</option><option>Shuttering Carpenter</option>
+              <option>Carpenter</option><option>Steel Fixer</option><option>Plumber</option>
+              <option>Electrician</option><option>Painter</option><option>Tiles Mason</option>
+              <option>Welder</option><option>Operator</option><option>Driver</option>
+              <option>Mistri (Supervisor)</option><option>Skilled Helper</option><option>Unskilled Helper</option>
+              <option>Female Helper</option><option>Watchman</option><option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Daily Rate (₹) *</label>
+            <input type="number" id="labDayRate" placeholder="0" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+          </div>
+        </div>
+        <!-- KYC Documents -->
+        <div class="bg-slate-50 rounded-lg p-3 mb-3">
+          <p class="text-[10px] font-bold text-slate-500 uppercase mb-2">📄 KYC / ID Proof</p>
+          <div class="grid grid-cols-2 gap-3">
+            <input type="text" id="labAadhar" placeholder="Aadhar Number" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500" maxlength="14">
+            <input type="text" id="labPan" placeholder="PAN (optional)" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500 uppercase" maxlength="10">
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <button onclick="document.getElementById('labIdDocInput').click()" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg">📎 Attach ID Photo</button>
+            <span id="labIdDocName" class="text-[10px] text-slate-400">No file</span>
+            <input type="file" id="labIdDocInput" accept="image/*" class="hidden" onchange="_labIdDocUpload(event)">
+          </div>
+        </div>
+        <!-- Emergency contact + address -->
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <input type="text" id="labEmergName" placeholder="Emergency Contact Name" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+          <input type="tel" id="labEmergPhone" placeholder="Emergency Phone" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+        </div>
+        <input type="text" id="labAddress" placeholder="Address / Native Place" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500 mb-1">
+        <div class="flex gap-3 mt-5"><button onclick="document.getElementById('labourModal').classList.add('hidden')" class="flex-1 p-3 border rounded-lg font-bold text-slate-600 hover:bg-slate-50">Cancel</button><button onclick="saveLabour()" class="flex-1 p-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">Save Worker</button></div>
       </div>
     </div>
     <div id="equipmentModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">

@@ -4577,25 +4577,99 @@ export function deletePurchaseBill(id) {
 // ==========================================
 // LABOUR MODULE
 // ==========================================
-export function openLabourModal() {
+let _labPhotoData = '';
+let _labIdDocData = '';
+
+export function openLabourModal(editId) {
   document.getElementById('labourModal').classList.remove('hidden');
-  ['labName', 'labTrade', 'labDayRate', 'labPhone'].forEach(id => document.getElementById(id).value = '');
+  _labPhotoData = ''; _labIdDocData = '';
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  const ids = ['labName','labPhone','labTrade','labDayRate','labAadhar','labPan','labEmergName','labEmergPhone','labAddress'];
+  ids.forEach(id => setV(id, ''));
+  document.getElementById('labEditId').value = editId || '';
+  document.getElementById('labPhotoPreview').style.display = 'none';
+  document.getElementById('labPhotoPlaceholder').style.display = '';
+  document.getElementById('labIdDocName').textContent = 'No file';
+  document.getElementById('labIdDisplay').textContent = '';
+
+  if (editId) {
+    const l = state.labourMaster.find(x => x.id === editId);
+    if (l) {
+      document.getElementById('labModalTitle').textContent = '✏️ Edit Worker';
+      setV('labName', l.name); setV('labPhone', l.phone); setV('labTrade', l.trade);
+      setV('labDayRate', l.dayRate); setV('labAadhar', l.aadhar); setV('labPan', l.pan);
+      setV('labEmergName', l.emergName); setV('labEmergPhone', l.emergPhone); setV('labAddress', l.address);
+      document.getElementById('labIdDisplay').textContent = 'ID: ' + l.id;
+      if (l.photo) { _labPhotoData = l.photo; const p = document.getElementById('labPhotoPreview'); p.src = l.photo; p.style.display = ''; document.getElementById('labPhotoPlaceholder').style.display = 'none'; }
+      if (l.idDoc) { _labIdDocData = l.idDoc; document.getElementById('labIdDocName').textContent = 'ID attached'; }
+    }
+  } else {
+    document.getElementById('labModalTitle').textContent = '👤 Worker Onboarding';
+  }
 }
+
+window._labPhotoUpload = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    _labPhotoData = reader.result;
+    const p = document.getElementById('labPhotoPreview');
+    p.src = reader.result; p.style.display = '';
+    document.getElementById('labPhotoPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+};
+
+window._labIdDocUpload = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    _labIdDocData = reader.result;
+    document.getElementById('labIdDocName').textContent = file.name.slice(0, 20);
+  };
+  reader.readAsDataURL(file);
+};
 
 export function saveLabour() {
   const name = document.getElementById('labName').value.trim();
   if (!name) return showToast('Name is required', 'error');
-  state.labourMaster.push({
-    id: 'lab_' + Date.now(), name,
-    trade: document.getElementById('labTrade').value.trim() || 'General',
-    dayRate: parseFloat(document.getElementById('labDayRate').value) || 0,
+  const trade = document.getElementById('labTrade').value || 'Unskilled Helper';
+  const dayRate = parseFloat(document.getElementById('labDayRate').value) || 0;
+  if (!dayRate) return showToast('Daily rate is required', 'error');
+
+  const editId = document.getElementById('labEditId').value;
+  const profile = {
+    name, trade, dayRate,
     phone: document.getElementById('labPhone').value.trim(),
-    projectId: state.currentProjectId || null
-  });
+    aadhar: document.getElementById('labAadhar').value.trim(),
+    pan: document.getElementById('labPan').value.trim().toUpperCase(),
+    emergName: document.getElementById('labEmergName').value.trim(),
+    emergPhone: document.getElementById('labEmergPhone').value.trim(),
+    address: document.getElementById('labAddress').value.trim(),
+    photo: _labPhotoData || '',
+    idDoc: _labIdDocData || '',
+  };
+
+  if (editId) {
+    const l = state.labourMaster.find(x => x.id === editId);
+    if (l) Object.assign(l, profile);
+    showToast('Worker updated', 'success');
+  } else {
+    // Unique Labour ID: LAB-<projcode>-<seq>
+    const seq = String((state.labourMaster || []).length + 1).padStart(3, '0');
+    profile.id = 'LAB' + seq + '_' + Date.now().toString(36).slice(-4);
+    profile.labourCode = 'LAB-' + seq;
+    profile.projectId = state.currentProjectId || null;
+    profile.status = 'Active';
+    profile.joinedAt = new Date().toISOString().split('T')[0];
+    state.labourMaster.push(profile);
+    showToast(`Worker onboarded (${profile.labourCode})`, 'success');
+  }
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
   renderLabourMasterList(); renderMonthlyMuster();
-  showToast('Labour Added Successfully', 'success');
 }
 
 export function renderLabourMasterList() {
@@ -4606,7 +4680,24 @@ export function renderLabourMasterList() {
     container.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No labour added for this project yet.</p>';
     return;
   }
-  container.innerHTML = labours.map(l => `<div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg border"><div><p class="font-bold text-slate-800 text-sm">${l.name}</p><p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day</p></div><button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold">Del</button></div>`).join('');
+  container.innerHTML = labours.map(l => {
+    const avatar = l.photo
+      ? `<img src="${l.photo}" style="width:38px;height:38px;border-radius:9px;object-fit:cover;flex-shrink:0;">`
+      : `<div style="width:38px;height:38px;border-radius:9px;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-weight:700;color:#4f46e5;flex-shrink:0;">${(l.name||'?').charAt(0).toUpperCase()}</div>`;
+    return `<div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg border gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        ${avatar}
+        <div class="min-w-0">
+          <p class="font-bold text-slate-800 text-sm truncate">${l.name} ${l.labourCode ? `<span class="text-[9px] text-indigo-500 font-mono">${l.labourCode}</span>` : ''}</p>
+          <p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day${l.phone ? ' · 📞 ' + l.phone : ''}</p>
+        </div>
+      </div>
+      <div class="flex gap-1 flex-shrink-0">
+        <button onclick="openLabourModal('${l.id}')" class="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold">Edit</button>
+        <button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 px-2 py-1 rounded text-xs font-bold">Del</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 export function deleteLabour(id) {
