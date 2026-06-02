@@ -4619,17 +4619,43 @@ export function loadAttendanceSheet() {
   if (!date || !siteId) return showToast('Select date and WO/site first', 'error');
   if (state.labourMaster.length === 0) return showToast('Add labour first via "+ Add Labour"', 'warning');
   const site = _siteLabel(siteId);
-  document.getElementById('attSheetTitle').textContent = `Attendance: ${date} | ${site}`;
   const existing = {};
   state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a);
-  const container = document.getElementById('attSheetContainer');
 
+  // Fullscreen overlay (hides sidebar like measurement sheet)
+  const sidebar = document.getElementById('appSidebar');
+  if (sidebar) sidebar.style.display = 'none';
+
+  let overlay = document.getElementById('attFullscreen');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'attFullscreen';
+    document.body.appendChild(overlay);
+  }
+  overlay.className = 'fullscreen-sheet';
+  overlay.style.display = 'block';
+
+  overlay.innerHTML = `
+    <div style="max-width:1100px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button onclick="_closeAttendanceSheet()" style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:18px;cursor:pointer;color:#64748b;">✕</button>
+          <div><h2 style="font-size:18px;font-weight:800;color:#0f172a;">Attendance Sheet</h2><p style="font-size:12px;color:#94a3b8;">${date} • ${site}</p></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="_attMarkAll('P')" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ All Present</button>
+          <button onclick="_attMarkAll('A')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✕ All Absent</button>
+          <button onclick="_attMarkAll('H')" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">◐ Half</button>
+          <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💾 Save</button>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <div id="attSheetContainer"></div>
+      </div>
+    </div>`;
+
+  const container = document.getElementById('attSheetContainer');
   container.innerHTML = `
-    <div class="flex gap-2 mb-3 flex-wrap">
-      <button onclick="_attMarkAll('P')" class="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-100">✓ All Present</button>
-      <button onclick="_attMarkAll('A')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">✕ All Absent</button>
-      <button onclick="_attMarkAll('H')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-orange-100">◐ All Half-Day</button>
-    </div>
     <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
       <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
       <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
@@ -4643,18 +4669,25 @@ export function loadAttendanceSheet() {
     const s = rec.status || 'A';
     const ot = rec.ot || 0;
     const shift = rec.shift || 'Day';
-    return `<tr class="hover:bg-slate-50" data-label="">
-      <td class="px-3 py-2.5 font-bold text-slate-800" data-label="Name">${l.name}</td>
-      <td class="px-3 py-2.5 text-slate-500 text-xs" data-label="Trade">${l.trade || '—'}</td>
-      <td class="px-3 py-2.5 text-center" data-label="Present"><input type="radio" name="att_${l.id}" value="P" ${s === 'P' ? 'checked' : ''} class="w-4 h-4 accent-green-500"></td>
-      <td class="px-3 py-2.5 text-center" data-label="Half"><input type="radio" name="att_${l.id}" value="H" ${s === 'H' ? 'checked' : ''} class="w-4 h-4 accent-orange-500"></td>
-      <td class="px-3 py-2.5 text-center" data-label="Absent"><input type="radio" name="att_${l.id}" value="A" ${s === 'A' ? 'checked' : ''} class="w-4 h-4 accent-red-400"></td>
-      <td class="px-3 py-2.5 text-center" data-label="OT Hours"><input type="number" id="ot_${l.id}" value="${ot}" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td>
-      <td class="px-3 py-2.5 text-center" data-label="Shift"><select id="shift_${l.id}" class="p-1 border rounded text-xs outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
+    return `<tr class="hover:bg-slate-50">
+      <td class="px-3 py-2.5 font-bold text-slate-800">${l.name}</td>
+      <td class="px-3 py-2.5 text-slate-500 text-xs">${l.trade || '—'}</td>
+      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="P" ${s === 'P' ? 'checked' : ''} class="w-4 h-4 accent-green-500"></td>
+      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="H" ${s === 'H' ? 'checked' : ''} class="w-4 h-4 accent-orange-500"></td>
+      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="A" ${s === 'A' ? 'checked' : ''} class="w-4 h-4 accent-red-400"></td>
+      <td class="px-3 py-2.5 text-center"><input type="number" id="ot_${l.id}" value="${ot}" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td>
+      <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1 border rounded text-xs outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
     </tr>`;
-  }).join('')}</tbody></table></div>
-    <div class="mt-3 flex gap-3 text-xs font-bold text-slate-500 flex-wrap"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Present</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span> Half Day</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span> Absent</span></div>`;
+  }).join('')}</tbody></table></div>`;
 }
+
+/** Close the fullscreen attendance sheet */
+window._closeAttendanceSheet = function() {
+  const overlay = document.getElementById('attFullscreen');
+  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('fullscreen-sheet'); }
+  const sidebar = document.getElementById('appSidebar');
+  if (sidebar) sidebar.style.display = '';
+};
 
 /** Bulk mark all workers in the sheet */
 window._attMarkAll = function(status) {
@@ -4689,6 +4722,7 @@ export function saveAttendance() {
   });
   saveLabourData(); renderMonthlyMuster();
   showToast('Attendance Saved!', 'success');
+  if (typeof window._closeAttendanceSheet === 'function') window._closeAttendanceSheet();
 }
 
 // ──────────────────────────────────────────

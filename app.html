@@ -1716,20 +1716,14 @@
 
   <!-- Section: Mark Attendance -->
   <div id="labourSecMarkAtt" class="labour-section hide">
-    <div class="bg-white rounded-xl border shadow-sm p-5 mb-4" style="max-width:480px;">
-      <h3 class="font-bold text-slate-700 mb-4 border-b pb-2">📅 Mark Today's Attendance</h3>
-      <div class="profile-field-group mb-3"><label>Date</label><input type="date" id="attDate" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-orange-400"></div>
-      <div class="profile-field-group mb-4"><label>Work Order / Site</label><select id="attSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white"><option value="">-- Select WO / Site --</option></select></div>
-      <button onclick="loadAttendanceSheet()" class="w-full bg-[#1e3a8a] text-white p-3 rounded-lg font-bold hover:bg-blue-900 transition">Load Attendance Sheet</button>
-      <button onclick="_dailyMusterRoll()" class="w-full mt-2 bg-slate-100 text-slate-700 p-2.5 rounded-lg font-bold text-sm hover:bg-slate-200 transition border border-slate-200">👥 View Daily Muster Roll (Headcount)</button>
+    <!-- Single-line compact selector bar -->
+    <div class="bg-white rounded-xl border shadow-sm p-3 mb-4 flex items-end gap-3 flex-wrap">
+      <div style="flex:0 0 160px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="attDate" class="w-full p-2 border rounded-lg text-sm outline-none focus:border-orange-400"></div>
+      <div style="flex:1;min-width:200px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Work Order / Site</label><select id="attSite" class="w-full p-2 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white"><option value="">-- Select WO / Site --</option></select></div>
+      <button onclick="loadAttendanceSheet()" class="bg-[#1e3a8a] text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-900 transition text-sm">Load Sheet</button>
+      <button onclick="_dailyMusterRoll()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-200 transition border border-slate-200">👥 Headcount</button>
     </div>
-    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-      <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
-        <h3 class="font-bold" id="attSheetTitle">Attendance Sheet</h3>
-        <button onclick="saveAttendance()" class="bg-[#f97316] px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-600">💾 Save Attendance</button>
-      </div>
-      <div id="attSheetContainer" class="p-5"><p class="text-slate-400 text-center py-8 font-medium">Select a date and WO/site, then click "Load Attendance Sheet".</p></div>
-    </div>
+    <div id="attSheetContainer"><p class="text-slate-400 text-center py-8 font-medium">Select a date and WO/site, then click "Load Sheet".</p></div>
   </div>
 
   <!-- Section: Attendance Sheet (Monthly Muster) -->
