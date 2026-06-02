@@ -4589,7 +4589,8 @@ export function saveLabour() {
     id: 'lab_' + Date.now(), name,
     trade: document.getElementById('labTrade').value.trim() || 'General',
     dayRate: parseFloat(document.getElementById('labDayRate').value) || 0,
-    phone: document.getElementById('labPhone').value.trim()
+    phone: document.getElementById('labPhone').value.trim(),
+    projectId: state.currentProjectId || null
   });
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
@@ -5218,8 +5219,9 @@ window._recordDeduction = function() {
 
 /** processBulkPayment — net payout for all workers (salary − advances − deductions) */
 window._bulkLabourPayment = function() {
-  const labours = state.labourMaster.filter(l => l.projectId === state.currentProjectId || !state.currentProjectId);
-  if (!labours.length) { showToast('No labour records found', 'error'); return; }
+  // Include workers for this project OR untagged workers (legacy)
+  const labours = state.labourMaster.filter(l => !l.projectId || l.projectId === state.currentProjectId);
+  if (!labours.length) { showToast('No labour records found. Add labour first.', 'error'); return; }
   if (!state.accounts.length) { showToast('Create a payment account first (Bank & Cash)', 'error'); return; }
 
   // Compute net payable per worker
