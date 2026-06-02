@@ -191,25 +191,162 @@ export function showAssetHistory(assetId) {
 // EQUIPMENT & VEHICLE MODULE
 // ==========================================
 
-export function openEquipmentModal() {
+window._eqToggleRental = function() {
+  const own = document.getElementById('eqOwnership')?.value;
+  const block = document.getElementById('eqRentalBlock');
+  if (block) block.classList.toggle('hidden', own !== 'RENTED');
+};
+
+export function openEquipmentModal(editId) {
   document.getElementById('equipmentModal').classList.remove('hidden');
-  ['eqName', 'eqRegNo', 'eqOperator'].forEach(id => document.getElementById(id).value = '');
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+  ['eqName','eqRegNo','eqOperator','eqMakeModel','eqOpeningHMR','eqRentRate','eqPMTarget'].forEach(id => setV(id, ''));
+  setV('eqEditId', editId || '');
+  setV('eqOwnership', 'OWNED'); setV('eqUnit', 'HMR'); setV('eqRentBasis', 'hourly');
+
+  // Populate rental vendor dropdown
+  const vSel = document.getElementById('eqVendor');
+  if (vSel) { vSel.innerHTML = '<option value="">-- Rental Vendor --</option>'; (state.vendors || []).forEach(v => vSel.innerHTML += `<option value="${v.id}">${v.name}</option>`); }
+
+  if (editId) {
+    const eq = state.equipmentList.find(e => e.id === editId);
+    if (eq) {
+      document.getElementById('eqModalTitle').textContent = '✏️ Edit Asset';
+      setV('eqName', eq.name); setV('eqType', eq.type); setV('eqRegNo', eq.regNo);
+      setV('eqMakeModel', eq.makeModel); setV('eqOwnership', eq.ownership || 'OWNED');
+      setV('eqUnit', eq.unit || 'HMR'); setV('eqOpeningHMR', eq.openingHMR);
+      setV('eqVendor', eq.vendorId); setV('eqRentRate', eq.rentRate); setV('eqRentBasis', eq.rentBasis || 'hourly');
+      setV('eqOperator', eq.operator); setV('eqPMTarget', eq.pmTarget);
+    }
+  } else {
+    document.getElementById('eqModalTitle').textContent = '🚛 Register Asset';
+  }
+  window._eqToggleRental();
 }
 
 export function saveEquipment() {
   const name = document.getElementById('eqName').value.trim();
-  if (!name) return showToast('Equipment name required', 'error');
-  state.equipmentList.push({
-    id: 'eq_' + Date.now(), name,
+  if (!name) return showToast('Asset name required', 'error');
+  const editId = document.getElementById('eqEditId').value;
+  const data = {
+    name,
     type: document.getElementById('eqType').value,
     regNo: document.getElementById('eqRegNo').value.trim(),
-    operator: document.getElementById('eqOperator').value.trim()
-  });
+    makeModel: document.getElementById('eqMakeModel').value.trim(),
+    ownership: document.getElementById('eqOwnership').value,
+    unit: document.getElementById('eqUnit').value,
+    openingHMR: parseFloat(document.getElementById('eqOpeningHMR').value) || 0,
+    vendorId: document.getElementById('eqVendor').value,
+    rentRate: parseFloat(document.getElementById('eqRentRate').value) || 0,
+    rentBasis: document.getElementById('eqRentBasis').value,
+    operator: document.getElementById('eqOperator').value.trim(),
+    pmTarget: parseFloat(document.getElementById('eqPMTarget').value) || 0,
+  };
+  if (editId) {
+    const eq = state.equipmentList.find(e => e.id === editId);
+    if (eq) Object.assign(eq, data);
+    showToast('Asset updated', 'success');
+  } else {
+    data.id = 'eq_' + Date.now();
+    data.currentHMR = data.openingHMR;
+    data.status = 'ACTIVE';
+    data.projectId = state.currentProjectId || null;
+    state.equipmentList.push(data);
+    showToast(`Asset registered (${data.ownership})`, 'success');
+  }
   saveEquipmentData();
   document.getElementById('equipmentModal').classList.add('hidden');
   renderEquipmentView();
-  showToast('Equipment Added', 'success');
 }
+
+/** calculateFuelEfficiency — L/hr from runbook hours vs fuel issued (last 30 days) */
+function _fuelEfficiency(assetId) {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const logs = state.equipmentLogs.filter(l => l.assetId === assetId && l.date >= since);
+  const hours = logs.filter(l => l.type === 'Runbook').reduce((s, l) => s + (parseFloat(l.hours) || 0), 0);
+  const litres = logs.filter(l => l.type === 'Fuel').reduce((s, l) => s + (parseFloat(l.litres) || 0), 0);
+  if (hours <= 0 || litres <= 0) return null;
+  const rate = +(litres / hours).toFixed(1);
+  // Compare against asset's baseline (first computed) — flag if >40% higher
+  const eq = state.equipmentList.find(e => e.id === assetId);
+  let flagged = false;
+  if (eq) {
+    if (!eq.baselineEff) { eq.baselineEff = rate; }
+    else if (rate > eq.baselineEff * 1.4) flagged = true;
+  }
+  return { rate, flagged, hours, litres };
+}
+
+/** logEquipmentBreakdown — set UNDER_REPAIR (stops rental billing) */
+window._eqBreakdown = function(assetId) {
+  const eq = state.equipmentList.find(e => e.id === assetId);
+  if (!eq) return;
+  const issue = prompt(`Breakdown for ${eq.name}.\nDescribe the issue:`);
+  if (issue === null) return;
+  eq.status = 'UNDER_REPAIR';
+  state.equipmentLogs.push({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Breakdown', amount: 0, remarks: issue || 'Breakdown reported', projectId: state.currentProjectId });
+  saveEquipmentData(); renderEquipmentView();
+  showToast(`${eq.name} marked UNDER REPAIR — rental billing paused`, 'warning');
+};
+
+/** recordRepairAndRestoration — close breakdown, log cost, back to ACTIVE */
+window._eqRepair = function(assetId) {
+  const eq = state.equipmentList.find(e => e.id === assetId);
+  if (!eq) return;
+  const cost = prompt(`Repair cost for ${eq.name} (₹):`, '0');
+  if (cost === null) return;
+  eq.status = 'ACTIVE';
+  state.equipmentLogs.push({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Repair', amount: parseFloat(cost) || 0, remarks: 'Repaired & restored', projectId: state.currentProjectId });
+  saveEquipmentData(); renderEquipmentView();
+  showToast(`${eq.name} restored to ACTIVE`, 'success');
+};
+
+/** generateRentalVendorPayout — approved runbook hours × rate − fuel provided */
+window._eqRentalPayout = function(assetId) {
+  const eq = state.equipmentList.find(e => e.id === assetId);
+  if (!eq || eq.ownership !== 'RENTED') return;
+  const cur = getCurrencySymbol();
+  const vendor = (state.vendors || []).find(v => v.id === eq.vendorId);
+  const month = new Date().toISOString().substring(0, 7);
+  const logs = state.equipmentLogs.filter(l => l.assetId === assetId && l.date.startsWith(month));
+  const hours = logs.filter(l => l.type === 'Runbook').reduce((s, l) => s + (parseFloat(l.hours) || 0), 0);
+  const fuelProvided = logs.filter(l => l.type === 'Fuel' && l.source === 'On-Site Barrel').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+
+  let gross = 0;
+  if (eq.rentBasis === 'hourly') gross = hours * (eq.rentRate || 0);
+  else if (eq.rentBasis === 'daily') gross = logs.filter(l => l.type === 'Runbook').length * (eq.rentRate || 0);
+  else gross = eq.rentRate || 0; // monthly
+  const net = Math.max(0, gross - fuelProvided);
+  const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+  const html = `<div id="rentalPayoutModal" style="position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;width:92%;max-width:400px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+      <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">Rental Payout — ${eq.name}</h3>
+      <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">${vendor?.name || 'Vendor'} · ${month}</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Runbook ${eq.rentBasis === 'hourly' ? hours + ' hrs' : eq.rentBasis === 'daily' ? logs.filter(l=>l.type==='Runbook').length + ' days' : 'monthly'} × ${cur}${eq.rentRate}</span><span style="font-weight:700;color:#2563eb;">${cur}${Math.round(gross).toLocaleString('en-IN')}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Fuel we provided</span><span style="font-weight:700;color:#ea580c;">−${cur}${Math.round(fuelProvided).toLocaleString('en-IN')}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#059669;">${cur}${Math.round(net).toLocaleString('en-IN')}</span></div>
+      </div>
+      <select id="rpAccount" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:10px;">${accOpts}</select>
+      <div style="display:flex;gap:8px;">
+        <button onclick="this.closest('#rentalPayoutModal').remove()" style="flex:1;padding:10px;background:#f1f5f9;border:none;border-radius:8px;font-weight:700;color:#64748b;cursor:pointer;">Cancel</button>
+        <button onclick="_eqConfirmRentalPay('${assetId}',${Math.round(net)})" style="flex:2;padding:10px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Pay ${cur}${Math.round(net).toLocaleString('en-IN')}</button>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+window._eqConfirmRentalPay = function(assetId, net) {
+  const eq = state.equipmentList.find(e => e.id === assetId);
+  const accountId = document.getElementById('rpAccount')?.value;
+  if (net <= 0) { showToast('Nothing to pay', 'warning'); document.getElementById('rentalPayoutModal')?.remove(); return; }
+  const vendor = (state.vendors || []).find(v => v.id === eq.vendorId);
+  state.vendorPayments.push({ id: 'vp_' + Date.now(), vendorId: eq.vendorId, accountId, date: new Date().toISOString().split('T')[0], amount: net, ref: `Rental: ${eq.name}` });
+  saveEquipmentData();
+  if (typeof saveAllData === 'function') saveAllData();
+  document.getElementById('rentalPayoutModal')?.remove();
+  showToast(`Paid ${getCurrencySymbol()}${net.toLocaleString('en-IN')} to ${vendor?.name || 'vendor'}`, 'success');
+};
 
 /** App-icon section navigation for Equipment module */
 window._openEquipSection = function(section) {
@@ -243,12 +380,38 @@ export function renderEquipmentView() {
       fleet.innerHTML = '<p class="p-4 text-slate-400 text-xs text-center">No equipment added yet.</p>';
     } else {
       fleet.innerHTML = state.equipmentList.map(eq => {
-        const lastLog = state.equipmentLogs.filter(l => l.assetId === eq.id).sort((a, b) => new Date(b.date) - new Date(a.date))[0];
         const totalFuel = state.equipmentLogs.filter(l => l.assetId === eq.id && l.type === 'Fuel').reduce((s, l) => s + parseFloat(l.amount || 0), 0);
-        const totalMaint = state.equipmentLogs.filter(l => l.assetId === eq.id && l.type === 'Maintenance').reduce((s, l) => s + parseFloat(l.amount || 0), 0);
-        return `<div class="p-3 hover:bg-slate-100 transition cursor-pointer border-b" onclick="document.getElementById('eqFilterAsset').value='${eq.id}'; renderEquipmentLog();" title="Click to view history">
-          <div class="flex justify-between items-start"><div><p class="font-bold text-slate-800 text-sm">${eq.name}</p><p class="text-[10px] text-slate-500 font-mono font-bold mt-0.5 bg-slate-200 inline-block px-1 rounded">${eq.regNo || 'No Reg.'}</p><span class="text-[10px] text-slate-400 ml-1">${eq.type}</span></div><button onclick="event.stopPropagation(); deleteEquipment('${eq.id}')" class="text-red-400 text-xs hover:text-red-600 font-bold bg-red-50 px-2 py-1 rounded">Del</button></div>
-          <div class="mt-2 flex gap-3 text-[10px] font-bold"><span class="text-orange-600 bg-orange-50 px-1.5 rounded">⛽ ${getCurrencySymbol()}${totalFuel.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span><span class="text-blue-600 bg-blue-50 px-1.5 rounded">🔧 ${getCurrencySymbol()}${totalMaint.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>${lastLog ? `<span class="text-slate-400 ml-auto">Last: ${lastLog.date}</span>` : ''}</div>
+        const totalMaint = state.equipmentLogs.filter(l => l.assetId === eq.id && (l.type === 'Maintenance' || l.type === 'Repair')).reduce((s, l) => s + parseFloat(l.amount || 0), 0);
+        const eff = _fuelEfficiency(eq.id);
+        const cur = getCurrencySymbol();
+        // Status badge
+        const status = eq.status || 'ACTIVE';
+        const stMap = { ACTIVE: 'color:#059669;background:#ecfdf5;', SERVICE_DUE: 'color:#d97706;background:#fffbeb;', UNDER_REPAIR: 'color:#dc2626;background:#fef2f2;' };
+        const ownBadge = eq.ownership === 'RENTED' ? '<span style="font-size:9px;font-weight:700;color:#7c3aed;background:#f5f3ff;padding:1px 6px;border-radius:4px;">RENTED</span>' : '<span style="font-size:9px;font-weight:700;color:#0891b2;background:#ecfeff;padding:1px 6px;border-radius:4px;">OWNED</span>';
+        const effFlag = eff && eff.flagged ? `<span style="color:#dc2626;background:#fef2f2;padding:1px 5px;border-radius:4px;" title="Fuel usage spike — possible theft/issue">⚠ ${eff.rate}L/hr</span>` : (eff ? `<span style="color:#10b981;background:#ecfdf5;padding:1px 5px;border-radius:4px;">${eff.rate}L/hr</span>` : '');
+        return `<div class="p-3 border-b">
+          <div class="flex justify-between items-start">
+            <div onclick="document.getElementById('eqFilterAsset').value='${eq.id}'; renderEquipmentLog();" style="cursor:pointer;">
+              <p class="font-bold text-slate-800 text-sm">${eq.name} ${ownBadge}</p>
+              <p class="text-[10px] text-slate-500 font-mono font-bold mt-0.5 bg-slate-200 inline-block px-1 rounded">${eq.regNo || 'No Reg.'}</p>
+              <span class="text-[10px] text-slate-400 ml-1">${eq.type}</span>
+            </div>
+            <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;${stMap[status]}">${status.replace('_', ' ')}</span>
+          </div>
+          <div class="mt-2 flex gap-2 text-[10px] font-bold flex-wrap items-center">
+            <span class="text-slate-600 bg-slate-100 px-1.5 rounded">⏱ ${(eq.currentHMR || 0).toLocaleString('en-IN')} ${eq.unit || 'HMR'}</span>
+            <span class="text-orange-600 bg-orange-50 px-1.5 rounded">⛽ ${cur}${totalFuel.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+            <span class="text-blue-600 bg-blue-50 px-1.5 rounded">🔧 ${cur}${totalMaint.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+            ${effFlag}
+          </div>
+          <div class="mt-2 flex gap-1 flex-wrap">
+            <button onclick="event.stopPropagation(); openEquipmentModal('${eq.id}')" class="text-blue-600 text-[10px] font-bold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">Edit</button>
+            ${status === 'UNDER_REPAIR'
+              ? `<button onclick="event.stopPropagation(); _eqRepair('${eq.id}')" class="text-green-600 text-[10px] font-bold bg-green-50 border border-green-200 px-2 py-0.5 rounded">Mark Repaired</button>`
+              : `<button onclick="event.stopPropagation(); _eqBreakdown('${eq.id}')" class="text-red-600 text-[10px] font-bold bg-red-50 border border-red-200 px-2 py-0.5 rounded">Breakdown</button>`}
+            ${eq.ownership === 'RENTED' ? `<button onclick="event.stopPropagation(); _eqRentalPayout('${eq.id}')" class="text-purple-600 text-[10px] font-bold bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">Rental Payout</button>` : ''}
+            <button onclick="event.stopPropagation(); deleteEquipment('${eq.id}')" class="text-slate-400 text-[10px] font-bold hover:text-red-600 px-2 py-0.5 rounded">Del</button>
+          </div>
         </div>`;
       }).join('');
     }
@@ -268,8 +431,24 @@ export function renderEquipmentView() {
     getAllLocations().forEach(l => eqSite.innerHTML += `<option value="${l.id}">${l.name}</option>`);
   }
 
+  // Operator dropdown from labour module (operators/drivers)
+  const opSel = document.getElementById('eqLogOperator');
+  if (opSel) {
+    opSel.innerHTML = '<option value="">-- Operator --</option>';
+    (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId).forEach(l => {
+      opSel.innerHTML += `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`;
+    });
+  }
+  if (typeof window._eqLogTypeChange === 'function') window._eqLogTypeChange();
   renderEquipmentLog();
 }
+
+/** Toggle Log Entry fields based on type */
+window._eqLogTypeChange = function() {
+  const type = document.getElementById('eqLogType')?.value;
+  document.querySelectorAll('.eq-runbook').forEach(el => el.style.display = type === 'Runbook' ? '' : 'none');
+  document.querySelectorAll('.eq-fuel').forEach(el => el.style.display = type === 'Fuel' ? '' : 'none');
+};
 
 export function saveEquipmentLog() {
   const assetId = document.getElementById('eqLogAsset').value;
@@ -283,26 +462,57 @@ export function saveEquipmentLog() {
   const remarks = document.getElementById('eqLogRemarks').value;
   const siteId = document.getElementById('eqLogSite').value;
 
-  state.equipmentLogs.push({
-    id: 'eql_' + Date.now(), assetId, date, type, siteId, amount, accountId,
-    odo: document.getElementById('eqLogOdo').value, remarks
-  });
+  const logEntry = { id: 'eql_' + Date.now(), assetId, date, type, siteId, amount, accountId, remarks, projectId: state.currentProjectId };
+
+  // Runbook: compute hours/km, update HMR, check service-due
+  if (type === 'Runbook') {
+    const startHMR = parseFloat(document.getElementById('eqLogStartHMR').value) || (eq.currentHMR || 0);
+    const endHMR = parseFloat(document.getElementById('eqLogEndHMR').value) || 0;
+    if (endHMR <= startHMR) return showToast('End reading must be greater than start', 'error');
+    logEntry.startHMR = startHMR;
+    logEntry.endHMR = endHMR;
+    logEntry.hours = +(endHMR - startHMR).toFixed(1);
+    logEntry.operatorId = document.getElementById('eqLogOperator').value;
+    const op = (state.labourMaster || []).find(l => l.id === logEntry.operatorId);
+    logEntry.remarks = `${logEntry.hours} ${eq.unit || 'HMR'}${op ? ' · Op: ' + op.name : ''}${remarks ? ' · ' + remarks : ''}`;
+    eq.currentHMR = endHMR;
+    if (eq.pmTarget && endHMR >= eq.pmTarget && eq.status !== 'UNDER_REPAIR') {
+      eq.status = 'SERVICE_DUE';
+      showToast(`⚠ ${eq.name} reached service target (${eq.pmTarget}) — SERVICE DUE`, 'warning');
+    }
+  }
+  // Fuel: litres + source + receipt
+  if (type === 'Fuel') {
+    logEntry.litres = parseFloat(document.getElementById('eqLogLitres').value) || 0;
+    logEntry.source = document.getElementById('eqLogSource').value;
+    logEntry.receipt = document.getElementById('eqLogReceipt').value;
+    logEntry.remarks = `${logEntry.litres}L from ${logEntry.source}${logEntry.receipt ? ' (Rcpt: ' + logEntry.receipt + ')' : ''}${remarks ? ' · ' + remarks : ''}`;
+  }
+
+  // Maintenance clears SERVICE_DUE and bumps next service target
+  if (type === 'Maintenance' && eq.status === 'SERVICE_DUE') {
+    eq.status = 'ACTIVE';
+    if (eq.pmTarget) eq.pmTarget = (eq.currentHMR || eq.pmTarget) + (eq.pmTarget - (eq.openingHMR || 0) || 250);
+  }
+
+  state.equipmentLogs.push(logEntry);
 
   if (amount > 0) {
     state.expenses.push({
       id: 'exp_eq_' + Date.now(),
       clientId: siteId || '',
       accountId, date,
-      category: type === 'Fuel' ? 'Fuel' : (type === 'Maintenance' ? 'Maintenance' : 'Misc'),
+      category: type === 'Fuel' ? 'Fuel' : (type === 'Maintenance' ? 'Maintenance' : type === 'Runbook' ? 'Equipment Running' : 'Misc'),
       amount,
-      remarks: `[${eq.name} - ${eq.regNo || 'No Reg'}] ${remarks}`
+      remarks: `[${eq.name} - ${eq.regNo || 'No Reg'}] ${logEntry.remarks}`,
+      projectId: state.currentProjectId
     });
   }
 
   saveEquipmentData();
   saveAllData();
 
-  ['eqLogAmount', 'eqLogOdo', 'eqLogRemarks'].forEach(id => {
+  ['eqLogAmount', 'eqLogRemarks', 'eqLogStartHMR', 'eqLogEndHMR', 'eqLogLitres', 'eqLogReceipt'].forEach(id => {
     if (document.getElementById(id)) document.getElementById(id).value = '';
   });
 

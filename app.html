@@ -1826,12 +1826,21 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div class="profile-field-group md:col-span-2"><label>Equipment (Reg No)</label><select id="eqLogAsset" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="">-- Select --</option></select></div>
         <div class="profile-field-group"><label>Date</label><input type="date" id="eqLogDate" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
-        <div class="profile-field-group"><label>Entry Type</label><select id="eqLogType" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="Fuel">⛽ Fuel</option><option value="Maintenance">🔧 Maintenance</option><option value="Assignment">📍 Site Assignment</option><option value="Movement">🔄 Movement</option></select></div>
+        <div class="profile-field-group"><label>Entry Type</label><select id="eqLogType" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white" onchange="_eqLogTypeChange()"><option value="Runbook">⏱ Daily Runbook</option><option value="Fuel">⛽ Fuel</option><option value="Maintenance">🔧 Maintenance</option><option value="Assignment">📍 Site Assignment</option><option value="Movement">🔄 Movement</option></select></div>
         <div class="profile-field-group md:col-span-2"><label>Site / Location</label><select id="eqLogSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="">-- Select Site --</option></select></div>
+        <!-- Runbook fields -->
+        <div class="profile-field-group eq-runbook"><label>Operator</label><select id="eqLogOperator" class="w-full p-2.5 border rounded-lg text-sm outline-none bg-white"><option value="">-- Operator --</option></select></div>
+        <div class="profile-field-group eq-runbook"><label>Start HMR/KM</label><input type="number" id="eqLogStartHMR" placeholder="start" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <div class="profile-field-group eq-runbook"><label>End HMR/KM</label><input type="number" id="eqLogEndHMR" placeholder="end" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <!-- Fuel fields -->
+        <div class="profile-field-group eq-fuel"><label>Litres</label><input type="number" id="eqLogLitres" placeholder="diesel L" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <div class="profile-field-group eq-fuel"><label>Fuel Source</label><select id="eqLogSource" class="w-full p-2.5 border rounded-lg text-sm outline-none bg-white"><option>On-Site Barrel</option><option>Petrol Pump</option><option>Bowser</option></select></div>
+        <div class="profile-field-group eq-fuel"><label>Receipt No</label><input type="text" id="eqLogReceipt" placeholder="receipt #" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <!-- Cost (all types) -->
         <div class="profile-field-group"><label>Cost / Amount (₹)</label><input type="number" id="eqLogAmount" placeholder="₹ Expense" class="w-full p-2.5 border rounded-lg text-sm outline-none font-bold text-red-600"></div>
-        <div class="profile-field-group"><label>Payment Account *</label><select id="eqLogAccount" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white text-blue-800"><option value="">-- Select Account --</option></select></div>
-        <div class="profile-field-group"><label>Odometer / Hours</label><input type="number" id="eqLogOdo" placeholder="km or hrs" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
-        <div class="profile-field-group md:col-span-3"><label>Remarks / Details</label><input type="text" id="eqLogRemarks" placeholder="e.g., Filled 40L diesel, replaced filter..." class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <div class="profile-field-group"><label>Payment Account</label><select id="eqLogAccount" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white text-blue-800"><option value="">-- Select Account --</option></select></div>
+        <div class="profile-field-group md:col-span-2"><label>Remarks / Details</label><input type="text" id="eqLogRemarks" placeholder="e.g., Filled 40L diesel, replaced filter..." class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <input type="hidden" id="eqLogOdo">
       </div>
       <button onclick="saveEquipmentLog()" class="bg-[#1e3a8a] text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-900 transition shadow-md">💾 Save Log & Record Expense</button>
     </div>
@@ -2069,14 +2078,44 @@
       </div>
     </div>
     <div id="equipmentModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">
-      <div class="bg-white rounded-xl w-full max-w-md p-6">
-        <div class="flex justify-between items-center mb-5"><h3 class="text-lg font-bold">🚛 Add Equipment / Vehicle</h3><button onclick="document.getElementById('equipmentModal').classList.add('hidden')" class="text-red-500 font-bold text-xl">✕</button></div>
+      <div class="bg-white rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold" id="eqModalTitle">🚛 Register Asset</h3><button onclick="document.getElementById('equipmentModal').classList.add('hidden')" class="text-red-500 font-bold text-xl">✕</button></div>
+        <input type="hidden" id="eqEditId">
         <div class="space-y-3">
-          <input type="text" id="eqName" placeholder="Name (e.g., JCB 3DX, Mahindra Bolero)" class="w-full p-3 border rounded-lg text-sm outline-none focus:border-blue-500">
-          <div class="flex gap-3"><select id="eqType" class="w-1/2 p-3 border rounded-lg text-sm font-bold outline-none"><option value="Vehicle">Vehicle</option><option value="Heavy Equipment">Heavy Equipment</option><option value="Light Equipment">Light Equipment</option><option value="Power Tool">Power Tool</option></select><input type="text" id="eqRegNo" placeholder="Reg. No / Serial" class="w-1/2 p-3 border rounded-lg text-sm outline-none"></div>
-          <input type="text" id="eqOperator" placeholder="Operator / Driver Name" class="w-full p-3 border rounded-lg text-sm outline-none">
+          <input type="text" id="eqName" placeholder="Asset Name (e.g., JCB 3DX, Transit Mixer, V-Align Pro-Rig)" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Category</label>
+              <select id="eqType" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option>Excavator</option><option>Transit Mixer</option><option>Concrete Pump</option><option>Crane</option><option>JCB / Backhoe</option><option>Loader</option><option>Roller</option><option>Tractor</option><option>Truck / Tipper</option><option>Vehicle</option><option>Generator (DG)</option><option>Power Tool</option><option>Custom Rig</option><option>Other</option></select></div>
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Reg No / Serial</label>
+              <input type="text" id="eqRegNo" placeholder="GJ-01-XX-0000" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+          </div>
+          <input type="text" id="eqMakeModel" placeholder="Make / Model (e.g., Tata LPK 2518)" class="w-full p-2.5 border rounded-lg text-sm outline-none">
+          <!-- Ownership -->
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ownership</label>
+              <select id="eqOwnership" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white" onchange="_eqToggleRental()"><option value="OWNED">Owned</option><option value="RENTED">Rented</option></select></div>
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tracking Unit</label>
+              <select id="eqUnit" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="HMR">Hours (HMR)</option><option value="KM">Kilometers</option></select></div>
+          </div>
+          <input type="number" id="eqOpeningHMR" placeholder="Opening HMR / Odometer reading" class="w-full p-2.5 border rounded-lg text-sm outline-none">
+          <!-- Rental block -->
+          <div id="eqRentalBlock" class="bg-amber-50 rounded-lg p-3 hidden">
+            <p class="text-[10px] font-bold text-amber-700 uppercase mb-2">Rental Details</p>
+            <div class="grid grid-cols-2 gap-3">
+              <select id="eqVendor" class="w-full p-2.5 border rounded-lg text-sm outline-none bg-white"><option value="">-- Rental Vendor --</option></select>
+              <input type="number" id="eqRentRate" placeholder="Rate ₹/hr or ₹/day" class="w-full p-2.5 border rounded-lg text-sm outline-none">
+            </div>
+            <select id="eqRentBasis" class="w-full mt-2 p-2.5 border rounded-lg text-sm outline-none bg-white"><option value="hourly">Per Hour</option><option value="daily">Per Day</option><option value="monthly">Per Month</option></select>
+          </div>
+          <!-- Maintenance -->
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Default Operator</label>
+              <input type="text" id="eqOperator" placeholder="Operator / Driver" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Service Due At (HMR)</label>
+              <input type="number" id="eqPMTarget" placeholder="e.g. 500" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+          </div>
         </div>
-        <div class="flex gap-3 mt-5"><button onclick="document.getElementById('equipmentModal').classList.add('hidden')" class="flex-1 p-3 border rounded-lg font-bold text-slate-600">Cancel</button><button onclick="saveEquipment()" class="flex-1 p-3 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600">Save</button></div>
+        <div class="flex gap-3 mt-5"><button onclick="document.getElementById('equipmentModal').classList.add('hidden')" class="flex-1 p-3 border rounded-lg font-bold text-slate-600">Cancel</button><button onclick="saveEquipment()" class="flex-1 p-3 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600">Save Asset</button></div>
       </div>
     </div>
     <div id="labourPaymentModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">
