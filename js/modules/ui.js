@@ -4699,7 +4699,7 @@ export function renderLabourMasterList() {
         <button onclick="openLabourModal('${l.id}')" class="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold">Edit</button>
         <button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 px-2 py-1 rounded text-xs font-bold">Del</button>
       </div>
-    </div>`;
+    </div>${_ppeChipsForWorker(l.id)}`;
   }).join('');
 }
 
@@ -4802,6 +4802,84 @@ window._deleteContractor = function(id) {
   renderContractorsList();
   showToast('Contractor deleted', 'error');
 };
+
+// ══════════════════════════════════════════
+// PPE / SAFETY GEAR ISSUANCE
+// ══════════════════════════════════════════
+const PPE_ITEMS = [
+  { name: 'Safety Helmet', value: 150 },
+  { name: 'Safety Jacket', value: 250 },
+  { name: 'Safety Boots', value: 600 },
+  { name: 'Safety Gloves', value: 80 },
+  { name: 'Safety Goggles', value: 120 },
+  { name: 'Safety Harness', value: 1200 },
+  { name: 'Ear Plugs', value: 30 },
+  { name: 'Dust Mask', value: 40 },
+];
+
+/** issuePPE — track safety gear given to a worker */
+window._issuePPE = function() {
+  const labours = _projectLabour();
+  if (!labours.length) { showToast('Add labour first', 'error'); return; }
+  const cur = getCurrencySymbol();
+  const workerOpts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
+  const itemRows = PPE_ITEMS.map((it, i) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+      <input type="checkbox" class="ppe-chk" data-name="${it.name}" data-value="${it.value}" style="width:16px;height:16px;">
+      <span style="flex:1;">${it.name}</span>
+      <span style="color:#94a3b8;font-size:11px;">${cur}${it.value}</span>
+      <input type="number" class="ppe-qty" value="1" min="1" style="width:48px;padding:3px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;">
+    </label>`).join('');
+
+  _payrollModal('Issue PPE / Safety Gear', `
+    <label class="pm-l">Worker</label><select id="ppeWorker" class="pm-i">${workerOpts}</select>
+    <label class="pm-l">Date</label><input type="date" id="ppeDate" class="pm-i" value="${new Date().toISOString().split('T')[0]}">
+    <label class="pm-l">Select items issued</label>
+    <div style="border:1px solid #e2e8f0;border-radius:8px;max-height:240px;overflow-y:auto;">${itemRows}</div>
+    <p style="font-size:10px;color:#94a3b8;margin-top:8px;">⚠ Unreturned items are auto-deducted at Final Settlement.</p>
+  `, () => {
+    const labourId = document.getElementById('ppeWorker').value;
+    const date = document.getElementById('ppeDate').value;
+    const items = [];
+    document.querySelectorAll('.ppe-chk:checked').forEach(chk => {
+      const qty = parseInt(chk.closest('label').querySelector('.ppe-qty').value) || 1;
+      items.push({ name: chk.dataset.name, value: parseFloat(chk.dataset.value) * qty, qty });
+    });
+    if (!items.length) { showToast('Select at least one item', 'error'); return false; }
+    const totalValue = items.reduce((s, x) => s + x.value, 0);
+    state.labourPPE.push({ id: 'ppe_' + Date.now(), labourId, date, items, totalValue, returned: false, projectId: state.currentProjectId });
+    saveAllData(); renderLabourMasterList();
+    showToast(`Issued ${items.length} PPE items (${cur}${totalValue}) — tracked`, 'success');
+    return true;
+  }, 'Issue Gear', 420);
+};
+
+/** Toggle a PPE issuance as returned */
+window._togglePPEReturn = function(ppeId) {
+  const rec = (state.labourPPE || []).find(p => p.id === ppeId);
+  if (!rec) return;
+  rec.returned = !rec.returned;
+  rec.returnedDate = rec.returned ? new Date().toISOString().split('T')[0] : null;
+  saveAllData(); renderLabourMasterList();
+  showToast(rec.returned ? 'Marked returned' : 'Marked NOT returned', 'info');
+};
+
+/** Total value of unreturned PPE for a worker (used in final settlement) */
+function _unreturnedPPEValue(labourId) {
+  return (state.labourPPE || []).filter(p => p.labourId === labourId && !p.returned).reduce((s, p) => s + (p.totalValue || 0), 0);
+}
+
+/** PPE chips shown under a worker in the master list */
+function _ppeChipsForWorker(labourId) {
+  const recs = (state.labourPPE || []).filter(p => p.labourId === labourId);
+  if (!recs.length) return '';
+  const cur = getCurrencySymbol();
+  const chips = recs.map(p => {
+    const names = (p.items || []).map(i => i.name).join(', ');
+    return `<span onclick="_togglePPEReturn('${p.id}')" title="Click to toggle returned" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px;${p.returned ? 'background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;' : 'background:#fffbeb;color:#d97706;border:1px solid #fde68a;'}">${p.returned ? '✓' : '🦺'} ${names} (${cur}${p.totalValue})${p.returned ? ' returned' : ''}</span>`;
+  }).join('');
+  return `<div style="padding:4px 8px 8px 50px;margin-top:-6px;">${chips}</div>`;
+}
 
 /** Pay the whole gang's aggregate wages to the contractor */
 window._payContractor = function(id) {
@@ -5539,15 +5617,18 @@ window._finalSettlement = function() {
     const labourId = document.getElementById('pmWorker').value;
     const accountId = document.getElementById('pmAccount').value;
     const calc = _labourNetPayable(labourId);
+    const ppeDue = _unreturnedPPEValue(labourId);
+    const finalNet = calc.net - ppeDue; // deduct unreturned PPE
     const date = new Date().toISOString().split('T')[0];
-    if (calc.net > 0) {
-      state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId, date, accountId, amount: calc.net, ref: 'Final Settlement' });
-    } else if (calc.net < 0) {
-      // Worker owes — record as recovery (negative settlement note)
-      showToast(`Worker owes ${getCurrencySymbol()}${Math.abs(calc.net).toLocaleString('en-IN')} — recover before exit`, 'warning');
+    if (finalNet > 0) {
+      state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId, date, accountId, amount: finalNet, ref: ppeDue ? `Final Settlement (− ${getCurrencySymbol()}${ppeDue} unreturned PPE)` : 'Final Settlement' });
+    } else if (finalNet < 0) {
+      showToast(`Worker owes ${getCurrencySymbol()}${Math.abs(finalNet).toLocaleString('en-IN')} — recover before exit`, 'warning');
     }
     (state.labourAdvances || []).filter(a => a.labourId === labourId).forEach(a => a.settled = true);
     (state.labourDeductions || []).filter(d => d.labourId === labourId).forEach(d => d.settled = true);
+    // Mark unreturned PPE as written-off (deducted)
+    (state.labourPPE || []).filter(p => p.labourId === labourId && !p.returned).forEach(p => { p.returned = true; p.writtenOff = true; });
     const l = state.labourMaster.find(x => x.id === labourId);
     if (l) l.status = 'Settled';
     saveAllData(); renderMonthlyMuster(); renderPartiesList(); renderLabourMasterList();
@@ -5562,13 +5643,16 @@ window._fsPreview = function() {
   const box = document.getElementById('fsBreakdown');
   if (!sel || !box) return;
   const c = _labourNetPayable(sel.value);
+  const ppeDue = _unreturnedPPEValue(sel.value);
+  const finalNet = c.net - ppeDue;
   const cur = getCurrencySymbol();
   box.innerHTML = `
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Total Salary Earned</span><span style="font-weight:700;color:#2563eb;">${cur}${c.salary.toLocaleString('en-IN')}</span></div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Already Paid</span><span style="font-weight:700;">−${cur}${c.paid.toLocaleString('en-IN')}</span></div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Pending Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${c.advances.toLocaleString('en-IN')}</span></div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Deductions</span><span style="font-weight:700;color:#dc2626;">−${cur}${c.deductions.toLocaleString('en-IN')}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Final ${c.net >= 0 ? 'Payable' : 'Recoverable'}</span><span style="font-weight:800;font-size:15px;color:${c.net >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.abs(c.net).toLocaleString('en-IN')}</span></div>`;
+    <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Unreturned PPE</span><span style="font-weight:700;color:#d97706;">−${cur}${ppeDue.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Final ${finalNet >= 0 ? 'Payable' : 'Recoverable'}</span><span style="font-weight:800;font-size:15px;color:${finalNet >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.abs(finalNet).toLocaleString('en-IN')}</span></div>`;
 };
 
 /** Reusable payroll modal */
