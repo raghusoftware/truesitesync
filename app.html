@@ -1691,35 +1691,65 @@
       <button onclick="_bulkLabourPayment()" class="bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-emerald-700 transition">💰 Bulk Payment</button>
     </div>
   </div>
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-1 space-y-4">
-      <div class="bg-white rounded-xl border shadow-sm p-5">
-        <h3 class="font-bold text-slate-700 mb-4 border-b pb-2">📅 Mark Today's Attendance</h3>
-        <div class="profile-field-group mb-3"><label>Date</label><input type="date" id="attDate" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-orange-400"></div>
-        <div class="profile-field-group mb-4"><label>Site / Location</label><select id="attSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white"><option value="">-- Select Site --</option></select></div>
-        <button onclick="loadAttendanceSheet()" class="w-full bg-[#1e3a8a] text-white p-3 rounded-lg font-bold hover:bg-blue-900 transition">Load Attendance Sheet</button>
-      </div>
-      <div class="bg-white rounded-xl border shadow-sm p-5">
-        <h3 class="font-bold text-slate-700 mb-3 border-b pb-2">👷 Labour Master List</h3>
-        <div class="space-y-2 max-h-64 overflow-y-auto" id="labourMasterList"><p class="text-xs text-slate-400 text-center py-4">No labour added yet.</p></div>
-      </div>
+
+  <!-- App-icon grid (landing) -->
+  <div id="labourGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;">
+    <div onclick="_openLabourSection('markAtt')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+      <div style="width:54px;height:54px;background:#1e3a8a15;border:2px solid #1e3a8a30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📅</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;">Mark Attendance</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Daily site attendance</div>
     </div>
-    <div class="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div onclick="_openLabourSection('sheet')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+      <div style="width:54px;height:54px;background:#f9731615;border:2px solid #f9731630;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📋</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;">Attendance Sheet</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Monthly muster summary</div>
+    </div>
+    <div onclick="_openLabourSection('master')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+      <div style="width:54px;height:54px;background:#8b5cf615;border:2px solid #8b5cf630;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">👷</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;">Labour Master</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Worker list & details</div>
+    </div>
+  </div>
+
+  <!-- Back button (shown when a section is open) -->
+  <button id="labourBackBtn" onclick="_openLabourSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Labour</button>
+
+  <!-- Section: Mark Attendance -->
+  <div id="labourSecMarkAtt" class="labour-section hide">
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-4" style="max-width:480px;">
+      <h3 class="font-bold text-slate-700 mb-4 border-b pb-2">📅 Mark Today's Attendance</h3>
+      <div class="profile-field-group mb-3"><label>Date</label><input type="date" id="attDate" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-orange-400"></div>
+      <div class="profile-field-group mb-4"><label>Work Order / Site</label><select id="attSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white"><option value="">-- Select WO / Site --</option></select></div>
+      <button onclick="loadAttendanceSheet()" class="w-full bg-[#1e3a8a] text-white p-3 rounded-lg font-bold hover:bg-blue-900 transition">Load Attendance Sheet</button>
+    </div>
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
       <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
         <h3 class="font-bold" id="attSheetTitle">Attendance Sheet</h3>
         <button onclick="saveAttendance()" class="bg-[#f97316] px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-600">💾 Save Attendance</button>
       </div>
-      <div id="attSheetContainer" class="p-5"><p class="text-slate-400 text-center py-8 font-medium">Select a date and site, then click "Load Attendance Sheet".</p></div>
-      <div class="border-t p-4">
-        <div class="flex gap-3 mb-3 items-center">
-          <h4 class="font-bold text-slate-700 text-sm">Monthly Summary</h4>
-          <select id="attMonthFilter" class="p-2 border rounded text-sm font-bold outline-none" onchange="renderMonthlyMuster()"></select>
-          <select id="attSiteFilter" class="p-2 border rounded text-sm font-bold outline-none" onchange="renderMonthlyMuster()"><option value="">All Sites</option></select>
-        </div>
-        <div class="overflow-x-auto max-h-56">
-          <table class="min-w-full text-xs divide-y"><thead class="bg-slate-50 sticky top-0"><tr><th class="px-3 py-2 text-left font-bold uppercase">Labour Name</th><th class="px-3 py-2 text-left font-bold uppercase">Trade</th><th class="px-3 py-2 text-center font-bold uppercase">Days Present</th><th class="px-3 py-2 text-center font-bold uppercase">Half Days</th><th class="px-3 py-2 text-right font-bold uppercase">Est. Wages</th><th class="px-3 py-2 text-center font-bold uppercase text-blue-600">Ledger Action</th></tr></thead><tbody id="musterBody" class="divide-y bg-white"></tbody></table>
-        </div>
+      <div id="attSheetContainer" class="p-5"><p class="text-slate-400 text-center py-8 font-medium">Select a date and WO/site, then click "Load Attendance Sheet".</p></div>
+    </div>
+  </div>
+
+  <!-- Section: Attendance Sheet (Monthly Muster) -->
+  <div id="labourSecSheet" class="labour-section hide">
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <div class="flex gap-3 mb-3 items-center flex-wrap">
+        <h4 class="font-bold text-slate-700 text-sm">📋 Monthly Muster Summary</h4>
+        <select id="attMonthFilter" class="p-2 border rounded text-sm font-bold outline-none" onchange="renderMonthlyMuster()"></select>
+        <select id="attSiteFilter" class="p-2 border rounded text-sm font-bold outline-none" onchange="renderMonthlyMuster()"><option value="">All WO / Sites</option></select>
       </div>
+      <div class="overflow-x-auto max-h-[60vh]">
+        <table class="min-w-full text-xs divide-y"><thead class="bg-slate-50 sticky top-0"><tr><th class="px-3 py-2 text-left font-bold uppercase">Labour Name</th><th class="px-3 py-2 text-left font-bold uppercase">Trade</th><th class="px-3 py-2 text-center font-bold uppercase">Days Present</th><th class="px-3 py-2 text-center font-bold uppercase">Half Days</th><th class="px-3 py-2 text-right font-bold uppercase">Est. Wages</th><th class="px-3 py-2 text-center font-bold uppercase text-blue-600">Ledger Action</th></tr></thead><tbody id="musterBody" class="divide-y bg-white"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Labour Master -->
+  <div id="labourSecMaster" class="labour-section hide">
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-bold text-slate-700 mb-3 border-b pb-2">👷 Labour Master List</h3>
+      <div class="space-y-2" id="labourMasterList"><p class="text-xs text-slate-400 text-center py-4">No labour added yet.</p></div>
     </div>
   </div>
 </div>

@@ -787,6 +787,37 @@ export function renderAnalyticsDashboard() {
     </p>`;
 }
 
+// ==========================================
+// LABOUR — app-icon section navigation
+// ==========================================
+window._openLabourSection = function(section) {
+  const grid = document.getElementById('labourGrid');
+  const backBtn = document.getElementById('labourBackBtn');
+  document.querySelectorAll('.labour-section').forEach(s => s.classList.add('hide'));
+
+  if (!section) {
+    // Back to grid
+    if (grid) grid.style.display = 'grid';
+    if (backBtn) backBtn.style.display = 'none';
+    return;
+  }
+
+  if (grid) grid.style.display = 'none';
+  if (backBtn) backBtn.style.display = 'inline-block';
+
+  const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster' };
+  const el = document.getElementById(map[section]);
+  if (el) el.classList.remove('hide');
+
+  // Render the section content
+  if (section === 'sheet') { if (typeof window.renderMonthlyMuster === 'function') window.renderMonthlyMuster(); }
+  if (section === 'master') { if (typeof window.renderLabourMasterList === 'function') window.renderLabourMasterList(); }
+  if (section === 'markAtt') {
+    const d = document.getElementById('attDate');
+    if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
+  }
+};
+
 function _renderMasterDataGrid() {
   _buildIconGrid('masterDataGrid', [
     { icon: '🏢', label: 'Clients', desc: 'Manage client list', color: '#2563eb', action: "document.getElementById('masterDataGrid').innerHTML='';renderClientTable();document.getElementById('masterDataTables').style.display=''" },
@@ -916,20 +947,32 @@ export function switchView(viewId) {
     if (financeViews.includes(viewId)) { finMenu.classList.remove('hidden'); finToggle.classList.add('open'); }
   }
   if (viewId === 'labourView') {
+    // Build WO/PO options from current project's BOQ groups (fallback to locations)
+    const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+    const woOptions = [];
+    if (proj?.boqs?.length) {
+      proj.boqs.forEach(g => {
+        const label = (g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ');
+        woOptions.push({ id: g.id, name: label });
+      });
+    }
+    if (!woOptions.length) getAllLocations().forEach(l => woOptions.push({ id: l.id, name: l.name }));
+
     const attSite = document.getElementById('attSite');
     const attSiteFilter = document.getElementById('attSiteFilter');
-    const allLocs = getAllLocations();
     [attSite, attSiteFilter].forEach(el => {
       if (!el) return;
       const val = el.value;
-      el.innerHTML = el.id === 'attSiteFilter' ? '<option value="">All Sites</option>' : '<option value="">-- Select Site --</option>';
-      allLocs.forEach(l => el.innerHTML += `<option value="${l.id}">${l.name}</option>`);
+      el.innerHTML = el.id === 'attSiteFilter' ? '<option value="">All WO / Sites</option>' : '<option value="">-- Select WO / Site --</option>';
+      woOptions.forEach(l => el.innerHTML += `<option value="${l.id}">${l.name}</option>`);
       if (val) el.value = val;
     });
     const today = new Date().toISOString().split('T')[0];
     if (document.getElementById('attDate')) document.getElementById('attDate').value = today;
     renderLabourMasterList();
     renderMonthlyMuster();
+    // Reset to the icon grid each time the module opens
+    if (typeof window._openLabourSection === 'function') window._openLabourSection(null);
   }
 }
 
