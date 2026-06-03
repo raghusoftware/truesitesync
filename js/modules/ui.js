@@ -883,7 +883,7 @@ export function switchView(viewId) {
   }
   if (viewId === 'masterFinancialView') { renderMasterClientList(); renderMasterVendorList(); }
   if (viewId === 'measurementListView') renderMeasurementList();
-  if (viewId === 'inventoryView') renderLiveInventory();
+  if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { renderRecipeView(); }
   if (viewId === 'vendorView') {
@@ -1580,6 +1580,292 @@ export function renderLiveInventory() {
     ledgerBody.innerHTML += `<tr><td class="px-3 py-2 border-b whitespace-nowrap">${tx.date}</td><td class="px-3 py-2 border-b truncate">${loc ? loc.name : '-'}</td><td class="px-3 py-2 border-b">${badge}</td><td class="px-3 py-2 border-b font-bold">${rm ? rm.name : '-'}</td><td class="px-3 py-2 border-b text-right font-bold">${tx.qty.toFixed(2)}</td><td class="px-3 py-2 border-b text-slate-500 text-xs">${tx.ref || (tx.refSheetId ? 'Sheet: ' + tx.refSheetId : '-')}</td></tr>`;
   });
 }
+
+// ══════════════════════════════════════════
+// INVENTORY — app-icon sections
+// ══════════════════════════════════════════
+/** Stock-on-hand for a material at a site */
+function _materialSOH(matId, siteId) {
+  let bal = 0;
+  (state.inventoryTx || []).filter(tx => tx.rawMaterialId === matId && (!siteId || tx.siteId === siteId)).forEach(tx => {
+    if (tx.type === 'IN') bal += (tx.qty || 0);
+    else bal -= (tx.qty || 0); // OUT, CONSUME, ISSUE
+  });
+  (state.itemTransfers || []).forEach(t => {
+    if (t.assetId === matId) {
+      if (t.toLocId === siteId) bal += (t.qty || 0);
+      if (t.fromLocId === siteId) bal -= (t.qty || 0);
+    }
+  });
+  return bal;
+}
+
+function _invSiteOptions(selId) {
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  let opts = '';
+  if (proj?.boqs?.length) proj.boqs.forEach(g => { opts += `<option value="${g.id}" ${selId===g.id?'selected':''}>${(g.woNumber?g.woNumber+' — ':'')+(g.name||g.type)}</option>`; });
+  getAllLocations().forEach(l => { opts += `<option value="${l.id}" ${selId===l.id?'selected':''}>${l.name}</option>`; });
+  return opts || '<option value="main">Main Site</option>';
+}
+function _invSiteName(id) {
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const g = proj?.boqs?.find(b => b.id === id);
+  if (g) return (g.woNumber?g.woNumber+' — ':'')+(g.name||g.type);
+  return getAllLocations().find(l => l.id === id)?.name || id || '';
+}
+function _matOptions() {
+  return (state.rawMaterials || []).map(m => `<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
+}
+
+window._openInvSection = function(section) {
+  const grid = document.getElementById('invGrid');
+  const back = document.getElementById('invBackBtn');
+  document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
+  if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
+  if (grid) grid.style.display='none'; if (back) back.style.display='inline-block';
+  const map = { stock:'invSecStock', grn:'invSecGrn', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
+  const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
+  if (section === 'stock') renderLiveInventory();
+  else if (section === 'grn') _renderGRN();
+  else if (section === 'gang') _renderGangMaterial();
+  else if (section === 'tools') _renderTools();
+  else if (section === 'transfer') _renderInvTransfer();
+  else if (section === 'audit') _renderInvAudit();
+};
+
+// ─── 1. Goods Receipt Note (GRN) ───
+function _renderGRN() {
+  const c = document.getElementById('grnContent'); if (!c) return;
+  const supplierOpts = (state.vendors||[]).map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+  const recent = (state.grnRecords||[]).filter(g=>g.projectId===state.currentProjectId).slice(-15).reverse();
+  c.innerHTML = `
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-3">🚚 Goods Receipt Note</h4>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+        <select id="grnSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
+        <select id="grnSupplier" class="p-2 border rounded-lg text-sm bg-white"><option value="">-- Supplier --</option>${supplierOpts}</select>
+        <input id="grnChallan" placeholder="Challan / DC No" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+        <select id="grnMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+        <input id="grnQty" type="number" placeholder="Qty received" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnRate" type="number" placeholder="Rate ₹ (opt)" class="p-2 border rounded-lg text-sm outline-none">
+        <button onclick="_saveGRN()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Receive Stock</button>
+      </div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent GRNs</div>
+      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Challan</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Vehicle</th></tr></thead><tbody>
+      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2 font-mono">${g.challanNo||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}</td><td class="px-3 py-2">${g.vehicleNo||'—'}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
+      </tbody></table></div>`;
+}
+window._saveGRN = function() {
+  const siteId=document.getElementById('grnSite').value, matId=document.getElementById('grnMat').value;
+  const qty=parseFloat(document.getElementById('grnQty').value)||0;
+  const rate=parseFloat(document.getElementById('grnRate').value)||0;
+  if(!matId||qty<=0){showToast('Select material and quantity','error');return;}
+  const date=new Date().toISOString().split('T')[0];
+  const challanNo=document.getElementById('grnChallan').value.trim();
+  const supplierId=document.getElementById('grnSupplier').value;
+  const vehicleNo=document.getElementById('grnVehicle').value.trim();
+  state.grnRecords.push({id:'grn_'+Date.now(),date,siteId,matId,qty,rate,challanNo,supplierId,vehicleNo,projectId:state.currentProjectId});
+  state.inventoryTx.push({id:'tx_grn_'+Date.now(),date,siteId,rawMaterialId:matId,type:'IN',qty,rate,ref:`GRN ${challanNo||''}`.trim()});
+  saveAllData(); _renderGRN();
+  showToast(`Stock received: ${qty} units`,'success');
+};
+
+// ─── 2. Gang Material Issue / Return / Wastage ───
+function _renderGangMaterial() {
+  const c = document.getElementById('gangMatContent'); if (!c) return;
+  const gangs=_projectContractors();
+  const gangOpts=gangs.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')||'<option value="">No gangs</option>';
+  const issues=(state.materialIssues||[]).filter(i=>i.projectId===state.currentProjectId).slice(-15).reverse();
+  c.innerHTML=`
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-3">🧱 Issue / Return Material to Gang</h4>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <select id="gmGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
+        <select id="gmMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+        <select id="gmType" class="p-2 border rounded-lg text-sm bg-white"><option value="ISSUE">Issue (−stock)</option><option value="RETURN">Return (+stock)</option></select>
+        <input id="gmQty" type="number" placeholder="Qty" class="p-2 border rounded-lg text-sm outline-none">
+        <button onclick="_saveGangMat()" class="bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600">Save</button>
+      </div>
+      <input id="gmPurpose" placeholder="Purpose (e.g. blockwork 2nd floor)" class="w-full mt-2 p-2 border rounded-lg text-sm outline-none">
+    </div>
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-2">📉 Wastage Check</h4>
+      <p class="text-[11px] text-slate-400 mb-2">Compares material issued to a gang vs. approved work done. Flags excess wastage for deduction.</p>
+      <div class="flex gap-2 flex-wrap">
+        <select id="gmwGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
+        <button onclick="_calcWastage()" class="bg-rose-500 text-white px-4 rounded-lg font-bold text-sm hover:bg-rose-600">Calculate Wastage</button>
+      </div>
+      <div id="wastageResult" class="mt-3"></div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent Issues / Returns</div>
+      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Gang</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th></tr></thead><tbody>
+      ${issues.map(i=>{const m=state.rawMaterials.find(r=>r.id===i.matId);const g=(state.labourContractors||[]).find(x=>x.id===i.gangId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${g?.name||'—'}</td><td class="px-3 py-2">${m?.name||'—'}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type==='ISSUE'?'#ea580c':'#059669'};">${i.type}</span></td><td class="px-3 py-2 text-right font-bold">${i.qty} ${m?.unit||''}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No records.</td></tr>'}
+      </tbody></table></div>`;
+}
+window._saveGangMat=function(){
+  const gangId=document.getElementById('gmGang').value, matId=document.getElementById('gmMat').value;
+  const type=document.getElementById('gmType').value, qty=parseFloat(document.getElementById('gmQty').value)||0;
+  const purpose=document.getElementById('gmPurpose').value.trim();
+  if(!gangId){showToast('Select gang','error');return;}
+  if(!matId||qty<=0){showToast('Select material and qty','error');return;}
+  const date=new Date().toISOString().split('T')[0];
+  state.materialIssues.push({id:'mi_'+Date.now(),date,gangId,matId,type,qty,purpose,projectId:state.currentProjectId});
+  // Stock movement
+  state.inventoryTx.push({id:'tx_mi_'+Date.now(),date,siteId:'',rawMaterialId:matId,type:type==='ISSUE'?'OUT':'IN',qty,ref:`Gang ${type}`});
+  saveAllData(); _renderGangMaterial();
+  showToast(`Material ${type.toLowerCase()}d`,'success');
+};
+window._calcWastage=function(){
+  const gangId=document.getElementById('gmwGang').value;
+  const box=document.getElementById('wastageResult');
+  if(!gangId){showToast('Select gang','error');return;}
+  const cur=getCurrencySymbol();
+  // Net issued per material
+  const issued={};
+  (state.materialIssues||[]).filter(i=>i.gangId===gangId).forEach(i=>{issued[i.matId]=(issued[i.matId]||0)+(i.type==='ISSUE'?i.qty:-i.qty);});
+  // Theoretical from approved measurements × recipe (if any). Simple: show issued + a wastage % threshold note.
+  const rows=Object.entries(issued).filter(([,q])=>q>0).map(([matId,q])=>{
+    const m=state.rawMaterials.find(r=>r.id===matId);
+    return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${q.toFixed(1)} ${m?.unit||''}</td></tr>`;
+  }).join('');
+  // Approved work value for context
+  const approvedVal=(state.workMeasurements||[]).filter(mm=>mm.gangId===gangId&&mm.approved).reduce((s,mm)=>{const r=(state.workItemRates||[]).find(x=>x.id===mm.rateId);return s+((r?.rate||0)*mm.quantity);},0);
+  box.innerHTML=`<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;">
+    <p style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;">Net Material Consumed by Gang</p>
+    <table class="w-full text-xs"><tbody>${rows||'<tr><td class="p-2 text-slate-400">No material issued.</td></tr>'}</tbody></table>
+    <p style="font-size:11px;color:#64748b;margin-top:8px;">Approved work value: <strong>${cur}${approvedVal.toLocaleString('en-IN')}</strong>. Review consumed material against this — issue a Deduction (Labour module) if wastage exceeds your EPC norm (e.g. >5%).</p>
+  </div>`;
+};
+
+// ─── 3. Returnable Tools ───
+function _renderTools() {
+  const c=document.getElementById('toolsContent'); if(!c) return;
+  const labOpts=_projectLabour().map(l=>`<option value="${l.id}">${l.name}</option>`).join('')||'<option value="">No workers</option>';
+  const outstanding=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId&&!t.returned);
+  const all=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId).slice(-15).reverse();
+  c.innerHTML=`
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-3">🔧 Issue Tool / Scaffolding to Worker</h4>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <select id="tiLabour" class="p-2 border rounded-lg text-sm bg-white">${labOpts}</select>
+        <input id="tiTool" placeholder="Tool (e.g. Drill, 50 scaffold tubes)" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="tiValue" type="number" placeholder="Value ₹ (for penalty)" class="p-2 border rounded-lg text-sm outline-none">
+        <button onclick="_saveToolIssue()" class="bg-violet-600 text-white rounded-lg font-bold text-sm hover:bg-violet-700">Issue Tool</button>
+      </div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">${outstanding.length} tools currently held</div>
+      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Worker</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Tool</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
+      ${all.map(t=>{const l=(state.labourMaster||[]).find(x=>x.id===t.labourId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${l?.name||'—'}</td><td class="px-3 py-2">${t.tool}</td><td class="px-3 py-2 text-right">${getCurrencySymbol()}${(t.value||0).toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${t.returned?`<span style="font-size:10px;color:#059669;font-weight:700;">✓ Returned</span>`:`<button onclick="_returnTool('${t.id}')" style="font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Return</button>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No tools issued.</td></tr>'}
+      </tbody></table></div>`;
+}
+window._saveToolIssue=function(){
+  const labourId=document.getElementById('tiLabour').value, tool=document.getElementById('tiTool').value.trim();
+  const value=parseFloat(document.getElementById('tiValue').value)||0;
+  if(!labourId||!tool){showToast('Select worker and tool','error');return;}
+  state.toolIssues.push({id:'tool_'+Date.now(),date:new Date().toISOString().split('T')[0],labourId,tool,value,returned:false,projectId:state.currentProjectId});
+  saveAllData(); _renderTools();
+  showToast('Tool issued — tracked to worker','success');
+};
+window._returnTool=function(id){
+  const t=(state.toolIssues||[]).find(x=>x.id===id); if(!t) return;
+  const dmg=confirm('Returned in good condition? OK = good, Cancel = damaged/penalty');
+  if(!dmg){const pen=parseFloat(prompt('Penalty amount to deduct from wages (₹):','0'))||0;
+    if(pen>0){state.labourDeductions.push({id:'ded_'+Date.now(),labourId:t.labourId,deductionType:'Damaged Tool',amount:pen,date:new Date().toISOString().split('T')[0],note:t.tool,settled:false});showToast(`Penalty ${getCurrencySymbol()}${pen} added to worker deductions`,'warning');}}
+  t.returned=true; t.returnedDate=new Date().toISOString().split('T')[0];
+  saveAllData(); _renderTools();
+  showToast('Tool returned','success');
+};
+
+// ─── 4. Inter-Site Transfer ───
+function _renderInvTransfer() {
+  const c=document.getElementById('invTransferContent'); if(!c) return;
+  const transfers=(state.itemTransfers||[]).slice(-15).reverse();
+  c.innerHTML=`
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-3">🔄 Inter-Site Material Transfer</h4>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-2">
+        <select id="itFrom" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
+        <select id="itTo" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
+        <input id="itVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <select id="itMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+        <input id="itQty" type="number" placeholder="Qty to dispatch" class="p-2 border rounded-lg text-sm outline-none">
+        <button onclick="_initTransfer()" class="bg-cyan-600 text-white rounded-lg font-bold text-sm hover:bg-cyan-700">Dispatch (In-Transit)</button>
+      </div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Transfers</div>
+      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">From → To</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
+      ${transfers.map(t=>{const m=state.rawMaterials.find(r=>r.id===t.assetId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2">${_invSiteName(t.fromLocId)} → ${_invSiteName(t.toLocId)}</td><td class="px-3 py-2 text-right font-bold">${t.qty}${t.receivedQty!=null&&t.receivedQty!==t.qty?` (rcv ${t.receivedQty})`:''}</td><td class="px-3 py-2 text-center">${t.status==='IN_TRANSIT'?`<button onclick="_receiveTransfer('${t.id}')" style="font-size:10px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Receive</button>`:`<span style="font-size:10px;color:#059669;font-weight:700;">✓ Received</span>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No transfers.</td></tr>'}
+      </tbody></table></div>`;
+}
+window._initTransfer=function(){
+  const fromLocId=document.getElementById('itFrom').value, toLocId=document.getElementById('itTo').value;
+  const assetId=document.getElementById('itMat').value, qty=parseFloat(document.getElementById('itQty').value)||0;
+  const vehicleNo=document.getElementById('itVehicle').value.trim();
+  if(fromLocId===toLocId){showToast('Source and destination must differ','error');return;}
+  if(!assetId||qty<=0){showToast('Select material and qty','error');return;}
+  state.itemTransfers.push({id:'itf_'+Date.now(),date:new Date().toISOString().split('T')[0],fromLocId,toLocId,assetId,qty,vehicleNo,status:'IN_TRANSIT',receivedQty:null});
+  state.inventoryTx.push({id:'tx_itf_'+Date.now(),date:new Date().toISOString().split('T')[0],siteId:fromLocId,rawMaterialId:assetId,type:'OUT',qty,ref:'Transfer out'});
+  saveAllData(); _renderInvTransfer();
+  showToast('Dispatched — In Transit','success');
+};
+window._receiveTransfer=function(id){
+  const t=(state.itemTransfers||[]).find(x=>x.id===id); if(!t) return;
+  const rcv=parseFloat(prompt(`Dispatched: ${t.qty}. Enter quantity received:`,t.qty));
+  if(isNaN(rcv)) return;
+  t.receivedQty=rcv; t.status='RECEIVED';
+  state.inventoryTx.push({id:'tx_itr_'+Date.now(),date:new Date().toISOString().split('T')[0],siteId:t.toLocId,rawMaterialId:t.assetId,type:'IN',qty:rcv,ref:'Transfer in'});
+  saveAllData(); _renderInvTransfer();
+  if(rcv!==t.qty) showToast(`⚠ Variance: ${t.qty-rcv} units short!`,'error');
+  else showToast('Transfer received','success');
+};
+
+// ─── 5. Physical Audit ───
+function _renderInvAudit() {
+  const c=document.getElementById('invAuditContent'); if(!c) return;
+  const audits=(state.stockAudits||[]).filter(a=>a.projectId===state.currentProjectId).slice(-15).reverse();
+  c.innerHTML=`
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h4 class="font-bold text-slate-700 text-sm mb-3">📋 Physical Stock Audit</h4>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <select id="auSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
+        <select id="auMat" class="p-2 border rounded-lg text-sm bg-white" onchange="_auShowBook()">${_matOptions()}</select>
+        <input id="auActual" type="number" placeholder="Physical count" class="p-2 border rounded-lg text-sm outline-none">
+        <button onclick="_saveAudit()" class="bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700">Reconcile</button>
+      </div>
+      <p id="auBook" class="text-xs text-slate-500 mt-2"></p>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Audit History</div>
+      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Book</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Physical</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Variance</th></tr></thead><tbody>
+      ${audits.map(a=>{const m=state.rawMaterials.find(r=>r.id===a.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${a.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${a.book.toFixed(1)}</td><td class="px-3 py-2 text-right">${a.actual.toFixed(1)}</td><td class="px-3 py-2 text-right font-bold" style="color:${Math.abs(a.variance)>0?(a.variance<0?'#dc2626':'#059669'):'#64748b'};">${a.variance>0?'+':''}${a.variance.toFixed(1)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No audits yet.</td></tr>'}
+      </tbody></table></div>`;
+}
+window._auShowBook=function(){
+  const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;
+  const book=_materialSOH(matId,siteId);
+  const m=state.rawMaterials.find(r=>r.id===matId);
+  document.getElementById('auBook').textContent=`Book stock: ${book.toFixed(1)} ${m?.unit||''}`;
+};
+window._saveAudit=function(){
+  const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;
+  const actual=parseFloat(document.getElementById('auActual').value);
+  if(isNaN(actual)){showToast('Enter physical count','error');return;}
+  const book=_materialSOH(matId,siteId);
+  const variance=actual-book;
+  const date=new Date().toISOString().split('T')[0];
+  state.stockAudits.push({id:'aud_'+Date.now(),date,siteId,matId,book,actual,variance,projectId:state.currentProjectId});
+  // Adjust stock to physical reality
+  state.inventoryTx.push({id:'tx_aud_'+Date.now(),date,siteId,rawMaterialId:matId,type:variance>=0?'IN':'OUT',qty:Math.abs(variance),ref:'Audit adjustment'});
+  saveAllData(); _renderInvAudit();
+  if(variance<-2) showToast(`⚠ ${Math.abs(variance).toFixed(0)} units missing — possible theft! Flagged.`,'error');
+  else showToast('Stock reconciled to physical count','success');
+};
 
 // ==========================================
 // RECIPES
