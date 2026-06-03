@@ -1807,6 +1807,11 @@
       <div style="font-size:14px;font-weight:700;color:#0f172a;">Activity Log</div>
       <div style="font-size:11px;color:#94a3b8;margin-top:3px;">History & expenses</div>
     </div>
+    <div onclick="_openEquipSection('fuel')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+      <div style="width:54px;height:54px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">⛽</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;">Fuel Management</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Tank, pump & efficiency</div>
+    </div>
   </div>
 
   <button id="equipBackBtn" onclick="_openEquipSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Equipment</button>
@@ -1854,6 +1859,17 @@
         <table class="min-w-full text-xs divide-y"><thead class="bg-slate-50 sticky top-0"><tr><th class="px-3 py-2 text-left font-bold uppercase">Date</th><th class="px-3 py-2 text-left font-bold uppercase">Equipment</th><th class="px-3 py-2 text-center font-bold uppercase">Type</th><th class="px-3 py-2 text-left font-bold uppercase">Site</th><th class="px-3 py-2 text-right font-bold uppercase">Amount</th><th class="px-3 py-2 text-left font-bold uppercase">Remarks</th><th class="px-3 py-2 text-center font-bold uppercase">Del</th></tr></thead><tbody id="eqLogBody" class="divide-y bg-white"></tbody></table>
       </div>
     </div>
+  </div>
+
+  <!-- Section: Fuel Management -->
+  <div id="equipSecFuel" class="equip-section hide">
+    <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl" style="max-width:fit-content;">
+      <button onclick="_fuelTab('tank',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-sm">🛢️ Tank / Storage</button>
+      <button onclick="_fuelTab('issue',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">⛽ Issue Fuel</button>
+      <button onclick="_fuelTab('pump',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">⛽ Pump Purchases</button>
+      <button onclick="_fuelTab('efficiency',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">📈 Efficiency</button>
+    </div>
+    <div id="fuelContent"></div>
   </div>
 </div>
 

@@ -71,7 +71,9 @@ const STORAGE_KEYS = {
   labourContractors: 'mes_labour_contractors',
   labourPPE: 'mes_labour_ppe',
   workItemRates: 'mes_work_item_rates',
-  workMeasurements: 'mes_work_measurements'
+  workMeasurements: 'mes_work_measurements',
+  fuelStorages: 'mes_fuel_storages',
+  fuelTxns: 'mes_fuel_txns'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -158,6 +160,8 @@ export const state = {
   labourPPE: load(STORAGE_KEYS.labourPPE, []),
   workItemRates: load(STORAGE_KEYS.workItemRates, []),
   workMeasurements: load(STORAGE_KEYS.workMeasurements, []),
+  fuelStorages: load(STORAGE_KEYS.fuelStorages, []),
+  fuelTxns: load(STORAGE_KEYS.fuelTxns, []),
 
   currentProjectId: null,
   currentSheetId: null,
