@@ -629,11 +629,13 @@ export function renderEquipmentView() {
   const eqLogAsset = document.getElementById('eqLogAsset');
   const eqFilterAsset = document.getElementById('eqFilterAsset');
 
+  // Equipment is a project-context module → show only this project's assets (+ untagged legacy)
+  const projEquip = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId);
   if (fleet) {
-    if (state.equipmentList.length === 0) {
-      fleet.innerHTML = '<p class="p-4 text-slate-400 text-xs text-center">No equipment added yet.</p>';
+    if (projEquip.length === 0) {
+      fleet.innerHTML = '<p class="p-4 text-slate-400 text-xs text-center">No equipment added for this project yet.</p>';
     } else {
-      fleet.innerHTML = state.equipmentList.map(eq => {
+      fleet.innerHTML = projEquip.map(eq => {
         const totalFuel = state.equipmentLogs.filter(l => l.assetId === eq.id && l.type === 'Fuel').reduce((s, l) => s + parseFloat(l.amount || 0), 0);
         const totalMaint = state.equipmentLogs.filter(l => l.assetId === eq.id && (l.type === 'Maintenance' || l.type === 'Repair')).reduce((s, l) => s + parseFloat(l.amount || 0), 0);
         const eff = _fuelEfficiency(eq.id);
@@ -675,7 +677,7 @@ export function renderEquipmentView() {
     if (!sel) return;
     const val = sel.value;
     sel.innerHTML = sel.id === 'eqFilterAsset' ? '<option value="">All Equipment</option>' : '<option value="">-- Select Equipment --</option>';
-    state.equipmentList.forEach(eq => sel.innerHTML += `<option value="${eq.id}">${eq.name} (${eq.regNo || 'No Reg'})</option>`);
+    projEquip.forEach(eq => sel.innerHTML += `<option value="${eq.id}">${eq.name} (${eq.regNo || 'No Reg'})</option>`);
     if (val) sel.value = val;
   });
 
@@ -781,7 +783,10 @@ export function renderEquipmentLog() {
   const tbody = document.getElementById('eqLogBody');
   if (!tbody) return;
   const allLocs = getAllLocations();
-  let filtered = filterAsset ? state.equipmentLogs.filter(l => l.assetId === filterAsset) : state.equipmentLogs;
+  // Only logs for this project's equipment
+  const projEquipIds = new Set(state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => e.id));
+  let filtered = (state.equipmentLogs || []).filter(l => projEquipIds.has(l.assetId));
+  if (filterAsset) filtered = filtered.filter(l => l.assetId === filterAsset);
   filtered = filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50);
 
   tbody.innerHTML = filtered.map(l => {

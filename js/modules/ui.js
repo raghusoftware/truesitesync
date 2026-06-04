@@ -3761,7 +3761,8 @@ export function renderAbstractsList() {
   const container = document.getElementById('abstractsCardsContainer');
   const emptyState = document.getElementById('abstractsEmptyState');
   container.innerHTML = '';
-  let filtered = state.abstracts;
+  // Project-context module → only this project's abstracts
+  let filtered = (state.abstracts || []).filter(a => !state.currentProjectId || a.projectId === state.currentProjectId || (state.clients.find(c => c.id === a.clientId)?.projectId === state.currentProjectId));
   if (filterCId) filtered = filtered.filter(a => a.clientId === filterCId);
   if (!filtered.length) { if (emptyState) emptyState.classList.remove('hidden'); return; }
   if (emptyState) emptyState.classList.add('hidden');
