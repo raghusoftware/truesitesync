@@ -872,7 +872,7 @@ export function switchView(viewId) {
     document.getElementById('billingAbstractsContainer').classList.add('hide');
     renderInvoiceHistory();
   }
-  if (viewId === 'masterData') _renderMasterDataGrid();
+  if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); }
   if (viewId === 'clientDashboardView') renderClientHub();
   if (viewId === 'partiesLedgerView') renderPartiesList();
   if (viewId === 'equipmentView') {
