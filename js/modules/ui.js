@@ -1,5 +1,8 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
+
+/** Plain 2-decimal number for PDF tables (no currency glyph) */
+function _num2(n) { return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 import { getActiveThemeId, renderWithTheme, getThemeList, THEMES } from './pdfThemes.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
@@ -3832,20 +3835,9 @@ export function exportAbstractPDF(id) {
   const a = state.abstracts.find(x => x.id === id);
   const c = state.clients.find(x => x.id === a.clientId);
   const proj = state.projects.find(p => p.id === a.projectId);
-  const sym = getCurrencySymbol();
+  const sym = getPdfCurrency().trim();
 
-  // Try theme engine
-  const themeId = getActiveThemeId('abstract');
-  if (themeId && THEMES.abstract && THEMES.abstract[themeId]) {
-    const doc = new window.jspdf.jsPDF();
-    const data = { abstractNum: a.abstractNum, date: a.date, sheetNum: a.sheetNum, area: a.area, clientName: c?.name || '', projectName: c?.projectName || proj?.name || '', items: a.items || [], totalAmount: a.totalAmount || 0, gstType: a.gstType, taxPct: a.taxPct, taxAmount: a.taxAmount, subtotal: a.subtotal };
-    renderWithTheme('abstract', themeId, doc, data);
-    mobileSavePDF(doc,`${a.abstractNum}.pdf`);
-    return;
-  }
-
-  // Fallback
-  const doc = new window.jspdf.jsPDF();
+  const doc = new window.jspdf.jsPDF('portrait');
   let nextY = getCompanyHeaderForPDF(doc);
   doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 58, 138);
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
@@ -3855,10 +3847,10 @@ export function exportAbstractPDF(id) {
   doc.text(`Abstract No: ${a.abstractNum} | Date: ${a.date}`, 14, nextY + 6);
   doc.text(`Ref Sheet: ${a.sheetNum} | Area: ${a.area}`, 14, nextY + 12);
   let rows = [];
-  a.items.forEach((i, index) => rows.push([index + 1, i.code, i.desc, i.qty.toFixed(3), i.uom, formatINR2(i.rate), formatINR2(i.amount)]));
+  a.items.forEach((i, index) => rows.push([index + 1, i.code, i.desc, i.qty.toFixed(3), i.uom, _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
-  doc.text(`Grand Total Amount: ${formatINR2(a.totalAmount)}`, 14, doc.lastAutoTable.finalY + 12);
+  doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, doc.lastAutoTable.finalY + 12);
   mobileSavePDF(doc,`${a.abstractNum}.pdf`);
 }
 
@@ -3901,8 +3893,8 @@ export function exportDetailedAbstractPDF(id) {
   info.forEach(line => { doc.text(line, 10, y + 4); y += 4.5; });
   y += 2;
 
-  // Table with BOQ/PO Qty column
-  const sym = getCurrencySymbol();
+  // Table with BOQ/PO Qty column (use Rs. — jsPDF can't render ₹)
+  const sym = getPdfCurrency().trim();
   const head = [['Sr\nNo.', 'Item\nNo.', 'Description', 'UOM', 'BOQ/PO\nQty.', 'Pre.\nQty.', 'This Bill\nQty.', 'Total\nQty.', `Rate\n(${sym})`, `Pre.\nAmt (${sym})`, `This Bill\nAmt (${sym})`, `TOTAL\nAmt (${sym})`]];
   const rows = [];
   let grandPreAmt = 0, grandThisAmt = 0, grandTotalAmt = 0;
@@ -3932,10 +3924,10 @@ export function exportDetailedAbstractPDF(id) {
       prevQty.toFixed(3),
       thisBillQty.toFixed(3),
       totalQty.toFixed(3),
-      formatINR2(rate),
-      formatINR2(preAmt),
-      formatINR2(thisAmt),
-      formatINR2(totalAmt)
+      _num2(rate),
+      _num2(preAmt),
+      _num2(thisAmt),
+      _num2(totalAmt)
     ]);
   });
 
@@ -3943,9 +3935,9 @@ export function exportDetailedAbstractPDF(id) {
   rows.push([
     '', '', { content: 'GRAND TOTAL', styles: { fontStyle: 'bold', halign: 'right' } }, '',
     '', '', '', '', '',
-    { content: formatINR2(grandPreAmt), styles: { fontStyle: 'bold' } },
-    { content: formatINR2(grandThisAmt), styles: { fontStyle: 'bold' } },
-    { content: formatINR2(grandTotalAmt), styles: { fontStyle: 'bold' } }
+    { content: _num2(grandPreAmt), styles: { fontStyle: 'bold' } },
+    { content: _num2(grandThisAmt), styles: { fontStyle: 'bold' } },
+    { content: _num2(grandTotalAmt), styles: { fontStyle: 'bold' } }
   ]);
 
   doc.autoTable({
@@ -3959,16 +3951,16 @@ export function exportDetailedAbstractPDF(id) {
     columnStyles: {
       0: { halign: 'center', cellWidth: 8 },
       1: { halign: 'center', cellWidth: 12 },
-      2: { cellWidth: 38, overflow: 'linebreak' },
-      3: { halign: 'center', cellWidth: 10 },
-      4: { halign: 'right', cellWidth: 16 },
-      5: { halign: 'right', cellWidth: 16 },
-      6: { halign: 'right', cellWidth: 16 },
-      7: { halign: 'right', cellWidth: 16 },
-      8: { halign: 'right', cellWidth: 18 },
-      9: { halign: 'right', cellWidth: 18 },
-      10: { halign: 'right', cellWidth: 18 },
-      11: { halign: 'right', fontStyle: 'bold', cellWidth: 18 }
+      2: { cellWidth: 'auto', overflow: 'linebreak' },
+      3: { halign: 'center', cellWidth: 9 },
+      4: { halign: 'right', cellWidth: 15 },
+      5: { halign: 'right', cellWidth: 15 },
+      6: { halign: 'right', cellWidth: 15 },
+      7: { halign: 'right', cellWidth: 15 },
+      8: { halign: 'right', cellWidth: 17 },
+      9: { halign: 'right', cellWidth: 17 },
+      10: { halign: 'right', cellWidth: 17 },
+      11: { halign: 'right', fontStyle: 'bold', cellWidth: 17 }
     }
   });
 
