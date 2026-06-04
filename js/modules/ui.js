@@ -3086,6 +3086,13 @@ function _renderAttachmentsList(sheetId) {
 // PDF EXPORTS
 // ==========================================
 
+/** Preferred PDF orientation for measurement/abstract docs (default portrait) */
+function _measOrientation() {
+  return (state.printSettings?.measurementOrientation) || 'portrait';
+}
+/** Page center X for the chosen orientation (A4) */
+function _pageCenterX(orient) { return orient === 'landscape' ? 148 : 105; }
+
 /** Simple Measurement Sheet PDF */
 export function exportSimpleMeasurementPdf() {
   if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
@@ -3093,23 +3100,17 @@ export function exportSimpleMeasurementPdf() {
   const c = state.clients.find(x => x.id === s.clientId);
   const proj = state.projects.find(p => p.id === s.projectId);
 
-  // Try theme engine first
-  const themeId = getActiveThemeId('measurement');
-  if (themeId && THEMES.measurement && THEMES.measurement[themeId]) {
-    const doc = new window.jspdf.jsPDF(themeId === 'compact_onsite' ? 'portrait' : 'landscape');
-    const data = { sheetNum: s.sheetNum, date: s.date, area: s.area || '', clientName: c?.name || proj?.clientName || '', projectName: proj?.name || '', entries: s.entries || [], customColumns: s.customColumns || [] };
-    renderWithTheme('measurement', themeId, doc, data);
-    mobileSavePDF(doc,`Measurement_${s.sheetNum}.pdf`);
-    return;
-  }
+  const orient = _measOrientation();
+  const isP = orient === 'portrait';
+  const cx = _pageCenterX(orient);
 
-  // Fallback to inline rendering
-  const doc = new window.jspdf.jsPDF('landscape');
+  // Direct inline rendering (theme engine removed — respects orientation setting)
+  const doc = new window.jspdf.jsPDF(orient);
   let y = getCompanyHeaderForPDF(doc);
   const sym = getCurrencySymbol();
 
   doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
-  doc.text('MEASUREMENT SHEET', 148, y + 5, null, null, 'center');
+  doc.text('MEASUREMENT SHEET', cx, y + 5, null, null, 'center');
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(80);
 
   const info = [
@@ -3131,12 +3132,15 @@ export function exportSimpleMeasurementPdf() {
       rows.push(row);
     }
   });
+  const measCols = isP
+    ? { 0: { cellWidth: 14, fontStyle: 'bold' }, 1: { cellWidth: 'auto', overflow: 'linebreak' }, 2: { cellWidth: 10, halign: 'center' }, 3: { cellWidth: 9, halign: 'center' }, 4: { cellWidth: 11, halign: 'center' }, 5: { cellWidth: 11, halign: 'center' }, 6: { cellWidth: 11, halign: 'center' }, 7: { cellWidth: 9, halign: 'center' }, 8: { cellWidth: 14, fontStyle: 'bold', halign: 'center' }, 9: { cellWidth: 22, overflow: 'linebreak' } }
+    : { 0: { cellWidth: 18, fontStyle: 'bold' }, 1: { cellWidth: 50, overflow: 'linebreak' }, 2: { cellWidth: 12 }, 3: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 14, halign: 'center' }, 6: { cellWidth: 14, halign: 'center' }, 7: { cellWidth: 12, halign: 'center' }, 8: { cellWidth: 16, fontStyle: 'bold', halign: 'center' }, 9: { cellWidth: 30, overflow: 'linebreak' } };
   doc.autoTable({
     startY: y + 28, head: [head],
-    body: rows, theme: 'grid',
-    headStyles: { fillColor: [249, 115, 22], fontSize: 7, fontStyle: 'bold' },
-    styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
-    columnStyles: { 0: { cellWidth: 18, fontStyle: 'bold' }, 1: { cellWidth: 50, overflow: 'linebreak' }, 2: { cellWidth: 12 }, 3: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 14, halign: 'center' }, 6: { cellWidth: 14, halign: 'center' }, 7: { cellWidth: 12, halign: 'center' }, 8: { cellWidth: 16, fontStyle: 'bold', halign: 'center' }, 9: { cellWidth: 30, overflow: 'linebreak' } }
+    body: rows, theme: 'grid', tableWidth: 'auto',
+    headStyles: { fillColor: [249, 115, 22], fontSize: isP ? 6.5 : 7, fontStyle: 'bold' },
+    styles: { fontSize: isP ? 6.5 : 7, cellPadding: 1.5, overflow: 'linebreak' },
+    columnStyles: measCols
   });
 
   // BBS summary if exists

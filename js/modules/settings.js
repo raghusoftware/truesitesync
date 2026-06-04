@@ -47,6 +47,14 @@ function _selOpts(options, current) {
   }).join('');
 }
 
+window._setMeasOrientation = function(o) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.measurementOrientation = o;
+  saveAllData();
+  renderPrintConfigTab();
+  showToast('Measurement PDF set to ' + o, 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -57,7 +65,21 @@ function renderPrintConfigTab() {
   const aligns = [{v:'left',l:'Left'},{v:'center',l:'Center'},{v:'right',l:'Right'}];
   const styles = [{v:'bold',l:'Bold'},{v:'normal',l:'Normal'},{v:'bolditalic',l:'Bold Italic'},{v:'italic',l:'Italic'}];
 
+  const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
   c.innerHTML = `
+    <!-- ═══ MEASUREMENT PDF ORIENTATION ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#128196;</span>
+        <h4 class="font-bold text-sm text-slate-800">Measurement & RA Bill PDF Orientation</h4>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
+        <button onclick="window._setMeasOrientation('landscape')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📑 Landscape</button>
+      </div>
+      <p class="text-[10px] text-slate-400 mt-2">Applies to all measurement sheet PDFs.</p>
+    </div>
+
     <!-- ═══ HEADER CONFIGURATION ═══ -->
     <div class="mb-8 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-4">
