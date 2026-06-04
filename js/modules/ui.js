@@ -1874,15 +1874,33 @@ window._saveAudit=function(){
 //  RECIPE VIEW — Project-aware, linked to BOQ items
 // ═══════════════════════════════════════════════════
 
+/** Recipe storage key — client id if exists, else project id */
+function _recipeKey(pid) {
+  const client = (state.clients || []).find(c => c.projectId === pid);
+  return client?.id || pid;
+}
+/** BOQ items for a project as a map keyed by code (merges all BOQ groups + legacy item master) */
+function _recipeItemsMap(pid) {
+  const map = {};
+  const proj = (state.projects || []).find(p => p.id === pid);
+  (proj?.boqs || []).forEach(g => (g.items || []).forEach(it => {
+    const code = it.code || it.itemNo;
+    if (code) map[code] = { code, description: it.description || it.name || code, uom: it.uom || it.unit || '', rate: it.rate || 0 };
+  }));
+  // include legacy item master too
+  const cId = (state.clients || []).find(c => c.projectId === pid)?.id;
+  if (cId && state.items[cId]) Object.values(state.items[cId]).forEach(it => { if (it.code && !map[it.code]) map[it.code] = it; });
+  return map;
+}
+
 export function renderRecipeView() {
   const container = document.getElementById('recipeViewContent');
   if (!container) return;
   const pid = state.currentProjectId || state.projects?.[0]?.id;
-  const client = (state.clients || []).find(c => c.projectId === pid);
-  const cId = client?.id;
-  const items = cId ? state.items[cId] || {} : {};
+  const cId = _recipeKey(pid);
+  const items = _recipeItemsMap(pid);
   const itemList = Object.values(items);
-  const recipeCount = cId && state.recipes[cId] ? Object.keys(state.recipes[cId]).length : 0;
+  const recipeCount = state.recipes[cId] ? Object.keys(state.recipes[cId]).length : 0;
   const projectMaterials = (state.rawMaterials || []).filter(r => r.projectId === pid);
 
   container.innerHTML = `
@@ -1972,11 +1990,9 @@ export function recipeFilterList() {
 
 export function recipeOpenEditor(itemCode) {
   const pid = state.currentProjectId || state.projects?.[0]?.id;
-  const client = (state.clients || []).find(c => c.projectId === pid);
-  const cId = client?.id;
-  if (!cId) return;
-  const item = state.items[cId]?.[itemCode];
-  if (!item) return;
+  const cId = _recipeKey(pid);
+  const item = _recipeItemsMap(pid)[itemCode];
+  if (!item) { showToast('Item not found', 'error'); return; }
 
   const recipe = state.recipes[cId]?.[itemCode] || { ingredients: [] };
   const projectMaterials = (state.rawMaterials || []).filter(r => r.projectId === pid && r.type === 'Raw Material');
