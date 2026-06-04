@@ -683,7 +683,13 @@ export function renderEquipmentView() {
 
   const eqSite = document.getElementById('eqLogSite');
   if (eqSite) {
-    eqSite.innerHTML = '<option value="">-- Select Site --</option>';
+    eqSite.innerHTML = '<option value="">-- Select WO / PO --</option>';
+    // Use project's BOQ/PO groups (Work Orders / Purchase Orders)
+    const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+    if (proj?.boqs?.length) {
+      proj.boqs.forEach(g => { eqSite.innerHTML += `<option value="${g.id}">${(g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ')}</option>`; });
+    }
+    // Fallback to locations if no BOQ groups
     getAllLocations().forEach(l => eqSite.innerHTML += `<option value="${l.id}">${l.name}</option>`);
   }
 
@@ -720,19 +726,23 @@ export function saveEquipmentLog() {
 
   const logEntry = { id: 'eql_' + Date.now(), assetId, date, type, siteId, amount, accountId, remarks, projectId: state.currentProjectId };
 
-  // Runbook: compute hours/km, update HMR, check service-due
+  // Runbook: enter hours and/or km directly
   if (type === 'Runbook') {
-    const startHMR = parseFloat(document.getElementById('eqLogStartHMR').value) || (eq.currentHMR || 0);
-    const endHMR = parseFloat(document.getElementById('eqLogEndHMR').value) || 0;
-    if (endHMR <= startHMR) return showToast('End reading must be greater than start', 'error');
-    logEntry.startHMR = startHMR;
-    logEntry.endHMR = endHMR;
-    logEntry.hours = +(endHMR - startHMR).toFixed(1);
+    const hours = parseFloat(document.getElementById('eqLogHours').value) || 0;
+    const km = parseFloat(document.getElementById('eqLogKm').value) || 0;
+    if (hours <= 0 && km <= 0) return showToast('Enter hours and/or km run', 'error');
+    logEntry.hours = hours;
+    logEntry.km = km;
     logEntry.operatorId = document.getElementById('eqLogOperator').value;
     const op = (state.labourMaster || []).find(l => l.id === logEntry.operatorId);
-    logEntry.remarks = `${logEntry.hours} ${eq.unit || 'HMR'}${op ? ' · Op: ' + op.name : ''}${remarks ? ' · ' + remarks : ''}`;
-    eq.currentHMR = endHMR;
-    if (eq.pmTarget && endHMR >= eq.pmTarget && eq.status !== 'UNDER_REPAIR') {
+    const parts = [];
+    if (hours) parts.push(`${hours} hrs`);
+    if (km) parts.push(`${km} km`);
+    logEntry.remarks = `${parts.join(' · ')}${op ? ' · Op: ' + op.name : ''}${remarks ? ' · ' + remarks : ''}`;
+    // Advance the machine's running meter (hours for HMR assets, km for KM assets)
+    const inc = (eq.unit === 'KM') ? km : hours;
+    eq.currentHMR = (eq.currentHMR || 0) + inc;
+    if (eq.pmTarget && eq.currentHMR >= eq.pmTarget && eq.status !== 'UNDER_REPAIR') {
       eq.status = 'SERVICE_DUE';
       showToast(`⚠ ${eq.name} reached service target (${eq.pmTarget}) — SERVICE DUE`, 'warning');
     }
@@ -768,7 +778,7 @@ export function saveEquipmentLog() {
   saveEquipmentData();
   saveAllData();
 
-  ['eqLogAmount', 'eqLogRemarks', 'eqLogStartHMR', 'eqLogEndHMR', 'eqLogLitres', 'eqLogReceipt'].forEach(id => {
+  ['eqLogAmount', 'eqLogRemarks', 'eqLogHours', 'eqLogKm', 'eqLogLitres', 'eqLogReceipt'].forEach(id => {
     if (document.getElementById(id)) document.getElementById(id).value = '';
   });
 
@@ -789,9 +799,11 @@ export function renderEquipmentLog() {
   if (filterAsset) filtered = filtered.filter(l => l.assetId === filterAsset);
   filtered = filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50);
 
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const woName = (id) => { const g = proj?.boqs?.find(b => b.id === id); if (g) return (g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ'); return allLocs.find(x => x.id === id)?.name; };
   tbody.innerHTML = filtered.map(l => {
     const eq = state.equipmentList.find(e => e.id === l.assetId);
-    const site = allLocs.find(x => x.id === l.siteId);
+    const site = { name: woName(l.siteId) };
     const typeColors = { Fuel: 'text-orange-600 bg-orange-50', Maintenance: 'text-blue-600 bg-blue-50', Assignment: 'text-green-600 bg-green-50', Movement: 'text-purple-600 bg-purple-50' };
     const tc = typeColors[l.type] || 'text-slate-600 bg-slate-50';
     return `<tr>

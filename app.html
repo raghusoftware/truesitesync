@@ -1879,11 +1879,12 @@
         <div class="profile-field-group md:col-span-2"><label>Equipment (Reg No)</label><select id="eqLogAsset" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="">-- Select --</option></select></div>
         <div class="profile-field-group"><label>Date</label><input type="date" id="eqLogDate" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
         <div class="profile-field-group"><label>Entry Type</label><select id="eqLogType" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white" onchange="_eqLogTypeChange()"><option value="Runbook">⏱ Daily Runbook</option><option value="Fuel">⛽ Fuel</option><option value="Maintenance">🔧 Maintenance</option><option value="Assignment">📍 Site Assignment</option><option value="Movement">🔄 Movement</option></select></div>
-        <div class="profile-field-group md:col-span-2"><label>Site / Location</label><select id="eqLogSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="">-- Select Site --</option></select></div>
+        <div class="profile-field-group md:col-span-2"><label>Work Order / PO</label><select id="eqLogSite" class="w-full p-2.5 border rounded-lg text-sm font-bold outline-none bg-white"><option value="">-- Select WO / PO --</option></select></div>
         <!-- Runbook fields -->
         <div class="profile-field-group eq-runbook"><label>Operator</label><select id="eqLogOperator" class="w-full p-2.5 border rounded-lg text-sm outline-none bg-white"><option value="">-- Operator --</option></select></div>
-        <div class="profile-field-group eq-runbook"><label>Start HMR/KM</label><input type="number" id="eqLogStartHMR" placeholder="start" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
-        <div class="profile-field-group eq-runbook"><label>End HMR/KM</label><input type="number" id="eqLogEndHMR" placeholder="end" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <div class="profile-field-group eq-runbook"><label>⏱ Hours Run</label><input type="number" id="eqLogHours" placeholder="hrs" step="0.1" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <div class="profile-field-group eq-runbook"><label>🛣 KM Run</label><input type="number" id="eqLogKm" placeholder="km" step="0.1" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
+        <input type="hidden" id="eqLogStartHMR"><input type="hidden" id="eqLogEndHMR">
         <!-- Fuel fields -->
         <div class="profile-field-group eq-fuel"><label>Litres</label><input type="number" id="eqLogLitres" placeholder="diesel L" class="w-full p-2.5 border rounded-lg text-sm outline-none"></div>
         <div class="profile-field-group eq-fuel"><label>Fuel Source</label><select id="eqLogSource" class="w-full p-2.5 border rounded-lg text-sm outline-none bg-white"><option>On-Site Barrel</option><option>Petrol Pump</option><option>Bowser</option></select></div>
