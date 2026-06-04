@@ -859,6 +859,25 @@ export function renderMicroPlanningView() {
       </div>
     </div>
 
+    <!-- APP-ICON GRID -->
+    <div id="mpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:8px;">
+      <div onclick="_openMpSection('tasks')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#2563eb15;border:2px solid #2563eb30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📝</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Tasks & Labour</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tasks + available workers</div>
+      </div>
+      <div onclick="_openMpSection('generate')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">⚙️</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Generate Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Set horizon & allocate</div>
+      </div>
+      <div onclick="_openMpSection('plan')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Generated Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">View saved daily sheets</div>
+      </div>
+    </div>
+    <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
+
+    <!-- SECTION: TASKS & LABOUR -->
+    <div id="mpSecTasks" class="mp-section hide">
     <!-- TODAY'S FREE LABOUR PANEL -->
     <div class="bg-white border rounded-xl p-4 mb-5">
       <div class="flex items-center justify-between mb-2">
@@ -922,7 +941,10 @@ export function renderMicroPlanningView() {
         </div>
       ` : '<p class="text-xs text-slate-400 text-center py-4">No tasks yet. Click <b>+ Add Task</b> to create one, or add tasks in the Planning module.</p>'}
     </div>
+    </div><!-- /mpSecTasks -->
 
+    <!-- SECTION: GENERATE -->
+    <div id="mpSecGenerate" class="mp-section hide">
     <!-- HORIZON + MODE -->
     <div class="bg-white border rounded-xl p-4 mb-5 flex flex-wrap items-end gap-4">
       <div>
@@ -940,16 +962,18 @@ export function renderMicroPlanningView() {
       <button onclick="_mpGenerate()" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition">Generate Plan</button>
       <button onclick="_mpToggleUtil()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-300 transition">Heatmap</button>
     </div>
-
     <!-- Utilization Panel -->
     <div id="mpUtilPanel" class="hidden mb-5"></div>
+    </div><!-- /mpSecGenerate -->
 
-    <!-- Daily/Weekly Sheets -->
+    <!-- SECTION: GENERATED PLAN -->
+    <div id="mpSecPlan" class="mp-section hide">
     <div id="mpDailySheets">
       <div class="bg-slate-50 border rounded-xl p-8 text-center">
-        <p class="text-slate-400 text-sm">Set dates and click <b>Generate Plan</b> to create ${_mpMode === 'daily' ? 'daily labor allocation sheets' : 'a weekly allocation grid'}.</p>
+        <p class="text-slate-400 text-sm">No plan yet. Go to <b>Generate Plan</b>, set dates and click <b>Generate Plan</b>.</p>
       </div>
-    </div>`;
+    </div>
+    </div><!-- /mpSecPlan -->`;
 
   // Restore previously saved plan (so it survives reload / re-open)
   const saved = state.microPlanAllocations?.[pid];
@@ -974,7 +998,20 @@ export function renderMicroPlanningView() {
       }
     }
   }
+  // Start on the icon grid
+  if (typeof window._openMpSection === 'function') window._openMpSection(null);
 }
+
+/** App-icon section navigation for Micro Planning */
+window._openMpSection = function(section) {
+  const grid = document.getElementById('mpGrid');
+  const back = document.getElementById('mpBackBtn');
+  document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
+  if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
+  if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan' };
+  const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
+};
 
 // ─────────────────────────────────────────────────────
 //  GENERATE PLAN (Daily or Weekly)
@@ -1029,6 +1066,7 @@ export function mpGenerate() {
     allocations: _mpAllocations
   };
   saveAllData();
+  if (typeof window._openMpSection === 'function') window._openMpSection('plan');
   showToast(`Plan generated & saved — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
 }
 
