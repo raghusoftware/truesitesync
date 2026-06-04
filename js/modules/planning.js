@@ -610,7 +610,7 @@ export function addTaskMaterial(taskId) {
   const projMaterials = materials.filter(m => !m.projectId || m.projectId === pid);
 
   const html = `
-    <div id="planMaterialFormModal" class="ef-overlay" style="z-index:10001" onclick="if(event.target===this)this.remove()">
+    <div id="planMaterialFormModal" class="ef-overlay" style="z-index:200001" onclick="if(event.target===this)this.remove()">
       <div class="ef-modal" style="max-width:420px;">
         <div class="ef-header">
           <h3 class="ef-title">Add Material Requirement</h3>
@@ -722,7 +722,7 @@ export function addTaskEquipment(taskId) {
   const task = (state.planningTasks || []).find(t => t.id === taskId);
 
   const html = `
-    <div id="planEquipFormModal" class="ef-overlay" style="z-index:10001" onclick="if(event.target===this)this.remove()">
+    <div id="planEquipFormModal" class="ef-overlay" style="z-index:200001" onclick="if(event.target===this)this.remove()">
       <div class="ef-modal" style="max-width:420px;">
         <div class="ef-header">
           <h3 class="ef-title">Add Equipment Requirement</h3>
