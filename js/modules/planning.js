@@ -307,7 +307,7 @@ export function openTaskForm(taskId) {
               <label class="ef-label">BOQ Link</label>
               <select id="pt_boqItem" class="ef-input">
                 <option value="">-- None --</option>
-                ${_getBoqOptions(pid)}
+                ${_getBoqOptions(pid, existing?.boqItemId)}
               </select>
             </div>
             <div class="ef-field">
@@ -358,10 +358,6 @@ export function openTaskForm(taskId) {
     </div>`;
 
   document.body.insertAdjacentHTML('beforeend', html);
-  if (existing?.boqItemId) {
-    const sel = document.getElementById('pt_boqItem');
-    if (sel) sel.value = existing.boqItemId;
-  }
   // Prefill resource rows on edit
   (existing?.labourReq || []).forEach(l => window._ptAddLabourRow(l.trade, l.count));
   if (existing?.recipeRef) { const r = document.getElementById('pt_recipe'); if (r) r.value = existing.recipeRef; }
@@ -1060,13 +1056,15 @@ function _addDays(dateStr, days) {
   return d.toISOString().split('T')[0];
 }
 
-function _getBoqOptions(projectId) {
+function _getBoqOptions(projectId, selectedVal) {
   const proj = (state.projects || []).find(p => p.id === projectId);
   if (!proj) return '';
   const items = [];
   (proj.boqs || []).forEach(g => {
-    (g.items || []).forEach(item => {
-      items.push(`<option value="${item.itemNo || item.id || ''}">${item.description || item.name || item.itemNo || '—'} (${item.unit || '—'})</option>`);
+    (g.items || []).forEach((item, i) => {
+      const val = g.id + ':' + i; // stable reference
+      const label = `${item.code || item.itemNo || ''} ${item.description || item.name || '—'} (${item.uom || item.unit || '—'})`.trim();
+      items.push(`<option value="${val}" ${selectedVal === val ? 'selected' : ''}>${label}</option>`);
     });
   });
   return items.join('');

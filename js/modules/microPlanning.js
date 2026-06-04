@@ -517,15 +517,24 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
     : '<p class="text-xs text-green-600 font-medium">No conflicts</p>';
 
   const taskSummary = chunks.map(ch => {
-    const tAssigns = assignments.filter(a => a.taskId === ch.taskId);
     const reqs = calculateLaborRequirements(ch);
     const reqStr = Object.entries(reqs).map(([t,c]) => `${c} ${t}`).join(', ');
-    return `<div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100 last:border-0">
-      <div class="flex items-center gap-2">
-        <span class="font-semibold text-slate-700">${ch.taskName}</span>
-        ${ch.source === 'micro' ? '<span class="text-[8px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>' : ''}
+    const task = (state.planningTasks || []).find(t => t.id === ch.taskId) || (state.microTasks || []).find(t => t.id === ch.taskId);
+    const prog = task?.progress || 0;
+    return `<div class="text-xs py-2 border-b border-slate-100 last:border-0">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-slate-700">${ch.taskName}</span>
+          ${ch.source === 'micro' ? '<span class="text-[8px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>' : ''}
+        </div>
+        <span class="text-slate-400 text-[10px]">${ch.location || '-'} | Need: ${reqStr} | ${ch.hoursForDay}h</span>
       </div>
-      <span class="text-slate-400 text-[10px]">${ch.location || '-'} | Need: ${reqStr} | ${ch.hoursForDay}h</span>
+      <div class="flex items-center gap-2">
+        <span class="text-[9px] text-slate-400 font-bold uppercase">Completion:</span>
+        <input type="range" min="0" max="100" value="${prog}" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="_mpUpdateProgress('${ch.taskId}', this.value)" style="flex:1;max-width:160px;accent-color:#2563eb;">
+        <span class="text-[10px] font-bold text-blue-600" style="width:34px;">${prog}%</span>
+        ${prog >= 100 ? '<span class="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✓ Done</span>' : `<button onclick="_mpUpdateProgress('${ch.taskId}',100)" class="text-[9px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-bold">Mark Done</button>`}
+      </div>
     </div>`;
   }).join('');
 
@@ -540,6 +549,7 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
         <div class="flex gap-2">
           <button onclick="_mpExportDayPDF('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">PDF</button>
           <button onclick="_mpPrintDay('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">Print</button>
+          <button onclick="document.getElementById('dailySheet_${dateStr}').remove()" title="Close this day" class="bg-white/20 hover:bg-white/30 text-white text-[12px] px-2.5 py-1.5 rounded font-bold leading-none">✕</button>
         </div>
       </div>
 
@@ -940,6 +950,30 @@ export function renderMicroPlanningView() {
         <p class="text-slate-400 text-sm">Set dates and click <b>Generate Plan</b> to create ${_mpMode === 'daily' ? 'daily labor allocation sheets' : 'a weekly allocation grid'}.</p>
       </div>
     </div>`;
+
+  // Restore previously saved plan (so it survives reload / re-open)
+  const saved = state.microPlanAllocations?.[pid];
+  if (saved && saved.allocations && saved.decomposed) {
+    _mpDecomposed = saved.decomposed;
+    _mpAllocations = saved.allocations;
+    _mpMode = saved.mode || _mpMode;
+    const allWorkers = _getProjectWorkers();
+    const sheets = document.getElementById('mpDailySheets');
+    const workDays = Object.keys(_mpDecomposed).filter(d => (_mpDecomposed[d] || []).length).sort();
+    if (sheets && workDays.length) {
+      if (_mpMode === 'weekly') {
+        sheets.innerHTML = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Saved plan from ${new Date(saved.generated).toLocaleString('en-IN')}</div>` + _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, saved.horizon.start, saved.horizon.end);
+      } else {
+        let h = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Saved plan from ${new Date(saved.generated).toLocaleString('en-IN')} — regenerate to refresh</div>`;
+        workDays.forEach(day => {
+          const chunks = _mpDecomposed[day];
+          const conflicts = detectConflicts(chunks, _mpAllocations[day], allWorkers.filter(w => _isWorkerAvailable(w, day)));
+          h += generateDailySheet(day, _mpAllocations[day], conflicts, chunks, allWorkers);
+        });
+        sheets.innerHTML = h;
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────
@@ -989,11 +1023,28 @@ export function mpGenerate() {
   state.microPlanAllocations[_pid()] = {
     generated: new Date().toISOString(),
     horizon: { start: _mpHorizonStart, end: _mpHorizonEnd },
-    days: workDays.length
+    days: workDays.length,
+    mode: _mpMode,
+    decomposed: _mpDecomposed,
+    allocations: _mpAllocations
   };
   saveAllData();
-  showToast(`Plan generated — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
+  showToast(`Plan generated & saved — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
 }
+
+/** Update task completion % from the daily sheet — saved to the task record */
+window._mpUpdateProgress = function(taskId, value) {
+  const v = Math.max(0, Math.min(100, parseInt(value) || 0));
+  let task = (state.planningTasks || []).find(t => t.id === taskId);
+  let isMicro = false;
+  if (!task) { task = (state.microTasks || []).find(t => t.id === taskId); isMicro = true; }
+  if (!task) return;
+  task.progress = v;
+  if (v >= 100) task.status = 'Completed';
+  else if (task.status === 'Completed') task.status = 'In Progress';
+  saveAllData();
+  showToast(`${task.name}: ${v}% complete${v >= 100 ? ' ✓' : ''}`, 'success');
+};
 
 /** Re-render a single day's sheet after manual/auto changes */
 function _mpRerenderDay(dateStr) {
