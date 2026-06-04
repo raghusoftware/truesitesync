@@ -505,7 +505,7 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
   const onLeave = allWorkers.filter(w => !_isWorkerAvailable(w, dateStr));
 
   const freeLabourHtml = freeWorkers.length > 0
-    ? freeWorkers.map(w => `<span class="inline-flex items-center gap-1 text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-full font-medium"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>${w.name} <span class="text-green-500">(${w.trade || 'general'})</span></span>`).join(' ')
+    ? freeWorkers.map(w => `<span onclick="_mpManualAssign('${dateStr}','${w.id}')" title="Click to assign to a task" class="cursor-pointer inline-flex items-center gap-1 text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-full font-medium hover:bg-green-100"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>${w.name} <span class="text-green-500">(${w.trade || 'general'})</span> <span class="text-green-600 font-bold">+</span></span>`).join(' ')
     : '<span class="text-[10px] text-slate-400">All workers assigned</span>';
 
   const onLeaveHtml = onLeave.length > 0
@@ -545,7 +545,10 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
 
       <!-- FREE LABOUR PANEL -->
       <div class="px-5 py-2.5 bg-green-50/50 border-b">
-        <p class="text-[10px] font-bold text-green-700 uppercase mb-1">Free Labour (Available & Unassigned)</p>
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-[10px] font-bold text-green-700 uppercase">Free Labour — click a worker to assign manually</p>
+          ${freeWorkers.length > 0 ? `<button onclick="_mpAutoAssignDay('${dateStr}')" class="text-[10px] bg-blue-600 text-white px-3 py-1 rounded-full font-bold hover:bg-blue-700">🤖 Auto-Assign Free</button>` : ''}
+        </div>
         <div class="flex flex-wrap gap-1.5">${freeLabourHtml}</div>
         ${onLeaveHtml ? `<p class="text-[10px] font-bold text-red-500 uppercase mt-2 mb-1">On Leave</p><div class="flex flex-wrap gap-1.5">${onLeaveHtml}</div>` : ''}
       </div>
@@ -991,6 +994,56 @@ export function mpGenerate() {
   saveAllData();
   showToast(`Plan generated — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
 }
+
+/** Re-render a single day's sheet after manual/auto changes */
+function _mpRerenderDay(dateStr) {
+  const allWorkers = _getProjectWorkers();
+  const chunks = _mpDecomposed[dateStr] || [];
+  const conflicts = detectConflicts(chunks, _mpAllocations[dateStr], allWorkers.filter(w => _isWorkerAvailable(w, dateStr)));
+  const html = generateDailySheet(dateStr, _mpAllocations[dateStr], conflicts, chunks, allWorkers);
+  const old = document.getElementById('dailySheet_' + dateStr);
+  if (old) old.outerHTML = html;
+}
+
+/** Manual assign: pick a task for this free worker */
+window._mpManualAssign = function(dateStr, workerId) {
+  const worker = _getProjectWorkers().find(w => w.id === workerId);
+  const chunks = _mpDecomposed[dateStr] || [];
+  if (!worker) return;
+  if (!chunks.length) { showToast('No tasks this day', 'error'); return; }
+  const taskOpts = chunks.map((ch, i) => `${i + 1}. ${ch.taskName} (${ch.location || '—'})`).join('\n');
+  const pick = parseInt(prompt(`Assign ${worker.name} (${worker.trade || 'general'}) to:\n${taskOpts}\n\nEnter number:`)) - 1;
+  if (isNaN(pick) || !chunks[pick]) return;
+  const ch = chunks[pick];
+  const hrs = 8;
+  const rate = worker.dayRate || 0;
+  const alloc = _mpAllocations[dateStr] || { assignments: [], workerHoursUsed: {}, unmet: [] };
+  // Prevent double assignment
+  if (alloc.assignments.some(a => a.workerId === workerId)) { showToast('Worker already assigned', 'warning'); return; }
+  alloc.assignments.push({ workerId, workerName: worker.name, taskId: ch.taskId, taskName: ch.taskName, trade: worker.trade || 'general', hours: hrs, cost: (rate / 8) * hrs, manual: true });
+  alloc.workerHoursUsed[workerId] = (alloc.workerHoursUsed[workerId] || 0) + hrs;
+  _mpAllocations[dateStr] = alloc;
+  saveAllData();
+  _mpRerenderDay(dateStr);
+  showToast(`${worker.name} → ${ch.taskName}`, 'success');
+};
+
+/** Auto-assign all free workers for a day to under-staffed tasks */
+window._mpAutoAssignDay = function(dateStr) {
+  const allWorkers = _getProjectWorkers();
+  const availWorkers = allWorkers.filter(w => _isWorkerAvailable(w, dateStr));
+  const chunks = _mpDecomposed[dateStr] || [];
+  // Re-run allocation fresh for the day (keeps manual ones if any by merging)
+  const manual = (_mpAllocations[dateStr]?.assignments || []).filter(a => a.manual);
+  const fresh = allocateLabor(chunks, availWorkers, dateStr);
+  // Merge: keep manual assignments, add auto ones for workers not already manually placed
+  const manualIds = new Set(manual.map(a => a.workerId));
+  fresh.assignments = [...manual, ...fresh.assignments.filter(a => !manualIds.has(a.workerId))];
+  _mpAllocations[dateStr] = fresh;
+  saveAllData();
+  _mpRerenderDay(dateStr);
+  showToast('Auto-assigned free labour', 'success');
+};
 
 export function mpToggleUtil() {
   const panel = document.getElementById('mpUtilPanel');

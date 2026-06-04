@@ -322,6 +322,33 @@ export function openTaskForm(taskId) {
               <input type="text" id="pt_remarks" class="ef-input" value="${existing?.remarks || ''}" placeholder="Any notes...">
             </div>
           </div>
+
+          <!-- ── Resource Requirements ── -->
+          <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:14px;">
+            <p style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px;">📋 Resource Requirements</p>
+
+            <!-- Labour required -->
+            <label class="ef-label">👷 Labour Required</label>
+            <div id="pt_labourRows" style="margin-bottom:6px;"></div>
+            <button type="button" onclick="window._ptAddLabourRow()" style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;cursor:pointer;margin-bottom:12px;">+ Add Trade</button>
+
+            <!-- Material from recipe -->
+            <label class="ef-label">🧪 Material from Mix Design (Recipe)</label>
+            <select id="pt_recipe" class="ef-input" style="margin-bottom:10px;">
+              <option value="">-- None (no recipe materials) --</option>
+              ${_getRecipeOptions(pid)}
+            </select>
+
+            <!-- Additional material -->
+            <label class="ef-label">📦 Additional Material</label>
+            <div id="pt_matRows" style="margin-bottom:6px;"></div>
+            <button type="button" onclick="window._ptAddMatRow()" style="font-size:11px;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:4px 10px;cursor:pointer;margin-bottom:12px;">+ Add Material</button>
+
+            <!-- Equipment required -->
+            <label class="ef-label">🚜 Equipment Required</label>
+            <div id="pt_equipRows" style="margin-bottom:6px;"></div>
+            <button type="button" onclick="window._ptAddEquipRow()" style="font-size:11px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;padding:4px 10px;cursor:pointer;">+ Add Equipment</button>
+          </div>
         </div>
         <div class="ef-footer">
           <button onclick="window._planCloseForm()" class="ef-btn-cancel">Cancel</button>
@@ -334,6 +361,14 @@ export function openTaskForm(taskId) {
   if (existing?.boqItemId) {
     const sel = document.getElementById('pt_boqItem');
     if (sel) sel.value = existing.boqItemId;
+  }
+  // Prefill resource rows on edit
+  (existing?.labourReq || []).forEach(l => window._ptAddLabourRow(l.trade, l.count));
+  if (existing?.recipeRef) { const r = document.getElementById('pt_recipe'); if (r) r.value = existing.recipeRef; }
+  // Existing additional materials/equipment from task records
+  if (existing) {
+    (state.taskMaterials || []).filter(m => m.taskId === existing.id && !m.fromRecipe).forEach(m => window._ptAddMatRow(m.materialId, m.qtyRequired));
+    (state.taskEquipment || []).filter(e => e.taskId === existing.id).forEach(e => window._ptAddEquipRow(e.equipmentId));
   }
   setTimeout(() => document.getElementById('pt_name')?.focus(), 100);
 }
@@ -362,6 +397,15 @@ export function saveTask(taskId) {
     projectId: pid,
   };
 
+  // Capture labour requirement
+  data.labourReq = [];
+  document.querySelectorAll('#pt_labourRows > div').forEach(row => {
+    const trade = row.querySelector('.pt-lab-trade')?.value;
+    const count = parseInt(row.querySelector('.pt-lab-count')?.value) || 0;
+    if (trade && count > 0) data.labourReq.push({ trade, count });
+  });
+  data.recipeRef = document.getElementById('pt_recipe')?.value || '';
+
   // Pre-flight check if moving to "Ready to Start"
   if (data.status === 'Ready to Start') {
     const existing = taskId ? (state.planningTasks || []).find(t => t.id === taskId) : null;
@@ -383,6 +427,34 @@ export function saveTask(taskId) {
     state.planningTasks.push(data);
     taskId = data.id;
   }
+
+  // ── Persist material & equipment requirements ──
+  if (!state.taskMaterials) state.taskMaterials = [];
+  if (!state.taskEquipment) state.taskEquipment = [];
+  // Clear previous for this task (rebuild from form)
+  state.taskMaterials = state.taskMaterials.filter(m => m.taskId !== taskId);
+  state.taskEquipment = state.taskEquipment.filter(e => e.taskId !== taskId);
+
+  // Recipe materials
+  const recipeRef = data.recipeRef;
+  if (recipeRef && recipeRef.includes('::')) {
+    const [key, code] = recipeRef.split('::');
+    const r = state.recipes?.[key]?.[code];
+    (r?.ingredients || []).forEach(ing => {
+      state.taskMaterials.push({ id: 'tm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), taskId, materialId: ing.rawMatId || ing.materialId, qtyRequired: parseFloat(ing.qty) || 0, fromRecipe: true });
+    });
+  }
+  // Additional materials
+  document.querySelectorAll('#pt_matRows > div').forEach(row => {
+    const materialId = row.querySelector('.pt-mat-id')?.value;
+    const qtyRequired = parseFloat(row.querySelector('.pt-mat-qty')?.value) || 0;
+    if (materialId && qtyRequired > 0) state.taskMaterials.push({ id: 'tm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), taskId, materialId, qtyRequired, fromRecipe: false });
+  });
+  // Equipment
+  document.querySelectorAll('#pt_equipRows > div').forEach(row => {
+    const equipmentId = row.querySelector('.pt-eq-id')?.value;
+    if (equipmentId) state.taskEquipment.push({ id: 'te_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), taskId, equipmentId });
+  });
 
   saveAllData();
   closeTaskForm();
@@ -1007,3 +1079,47 @@ function _getExistingAreas(projectId) {
   });
   return [...areas].sort();
 }
+
+function _getRecipeOptions(projectId) {
+  // recipes stored as object keyed by clientId/projectId → {itemCode: {ingredients}}
+  const recipes = state.recipes || {};
+  const opts = [];
+  Object.keys(recipes).forEach(key => {
+    const grp = recipes[key];
+    Object.keys(grp || {}).forEach(code => {
+      const r = grp[code];
+      const ingCount = (r.ingredients || []).length;
+      if (ingCount) opts.push(`<option value="${key}::${code}">${r.description || code} (${ingCount} materials)</option>`);
+    });
+  });
+  return opts.join('');
+}
+
+// ── Task-form resource requirement row builders ──
+const _RM_OPTS = () => (state.rawMaterials || []).map(m => `<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
+const _EQ_OPTS = () => (state.equipmentList || []).map(e => `<option value="${e.id}">${e.name} (${e.regNo || 'No Reg'})</option>`).join('');
+const _TRADES = ['Mason','Bar Bender','Shuttering Carpenter','Steel Fixer','Plumber','Electrician','Painter','Welder','Operator','Skilled Helper','Unskilled Helper','Mistri'];
+
+window._ptAddLabourRow = function(trade, count) {
+  const box = document.getElementById('pt_labourRows'); if (!box) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;';
+  div.innerHTML = `<select class="ef-input pt-lab-trade" style="flex:1;">${_TRADES.map(t => `<option ${t===trade?'selected':''}>${t}</option>`).join('')}</select><input type="number" class="ef-input pt-lab-count" style="width:80px;" placeholder="Count" value="${count||''}"><button type="button" onclick="this.parentElement.remove()" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>`;
+  box.appendChild(div);
+};
+window._ptAddMatRow = function(matId, qty) {
+  const box = document.getElementById('pt_matRows'); if (!box) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;';
+  div.innerHTML = `<select class="ef-input pt-mat-id" style="flex:1;">${_RM_OPTS()}</select><input type="number" class="ef-input pt-mat-qty" style="width:80px;" placeholder="Qty" value="${qty||''}"><button type="button" onclick="this.parentElement.remove()" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>`;
+  if (matId) div.querySelector('.pt-mat-id').value = matId;
+  box.appendChild(div);
+};
+window._ptAddEquipRow = function(eqId) {
+  const box = document.getElementById('pt_equipRows'); if (!box) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;';
+  div.innerHTML = `<select class="ef-input pt-eq-id" style="flex:1;">${_EQ_OPTS()}</select><button type="button" onclick="this.parentElement.remove()" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>`;
+  if (eqId) div.querySelector('.pt-eq-id').value = eqId;
+  box.appendChild(div);
+};
