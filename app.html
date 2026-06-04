@@ -1780,12 +1780,11 @@
   <div id="labourSecMarkAtt" class="labour-section hide">
     <!-- Single-line compact selector bar -->
     <div class="bg-white rounded-xl border shadow-sm p-3 mb-4 flex items-end gap-3 flex-wrap">
-      <div style="flex:0 0 160px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="attDate" class="w-full p-2 border rounded-lg text-sm outline-none focus:border-orange-400"></div>
-      <div style="flex:1;min-width:200px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Work Order / Site</label><select id="attSite" class="w-full p-2 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white"><option value="">-- Select WO / Site --</option></select></div>
-      <button onclick="loadAttendanceSheet()" class="bg-[#1e3a8a] text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-900 transition text-sm">Load Sheet</button>
+      <div style="flex:0 0 160px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="attDate" class="w-full p-2 border rounded-lg text-sm outline-none focus:border-orange-400" onchange="loadAttendanceSheet()"></div>
+      <div style="flex:1;min-width:200px;"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Work Order / Site</label><select id="attSite" class="w-full p-2 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white" onchange="loadAttendanceSheet()"><option value="">-- Select WO / Site --</option></select></div>
       <button onclick="_dailyMusterRoll()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-200 transition border border-slate-200">👥 Headcount</button>
     </div>
-    <div id="attSheetContainer"><p class="text-slate-400 text-center py-8 font-medium">Select a date and WO/site, then click "Load Sheet".</p></div>
+    <div id="attSheetContainer"><p class="text-slate-400 text-center py-8 font-medium">Select a date and WO/site to load the attendance sheet.</p></div>
   </div>
 
   <!-- Section: Attendance Sheet (Monthly Muster) -->

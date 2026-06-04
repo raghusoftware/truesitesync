@@ -944,6 +944,8 @@ window._openLabourSection = function(section) {
   if (section === 'markAtt') {
     const d = document.getElementById('attDate');
     if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
+    // Auto-load if a WO/site is already selected
+    if (typeof window.loadAttendanceSheet === 'function') setTimeout(() => window.loadAttendanceSheet(), 50);
   }
 };
 
@@ -5587,9 +5589,14 @@ window._payContractor = function(id) {
 export function loadAttendanceSheet() {
   const date = document.getElementById('attDate').value;
   const siteId = document.getElementById('attSite').value;
-  if (!date || !siteId) return showToast('Select date and WO/site first', 'error');
+  // Auto-load: stay quiet until both date and WO/site are chosen
+  if (!date || !siteId) return;
   const labours = _projectLabour();
-  if (labours.length === 0) return showToast('Add labour for this project first via "👤 Add"', 'warning');
+  if (labours.length === 0) {
+    const ct = document.getElementById('attSheetContainer');
+    if (ct) ct.innerHTML = '<p class="text-slate-400 text-center py-8 font-medium">No labour for this project yet — add workers via 👤 Add.</p>';
+    return;
+  }
   const site = _siteLabel(siteId);
   const existing = {};
   state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a);
