@@ -666,19 +666,30 @@ function _buildIconGrid(containerId, items) {
 // ══════════════════════════════════════════
 // PAYMENTS HUB — all money in/out across modules
 // ══════════════════════════════════════════
+/** Does a record belong to the current project? (matches projectId, or party's project) */
+function _payInProject(rec, partyType) {
+  const pid = state.currentProjectId;
+  if (!pid) return true;
+  if (rec.projectId) return rec.projectId === pid;
+  // resolve via linked party
+  if (partyType === 'client' && rec.clientId) return (state.clients.find(c => c.id === rec.clientId)?.projectId) === pid;
+  if (partyType === 'vendor' && rec.vendorId) return (state.vendors.find(v => v.id === rec.vendorId)?.projectId) === pid;
+  if (partyType === 'labour' && rec.labourId) return (state.labourMaster.find(l => l.id === rec.labourId)?.projectId) === pid;
+  return true; // untagged — show under any project
+}
+
 function _collectPaymentsIn() {
   const rows = [];
-  (state.paymentsIn || []).forEach(p => { const c = state.clients.find(x => x.id === p.clientId); rows.push({ date: p.date, party: c?.name || 'Client', source: 'Client Receipt', amount: parseFloat(p.amount) || 0, ref: p.ref || '', _src: 'paymentsIn', _id: p.id }); });
-  (state.otherIncome || []).forEach(o => rows.push({ date: o.date, party: o.source || o.party || '—', source: 'Other Income', amount: parseFloat(o.amount) || 0, ref: o.remarks || '', _src: 'otherIncome', _id: o.id }));
-  (state.saleInvoices || []).filter(i => i.status !== 'Cancelled' && (i.paidAmount || i.amountPaid)).forEach(i => rows.push({ date: i.date, party: i.clientName || '—', source: 'Sale Invoice', amount: parseFloat(i.paidAmount || i.amountPaid) || 0, ref: i.invoiceNum || '', _src: 'saleInvoices', _id: i.id }));
+  (state.paymentsIn || []).filter(p => _payInProject(p, 'client')).forEach(p => { const c = state.clients.find(x => x.id === p.clientId); rows.push({ date: p.date, party: c?.name || 'Client', source: 'Client Receipt', amount: parseFloat(p.amount) || 0, ref: p.ref || '', _src: 'paymentsIn', _id: p.id }); });
+  (state.otherIncome || []).filter(o => _payInProject(o)).forEach(o => rows.push({ date: o.date, party: o.source || o.party || '—', source: 'Other Income', amount: parseFloat(o.amount) || 0, ref: o.remarks || '', _src: 'otherIncome', _id: o.id }));
   return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 function _collectPaymentsOut() {
   const rows = [];
-  (state.expenses || []).forEach(e => rows.push({ date: e.date, party: e.category || 'Expense', source: 'Expense', amount: parseFloat(e.amount) || 0, ref: e.remarks || '', _src: 'expenses', _id: e.id }));
-  (state.vendorPayments || []).forEach(v => { const vn = state.vendors.find(x => x.id === v.vendorId); rows.push({ date: v.date, party: vn?.name || 'Vendor', source: 'Vendor Payment', amount: parseFloat(v.amount) || 0, ref: v.ref || '', _src: 'vendorPayments', _id: v.id }); });
-  (state.labourPayments || []).forEach(l => { const ln = state.labourMaster.find(x => x.id === l.labourId); rows.push({ date: l.date, party: ln?.name || 'Labour', source: 'Labour Payment', amount: parseFloat(l.amount) || 0, ref: l.ref || '', _src: 'labourPayments', _id: l.id }); });
-  (state.labourAdvances || []).forEach(a => { const ln = state.labourMaster.find(x => x.id === a.labourId); rows.push({ date: a.date, party: ln?.name || 'Labour', source: 'Advance', amount: parseFloat(a.amount) || 0, ref: a.note || '', _src: 'labourAdvances', _id: a.id }); });
+  (state.expenses || []).filter(e => _payInProject(e, 'client')).forEach(e => rows.push({ date: e.date, party: e.category || 'Expense', source: 'Expense', amount: parseFloat(e.amount) || 0, ref: e.remarks || '', _src: 'expenses', _id: e.id }));
+  (state.vendorPayments || []).filter(v => _payInProject(v, 'vendor')).forEach(v => { const vn = state.vendors.find(x => x.id === v.vendorId); rows.push({ date: v.date, party: vn?.name || 'Vendor', source: 'Vendor Payment', amount: parseFloat(v.amount) || 0, ref: v.ref || '', _src: 'vendorPayments', _id: v.id }); });
+  (state.labourPayments || []).filter(l => _payInProject(l, 'labour')).forEach(l => { const ln = state.labourMaster.find(x => x.id === l.labourId); rows.push({ date: l.date, party: ln?.name || 'Labour', source: 'Labour Payment', amount: parseFloat(l.amount) || 0, ref: l.ref || '', _src: 'labourPayments', _id: l.id }); });
+  (state.labourAdvances || []).filter(a => _payInProject(a, 'labour')).forEach(a => { const ln = state.labourMaster.find(x => x.id === a.labourId); rows.push({ date: a.date, party: ln?.name || 'Labour', source: 'Advance', amount: parseFloat(a.amount) || 0, ref: a.note || '', _src: 'labourAdvances', _id: a.id }); });
   return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
@@ -686,23 +697,17 @@ window._openPaymentsSection = function(dir) {
   const grid = document.getElementById('paymentsGrid');
   const back = document.getElementById('paymentsBackBtn');
   const content = document.getElementById('paymentsContent');
-  // Always refresh totals
   const cur = getCurrencySymbol();
-  const inTotal = _collectPaymentsIn().reduce((s, r) => s + r.amount, 0);
-  const outTotal = _collectPaymentsOut().reduce((s, r) => s + r.amount, 0);
-  const pit = document.getElementById('payInTotal'); if (pit) pit.textContent = cur + inTotal.toLocaleString('en-IN');
-  const pot = document.getElementById('payOutTotal'); if (pot) pot.textContent = cur + outTotal.toLocaleString('en-IN');
 
   if (!dir) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; if (content) content.innerHTML = ''; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
 
   const rows = dir === 'in' ? _collectPaymentsIn() : _collectPaymentsOut();
   const color = dir === 'in' ? '#059669' : '#dc2626';
-  const total = rows.reduce((s, r) => s + r.amount, 0);
   let html = `<div class="bg-white border rounded-xl overflow-hidden">
     <div class="p-3 border-b flex justify-between items-center" style="background:${color}10;">
-      <h3 class="font-bold text-sm" style="color:${color};">${dir === 'in' ? '📥 Payment In — All Received' : '📤 Payment Out — All Paid'}</h3>
-      <span class="font-extrabold" style="color:${color};">${cur}${total.toLocaleString('en-IN')}</span>
+      <h3 class="font-bold text-sm" style="color:${color};">${dir === 'in' ? '📥 Payment In' : '📤 Payment Out'}</h3>
+      <button onclick="_addPaymentTxn('${dir}')" style="background:${color};color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">+ Add ${dir === 'in' ? 'Payment In' : 'Payment Out'}</button>
     </div>
     <div class="overflow-x-auto" style="max-height:65vh;">
       <table class="w-full text-xs"><thead class="bg-slate-50 sticky top-0"><tr>
@@ -711,6 +716,7 @@ window._openPaymentsSection = function(dir) {
         <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Source</th>
         <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Ref</th>
         <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
+        <th class="px-3 py-2"></th>
       </tr></thead><tbody>
       ${rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
         <td class="px-3 py-2 whitespace-nowrap text-slate-500">${r.date || '—'}</td>
@@ -718,11 +724,69 @@ window._openPaymentsSection = function(dir) {
         <td class="px-3 py-2"><span style="font-size:10px;font-weight:600;background:${color}12;color:${color};padding:2px 8px;border-radius:6px;">${r.source}</span></td>
         <td class="px-3 py-2 text-slate-400">${r.ref || '—'}</td>
         <td class="px-3 py-2 text-right font-bold" style="color:${color};">${cur}${r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-      </tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-slate-400">No transactions.</td></tr>'}
+        <td class="px-3 py-2 text-center"><button onclick="_deletePartyTx('${r._src}','${r._id}');_openPaymentsSection('${dir}')" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;cursor:pointer;">✕</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">No transactions.</td></tr>'}
       </tbody></table>
     </div></div>`;
   if (content) content.innerHTML = html;
 };
+
+/** Quick-add a payment in/out, scoped to current project */
+window._addPaymentTxn = function(dir) {
+  const cur = getCurrencySymbol();
+  const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  let partyField, catField = '';
+  if (dir === 'in') {
+    const clientOpts = (state.clients || []).filter(c => !c.projectId || c.projectId === state.currentProjectId).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    partyField = `<label class="fm-l">From Client</label><select id="ptxParty" class="fm-i"><option value="">— General Income —</option>${clientOpts}</select>`;
+  } else {
+    const vOpts = (state.vendors || []).filter(v => !v.projectId || v.projectId === state.currentProjectId).map(v => `<option value="vendor:${v.id}">Vendor: ${v.name}</option>`).join('');
+    const lOpts = (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId).map(l => `<option value="labour:${l.id}">Labour: ${l.name}</option>`).join('');
+    partyField = `<label class="fm-l">Pay To</label><select id="ptxParty" class="fm-i"><option value="">— General Expense —</option>${vOpts}${lOpts}</select>`;
+    catField = `<label class="fm-l">Category</label><input id="ptxCat" class="fm-i" placeholder="e.g. Site, Transport" value="General">`;
+  }
+  _fuelModalLike('Add ' + (dir === 'in' ? 'Payment In' : 'Payment Out'), `
+    ${partyField}
+    ${catField}
+    <label class="fm-l">Amount (₹)</label><input id="ptxAmount" type="number" class="fm-i" placeholder="0">
+    <label class="fm-l">Date</label><input id="ptxDate" type="date" class="fm-i" value="${new Date().toISOString().split('T')[0]}">
+    <label class="fm-l">Account</label><select id="ptxAccount" class="fm-i">${accOpts}</select>
+    <label class="fm-l">Reference / Note</label><input id="ptxRef" class="fm-i" placeholder="UTR / cheque / note">
+  `, () => {
+    const amount = parseFloat(document.getElementById('ptxAmount').value) || 0;
+    if (amount <= 0) { showToast('Enter amount', 'error'); return false; }
+    const date = document.getElementById('ptxDate').value;
+    const accountId = document.getElementById('ptxAccount').value;
+    const ref = document.getElementById('ptxRef').value;
+    const party = document.getElementById('ptxParty').value;
+    const pid = state.currentProjectId;
+    if (dir === 'in') {
+      state.paymentsIn.push({ id: 'in_' + Date.now(), clientId: party, accountId, date, amount, ref, projectId: pid });
+    } else {
+      if (party.startsWith('vendor:')) state.vendorPayments.push({ id: 'vp_' + Date.now(), vendorId: party.split(':')[1], accountId, date, amount, ref, projectId: pid });
+      else if (party.startsWith('labour:')) state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId: party.split(':')[1], accountId, date, amount, ref, projectId: pid });
+      else state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, amount, category: document.getElementById('ptxCat')?.value || 'General', remarks: ref, projectId: pid });
+    }
+    saveAllData();
+    _openPaymentsSection(dir);
+    showToast('Payment recorded', 'success');
+    return true;
+  });
+};
+
+/** lightweight modal (reuses fuel modal styling) */
+function _fuelModalLike(title, body, onSave) {
+  const ex = document.getElementById('fuelModal'); if (ex) ex.remove();
+  const html = `<div id="fuelModal" style="position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;width:92%;max-width:400px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.25);max-height:88vh;overflow-y:auto;">
+      <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:12px;">${title}</h3>${body}
+      <div style="display:flex;gap:8px;margin-top:16px;"><button id="fmCancel" style="flex:1;padding:10px;background:#f1f5f9;border:none;border-radius:8px;font-weight:700;color:#64748b;cursor:pointer;">Cancel</button><button id="fmSave" style="flex:2;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Save</button></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (!document.getElementById('fmStyles')) { const s = document.createElement('style'); s.id = 'fmStyles'; s.textContent = '.fm-l{display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;margin:10px 0 4px;}.fm-i{width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;}'; document.head.appendChild(s); }
+  document.getElementById('fmCancel').onclick = () => document.getElementById('fuelModal').remove();
+  document.getElementById('fmSave').onclick = () => { if (onSave() !== false) document.getElementById('fuelModal').remove(); };
+}
 
 export function renderPaymentsHub() { window._openPaymentsSection(null); }
 
