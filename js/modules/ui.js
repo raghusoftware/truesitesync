@@ -3759,13 +3759,11 @@ export function confirmAndSaveAbstract() {
 }
 
 export function renderAbstractsList() {
-  const filterCId = document.getElementById('abstractFilterClient').value;
   const container = document.getElementById('abstractsCardsContainer');
   const emptyState = document.getElementById('abstractsEmptyState');
   container.innerHTML = '';
   // Project-context module → only this project's abstracts
   let filtered = (state.abstracts || []).filter(a => !state.currentProjectId || a.projectId === state.currentProjectId || (state.clients.find(c => c.id === a.clientId)?.projectId === state.currentProjectId));
-  if (filterCId) filtered = filtered.filter(a => a.clientId === filterCId);
   if (!filtered.length) { if (emptyState) emptyState.classList.remove('hidden'); return; }
   if (emptyState) emptyState.classList.add('hidden');
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {

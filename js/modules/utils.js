@@ -51,7 +51,7 @@ export function refreshPurchaseDropdowns() {
 export function populateDropdowns() {
   const cSelects = [
     'sheetClientSelect', 'accInClient', 'accExpClient', 'hubClientSelect',
-    'itemMasterClientSelect', 'abstractFilterClient', 'billingClientSelect',
+    'itemMasterClientSelect', 'billingClientSelect',
     'estClient', 'recipeClientSelect', 'repConsSite'
   ];
   cSelects.forEach(id => {
