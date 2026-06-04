@@ -244,29 +244,109 @@ export function deleteVendorRecord(id, type) {
   showToast("Record deleted successfully");
 }
 
+let _selectedAccountId = null;
+
 export function renderAccounts() {
   const container = document.getElementById('accountsCardsContainer');
   if (!container) return;
+  const term = (document.getElementById('acctSearch')?.value || '').toLowerCase();
   container.innerHTML = '';
   if (state.accounts.length === 0) {
-    container.innerHTML = '<p class="text-slate-500 font-bold p-4 col-span-3">No accounts added yet. Click "+ Add Account" above.</p>';
+    container.innerHTML = '<p class="text-slate-500 text-sm p-4 text-center">No accounts yet. Click "+ Add Account".</p>';
     return;
   }
-  state.accounts.forEach(acc => {
+  state.accounts.filter(a => !term || a.name.toLowerCase().includes(term)).forEach(acc => {
     const bal = _getAccountBalance(acc.id);
-    const icon = acc.type === 'Bank' ? '🏦' : '💵';
-    container.innerHTML += `<div class="bg-white border rounded-xl p-5 shadow-sm border-t-4 border-t-blue-500 cursor-pointer hover:shadow-lg transition" onclick="_viewAccountLedger('${acc.id}')">
-      <div class="flex justify-between items-center mb-2"><h3 class="font-bold text-sm text-slate-800">${icon} ${acc.name}</h3><span class="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded font-bold">${acc.type}</span></div>
-      <p class="text-[10px] text-slate-400 uppercase font-bold mt-3">Balance</p>
-      <p class="text-xl font-extrabold ${bal < 0 ? 'text-red-600' : 'text-emerald-700'}">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}${bal < 0 ? ' (Dr)' : ''}</p>
-      <div class="flex gap-2 mt-3">
-        <button onclick="event.stopPropagation();_editAccount('${acc.id}')" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">Edit</button>
-        <button onclick="event.stopPropagation();_deleteAccount('${acc.id}')" class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded border border-red-200">Delete</button>
-        <button onclick="event.stopPropagation();_transferFromAccount('${acc.id}')" class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-200">Transfer</button>
-      </div>
+    const icon = acc.type === 'Bank' ? '🏦' : acc.type === 'Loan' ? '🏷️' : '💵';
+    const sel = _selectedAccountId === acc.id ? 'background:#eff6ff;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;';
+    container.innerHTML += `<div onclick="_selectAccount('${acc.id}')" style="${sel}cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;" onmouseover="if('${_selectedAccountId}'!=='${acc.id}')this.style.background='#f8fafc'" onmouseout="if('${_selectedAccountId}'!=='${acc.id}')this.style.background=''">
+      <div><div style="font-weight:600;color:#1e293b;font-size:13px;">${icon} ${acc.name}</div><div style="font-size:10px;color:#94a3b8;">${acc.type || 'Cash'}</div></div>
+      <div style="font-weight:700;font-size:14px;color:${bal < 0 ? '#dc2626' : '#059669'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', { maximumFractionDigits: 0 })}${bal < 0 ? ' Dr' : ''}</div>
     </div>`;
   });
+  if (_selectedAccountId) _renderAccountTxns();
 }
+
+window._selectAccount = function(id) {
+  _selectedAccountId = id;
+  window._selAcct = id;
+  renderAccounts();
+  _renderAccountTxns();
+};
+
+function _renderAccountTxns() {
+  const acc = state.accounts.find(a => a.id === _selectedAccountId);
+  if (!acc) return;
+  const empty = document.getElementById('acctEmptyState');
+  if (empty) empty.style.display = 'none';
+  const cur = getCurrencySymbol();
+  document.getElementById('acctSelName').textContent = acc.name;
+  document.getElementById('acctSelType').textContent = acc.type || 'Cash';
+
+  // Gather all transactions touching this account
+  let txns = [];
+  state.paymentsIn.filter(p => p.accountId === acc.id).forEach(p => txns.push({ date: p.date, desc: 'Receipt: ' + (p.ref || 'Client payment'), credit: parseFloat(p.amount) || 0, debit: 0, type: 'paymentsIn', id: p.id }));
+  state.expenses.filter(e => e.accountId === acc.id).forEach(e => txns.push({ date: e.date, desc: (e.category || 'Expense') + (e.remarks ? ' — ' + e.remarks : ''), credit: 0, debit: parseFloat(e.amount) || 0, type: 'expenses', id: e.id }));
+  state.vendorPayments.filter(v => v.accountId === acc.id).forEach(v => txns.push({ date: v.date, desc: 'Vendor: ' + (v.ref || 'Payment'), credit: 0, debit: parseFloat(v.amount) || 0, type: 'vendorPayments', id: v.id }));
+  state.labourPayments.filter(l => l.accountId === acc.id).forEach(l => txns.push({ date: l.date, desc: 'Labour: ' + (l.ref || 'Wage'), credit: 0, debit: parseFloat(l.amount) || 0, type: 'labourPayments', id: l.id }));
+  (state.accountTransfers || []).forEach(t => {
+    if (t.fromAccountId === acc.id) txns.push({ date: t.date, desc: 'Transfer to ' + (state.accounts.find(a => a.id === t.toAccountId)?.name || '?'), credit: 0, debit: parseFloat(t.amount) || 0, type: 'accountTransfers', id: t.id });
+    if (t.toAccountId === acc.id) txns.push({ date: t.date, desc: 'Transfer from ' + (state.accounts.find(a => a.id === t.fromAccountId)?.name || '?'), credit: parseFloat(t.amount) || 0, debit: 0, type: 'accountTransfers', id: t.id });
+  });
+  txns.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  let bal = 0;
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead style="position:sticky;top:0;background:#f8fafc;"><tr>
+    <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Date</th>
+    <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Description</th>
+    <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#059669;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Deposit</th>
+    <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#dc2626;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Withdraw</th>
+    <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Balance</th>
+    <th style="border-bottom:1px solid #e2e8f0;"></th></tr></thead><tbody>`;
+  txns.forEach(t => {
+    bal += t.credit - t.debit;
+    html += `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:9px 14px;color:#64748b;white-space:nowrap;">${t.date || '—'}</td>
+      <td style="padding:9px 14px;font-weight:500;color:#1e293b;">${t.desc}</td>
+      <td style="padding:9px 14px;text-align:right;color:#059669;font-weight:600;">${t.credit ? cur + t.credit.toLocaleString('en-IN') : ''}</td>
+      <td style="padding:9px 14px;text-align:right;color:#dc2626;font-weight:600;">${t.debit ? cur + t.debit.toLocaleString('en-IN') : ''}</td>
+      <td style="padding:9px 14px;text-align:right;font-weight:700;color:${bal < 0 ? '#dc2626' : '#1e293b'};">${cur}${Math.abs(bal).toLocaleString('en-IN')}</td>
+      <td style="padding:9px 8px;text-align:center;"><button onclick="_deleteAccountTx('${t.type}','${t.id}')" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;cursor:pointer;">✕</button></td>
+    </tr>`;
+  });
+  if (!txns.length) html += '<tr><td colspan="6" style="padding:40px;text-align:center;color:#94a3b8;">No transactions yet</td></tr>';
+  html += '</tbody></table>';
+  document.getElementById('acctTxnsContainer').innerHTML = html;
+  const cb = document.getElementById('acctClosingBal');
+  cb.textContent = `${cur}${Math.abs(bal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}${bal < 0 ? ' (Dr)' : ''}`;
+  cb.className = `text-xl font-extrabold ${bal < 0 ? 'text-red-400' : 'text-green-400'}`;
+}
+
+// Deposit / Withdraw quick entries
+window._acctDeposit = function() {
+  const acc = state.accounts.find(a => a.id === _selectedAccountId);
+  if (!acc) { showToast('Select an account first', 'error'); return; }
+  const amt = parseFloat(prompt(`Deposit to ${acc.name} (₹):`)); if (!amt || amt <= 0) return;
+  const ref = prompt('Note:', 'Manual deposit') || 'Deposit';
+  state.paymentsIn.push({ id: 'in_' + Date.now(), clientId: '', accountId: acc.id, date: new Date().toISOString().split('T')[0], amount: amt, ref });
+  saveAllData(); renderAccounts();
+  showToast('Deposit recorded', 'success');
+};
+window._acctWithdraw = function() {
+  const acc = state.accounts.find(a => a.id === _selectedAccountId);
+  if (!acc) { showToast('Select an account first', 'error'); return; }
+  const amt = parseFloat(prompt(`Withdraw from ${acc.name} (₹):`)); if (!amt || amt <= 0) return;
+  const ref = prompt('Note:', 'Manual withdrawal') || 'Withdrawal';
+  state.expenses.push({ id: 'exp_' + Date.now(), accountId: acc.id, date: new Date().toISOString().split('T')[0], category: 'Withdrawal', amount: amt, remarks: ref });
+  saveAllData(); renderAccounts();
+  showToast('Withdrawal recorded', 'success');
+};
+// Transfer between accounts (toolbar)
+window._acctTransfer = function() {
+  if (state.accounts.length < 2) { showToast('Need at least 2 accounts', 'error'); return; }
+  const id = _selectedAccountId || state.accounts[0].id;
+  if (typeof window._transferFromAccount === 'function') window._transferFromAccount(id);
+};
 
 function _getAccountBalance(accId) {
   let bal = 0;
