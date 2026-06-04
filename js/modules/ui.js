@@ -5772,39 +5772,116 @@ export function renderPartyTransactions() {
     document.getElementById('selectedPartyName').textContent = c.name;
     document.getElementById('selectedPartyType').textContent = 'CLIENT';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="switchView('billingView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Sale</button><button onclick="switchView('accountingView')" class="bg-green-50 text-green-600 px-4 py-2 rounded-full font-bold text-xs border border-green-200 hover:bg-green-100 shadow-sm">+ Add Receipt</button>`;
-    state.abstracts.filter(a => a.clientId === id).forEach(a => txs.push({ date: a.date, number: a.abstractNum, type: 'Sale (Abstract)', total: a.totalAmount, isDebit: true }));
-    state.invoices.filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNum, type: 'Sale (GST Applied)', total: i.taxAmount, isDebit: true }));
-    state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: parseFloat(p.amount), isDebit: false }));
+    state.abstracts.filter(a => a.clientId === id).forEach(a => txs.push({ date: a.date, number: a.abstractNum, type: 'Sale (Abstract)', total: a.totalAmount, isDebit: true, _src: 'abstracts', _id: a.id }));
+    state.invoices.filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNum, type: 'Sale (GST Applied)', total: i.taxAmount, isDebit: true, _src: 'invoices', _id: i.id }));
+    state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: parseFloat(p.amount), isDebit: false, _src: 'paymentsIn', _id: p.id, _editable: true }));
   } else if (type === 'Vendor') {
     const v = state.vendors.find(x => x.id === id);
     document.getElementById('selectedPartyName').textContent = v.name;
     document.getElementById('selectedPartyType').textContent = 'VENDOR';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="switchView('vendorView')" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-full font-bold text-xs border border-blue-200 hover:bg-blue-100 shadow-sm">+ Add Purchase</button><button onclick="switchView('vendorView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Payment</button>`;
-    state.vendorMaterials.filter(m => m.vendorId === id).forEach(m => txs.push({ date: m.date, number: m.billNo || 'Purchase', type: 'Purchase', total: m.totalAmount || parseFloat(m.amount) || 0, isDebit: false }));
-    state.vendorPayments.filter(p => p.vendorId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Payment', type: 'Payment', total: parseFloat(p.amount), isDebit: true }));
+    state.vendorMaterials.filter(m => m.vendorId === id).forEach(m => txs.push({ date: m.date, number: m.billNo || 'Purchase', type: 'Purchase', total: m.totalAmount || parseFloat(m.amount) || 0, isDebit: false, _src: 'vendorMaterials', _id: m.id }));
+    state.vendorPayments.filter(p => p.vendorId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Payment', type: 'Payment', total: parseFloat(p.amount), isDebit: true, _src: 'vendorPayments', _id: p.id, _editable: true }));
   } else if (type === 'Labour') {
     const l = state.labourMaster.find(x => x.id === id);
     document.getElementById('selectedPartyName').textContent = l.name;
     document.getElementById('selectedPartyType').textContent = 'LABOUR';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment/Advance</button>`;
-    state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false }));
-    state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true }));
+    state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false, _src: 'labourSalaries', _id: s.id }));
+    state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
   }
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
   const tbody = document.getElementById('partyTransactionsBody');
   tbody.innerHTML = '';
   let runningBal = 0;
-  txs.forEach(t => {
+  txs.forEach((t, idx) => {
     if (type === 'Client') runningBal += t.isDebit ? t.total : -t.total;
     else if (type === 'Vendor' || type === 'Labour') runningBal += t.isDebit ? -t.total : t.total;
-    let statusBadge = t.type.includes('Payment') || t.type.includes('Receipt') ? `<span class="text-green-600 font-bold">Done</span>` : `<span class="text-blue-600 font-bold">Payable</span>`;
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${t.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center">${statusBadge}</td></tr>`;
+    const isPayment = t.type.includes('Payment') || t.type.includes('Receipt');
+    let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
+    // Per-row actions
+    const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
+    const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-500 hover:bg-blue-50 px-1.5 py-1 rounded">✏️</button>` : '';
+    const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
+    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${t.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
   });
   if (txs.length === 0) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No transactions found.</td></tr>`;
   const ft = document.getElementById('partyClosingBalance');
   ft.textContent = `${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Advance)' : ''}`;
   ft.className = `text-xl font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-400' : 'text-red-400') : 'text-white'}`;
 }
+
+/** Edit an editable transaction (payment/receipt amount, date, ref) */
+window._editPartyTx = function(src, id) {
+  const rec = (state[src] || []).find(x => x.id === id);
+  if (!rec) return;
+  const amount = prompt('Amount (₹):', rec.amount);
+  if (amount === null) return;
+  if (isNaN(amount) || parseFloat(amount) <= 0) { showToast('Invalid amount', 'error'); return; }
+  rec.amount = parseFloat(amount);
+  const date = prompt('Date (YYYY-MM-DD):', rec.date);
+  if (date) rec.date = date;
+  const ref = prompt('Reference / Note:', rec.ref || '');
+  if (ref !== null) rec.ref = ref;
+  saveAllData();
+  renderPartyTransactions(); renderPartiesList();
+  showToast('Transaction updated', 'success');
+};
+
+/** Delete a transaction */
+window._deletePartyTx = function(src, id) {
+  const labels = { paymentsIn: 'receipt', vendorPayments: 'vendor payment', labourPayments: 'labour payment', vendorMaterials: 'purchase bill', abstracts: 'abstract', invoices: 'invoice', labourSalaries: 'salary entry' };
+  if (!confirm(`Delete this ${labels[src] || 'transaction'}? This cannot be undone.`)) return;
+  state[src] = (state[src] || []).filter(x => x.id !== id);
+  saveAllData();
+  renderPartyTransactions(); renderPartiesList();
+  showToast('Transaction deleted', 'error');
+};
+
+/** Preview + download a payment receipt PDF */
+window._partyReceipt = function(src, id) {
+  const rec = (state[src] || []).find(x => x.id === id);
+  if (!rec) { showToast('Record not found', 'error'); return; }
+  const { type } = state.currentSelectedParty || {};
+  const partyId = state.currentSelectedParty?.id;
+  let partyName = '';
+  if (type === 'Client') partyName = state.clients.find(c => c.id === partyId)?.name || '';
+  else if (type === 'Vendor') partyName = state.vendors.find(v => v.id === partyId)?.name || '';
+  else if (type === 'Labour') partyName = state.labourMaster.find(l => l.id === partyId)?.name || '';
+
+  const cur = getCurrencySymbol();
+  const amount = (parseFloat(rec.amount) || rec.totalAmount || rec.taxAmount || 0);
+  const isReceipt = src === 'paymentsIn';
+  const docTitle = isReceipt ? 'RECEIPT' : (src === 'vendorPayments' || src === 'labourPayments') ? 'PAYMENT VOUCHER' : 'TRANSACTION';
+  const acc = state.accounts.find(a => a.id === rec.accountId);
+
+  const doc = new window.jspdf.jsPDF('p', 'mm', 'a5');
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
+  doc.text(docTitle, 74, y, null, null, 'center'); y += 10;
+  doc.setDrawColor(220); doc.line(12, y, 136, y); y += 8;
+
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(60);
+  const row = (label, val) => { doc.setFont('helvetica','bold'); doc.text(label, 14, y); doc.setFont('helvetica','normal'); doc.text(String(val), 60, y); y += 8; };
+  row(type === 'Client' ? 'Received From:' : 'Paid To:', partyName);
+  row('Date:', rec.date || '—');
+  row('Reference:', rec.ref || rec.billNo || rec.invoiceNum || '—');
+  if (acc) row('Via Account:', acc.name);
+  y += 4;
+  doc.setFillColor(240, 249, 255); doc.rect(12, y - 4, 124, 14, 'F');
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(5, 150, 105);
+  doc.text('Amount:', 16, y + 4);
+  doc.text(`${cur}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 132, y + 4, null, null, 'right');
+  y += 20;
+  doc.setFontSize(8); doc.setTextColor(120); doc.setFont('helvetica', 'normal');
+  doc.text('This is a computer-generated receipt.', 74, y, null, null, 'center');
+  y += 18;
+  doc.setDrawColor(180); doc.line(90, y, 134, y); y += 5;
+  doc.setFontSize(9); doc.text('Authorised Signatory', 112, y, null, null, 'center');
+
+  mobileSavePDF(doc, `${docTitle}_${partyName.replace(/\s+/g, '_')}_${rec.date || ''}.pdf`);
+  showToast('Receipt generated', 'success');
+};
 
 export function selectParty(id, type) {
   state.currentSelectedParty = { id, type };
