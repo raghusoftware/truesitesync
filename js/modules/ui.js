@@ -3732,8 +3732,10 @@ export function generateAbstractFromSheet() {
       else grouped[key] = { code: e.code, desc: e.description, uom: e.uom, qty: e.qty, rate, ref: sheet.sheetNum, boqIndex: e.boqIndex };
     }
   });
+  if (!Object.keys(grouped).length) return showToast('No billable items found. Add item codes/quantities first.', 'error');
   const client = state.clients.find(c => c.id === cId);
-  document.getElementById('absModalClient').textContent = client.name;
+  const clientName = client?.name || proj?.clientName || proj?.name || 'Client';
+  document.getElementById('absModalClient').textContent = clientName;
   document.getElementById('absModalRef').textContent = sheet.sheetNum;
   const tbody = document.getElementById('absModalBody');
   tbody.innerHTML = '';
