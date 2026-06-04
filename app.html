@@ -174,7 +174,7 @@
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1.5">Finance</p>
         <button onclick="switchView('partiesLedgerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="partiesLedgerView"><span style="font-size:13px">&#129309;</span> Parties Ledger</button>
         <button onclick="switchView('accountsManagerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="accountsManagerView"><span style="font-size:13px">&#127974;</span> Bank & Cash</button>
-        <button onclick="switchView('accountingView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="accountingView"><span style="font-size:13px">&#128176;</span> P&L Report</button>
+        <button onclick="switchView('paymentsHubView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="paymentsHubView"><span style="font-size:13px">&#128176;</span> Payments</button>
 
         <!-- ── System ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
@@ -1080,6 +1080,28 @@
               <div class="bg-slate-800 text-white p-4 flex justify-between items-center text-sm font-bold"><span>Closing Balance:</span><span id="acctClosingBal" class="text-xl font-extrabold">₹0.00</span></div>
             </div>
           </div>
+        </div>
+
+        <!-- ═══════ PAYMENTS HUB ═══════ -->
+        <div id="paymentsHubView" class="view-section hide">
+          <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Payments</h2>
+          <p class="text-sm text-slate-400 mb-5">All money in & out, aggregated across every module</p>
+          <div id="paymentsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;">
+            <div onclick="_openPaymentsSection('in')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:26px 18px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);border-top:4px solid #10b981;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+              <div style="width:56px;height:56px;background:#10b98115;border:2px solid #10b98130;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px;">📥</div>
+              <div style="font-size:15px;font-weight:800;color:#0f172a;">Payment In</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:3px;">All money received</div>
+              <div id="payInTotal" style="font-size:18px;font-weight:800;color:#059669;margin-top:8px;font-family:'JetBrains Mono',monospace;">—</div>
+            </div>
+            <div onclick="_openPaymentsSection('out')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:26px 18px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);border-top:4px solid #ef4444;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+              <div style="width:56px;height:56px;background:#ef444415;border:2px solid #ef444430;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px;">📤</div>
+              <div style="font-size:15px;font-weight:800;color:#0f172a;">Payment Out</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:3px;">All money paid</div>
+              <div id="payOutTotal" style="font-size:18px;font-weight:800;color:#dc2626;margin-top:8px;font-family:'JetBrains Mono',monospace;">—</div>
+            </div>
+          </div>
+          <button id="paymentsBackBtn" onclick="_openPaymentsSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Payments</button>
+          <div id="paymentsContent"></div>
         </div>
 
         <!-- ═══════ ACCOUNTING / PNL ═══════ -->

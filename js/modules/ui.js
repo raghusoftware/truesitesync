@@ -663,6 +663,69 @@ function _buildIconGrid(containerId, items) {
   </div>`;
 }
 
+// ══════════════════════════════════════════
+// PAYMENTS HUB — all money in/out across modules
+// ══════════════════════════════════════════
+function _collectPaymentsIn() {
+  const rows = [];
+  (state.paymentsIn || []).forEach(p => { const c = state.clients.find(x => x.id === p.clientId); rows.push({ date: p.date, party: c?.name || 'Client', source: 'Client Receipt', amount: parseFloat(p.amount) || 0, ref: p.ref || '', _src: 'paymentsIn', _id: p.id }); });
+  (state.otherIncome || []).forEach(o => rows.push({ date: o.date, party: o.source || o.party || '—', source: 'Other Income', amount: parseFloat(o.amount) || 0, ref: o.remarks || '', _src: 'otherIncome', _id: o.id }));
+  (state.saleInvoices || []).filter(i => i.status !== 'Cancelled' && (i.paidAmount || i.amountPaid)).forEach(i => rows.push({ date: i.date, party: i.clientName || '—', source: 'Sale Invoice', amount: parseFloat(i.paidAmount || i.amountPaid) || 0, ref: i.invoiceNum || '', _src: 'saleInvoices', _id: i.id }));
+  return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+function _collectPaymentsOut() {
+  const rows = [];
+  (state.expenses || []).forEach(e => rows.push({ date: e.date, party: e.category || 'Expense', source: 'Expense', amount: parseFloat(e.amount) || 0, ref: e.remarks || '', _src: 'expenses', _id: e.id }));
+  (state.vendorPayments || []).forEach(v => { const vn = state.vendors.find(x => x.id === v.vendorId); rows.push({ date: v.date, party: vn?.name || 'Vendor', source: 'Vendor Payment', amount: parseFloat(v.amount) || 0, ref: v.ref || '', _src: 'vendorPayments', _id: v.id }); });
+  (state.labourPayments || []).forEach(l => { const ln = state.labourMaster.find(x => x.id === l.labourId); rows.push({ date: l.date, party: ln?.name || 'Labour', source: 'Labour Payment', amount: parseFloat(l.amount) || 0, ref: l.ref || '', _src: 'labourPayments', _id: l.id }); });
+  (state.labourAdvances || []).forEach(a => { const ln = state.labourMaster.find(x => x.id === a.labourId); rows.push({ date: a.date, party: ln?.name || 'Labour', source: 'Advance', amount: parseFloat(a.amount) || 0, ref: a.note || '', _src: 'labourAdvances', _id: a.id }); });
+  return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+window._openPaymentsSection = function(dir) {
+  const grid = document.getElementById('paymentsGrid');
+  const back = document.getElementById('paymentsBackBtn');
+  const content = document.getElementById('paymentsContent');
+  // Always refresh totals
+  const cur = getCurrencySymbol();
+  const inTotal = _collectPaymentsIn().reduce((s, r) => s + r.amount, 0);
+  const outTotal = _collectPaymentsOut().reduce((s, r) => s + r.amount, 0);
+  const pit = document.getElementById('payInTotal'); if (pit) pit.textContent = cur + inTotal.toLocaleString('en-IN');
+  const pot = document.getElementById('payOutTotal'); if (pot) pot.textContent = cur + outTotal.toLocaleString('en-IN');
+
+  if (!dir) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; if (content) content.innerHTML = ''; return; }
+  if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
+
+  const rows = dir === 'in' ? _collectPaymentsIn() : _collectPaymentsOut();
+  const color = dir === 'in' ? '#059669' : '#dc2626';
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  let html = `<div class="bg-white border rounded-xl overflow-hidden">
+    <div class="p-3 border-b flex justify-between items-center" style="background:${color}10;">
+      <h3 class="font-bold text-sm" style="color:${color};">${dir === 'in' ? '📥 Payment In — All Received' : '📤 Payment Out — All Paid'}</h3>
+      <span class="font-extrabold" style="color:${color};">${cur}${total.toLocaleString('en-IN')}</span>
+    </div>
+    <div class="overflow-x-auto" style="max-height:65vh;">
+      <table class="w-full text-xs"><thead class="bg-slate-50 sticky top-0"><tr>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Party</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Source</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Ref</th>
+        <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
+      </tr></thead><tbody>
+      ${rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
+        <td class="px-3 py-2 whitespace-nowrap text-slate-500">${r.date || '—'}</td>
+        <td class="px-3 py-2 font-bold text-slate-800">${r.party}</td>
+        <td class="px-3 py-2"><span style="font-size:10px;font-weight:600;background:${color}12;color:${color};padding:2px 8px;border-radius:6px;">${r.source}</span></td>
+        <td class="px-3 py-2 text-slate-400">${r.ref || '—'}</td>
+        <td class="px-3 py-2 text-right font-bold" style="color:${color};">${cur}${r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-slate-400">No transactions.</td></tr>'}
+      </tbody></table>
+    </div></div>`;
+  if (content) content.innerHTML = html;
+};
+
+export function renderPaymentsHub() { window._openPaymentsSection(null); }
+
 // ==========================================
 // ANALYTICS / EXECUTIVE MIS DASHBOARD
 // ==========================================
@@ -894,6 +957,7 @@ export function switchView(viewId) {
   if (viewId === 'microPlanView') { if (typeof window.renderMicroPlanningView === 'function') window.renderMicroPlanningView(); }
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
   if (viewId === 'analyticsView') renderAnalyticsDashboard();
+  if (viewId === 'paymentsHubView') renderPaymentsHub();
   if (viewId === 'salesLedgerView') { renderSalesLedger(); renderSaleInvoices(); }
   if (viewId === 'proformaInvoiceView') renderProformaInvoices();
   if (viewId === 'paymentInView') renderPaymentInList();
