@@ -968,39 +968,85 @@ export function renderMicroPlanningView() {
 
     <!-- SECTION: GENERATED PLAN -->
     <div id="mpSecPlan" class="mp-section hide">
-    <div id="mpDailySheets">
-      <div class="bg-slate-50 border rounded-xl p-8 text-center">
-        <p class="text-slate-400 text-sm">No plan yet. Go to <b>Generate Plan</b>, set dates and click <b>Generate Plan</b>.</p>
+      <div class="bg-white border rounded-xl overflow-hidden mb-4">
+        <div class="p-3 border-b font-bold text-slate-700 text-sm flex items-center justify-between">
+          <span>📋 Saved Plans</span>
+          <span class="text-[10px] text-slate-400 font-medium">Click a plan to view its sheets</span>
+        </div>
+        <div id="mpSavedPlansList"></div>
       </div>
-    </div>
+      <div id="mpDailySheets"></div>
     </div><!-- /mpSecPlan -->`;
 
-  // Restore previously saved plan (so it survives reload / re-open)
-  const saved = state.microPlanAllocations?.[pid];
-  if (saved && saved.allocations && saved.decomposed) {
-    _mpDecomposed = saved.decomposed;
-    _mpAllocations = saved.allocations;
-    _mpMode = saved.mode || _mpMode;
-    const allWorkers = _getProjectWorkers();
-    const sheets = document.getElementById('mpDailySheets');
-    const workDays = Object.keys(_mpDecomposed).filter(d => (_mpDecomposed[d] || []).length).sort();
-    if (sheets && workDays.length) {
-      if (_mpMode === 'weekly') {
-        sheets.innerHTML = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Saved plan from ${new Date(saved.generated).toLocaleString('en-IN')}</div>` + _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, saved.horizon.start, saved.horizon.end);
-      } else {
-        let h = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Saved plan from ${new Date(saved.generated).toLocaleString('en-IN')} — regenerate to refresh</div>`;
-        workDays.forEach(day => {
-          const chunks = _mpDecomposed[day];
-          const conflicts = detectConflicts(chunks, _mpAllocations[day], allWorkers.filter(w => _isWorkerAvailable(w, day)));
-          h += generateDailySheet(day, _mpAllocations[day], conflicts, chunks, allWorkers);
-        });
-        sheets.innerHTML = h;
-      }
-    }
-  }
+  // Render the saved-plans list (transaction-style history)
+  _mpRenderSavedPlans();
   // Start on the icon grid
   if (typeof window._openMpSection === 'function') window._openMpSection(null);
 }
+
+/** List of saved plans — transaction-style rows */
+function _mpRenderSavedPlans() {
+  const box = document.getElementById('mpSavedPlansList');
+  if (!box) return;
+  const plans = (state.savedPlans || []).filter(p => p.projectId === _pid()).sort((a, b) => new Date(b.generated) - new Date(a.generated));
+  if (!plans.length) {
+    box.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No saved plans yet. Use <b>Generate Plan</b> to create one.</p>';
+    return;
+  }
+  box.innerHTML = `<table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+    <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Generated</th>
+    <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Period</th>
+    <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Mode</th>
+    <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Days</th>
+    <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Workers</th>
+    <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Actions</th>
+  </tr></thead><tbody>
+  ${plans.map(p => `<tr class="hover:bg-slate-50 cursor-pointer" onclick="_mpViewSavedPlan('${p.id}')">
+    <td class="px-3 py-2 font-bold text-slate-800">${new Date(p.generated).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</td>
+    <td class="px-3 py-2 text-slate-500">${p.horizon.start} → ${p.horizon.end}</td>
+    <td class="px-3 py-2 text-center"><span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${p.mode === 'weekly' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}">${(p.mode || 'daily').toUpperCase()}</span></td>
+    <td class="px-3 py-2 text-center font-bold">${p.days}</td>
+    <td class="px-3 py-2 text-center">${p.workerCount || 0}</td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+      <button onclick="event.stopPropagation();_mpViewSavedPlan('${p.id}')" class="text-blue-500 hover:text-blue-700 text-[10px] font-bold mr-2">View</button>
+      <button onclick="event.stopPropagation();_mpDeleteSavedPlan('${p.id}')" class="text-red-400 hover:text-red-600 text-[10px] font-bold">Del</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+/** View a specific saved plan's sheets */
+window._mpViewSavedPlan = function(planId) {
+  const p = (state.savedPlans || []).find(x => x.id === planId);
+  if (!p) return;
+  _mpDecomposed = p.decomposed; _mpAllocations = p.allocations; _mpMode = p.mode || 'daily';
+  const allWorkers = _getProjectWorkers();
+  const sheets = document.getElementById('mpDailySheets');
+  if (!sheets) return;
+  const workDays = Object.keys(_mpDecomposed).filter(d => (_mpDecomposed[d] || []).length).sort();
+  const banner = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Plan generated ${new Date(p.generated).toLocaleString('en-IN')} · ${p.horizon.start} → ${p.horizon.end}</div>`;
+  if (_mpMode === 'weekly') {
+    sheets.innerHTML = banner + _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, p.horizon.start, p.horizon.end);
+  } else {
+    let h = banner;
+    workDays.forEach(day => {
+      const chunks = _mpDecomposed[day];
+      const conflicts = detectConflicts(chunks, _mpAllocations[day], allWorkers.filter(w => _isWorkerAvailable(w, day)));
+      h += generateDailySheet(day, _mpAllocations[day], conflicts, chunks, allWorkers);
+    });
+    sheets.innerHTML = h;
+  }
+  sheets.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+window._mpDeleteSavedPlan = function(planId) {
+  if (!confirm('Delete this saved plan?')) return;
+  state.savedPlans = (state.savedPlans || []).filter(x => x.id !== planId);
+  saveAllData();
+  _mpRenderSavedPlans();
+  const sheets = document.getElementById('mpDailySheets'); if (sheets) sheets.innerHTML = '';
+  showToast('Plan deleted', 'warning');
+};
 
 /** App-icon section navigation for Micro Planning */
 window._openMpSection = function(section) {
@@ -1057,17 +1103,33 @@ export function mpGenerate() {
     sheetsContainer.innerHTML = html;
   }
 
+  // Keep the "current" working plan for live edits
   state.microPlanAllocations[_pid()] = {
     generated: new Date().toISOString(),
     horizon: { start: _mpHorizonStart, end: _mpHorizonEnd },
-    days: workDays.length,
-    mode: _mpMode,
-    decomposed: _mpDecomposed,
-    allocations: _mpAllocations
+    days: workDays.length, mode: _mpMode,
+    decomposed: _mpDecomposed, allocations: _mpAllocations
   };
+  // Save this generation as a separate record (transaction-style history)
+  if (!state.savedPlans) state.savedPlans = [];
+  const totalWorkers = new Set();
+  Object.values(_mpAllocations).forEach(a => (a.assignments || []).forEach(x => totalWorkers.add(x.workerId)));
+  state.savedPlans.push({
+    id: 'plan_' + Date.now(),
+    projectId: _pid(),
+    generated: new Date().toISOString(),
+    horizon: { start: _mpHorizonStart, end: _mpHorizonEnd },
+    days: workDays.length, mode: _mpMode,
+    workerCount: totalWorkers.size,
+    decomposed: JSON.parse(JSON.stringify(_mpDecomposed)),
+    allocations: JSON.parse(JSON.stringify(_mpAllocations))
+  });
+  // cap history to last 50
+  if (state.savedPlans.length > 50) state.savedPlans = state.savedPlans.slice(-50);
   saveAllData();
   if (typeof window._openMpSection === 'function') window._openMpSection('plan');
-  showToast(`Plan generated & saved — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
+  _mpRenderSavedPlans();
+  showToast(`Plan saved — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
 }
 
 /** Update task completion % from the daily sheet — saved to the task record */
