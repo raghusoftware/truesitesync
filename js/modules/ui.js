@@ -3842,9 +3842,14 @@ export function renderAbstractsList() {
 }
 
 export function exportAbstractPDF(id) {
+  try {
   const a = state.abstracts.find(x => x.id === id);
+  if (!a) return showToast('Abstract not found', 'error');
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
   const c = state.clients.find(x => x.id === a.clientId);
   const proj = state.projects.find(p => p.id === a.projectId);
+  const clientName = c?.name || proj?.clientName || a.clientName || '—';
+  const projectName = c?.projectName || proj?.name || a.projectName || '—';
   const sym = getPdfCurrency().trim();
 
   const doc = new window.jspdf.jsPDF('portrait');
@@ -3853,15 +3858,19 @@ export function exportAbstractPDF(id) {
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
   nextY += 8;
   doc.setFontSize(9.5); doc.setFont("helvetica", "normal"); doc.setTextColor(60, 60, 60);
-  doc.text(`Client: ${c.name} | Project: ${c.projectName}`, 14, nextY);
-  doc.text(`Abstract No: ${a.abstractNum} | Date: ${a.date}`, 14, nextY + 6);
-  doc.text(`Ref Sheet: ${a.sheetNum} | Area: ${a.area}`, 14, nextY + 12);
+  doc.text(`Client: ${clientName} | Project: ${projectName}`, 14, nextY);
+  doc.text(`Abstract No: ${a.abstractNum || '—'} | Date: ${a.date || '—'}`, 14, nextY + 6);
+  doc.text(`Ref Sheet: ${a.sheetNum || '—'} | Area: ${a.area || '—'}`, 14, nextY + 12);
   let rows = [];
-  a.items.forEach((i, index) => rows.push([index + 1, i.code, i.desc, i.qty.toFixed(3), i.uom, _num2(i.rate), _num2(i.amount)]));
+  (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', (i.qty || 0).toFixed(3), i.uom || '', _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
   doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, doc.lastAutoTable.finalY + 12);
-  mobileSavePDF(doc,`${a.abstractNum}.pdf`);
+  mobileSavePDF(doc,`${a.abstractNum || 'Abstract'}.pdf`);
+  } catch (err) {
+    console.error('Abstract PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
 }
 
 export function exportDetailedAbstractPDF(id) {
