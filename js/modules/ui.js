@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
 function _num2(n) { return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -3864,8 +3864,12 @@ export function exportAbstractPDF(id) {
   let rows = [];
   (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', (i.qty || 0).toFixed(3), i.uom || '', _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
-  doc.setFontSize(12); doc.setFont("helvetica", "bold");
-  doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, doc.lastAutoTable.finalY + 12);
+  let gtY = doc.lastAutoTable.finalY + 12;
+  doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 58, 138);
+  doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, gtY);
+  doc.setFontSize(9); doc.setFont("helvetica", "italic"); doc.setTextColor(60, 60, 60);
+  const words = doc.splitTextToSize(`Amount in Words: ${amountToWordsINR(a.totalAmount)}`, doc.internal.pageSize.width - 28);
+  doc.text(words, 14, gtY + 7);
   mobileSavePDF(doc,`${a.abstractNum || 'Abstract'}.pdf`);
   } catch (err) {
     console.error('Abstract PDF failed:', err);
@@ -3983,8 +3987,14 @@ export function exportDetailedAbstractPDF(id) {
     }
   });
 
+  // Amount in words
+  const wordsY = doc.lastAutoTable.finalY + 7;
+  doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(40);
+  const dWords = doc.splitTextToSize(`Amount in Words: ${amountToWordsINR(grandTotalAmt)}`, pw - 8);
+  doc.text(dWords, 4, wordsY);
+
   // Signature area
-  const finalY = doc.lastAutoTable.finalY + 15;
+  const finalY = wordsY + dWords.length * 4 + 12;
   doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(0);
   doc.text('Prepared By', 25, finalY); doc.line(15, finalY + 2, 55, finalY + 2);
   doc.text('Checked By', pw / 2 - 15, finalY); doc.line(pw / 2 - 25, finalY + 2, pw / 2 + 15, finalY + 2);
