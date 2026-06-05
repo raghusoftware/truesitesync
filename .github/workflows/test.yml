@@ -1,0 +1,23 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run unit tests
+        run: npm test
+      - name: Syntax-check all app JS (excluding vendor libs)
+        run: |
+          for f in $(find js -name '*.js' -not -path 'js/vendor/*'); do
+            node --check "$f" || exit 1
+          done
