@@ -3098,10 +3098,12 @@ function _pageCenterX(orient) { return orient === 'landscape' ? 148 : 105; }
 
 /** Simple Measurement Sheet PDF */
 export function exportSimpleMeasurementPdf(id) {
+  try {
   const sheetId = id || state.currentSheetId;
   if (!sheetId) return showToast('Save sheet before exporting', 'error');
   const s = state.sheets.find(x => x.id === sheetId);
   if (!s) return showToast('Sheet not found', 'error');
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
   const c = state.clients.find(x => x.id === s.clientId);
   const proj = state.projects.find(p => p.id === s.projectId);
 
@@ -3130,7 +3132,7 @@ export function exportSimpleMeasurementPdf(id) {
   const baseHead = ['Code', 'Description', 'Unit', 'Nos', 'L', 'B', 'H', 'Coef', 'Qty', 'Remarks'];
   const head = [...baseHead, ...cc.map(c => c.name)];
   const rows = [];
-  s.entries.forEach(e => {
+  (s.entries || []).forEach(e => {
     if (e.code || e.description) {
       const row = [e.code || '', e.description || '', e.uom || '', e.nos || '', e.l || '', e.b || '', e.h || '', e.coef || '', e.qty || 0, e.remarks || ''];
       cc.forEach(col => row.push(e.customData?.[col.id] || ''));
@@ -3149,7 +3151,7 @@ export function exportSimpleMeasurementPdf(id) {
   });
 
   // BBS summary if exists
-  const bbs = state.bbsData[s.id];
+  const bbs = (state.bbsData || {})[s.id];
   if (bbs && bbs.length) {
     const bbsY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
@@ -3186,6 +3188,10 @@ export function exportSimpleMeasurementPdf(id) {
   }
 
   mobileSavePDF(doc,`Measurement_${s.sheetNum}.pdf`);
+  } catch (err) {
+    console.error('Simple measurement PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
 }
 
 /** Detailed RA Bill / Measurement Sheet PDF (VMC format) */
@@ -3352,7 +3358,7 @@ export function exportDetailedMeasurementPdf(id) {
   });
 
   // BBS page if data exists
-  const bbs = state.bbsData[s.id];
+  const bbs = (state.bbsData || {})[s.id];
   if (bbs && bbs.length) {
     doc.addPage('landscape');
     y = getCompanyHeaderForPDF(doc);
