@@ -1,6 +1,7 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
 import { formatNumber2 } from './format.js';
+import { lookupBoqItem, computeAbstractRows } from './abstractCalc.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
 function _num2(n) { return formatNumber2(n); }
@@ -246,22 +247,7 @@ function _resolveBoqRef(boqs, ref) {
 }
 
 /** Lookup a BOQ item by boqIndex/boqRef — supports both flat index and "groupId:itemIdx" format */
-function _lookupBoqItem(proj, ref) {
-  if (ref === undefined || ref === null || ref === '') return null;
-  const refStr = String(ref);
-  // New format: "boqGroupId:itemIndex"
-  if (refStr.includes(':') && proj?.boqs?.length) {
-    const [gId, iStr] = refStr.split(':');
-    const group = proj.boqs.find(g => g.id === gId);
-    const idx = parseInt(iStr);
-    if (group && !isNaN(idx) && group.items?.[idx]) return group.items[idx];
-  }
-  // Legacy format: flat numeric index into boqItems
-  const idx = parseInt(refStr);
-  const boqItems = proj?.boqItems || [];
-  if (!isNaN(idx) && boqItems[idx]) return boqItems[idx];
-  return null;
-}
+const _lookupBoqItem = lookupBoqItem; // moved to abstractCalc.js (pure + tested)
 
 // ── BOQ Row Helpers ──
 
@@ -3883,20 +3869,11 @@ export function exportDetailedAbstractPDF(id) {
   if (!a) return showToast('Abstract not found', 'error');
   const c = state.clients.find(x => x.id === a.clientId);
   const proj = state.projects.find(p => p.id === a.projectId);
-  const boqItems = proj?.boqItems || [];
   const cp = state.companyProfile || {};
 
-  // Calculate previous bill quantities from earlier abstracts for same project
-  const prevAbstracts = state.abstracts.filter(ab =>
-    ab.projectId === a.projectId && ab.id !== a.id && new Date(ab.date) <= new Date(a.date)
-  );
-  const prevQtyMap = {};
-  prevAbstracts.forEach(ab => {
-    ab.items.forEach(item => {
-      const key = item.boqIndex ?? item.code ?? item.desc;
-      prevQtyMap[key] = (prevQtyMap[key] || 0) + (item.qty || 0);
-    });
-  });
+  // Billing math (previous/this-bill/total qty + amounts) — shared, tested.
+  const { rows: calcRows, totals } = computeAbstractRows(a, state.abstracts, proj);
+  const { grandPreAmt, grandThisAmt, grandTotalAmt } = totals;
 
   const doc = new window.jspdf.jsPDF('portrait');
   let y = getCompanyHeaderForPDF(doc);
@@ -3921,37 +3898,20 @@ export function exportDetailedAbstractPDF(id) {
   const sym = getPdfCurrency().trim();
   const head = [['Sr\nNo.', 'Item\nNo.', 'Description', 'UOM', 'BOQ/PO\nQty.', 'Pre.\nQty.', 'This Bill\nQty.', 'Total\nQty.', `Rate\n(${sym})`, `Pre.\nAmt (${sym})`, `This Bill\nAmt (${sym})`, `TOTAL\nAmt (${sym})`]];
   const rows = [];
-  let grandPreAmt = 0, grandThisAmt = 0, grandTotalAmt = 0;
-
-  a.items.forEach((item, idx) => {
-    const key = item.boqIndex ?? item.code ?? item.desc;
-    const boqItem = _lookupBoqItem(proj, item.boqIndex);
-    const boqQty = boqItem?.qty || 0;
-    const rate = item.rate || 0;
-    const thisBillQty = item.qty || 0;
-    const prevQty = prevQtyMap[key] || 0;
-    const totalQty = prevQty + thisBillQty;
-    const preAmt = prevQty * rate;
-    const thisAmt = thisBillQty * rate;
-    const totalAmt = totalQty * rate;
-
-    grandPreAmt += preAmt;
-    grandThisAmt += thisAmt;
-    grandTotalAmt += totalAmt;
-
+  calcRows.forEach(rw => {
     rows.push([
-      idx + 1,
-      item.code || '-',
-      item.desc || '-',
-      item.uom || '-',
-      boqQty ? boqQty.toFixed(3) : '-',
-      prevQty.toFixed(3),
-      thisBillQty.toFixed(3),
-      totalQty.toFixed(3),
-      _num2(rate),
-      _num2(preAmt),
-      _num2(thisAmt),
-      _num2(totalAmt)
+      rw.srNo,
+      rw.code || '-',
+      rw.desc || '-',
+      rw.uom || '-',
+      rw.boqQty ? rw.boqQty.toFixed(3) : '-',
+      rw.prevQty.toFixed(3),
+      rw.thisBillQty.toFixed(3),
+      rw.totalQty.toFixed(3),
+      _num2(rw.rate),
+      _num2(rw.preAmt),
+      _num2(rw.thisAmt),
+      _num2(rw.totalAmt)
     ]);
   });
 
@@ -4011,20 +3971,11 @@ export function exportDetailedAbstractExcel(id) {
   if (!a) return showToast('Abstract not found', 'error');
   const c = state.clients.find(x => x.id === a.clientId);
   const proj = state.projects.find(p => p.id === a.projectId);
-  const boqItems = proj?.boqItems || [];
   const cp = state.companyProfile || {};
 
-  // Previous bill quantities
-  const prevAbstracts = state.abstracts.filter(ab =>
-    ab.projectId === a.projectId && ab.id !== a.id && new Date(ab.date) <= new Date(a.date)
-  );
-  const prevQtyMap = {};
-  prevAbstracts.forEach(ab => {
-    ab.items.forEach(item => {
-      const key = item.boqIndex ?? item.code ?? item.desc;
-      prevQtyMap[key] = (prevQtyMap[key] || 0) + (item.qty || 0);
-    });
-  });
+  // Billing math (previous/this-bill/total qty + amounts) — shared, tested.
+  const { rows: calcRows, totals } = computeAbstractRows(a, state.abstracts, proj);
+  const { grandPreAmt, grandThisAmt, grandTotalAmt } = totals;
 
   const rows = [];
   const merges = [];
@@ -4048,24 +3999,9 @@ export function exportDetailedAbstractExcel(id) {
   rows.push(['Sr No.', 'Item No.', 'Description', 'UOM', 'BOQ/PO Qty.', 'Pre. Qty.', 'This Bill Qty.', 'Total Qty.', 'Rate', 'Pre. Amount', 'This Bill Amount', 'TOTAL Amount']);
   const headerRow = r; r++;
 
-  let grandPreAmt = 0, grandThisAmt = 0, grandTotalAmt = 0;
-
-  a.items.forEach((item, idx) => {
-    const key = item.boqIndex ?? item.code ?? item.desc;
-    const boqItem = _lookupBoqItem(proj, item.boqIndex);
-    const boqQty = boqItem?.qty || 0;
-    const rate = item.rate || 0;
-    const thisBillQty = item.qty || 0;
-    const prevQty = prevQtyMap[key] || 0;
-    const totalQty = prevQty + thisBillQty;
-    const preAmt = prevQty * rate;
-    const thisAmt = thisBillQty * rate;
-    const totalAmt = totalQty * rate;
-    grandPreAmt += preAmt;
-    grandThisAmt += thisAmt;
-    grandTotalAmt += totalAmt;
-    rows.push([idx + 1, item.code || '-', item.desc || item.code || '-', item.uom || '-',
-      boqQty || '-', prevQty, thisBillQty, totalQty, rate, preAmt, thisAmt, totalAmt]);
+  calcRows.forEach(rw => {
+    rows.push([rw.srNo, rw.code || '-', rw.desc || rw.code || '-', rw.uom || '-',
+      rw.boqQty || '-', rw.prevQty, rw.thisBillQty, rw.totalQty, rw.rate, rw.preAmt, rw.thisAmt, rw.totalAmt]);
     r++;
   });
 
@@ -4287,33 +4223,12 @@ export function exportRABillExcel(abstractId) {
   absRows.push(['Sr No.', 'Item No.', 'Description', 'UOM', 'BOQ/PO Qty.', 'Pre. Qty.', 'This Bill Qty.', 'Total Qty.', 'Rate', 'Pre. Amount', 'This Bill Amount', 'TOTAL Amount']);
   ar++;
 
-  // Previous abstract quantities
-  const prevAbstracts = state.abstracts.filter(ab =>
-    ab.projectId === a.projectId && ab.id !== a.id && new Date(ab.date) <= new Date(a.date)
-  );
-  const prevAbsQtyMap = {};
-  prevAbstracts.forEach(ab => {
-    ab.items.forEach(item => {
-      const key = item.boqIndex ?? item.code ?? item.desc;
-      prevAbsQtyMap[key] = (prevAbsQtyMap[key] || 0) + (item.qty || 0);
-    });
-  });
-
-  let grandPreAmt = 0, grandThisAmt = 0, grandTotalAmt = 0;
-  a.items.forEach((item, idx) => {
-    const key = item.boqIndex ?? item.code ?? item.desc;
-    const boqItem = _lookupBoqItem(proj, item.boqIndex);
-    const boqQty = boqItem?.qty || 0;
-    const rate = item.rate || 0;
-    const thisBillQty = item.qty || 0;
-    const prevQty = prevAbsQtyMap[key] || 0;
-    const totalQty = prevQty + thisBillQty;
-    const preAmt = prevQty * rate;
-    const thisAmt = thisBillQty * rate;
-    const totalAmt = totalQty * rate;
-    grandPreAmt += preAmt; grandThisAmt += thisAmt; grandTotalAmt += totalAmt;
-    absRows.push([idx + 1, item.code || '-', item.desc || item.code || '-', item.uom || '-',
-      boqQty || '-', prevQty, thisBillQty, totalQty, rate, preAmt, thisAmt, totalAmt]);
+  // Billing math (previous/this-bill/total qty + amounts) — shared, tested.
+  const { rows: absCalcRows, totals: absTotals } = computeAbstractRows(a, state.abstracts, proj);
+  const { grandPreAmt, grandThisAmt, grandTotalAmt } = absTotals;
+  absCalcRows.forEach(rw => {
+    absRows.push([rw.srNo, rw.code || '-', rw.desc || rw.code || '-', rw.uom || '-',
+      rw.boqQty || '-', rw.prevQty, rw.thisBillQty, rw.totalQty, rw.rate, rw.preAmt, rw.thisAmt, rw.totalAmt]);
     ar++;
   });
 
