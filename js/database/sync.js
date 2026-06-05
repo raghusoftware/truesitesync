@@ -12,10 +12,11 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { getSupabase } from './supabase.js';
+import { getSupabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 
 // ── Debounce map to avoid flooding Supabase on rapid saves ──
-const _pendingSaves = {};
+const _pendingSaves = {};          // dataKey -> timer id
+const _pendingValues = {};         // dataKey -> latest value not yet pushed
 const DEBOUNCE_MS = 1500;
 
 // ── Online status ──
@@ -99,10 +100,13 @@ async function _pushKey(dataKey, value) {
  * Writes localStorage immediately, queues Supabase push.
  */
 export function syncPush(dataKey, value) {
+  _pendingValues[dataKey] = value;
   if (_pendingSaves[dataKey]) clearTimeout(_pendingSaves[dataKey]);
   _pendingSaves[dataKey] = setTimeout(() => {
     delete _pendingSaves[dataKey];
-    _pushKey(dataKey, value);
+    const v = _pendingValues[dataKey];
+    delete _pendingValues[dataKey];
+    _pushKey(dataKey, v);
   }, DEBOUNCE_MS);
 }
 
@@ -111,6 +115,77 @@ export function syncPush(dataKey, value) {
  */
 export async function syncPushImmediate(dataKey, value) {
   return _pushKey(dataKey, value);
+}
+
+// ════════════════════════════════════════════════
+//  FLUSH ON EXIT — never lose the last edit
+// ════════════════════════════════════════════════
+
+/** Read the current access token synchronously from the stored session. */
+function _accessToken() {
+  try {
+    const k = Object.keys(localStorage).find(x => x.startsWith('sb-') && x.endsWith('-auth-token'));
+    if (!k) return null;
+    const s = JSON.parse(localStorage.getItem(k));
+    return s?.access_token || s?.currentSession?.access_token || null;
+  } catch { return null; }
+}
+
+/**
+ * Flush every pending/dirty change immediately. Used when the app is being
+ * hidden or closed so the last edit is never stuck in the debounce window.
+ * Uses fetch keepalive so the request survives page unload.
+ */
+export function flushPendingSaves() {
+  const userId = _uid();
+  const token = _accessToken();
+  if (!userId || !token) return;
+
+  // Gather everything not yet persisted: debounced values + offline dirty keys.
+  const rows = [];
+  const seen = new Set();
+  const add = (key, value) => {
+    if (value === undefined || seen.has(key)) return;
+    seen.add(key);
+    rows.push({ user_id: userId, data_key: key, data: value, updated_at: new Date().toISOString() });
+  };
+
+  for (const key of Object.keys(_pendingValues)) {
+    if (_pendingSaves[key]) { clearTimeout(_pendingSaves[key]); delete _pendingSaves[key]; }
+    add(key, _pendingValues[key]);
+    delete _pendingValues[key];
+  }
+  for (const key of [..._dirtyKeys]) {
+    try {
+      const raw = localStorage.getItem(_localStorageKey(key));
+      if (raw !== null) add(key, JSON.parse(raw));
+    } catch {}
+  }
+
+  if (!rows.length) return;
+
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id,data_key`, {
+      method: 'POST',
+      keepalive: true, // survives the page being closed
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(rows)
+    }).then(() => { _dirtyKeys.clear(); }).catch(() => {});
+  } catch {}
+}
+
+// Flush whenever the page is hidden (tab switch, app backgrounded, or closing).
+// visibilitychange:hidden is the most reliable lifecycle hook across browsers/mobile.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingSaves();
+  });
+  window.addEventListener('pagehide', flushPendingSaves);
 }
 
 // ════════════════════════════════════════════════

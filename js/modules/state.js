@@ -181,13 +181,27 @@ export const state = {
   activeAutocompleteInput: null
 };
 
-/** Persist all data to localStorage + async push to Supabase */
+let _quotaWarned = false;
+
+/** Persist all data to localStorage + async push to Supabase.
+ *  Each key is isolated so one oversized key (e.g. KYC photos hitting the
+ *  ~5MB localStorage quota) cannot abort the whole save or block cloud sync. */
 export function saveAllData() {
   for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
-    if (state[key] !== undefined) {
-      localStorage.setItem(storageKey, JSON.stringify(state[key]));
-      syncPush(key, state[key]);
+    if (state[key] === undefined) continue;
+    const json = JSON.stringify(state[key]);
+    try {
+      localStorage.setItem(storageKey, json);
+    } catch (e) {
+      // QuotaExceededError — local cache is full, but cloud is still authoritative.
+      console.warn(`[state] localStorage save failed for "${key}" (quota?):`, e?.name || e);
+      if (!_quotaWarned && typeof window !== 'undefined' && window.showToast) {
+        _quotaWarned = true;
+        try { window.showToast('Local storage is full — your data is still being saved to the cloud. Consider clearing old data.', 'error'); } catch {}
+      }
     }
+    // Always push to cloud regardless of local success.
+    syncPush(key, state[key]);
   }
 }
 
