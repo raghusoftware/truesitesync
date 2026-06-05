@@ -96,8 +96,7 @@ import {
   setSIPayMode, loadSIPendingItems, addSIPendingItem,
   onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns,
   renderSaleInvoices, deleteSaleInvoice,
-  viewSaleInvoiceInfo, exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice,
-  exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger,
+  viewSaleInvoiceInfo,
   _navigateToAbstract, _navigateToSheet,
   openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm,
   renderProformaInvoices, clearPIFilters, deleteProformaInvoice,
@@ -117,6 +116,7 @@ import {
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
+import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
