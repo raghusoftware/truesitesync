@@ -1,8 +1,9 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
+import { formatNumber2 } from './format.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
-function _num2(n) { return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function _num2(n) { return formatNumber2(n); }
 import { getActiveThemeId, renderWithTheme, getThemeList, THEMES } from './pdfThemes.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';

@@ -1,5 +1,9 @@
 import { $ } from '../lib/dom.js';
 import { state } from './state.js';
+import { formatNumber, formatNumber2, amountToWordsINR } from './format.js';
+
+// Re-export pure formatters so existing imports from utils.js keep working.
+export { amountToWordsINR } from './format.js';
 
 /** @param {string} msg @param {'success'|'error'|'warning'} [type] */
 export function showToast(msg, type = 'success') {
@@ -128,18 +132,14 @@ export function setDateFields() {
 /** @param {number} n @returns {string} formatted with currency settings */
 export function formatINR(n) {
   const cs = state.currencySettings || {};
-  const sym = cs.symbol || '₹';
   const locale = cs.locale || 'en-IN';
-  const dec = cs.decimals ?? 0;
-  return sym + (n || 0).toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return (cs.symbol || '₹') + formatNumber(n, cs.decimals ?? 0, locale);
 }
 
 /** @param {number} n @returns {string} formatted with 2 decimals minimum */
 export function formatINR2(n) {
   const cs = state.currencySettings || {};
-  const sym = cs.symbol || '₹';
-  const locale = cs.locale || 'en-IN';
-  return sym + (n || 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (cs.symbol || '₹') + formatNumber2(n, cs.locale || 'en-IN');
 }
 
 /** Get currency symbol from settings */
@@ -153,34 +153,6 @@ export function getPdfCurrency() {
   return sym === '₹' ? 'Rs. ' : sym + ' ';
 }
 
-/** Convert a number to words in the Indian numbering system (lakh/crore).
- *  Returns e.g. "Rupees One Lakh Twenty Three Thousand Four Hundred Fifty and Sixty Paise Only" */
-export function amountToWordsINR(amount) {
-  const num = Math.abs(Math.round((Number(amount) || 0) * 100) / 100);
-  const rupees = Math.floor(num);
-  const paise = Math.round((num - rupees) * 100);
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  const twoDigit = (n) => n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-  const threeDigit = (n) => (n >= 100 ? ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + twoDigit(n % 100) : '') : twoDigit(n));
-  const inWords = (n) => {
-    if (n === 0) return 'Zero';
-    let str = '';
-    const crore = Math.floor(n / 10000000); n %= 10000000;
-    const lakh = Math.floor(n / 100000); n %= 100000;
-    const thousand = Math.floor(n / 1000); n %= 1000;
-    const hundred = n;
-    if (crore) str += threeDigit(crore) + ' Crore ';
-    if (lakh) str += twoDigit(lakh) + ' Lakh ';
-    if (thousand) str += twoDigit(thousand) + ' Thousand ';
-    if (hundred) str += threeDigit(hundred) + ' ';
-    return str.trim();
-  };
-  let result = 'Rupees ' + inWords(rupees);
-  if (paise > 0) result += ' and ' + twoDigit(paise) + ' Paise';
-  return result + ' Only';
-}
 
 /** Get resolved header settings with defaults */
 export function getHeaderSettings() {
