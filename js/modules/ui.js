@@ -2,6 +2,7 @@ import { state, saveAllData, saveLabourData, migrateToProjects } from './state.j
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
 import { formatNumber2 } from './format.js';
 import { lookupBoqItem, computeAbstractRows } from './abstractCalc.js';
+import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
 function _num2(n) { return formatNumber2(n); }
@@ -3194,24 +3195,9 @@ export function exportDetailedMeasurementPdf(id) {
   const pw = 210, ph = 297, ml = 10, mr = 10, mt = 10, mb = 20;
   const cw = pw - ml - mr;
 
-  // Calculate previous bill quantities per BOQ item
-  const prevSheets = state.sheets.filter(sh => sh.projectId === s.projectId && sh.id !== s.id && new Date(sh.date) <= new Date(s.date));
-  const prevQtyMap = {};
-  prevSheets.forEach(sh => {
-    sh.entries.forEach(e => {
-      const key = e.boqIndex ?? e.code;
-      prevQtyMap[key] = (prevQtyMap[key] || 0) + (e.qty || 0);
-    });
-  });
-
-  // Group current sheet entries by BOQ item
-  const groupedEntries = {};
-  s.entries.forEach(e => {
-    if (!e.code && !e.description) return;
-    const key = e.boqIndex ?? e.code ?? e.description;
-    if (!groupedEntries[key]) groupedEntries[key] = [];
-    groupedEntries[key].push(e);
-  });
+  // Previous-bill quantities + entry grouping — shared, tested (sheetCalc.js)
+  const prevQtyMap = computeSheetPrevQtyMap(s, state.sheets);
+  const groupedEntries = groupSheetEntries(s.entries);
 
   let y = getCompanyHeaderForPDF(doc);
 
@@ -3321,7 +3307,7 @@ export function exportDetailedMeasurementPdf(id) {
 
     // Summary lines
     if (y > ph - mb - 20) { doc.addPage(); y = mt + 5; }
-    const prevQty = prevQtyMap[key] || prevQtyMap[firstEntry.code] || 0;
+    const prevQty = sheetPrevQtyFor(prevQtyMap, key, firstEntry);
     const totalDoneQty = prevQty + thisBillQty;
 
     y += 2;
@@ -3415,24 +3401,9 @@ export function exportDetailedMeasurementExcel() {
   const boqItems = proj?.boqItems || [];
   const cp = state.companyProfile || {};
 
-  // Previous bill quantities
-  const prevSheets = state.sheets.filter(sh => sh.projectId === s.projectId && sh.id !== s.id && new Date(sh.date) <= new Date(s.date));
-  const prevQtyMap = {};
-  prevSheets.forEach(sh => {
-    sh.entries.forEach(e => {
-      const key = e.boqIndex ?? e.code;
-      prevQtyMap[key] = (prevQtyMap[key] || 0) + (e.qty || 0);
-    });
-  });
-
-  // Group entries by BOQ item
-  const groupedEntries = {};
-  s.entries.forEach(e => {
-    if (!e.code && !e.description) return;
-    const key = e.boqIndex ?? e.code ?? e.description;
-    if (!groupedEntries[key]) groupedEntries[key] = [];
-    groupedEntries[key].push(e);
-  });
+  // Previous-bill quantities + entry grouping — shared, tested (sheetCalc.js)
+  const prevQtyMap = computeSheetPrevQtyMap(s, state.sheets);
+  const groupedEntries = groupSheetEntries(s.entries);
 
   // --- Build Measurement Sheet ---
   const cc = s.customColumns || [];
@@ -3494,7 +3465,7 @@ export function exportDetailedMeasurementExcel() {
       r++;
     });
 
-    const prevQty = prevQtyMap[key] || prevQtyMap[firstEntry.code] || 0;
+    const prevQty = sheetPrevQtyFor(prevQtyMap, key, firstEntry);
     const totalDoneQty = prevQty + thisBillQty;
 
     // Summary rows
@@ -3617,7 +3588,7 @@ export function exportDetailedMeasurementExcel() {
     const descText = firstEntry.description || firstEntry.code || '—';
 
     const thisBillQty = entries.reduce((sum, e) => sum + (e.qty || 0), 0);
-    const prevQty = prevQtyMap[key] || prevQtyMap[firstEntry.code] || 0;
+    const prevQty = sheetPrevQtyFor(prevQtyMap, key, firstEntry);
     const totalDoneQty = prevQty + thisBillQty;
     const totalAmount = totalDoneQty * tenderRate;
     grandTotalAmount += totalAmount;
@@ -4057,24 +4028,9 @@ export function exportRABillExcel(abstractId) {
   const cp = state.companyProfile || {};
   const raBillLabel = s.raBillNum ? s.raBillNum + ' RA BILL' : 'RA BILL';
 
-  // Previous bill quantities from earlier sheets
-  const prevSheets = state.sheets.filter(sh => sh.projectId === s.projectId && sh.id !== s.id && new Date(sh.date) <= new Date(s.date));
-  const prevQtyMap = {};
-  prevSheets.forEach(sh => {
-    sh.entries.forEach(e => {
-      const key = e.boqIndex ?? e.code;
-      prevQtyMap[key] = (prevQtyMap[key] || 0) + (e.qty || 0);
-    });
-  });
-
-  // Group entries by BOQ item
-  const groupedEntries = {};
-  s.entries.forEach(e => {
-    if (!e.code && !e.description) return;
-    const key = e.boqIndex ?? e.code ?? e.description;
-    if (!groupedEntries[key]) groupedEntries[key] = [];
-    groupedEntries[key].push(e);
-  });
+  // Previous-bill quantities + entry grouping — shared, tested (sheetCalc.js)
+  const prevQtyMap = computeSheetPrevQtyMap(s, state.sheets);
+  const groupedEntries = groupSheetEntries(s.entries);
 
   // ============ SHEET 1: MEASUREMENT ============
   const cc = s.customColumns || [];
@@ -4128,7 +4084,7 @@ export function exportRABillExcel(abstractId) {
       mesRows.push(row); thisBillQty += (e.qty || 0); mr++;
     });
 
-    const prevQty = prevQtyMap[key] || prevQtyMap[firstEntry.code] || 0;
+    const prevQty = sheetPrevQtyFor(prevQtyMap, key, firstEntry);
     const totalDoneQty = prevQty + thisBillQty;
     const sumRow1 = new Array(totalCols).fill(''); sumRow1[4] = 'This Bill Qty in ' + unit; sumRow1[6] = thisBillQty;
     mesRows.push(sumRow1); mr++;
