@@ -4,6 +4,7 @@ import { formatNumber2 } from './format.js';
 import { lookupBoqItem, computeAbstractRows } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { splitTaxForDisplay } from './gstCalc.js';
+import { computePurchaseTotal } from './purchaseCalc.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
 function _num2(n) { return formatNumber2(n); }
@@ -4414,21 +4415,25 @@ export function renderEstimatesList() {
 
 export function exportEstimatePDF(id) {
   const e = state.estimates.find(x => x.id === id);
+  if (!e) return showToast('Estimate not found', 'error');
   const c = state.clients.find(x => x.id === e.clientId);
+  const proj = state.projects.find(p => p.id === e.projectId || p.id === c?.projectId);
+  const clientName = c?.name || proj?.clientName || e.clientName || '—';
+  const projectName = c?.projectName || proj?.name || e.projectName || '—';
   const doc = new window.jspdf.jsPDF();
   let y = getCompanyHeaderForPDF(doc);
   doc.setFontSize(14); doc.setTextColor(0);
   doc.text("COMMERCIAL ESTIMATE / QUOTATION", 105, y + 5, null, null, "center");
   doc.setFontSize(10); doc.setFont("helvetica", "normal");
   doc.text(`Estimate No: ${e.estNum}`, 14, y + 15); doc.text(`Date: ${e.date}`, 14, y + 20);
-  doc.text(`Client: ${c.name}`, 14, y + 28); doc.text(`Project: ${c.projectName}`, 14, y + 33);
+  doc.text(`Client: ${clientName}`, 14, y + 28); doc.text(`Project: ${projectName}`, 14, y + 33);
+  const sym = getPdfCurrency().trim();
   let rows = [];
-  e.items.forEach((i, idx) => rows.push([idx + 1, i.desc, i.qty, i.unit, formatINR2(i.rate), formatINR2(i.amount)]));
-  const sym = getCurrencySymbol();
+  (e.items || []).forEach((i, idx) => rows.push([idx + 1, i.desc, i.qty, i.unit, _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: y + 40, head: [['#', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [16, 185, 129], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 70 }, 2: { halign: 'right', cellWidth: 18 }, 3: { cellWidth: 15 }, 4: { halign: 'right', cellWidth: 30 }, 5: { halign: 'right', cellWidth: 30 } } });
   let tY = doc.lastAutoTable.finalY + 10;
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
-  doc.text(`Total Estimate Value: ${formatINR2(e.total)}`, 14, tY);
+  doc.text(`Total Estimate Value: ${sym} ${_num2(e.total)}`, 14, tY);
   if (e.terms) { tY += 15; doc.setFontSize(10); doc.text("Terms & Conditions:", 14, tY); doc.setFont("helvetica", "normal"); doc.text(e.terms, 14, tY + 6, { maxWidth: 180 }); }
   mobileSavePDF(doc,`${e.estNum}.pdf`);
 }
@@ -6393,11 +6398,11 @@ export function calcPanelPurchaseTotal() {
     if (amtInput) amtInput.value = amt > 0 ? amt.toFixed(2) : '';
     subtotal += amt;
   });
-  const transport = parseFloat(document.getElementById('plFormTransport').value) || 0;
-  const loading = parseFloat(document.getElementById('plFormLoading').value) || 0;
-  const gst = parseFloat(document.getElementById('plFormGst').value) || 0;
-  const extras = transport + loading + gst;
-  const grandTotal = subtotal + extras;
+  const { extras, totalAmount: grandTotal } = computePurchaseTotal(subtotal, {
+    transport: parseFloat(document.getElementById('plFormTransport').value) || 0,
+    loading: parseFloat(document.getElementById('plFormLoading').value) || 0,
+    gst: parseFloat(document.getElementById('plFormGst').value) || 0
+  });
   document.getElementById('plFormSubtotal').textContent = getCurrencySymbol() + subtotal.toFixed(2);
   document.getElementById('plFormExtras').textContent = getCurrencySymbol() + extras.toFixed(2);
   document.getElementById('plFormGrandTotal').textContent = getCurrencySymbol() + grandTotal.toFixed(2);
@@ -6427,7 +6432,7 @@ export function savePanelPurchaseBill() {
   const transport = parseFloat(document.getElementById('plFormTransport').value) || 0;
   const loading = parseFloat(document.getElementById('plFormLoading').value) || 0;
   const gst = parseFloat(document.getElementById('plFormGst').value) || 0;
-  const totalAmount = subtotal + transport + loading + gst;
+  const { totalAmount } = computePurchaseTotal(subtotal, { transport, loading, gst });
   const billId = 'pb_' + Date.now();
 
   state.vendorMaterials.push({ id: billId, vendorId, siteId, billNo, date, items: purItems, extras: { transport, loading, gst }, totalAmount });

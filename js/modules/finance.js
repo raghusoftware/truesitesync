@@ -1,6 +1,7 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF } from './utils.js';
 import { computeGst } from './gstCalc.js';
+import { computePurchaseTotal } from './purchaseCalc.js';
 
 export function calcPurchaseTotal() {
   let subtotal = 0;
@@ -11,11 +12,11 @@ export function calcPurchaseTotal() {
     tr.querySelector('.pur-amt').value = amt > 0 ? amt.toFixed(2) : '';
     subtotal += amt;
   });
-  const transport = parseFloat(document.getElementById('purTransport').value) || 0;
-  const loading = parseFloat(document.getElementById('purLoading').value) || 0;
-  const gst = parseFloat(document.getElementById('purGst').value) || 0;
-  const extras = transport + loading + gst;
-  const grandTotal = subtotal + extras;
+  const { extras, totalAmount: grandTotal } = computePurchaseTotal(subtotal, {
+    transport: parseFloat(document.getElementById('purTransport').value) || 0,
+    loading: parseFloat(document.getElementById('purLoading').value) || 0,
+    gst: parseFloat(document.getElementById('purGst').value) || 0
+  });
   document.getElementById('purSubtotal').textContent = getCurrencySymbol() + subtotal.toFixed(2);
   document.getElementById('purExtras').textContent = getCurrencySymbol() + extras.toFixed(2);
   document.getElementById('purGrandTotal').textContent = getCurrencySymbol() + grandTotal.toFixed(2);
@@ -180,7 +181,7 @@ export function savePurchaseBill() {
   const transport = parseFloat(document.getElementById('purTransport').value) || 0;
   const loading = parseFloat(document.getElementById('purLoading').value) || 0;
   const gst = parseFloat(document.getElementById('purGst').value) || 0;
-  const totalAmount = subtotal + transport + loading + gst;
+  const { totalAmount } = computePurchaseTotal(subtotal, { transport, loading, gst });
   const billId = 'pb_' + Date.now();
   state.vendorMaterials.push({ id: billId, vendorId, siteId, billNo, date, items: purItems, extras: { transport, loading, gst }, totalAmount });
   purItems.forEach(it => {
