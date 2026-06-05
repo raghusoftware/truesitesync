@@ -117,6 +117,7 @@ import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExc
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js';
+import { renderPettyCash } from './modules/pettyCash.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
@@ -274,6 +275,8 @@ Object.assign(window, {
   clearSFAFilters, deleteSaleFixedAsset,
   openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome,
   clearOIFilters, deleteOtherIncome,
+  // Petty Cash
+  renderPettyCash,
   // Micro-Planning
   renderMicroPlanningView,
   _mpGenerate: mpGenerate, _mpToggleUtil: mpToggleUtil,

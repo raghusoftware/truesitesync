@@ -131,6 +131,7 @@
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
           <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> Equipment</button>
           <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> Inventory</button>
+          <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> Petty Cash</button>
           <button onclick="switchView('recipeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="recipeView"><span style="font-size:13px">&#129516;</span> Recipes</button>
           <button onclick="switchView('assetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="assetsView"><span style="font-size:13px">&#128295;</span> Tools</button>
           <button onclick="switchView('measurementListView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="measurementListView"><span style="font-size:13px">&#128208;</span> Measurement</button>
@@ -749,6 +750,11 @@
             <div id="invSecTransfer" class="inv-section hide"><div id="invTransferContent"></div></div>
             <!-- Section: Physical Audit -->
             <div id="invSecAudit" class="inv-section hide"><div id="invAuditContent"></div></div>
+        </div>
+
+        <!-- ═══════ PETTY CASH ═══════ -->
+        <div id="pettyCashView" class="view-section hide">
+          <div id="pettyCashRoot"></div>
         </div>
 
         <!-- ═══════ ASSETS & TRANSFERS ═══════ -->

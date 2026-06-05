@@ -78,7 +78,9 @@ const STORAGE_KEYS = {
   materialIssues: 'mes_material_issues',
   toolIssues: 'mes_tool_issues',
   stockAudits: 'mes_stock_audits',
-  savedPlans: 'mes_saved_plans'
+  savedPlans: 'mes_saved_plans',
+  pettyCashCustodians: 'mes_petty_cash_custodians',
+  pettyCashTxns: 'mes_petty_cash_txns'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -172,6 +174,8 @@ export const state = {
   toolIssues: load(STORAGE_KEYS.toolIssues, []),
   stockAudits: load(STORAGE_KEYS.stockAudits, []),
   savedPlans: load(STORAGE_KEYS.savedPlans, []),
+  pettyCashCustodians: load(STORAGE_KEYS.pettyCashCustodians, []),
+  pettyCashTxns: load(STORAGE_KEYS.pettyCashTxns, []),
 
   currentProjectId: null,
   currentSheetId: null,

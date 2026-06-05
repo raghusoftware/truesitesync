@@ -1000,6 +1000,7 @@ export function switchView(viewId) {
   if (viewId === 'masterFinancialView') { renderMasterClientList(); renderMasterVendorList(); }
   if (viewId === 'measurementListView') renderMeasurementList();
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
+  if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { renderRecipeView(); }
   if (viewId === 'vendorView') {
