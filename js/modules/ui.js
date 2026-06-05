@@ -3,6 +3,7 @@ import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns
 import { formatNumber2 } from './format.js';
 import { lookupBoqItem, computeAbstractRows } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
+import { splitTaxForDisplay } from './gstCalc.js';
 
 /** Plain 2-decimal number for PDF tables (no currency glyph) */
 function _num2(n) { return formatNumber2(n); }
@@ -4280,7 +4281,7 @@ export function exportInvoicePDF(id) {
   const inv = state.invoices.find(x => x.id === id);
   const c = state.clients.find(x => x.id === inv.clientId);
   const proj = state.projects.find(p => p.id === inv.projectId || p.id === c?.projectId);
-  const sym = getCurrencySymbol();
+  const sym = getPdfCurrency().trim();
 
   // Try theme engine
   const themeId = getActiveThemeId('invoice');
@@ -4315,15 +4316,16 @@ export function exportInvoicePDF(id) {
   doc.autoTable({ startY: y + 40, head: [['Sr No.', 'Abstract Ref', 'Area / Details', `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 35 }, 2: { cellWidth: 80 }, 3: { halign: 'right', cellWidth: 35 } } });
   let tY = doc.lastAutoTable.finalY + 10;
   doc.setFont("helvetica", "bold");
-  doc.text(`Subtotal:`, 140, tY); doc.text(formatINR2(inv.subtotal), 196, tY, null, null, "right"); tY += 6;
+  doc.text(`Subtotal:`, 140, tY); doc.text(`${sym} ${_num2(inv.subtotal)}`, 196, tY, null, null, "right"); tY += 6;
+  const taxParts = splitTaxForDisplay(inv.taxAmount, inv.gstType);
   if (inv.gstType === 'intra') {
-    doc.text(`CGST:`, 140, tY); doc.text(formatINR2(inv.taxAmount / 2), 196, tY, null, null, "right"); tY += 6;
-    doc.text(`SGST:`, 140, tY); doc.text(formatINR2(inv.taxAmount / 2), 196, tY, null, null, "right"); tY += 6;
+    doc.text(`CGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.cgst)}`, 196, tY, null, null, "right"); tY += 6;
+    doc.text(`SGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.sgst)}`, 196, tY, null, null, "right"); tY += 6;
   } else {
-    doc.text(`IGST:`, 140, tY); doc.text(formatINR2(inv.taxAmount), 196, tY, null, null, "right"); tY += 6;
+    doc.text(`IGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.igst)}`, 196, tY, null, null, "right"); tY += 6;
   }
   doc.setFontSize(12); doc.setTextColor(249, 115, 22);
-  doc.text(`Grand Total:`, 120, tY + 4); doc.text(formatINR2(inv.totalAmount), 196, tY + 4, null, null, "right");
+  doc.text(`Grand Total:`, 120, tY + 4); doc.text(`${sym} ${_num2(inv.totalAmount)}`, 196, tY + 4, null, null, "right");
   mobileSavePDF(doc,`${inv.invoiceNum}.pdf`);
 }
 

@@ -1,5 +1,6 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF } from './utils.js';
+import { computeGst } from './gstCalc.js';
 
 export function calcPurchaseTotal() {
   let subtotal = 0;
@@ -59,19 +60,17 @@ export function calculateLiveBill() {
     if (a) subtotal += a.totalAmount;
   });
   const type = document.querySelector('input[name="gstType"]:checked').value;
-  let tax = 0;
-  if (type === 'intra') {
-    const c = parseFloat(document.getElementById('billCgst').value) || 0;
-    const s = parseFloat(document.getElementById('billSgst').value) || 0;
-    tax = subtotal * ((c + s) / 100);
-  } else {
-    const i = parseFloat(document.getElementById('billIgst').value) || 0;
-    tax = subtotal * (i / 100);
-  }
+  const rates = {
+    type,
+    cgst: parseFloat(document.getElementById('billCgst').value) || 0,
+    sgst: parseFloat(document.getElementById('billSgst').value) || 0,
+    igst: parseFloat(document.getElementById('billIgst').value) || 0
+  };
+  const { taxAmount: tax, total } = computeGst(subtotal, rates);
   document.getElementById('billPreviewSub').textContent = getCurrencySymbol() + subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   document.getElementById('billPreviewTax').textContent = getCurrencySymbol() + tax.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  document.getElementById('billPreviewTotal').textContent = getCurrencySymbol() + (subtotal + tax).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  return { subtotal, tax, total: subtotal + tax, type };
+  document.getElementById('billPreviewTotal').textContent = getCurrencySymbol() + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  return { subtotal, tax, total, type };
 }
 
 export function buildClientLedger(cId) {
