@@ -147,6 +147,12 @@ export function getCurrencySymbol() {
   return (state.currencySettings || {}).symbol || '₹';
 }
 
+/** PDF-safe currency prefix — jsPDF Helvetica can't render ₹, so use Rs. */
+export function getPdfCurrency() {
+  const sym = (state.currencySettings || {}).symbol || '₹';
+  return sym === '₹' ? 'Rs. ' : sym + ' ';
+}
+
 /** Get resolved header settings with defaults */
 export function getHeaderSettings() {
   const hs = state.headerSettings || {};
