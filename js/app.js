@@ -1,5 +1,6 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud } from './modules/state.js';
 import { getSupabase } from './database/supabase.js';
+import { installErrorMonitor } from './database/errorMonitor.js';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js';
@@ -341,6 +342,12 @@ let _appBooted = false;
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[boot] DOMContentLoaded fired');
   if (window._splashStatus) window._splashStatus('Loading modules...');
+
+  try {
+    installErrorMonitor();
+  } catch (e) {
+    console.error('[boot] installErrorMonitor failed:', e);
+  }
 
   try {
     initRBAC();
