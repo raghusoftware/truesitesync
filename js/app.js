@@ -59,7 +59,7 @@ import {
   toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment,
   convertSheetToEstimate, directInvoiceFromSheet,
   generateAbstractFromSheet, confirmAndSaveAbstract,
-  renderAbstractsList, exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel, deleteAbstract,
+  renderAbstractsList, deleteAbstract,
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   exportInvoicePDF, cancelInvoice, deleteInvoice, openInvoiceInfo,
@@ -115,6 +115,7 @@ import {
   openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome,
   clearOIFilters, deleteOtherIncome
 } from './modules/ui.js';
+import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
