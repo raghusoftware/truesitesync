@@ -48,9 +48,6 @@ import {
   addPurchaseRow, updatePurRowNums,
   openRawMaterialModal, saveRawMaterial,
   saveItem, saveInventoryTx, renderLiveInventory,
-  loadRecipeItemsDropdown, renderExistingRecipesList,
-  loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe,
-  renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete,
   createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries,
   loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet,
   openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn,
@@ -118,6 +115,7 @@ import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js';
 import { renderPettyCash } from './modules/pettyCash.js';
+import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
