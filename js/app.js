@@ -61,9 +61,9 @@ import {
   renderAbstractsList, deleteAbstract,
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
-  exportInvoicePDF, cancelInvoice, deleteInvoice, openInvoiceInfo,
+  cancelInvoice, deleteInvoice, openInvoiceInfo,
   createNewEstimate, closeEstimateEditor, addEstimateRow,
-  saveEstimate, renderEstimatesList, exportEstimatePDF,
+  saveEstimate, renderEstimatesList,
   renderClientHub,
   openClientModal, saveClient, renderClientTable,
   editClient, deleteClient,
@@ -116,6 +116,7 @@ import {
 } from './modules/ui.js';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js';
+import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
