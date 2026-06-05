@@ -153,6 +153,11 @@ export function getPdfCurrency() {
   return sym === '₹' ? 'Rs. ' : sym + ' ';
 }
 
+/** PDF-safe money string, e.g. "Rs. 1,234.56" (avoids the broken ₹ glyph). */
+export function pdfMoney(n) {
+  return getPdfCurrency() + formatNumber2(n);
+}
+
 
 /** Get resolved header settings with defaults */
 export function getHeaderSettings() {

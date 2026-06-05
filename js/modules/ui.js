@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, formatINR, formatINR2, getCurrencySymbol, getPdfCurrency, pdfMoney, amountToWordsINR, mobileSavePDF, mobileDownloadBlob, mobileSaveXLSX } from './utils.js';
 import { formatNumber2 } from './format.js';
 import { lookupBoqItem, computeAbstractRows } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
@@ -5905,7 +5905,6 @@ window._partyReceipt = function(src, id) {
   else if (type === 'Vendor') partyName = state.vendors.find(v => v.id === partyId)?.name || '';
   else if (type === 'Labour') partyName = state.labourMaster.find(l => l.id === partyId)?.name || '';
 
-  const cur = getCurrencySymbol();
   const amount = (parseFloat(rec.amount) || rec.totalAmount || rec.taxAmount || 0);
   const isReceipt = src === 'paymentsIn';
   const docTitle = isReceipt ? 'RECEIPT' : (src === 'vendorPayments' || src === 'labourPayments') ? 'PAYMENT VOUCHER' : 'TRANSACTION';
@@ -5927,7 +5926,7 @@ window._partyReceipt = function(src, id) {
   doc.setFillColor(240, 249, 255); doc.rect(12, y - 4, 124, 14, 'F');
   doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(5, 150, 105);
   doc.text('Amount:', 16, y + 4);
-  doc.text(`${cur}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 132, y + 4, null, null, 'right');
+  doc.text(pdfMoney(amount), 132, y + 4, null, null, 'right');
   y += 20;
   doc.setFontSize(8); doc.setTextColor(120); doc.setFont('helvetica', 'normal');
   doc.text('This is a computer-generated receipt.', 74, y, null, null, 'center');
@@ -7923,11 +7922,12 @@ export function exportSaleInvoicePDF(id) {
   // Items table
   const rows = (inv.items || []).map((item, i) => [
     i + 1, item.desc, item.hsn || '', item.qty, item.unit || '',
-    formatINR2(item.rate || 0), item.taxPct + '%',
-    formatINR2(item.amount || 0)
+    _num2(item.rate || 0), item.taxPct + '%',
+    _num2(item.amount || 0)
   ]);
+  const invCur = getPdfCurrency().trim();
   doc.autoTable({
-    startY: y, head: [['#', 'Description', 'HSN/SAC', 'Qty', 'Unit', `Rate (${getCurrencySymbol()})`, 'Tax', `Amount (${getCurrencySymbol()})`]],
+    startY: y, head: [['#', 'Description', 'HSN/SAC', 'Qty', 'Unit', `Rate (${invCur})`, 'Tax', `Amount (${invCur})`]],
     body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 },
     styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 50 }, 2: { cellWidth: 18 }, 3: { halign: 'right', cellWidth: 12 }, 4: { cellWidth: 12 }, 5: { halign: 'right', cellWidth: 25 }, 6: { halign: 'right', cellWidth: 14 }, 7: { halign: 'right', cellWidth: 28 } },
     margin: { left: 14, right: 14 }
@@ -7935,12 +7935,12 @@ export function exportSaleInvoicePDF(id) {
   y = doc.lastAutoTable.finalY + 6;
   // Summary
   const summaryData = [
-    ['Subtotal', formatINR(inv.subtotal)],
-    ['Tax', formatINR(inv.gstAmount)],
+    ['Subtotal', pdfMoney(inv.subtotal)],
+    ['Tax', pdfMoney(inv.gstAmount)],
   ];
-  if (inv.tcsAmount) summaryData.push(['TCS', formatINR(inv.tcsAmount)]);
+  if (inv.tcsAmount) summaryData.push(['TCS', pdfMoney(inv.tcsAmount)]);
   if (inv.roundAmt) summaryData.push(['Round Off', (inv.roundAmt > 0 ? '+' : '') + inv.roundAmt.toFixed(2)]);
-  summaryData.push(['Grand Total', formatINR(inv.total)]);
+  summaryData.push(['Grand Total', pdfMoney(inv.total)]);
   doc.setTextColor(0, 0, 0);
   summaryData.forEach(([label, val]) => {
     const isBold = label === 'Grand Total';
@@ -7982,11 +7982,12 @@ export function exportSalesLedgerPDF() {
     const proj = inv.projectId ? (state.projects || []).find(p => p.id === inv.projectId) : null;
     const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     return [inv.invoiceNo, inv.date, c?.name || inv.clientName || '—', proj?.name || '—', inv.poNo || '—',
-      formatINR(inv.subtotal), formatINR(inv.gstAmount), formatINR(inv.total),
-      formatINR(Math.min(received, inv.total)), formatINR(inv.total - Math.min(received, inv.total)), inv.status];
+      _num2(inv.subtotal), _num2(inv.gstAmount), _num2(inv.total),
+      _num2(Math.min(received, inv.total)), _num2(inv.total - Math.min(received, inv.total)), inv.status];
   });
+  const slCur = getPdfCurrency().trim();
   doc.autoTable({
-    startY: y, head: [['Invoice', 'Date', 'Client', 'Project', 'WO/PO', `Base (${getCurrencySymbol()})`, `Tax (${getCurrencySymbol()})`, `Total (${getCurrencySymbol()})`, `Received (${getCurrencySymbol()})`, `O/S (${getCurrencySymbol()})`, 'Status']],
+    startY: y, head: [['Invoice', 'Date', 'Client', 'Project', 'WO/PO', `Base (${slCur})`, `Tax (${slCur})`, `Total (${slCur})`, `Received (${slCur})`, `O/S (${slCur})`, 'Status']],
     body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 6.5 },
     styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'linebreak' }, margin: { left: 8, right: 8 },
     columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 18 }, 2: { cellWidth: 28, overflow: 'linebreak' }, 3: { cellWidth: 28, overflow: 'linebreak' }, 4: { cellWidth: 18 }, 5: { halign: 'right', cellWidth: 22 }, 6: { halign: 'right', cellWidth: 18 }, 7: { halign: 'right', cellWidth: 22 }, 8: { halign: 'right', cellWidth: 22 }, 9: { halign: 'right', cellWidth: 22 }, 10: { cellWidth: 16 } }

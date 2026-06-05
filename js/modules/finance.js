@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF } from './utils.js';
 import { computeGst } from './gstCalc.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 
@@ -559,18 +559,20 @@ export function exportMasterList(type) {
     state.clients.forEach(c => {
       const billed = state.abstracts.filter(a => a.clientId === c.id).reduce((s, a) => s + a.totalAmount, 0) + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
       const paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
-      rows.push([c.name, getCurrencySymbol() + billed.toLocaleString('en-IN', {minimumFractionDigits: 2}), getCurrencySymbol() + paid.toLocaleString('en-IN', {minimumFractionDigits: 2}), getCurrencySymbol() + (billed - paid).toLocaleString('en-IN', {minimumFractionDigits: 2})]);
+      rows.push([c.name, pdfMoney(billed), pdfMoney(paid), pdfMoney(billed - paid)]);
     });
-    doc.autoTable({ startY: y + 15, head: [['Client Name', 'Total Billed ('+getCurrencySymbol()+')', 'Total Received ('+getCurrencySymbol()+')', 'Balance Receivable ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 40 }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 45 } } });
+    const cur = getPdfCurrency().trim();
+    doc.autoTable({ startY: y + 15, head: [['Client Name', 'Total Billed ('+cur+')', 'Total Received ('+cur+')', 'Balance Receivable ('+cur+')']], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 40 }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 45 } } });
   } else {
     doc.text("VENDOR FINANCIAL SUMMARY", 105, y + 5, null, null, "center");
     state.vendors.forEach(v => {
       let sup = 0;
       state.vendorMaterials.filter(m => m.vendorId === v.id).forEach(m => { sup += (m.totalAmount || parseFloat(m.amount) || 0); });
       const paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
-      rows.push([v.name, getCurrencySymbol() + sup.toLocaleString('en-IN', {minimumFractionDigits: 2}), getCurrencySymbol() + paid.toLocaleString('en-IN', {minimumFractionDigits: 2}), getCurrencySymbol() + (sup - paid).toLocaleString('en-IN', {minimumFractionDigits: 2})]);
+      rows.push([v.name, pdfMoney(sup), pdfMoney(paid), pdfMoney(sup - paid)]);
     });
-    doc.autoTable({ startY: y + 15, head: [['Vendor Name', 'Total Supplied ('+getCurrencySymbol()+')', 'Total Paid ('+getCurrencySymbol()+')', 'Balance Payable ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 40 }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 45 } } });
+    const cur = getPdfCurrency().trim();
+    doc.autoTable({ startY: y + 15, head: [['Vendor Name', 'Total Supplied ('+cur+')', 'Total Paid ('+cur+')', 'Balance Payable ('+cur+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 55 }, 1: { halign: 'right', cellWidth: 40 }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 45 } } });
   }
   mobileSavePDF(doc, `${type}_MasterList.pdf`);
 }
@@ -595,9 +597,10 @@ export function exportVendorLedgerPDF() {
   let rows = []; let bal = 0;
   ledger.forEach(l => {
     bal += (l.debit - l.credit);
-    rows.push([l.date, l.desc, l.debit ? getCurrencySymbol() + l.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', l.credit ? getCurrencySymbol() + l.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', getCurrencySymbol() + bal.toLocaleString('en-IN', {minimumFractionDigits: 2})]);
+    rows.push([l.date, l.desc, l.debit ? pdfMoney(l.debit) : '', l.credit ? pdfMoney(l.credit) : '', pdfMoney(bal)]);
   });
-  doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+getCurrencySymbol()+')', 'Credit ('+getCurrencySymbol()+')', 'Balance ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
+  const cur = getPdfCurrency().trim();
+  doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+cur+')', 'Credit ('+cur+')', 'Balance ('+cur+')']], body: rows, theme: 'grid', headStyles: { fillColor: [249, 115, 22], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
   mobileSavePDF(doc, `VendorLedger_${v.name}.pdf`);
 }
 
@@ -616,9 +619,10 @@ export function exportClientStatementPDF() {
   stmt.forEach(s => {
     bal += (s.debit - s.credit);
     let cleanDesc = s.desc.replace(/<[^>]*>?/gm, '');
-    rows.push([s.date, cleanDesc, s.debit ? getCurrencySymbol() + s.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', s.credit ? getCurrencySymbol() + s.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', getCurrencySymbol() + bal.toLocaleString('en-IN', {minimumFractionDigits: 2})]);
+    rows.push([s.date, cleanDesc, s.debit ? pdfMoney(s.debit) : '', s.credit ? pdfMoney(s.credit) : '', pdfMoney(bal)]);
   });
-  doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+getCurrencySymbol()+')', 'Credit ('+getCurrencySymbol()+')', 'Balance ('+getCurrencySymbol()+')']], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
+  const cur = getPdfCurrency().trim();
+  doc.autoTable({ startY: y + 21, head: [['Date', 'Particulars', 'Debit ('+cur+')', 'Credit ('+cur+')', 'Balance ('+cur+')']], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 60, overflow: 'linebreak' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } } });
   mobileSavePDF(doc, `Ledger_${c.name}.pdf`);
 }
 
