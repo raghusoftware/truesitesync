@@ -3097,9 +3097,11 @@ function _measOrientation() {
 function _pageCenterX(orient) { return orient === 'landscape' ? 148 : 105; }
 
 /** Simple Measurement Sheet PDF */
-export function exportSimpleMeasurementPdf() {
-  if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
-  const s = state.sheets.find(x => x.id === state.currentSheetId);
+export function exportSimpleMeasurementPdf(id) {
+  const sheetId = id || state.currentSheetId;
+  if (!sheetId) return showToast('Save sheet before exporting', 'error');
+  const s = state.sheets.find(x => x.id === sheetId);
+  if (!s) return showToast('Sheet not found', 'error');
   const c = state.clients.find(x => x.id === s.clientId);
   const proj = state.projects.find(p => p.id === s.projectId);
 
@@ -3187,9 +3189,11 @@ export function exportSimpleMeasurementPdf() {
 }
 
 /** Detailed RA Bill / Measurement Sheet PDF (VMC format) */
-export function exportDetailedMeasurementPdf() {
-  if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
-  const s = state.sheets.find(x => x.id === state.currentSheetId);
+export function exportDetailedMeasurementPdf(id) {
+  const sheetId = id || state.currentSheetId;
+  if (!sheetId) return showToast('Save sheet before exporting', 'error');
+  const s = state.sheets.find(x => x.id === sheetId);
+  if (!s) return showToast('Sheet not found', 'error');
   const c = state.clients.find(x => x.id === s.clientId);
   const proj = state.projects.find(p => p.id === s.projectId);
   const boqItems = proj?.boqItems || [];
