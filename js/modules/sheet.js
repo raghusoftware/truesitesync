@@ -1335,8 +1335,8 @@ export function addGroupedItem(data) {
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <button onclick="removeGroupedItem(this)" class="text-red-400 hover:text-red-600 font-bold text-xs ml-auto self-center" title="Remove item">✕ Item</button>
     </div>
-    <div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="min-width:140px;">Particulars</th><th class="p-1" style="width:60px;">Nos</th><th class="p-1" style="width:70px;">L</th><th class="p-1" style="width:70px;">B</th><th class="p-1" style="width:70px;">H</th><th class="p-1" style="width:60px;">Coef</th><th class="p-1" style="width:80px;">Qty</th><th class="p-1" style="width:30px;"></th>
+    <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
+      <th class="p-1 text-left" style="width:28%;">Particulars</th><th class="p-1" style="width:9%;">Nos</th><th class="p-1" style="width:12%;">L</th><th class="p-1" style="width:12%;">B</th><th class="p-1" style="width:12%;">H</th><th class="p-1" style="width:8%;">Coef</th><th class="p-1" style="width:14%;">Qty</th><th class="p-1" style="width:5%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
     <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
       <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
