@@ -652,11 +652,36 @@ async function _createNewOrg() {
 // WINDOW BINDINGS (called from HTML onclick)
 // ══════════════════════════════════════════
 /** Dedicated "Plan & Billing" page — trial status + plans + pay buttons */
+let _planBillingRetried = false;
 export function renderPlanBilling() {
   const container = document.getElementById('planBillingContent');
   if (!container) return;
-  const org = _currentOrg;
-  if (!org) { container.innerHTML = '<p style="color:#64748b;font-size:13px;">Loading your workspace…</p>'; return; }
+  let org = _currentOrg;
+  if (!org) {
+    container.innerHTML = '<p style="color:#64748b;font-size:13px;">Loading your workspace…</p>';
+    // Org not loaded yet — fetch it once, then re-render.
+    if (!_planBillingRetried) {
+      _planBillingRetried = true;
+      loadUserOrg().then(async (loaded) => {
+        if (!loaded) {
+          // Brand-new user with no org yet — create one (with 7-day trial)
+          const sb = getSupabase();
+          if (sb) {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+              const orgName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'My Company';
+              await createOrganization(orgName + "'s Team", user.id, user.email);
+            }
+          }
+        }
+        renderPlanBilling();
+      }).catch(() => {
+        container.innerHTML = '<p style="color:#ef4444;font-size:13px;">Couldn\'t load your workspace. Please refresh and try again.</p>';
+      });
+    }
+    return;
+  }
+  _planBillingRetried = false;
   const currentPlan = org.plan || 'free';
   const trialDays = org.trial_ends_at ? Math.max(0, Math.ceil((new Date(org.trial_ends_at) - Date.now()) / 86400000)) : 0;
   const onTrial = currentPlan === 'free' && trialDays > 0;

@@ -438,7 +438,7 @@ function startTrial(tierKey, tierName) {
     btn.style.pointerEvents = 'none';
   }
   // Open the app with the selected plan — it launches secure Razorpay checkout after login
-  setTimeout(() => { window.location.href = 'app.html?plan=' + planId; }, 600);
+  setTimeout(() => { window.location.href = 'payment.html?plan=' + planId; }, 600);
 }
 
 /* ── Intersection Observer for card reveal ── */

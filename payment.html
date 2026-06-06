@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — True Site Sync</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#0f172a,#064e3b);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;color:#0f172a}
+  .card{background:#fff;border-radius:20px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);width:100%;max-width:440px;overflow:hidden}
+  .head{background:linear-gradient(135deg,#10b981,#059669);padding:28px 28px 22px;color:#fff;text-align:center}
+  .head .logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:16px;margin-bottom:14px;opacity:.95}
+  .head .logo .mark{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .head h1{font-size:15px;font-weight:600;opacity:.9}
+  .head .plan-name{font-size:24px;font-weight:800;margin-top:4px}
+  .head .price{font-size:34px;font-weight:900;margin-top:8px}
+  .head .price span{font-size:14px;font-weight:600;opacity:.85}
+  .head .trial{display:inline-block;margin-top:10px;background:rgba(255,255,255,.18);padding:5px 14px;border-radius:100px;font-size:11px;font-weight:700}
+  .body{padding:26px 28px 30px}
+  .feat{display:flex;align-items:center;gap:10px;font-size:13px;color:#475569;margin-bottom:10px}
+  .feat i{color:#10b981;font-size:13px}
+  .divider{height:1px;background:#e2e8f0;margin:18px 0}
+  label{display:block;font-size:12px;font-weight:700;color:#475569;margin:0 0 5px}
+  input{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;margin-bottom:14px;transition:border .2s}
+  input:focus{border-color:#10b981}
+  .btn{width:100%;padding:13px;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;transition:transform .1s,opacity .2s}
+  .btn:active{transform:scale(.99)}
+  .btn-pay{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+  .btn-pay:disabled{opacity:.6;cursor:not-allowed}
+  .toggle{text-align:center;font-size:12px;color:#64748b;margin-top:14px}
+  .toggle a{color:#10b981;font-weight:700;cursor:pointer;text-decoration:none}
+  .msg{font-size:12px;padding:10px 12px;border-radius:9px;margin-bottom:14px;display:none}
+  .msg.err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;display:block}
+  .msg.ok{background:#ecfdf5;color:#047857;border:1px solid #6ee7b7;display:block}
+  .secure{text-align:center;font-size:10.5px;color:#94a3b8;margin-top:16px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .back{position:fixed;top:20px;left:20px;color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:600}
+  .back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" class="back"><i class="fa-solid fa-arrow-left"></i> Back</a>
+<div class="card">
+  <div class="head">
+    <div class="logo"><span class="mark">TS</span> True Site Sync</div>
+    <h1>You're subscribing to</h1>
+    <div class="plan-name" id="planName">—</div>
+    <div class="price" id="planPrice">—<span> / year</span></div>
+    <div class="trial"><i class="fa-solid fa-gift"></i> Includes 7-day free trial</div>
+  </div>
+  <div class="body">
+    <div id="planFeatures"></div>
+    <div class="divider"></div>
+    <div class="msg" id="msg"></div>
+    <div id="authBox">
+      <p id="authTitle" style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:12px;">Log in to continue</p>
+      <div id="nameWrap" style="display:none;"><label>Your Name</label><input id="fName" type="text" placeholder="e.g. Rajesh Kumar"></div>
+      <label>Email</label><input id="fEmail" type="email" placeholder="you@company.com" autocomplete="email">
+      <label>Password</label><input id="fPass" type="password" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn btn-pay" id="authBtn" onclick="doAuth()">Log in &amp; Continue</button>
+      <p class="toggle" id="toggleLine">New here? <a onclick="setMode('signup')">Create an account</a></p>
+    </div>
+    <div id="payBox" style="display:none;">
+      <p style="font-size:13px;color:#475569;margin-bottom:14px;">Signed in as <strong id="whoEmail"></strong></p>
+      <button class="btn btn-pay" id="payBtn" onclick="pay()">Pay &amp; Activate Plan</button>
+      <p class="toggle"><a onclick="signOut()">Use a different account</a></p>
+    </div>
+    <p class="secure"><i class="fa-solid fa-lock"></i> Secure payment via Razorpay · GST invoice provided</p>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJsb214ZWZ3Z2RjaWptcGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MzE2ODgsImV4cCI6MjA5NTUwNzY4OH0.BPSv4rkvjIn0mYdwkfdpRc6NZXB9aOLycongwShisRU';
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+const PLANS = {
+  starter:    { name:'Starter',    price:'₹5,000',  seats:5,  projects:5 },
+  business:   { name:'Business',   price:'₹12,000', seats:12, projects:20 },
+  pro:        { name:'Pro',        price:'₹25,000', seats:25, projects:50 },
+  enterprise: { name:'Enterprise', price:'₹50,000', seats:50, projects:100 },
+};
+
+const params = new URLSearchParams(location.search);
+let planId = params.get('plan');
+if (!PLANS[planId]) planId = 'starter';
+const plan = PLANS[planId];
+let mode = 'login';
+
+document.getElementById('planName').textContent = plan.name;
+document.getElementById('planPrice').innerHTML = plan.price + '<span> / year</span>';
+document.getElementById('planFeatures').innerHTML =
+  `<div class="feat"><i class="fa-solid fa-check"></i> Up to ${plan.seats} team members</div>` +
+  `<div class="feat"><i class="fa-solid fa-check"></i> Up to ${plan.projects} active projects</div>` +
+  `<div class="feat"><i class="fa-solid fa-check"></i> Full platform — measurement, billing, inventory, planning</div>` +
+  `<div class="feat"><i class="fa-solid fa-check"></i> Cloud sync, PDF/Excel exports & GST invoices</div>`;
+
+function showMsg(text, type){ const m=document.getElementById('msg'); m.textContent=text; m.className='msg '+type; }
+function clearMsg(){ const m=document.getElementById('msg'); m.className='msg'; m.textContent=''; }
+
+function setMode(m){
+  mode = m;
+  document.getElementById('nameWrap').style.display = m==='signup' ? 'block' : 'none';
+  document.getElementById('authTitle').textContent = m==='signup' ? 'Create your account' : 'Log in to continue';
+  document.getElementById('authBtn').textContent = m==='signup' ? 'Sign up & Continue' : 'Log in & Continue';
+  document.getElementById('toggleLine').innerHTML = m==='signup'
+    ? 'Already have an account? <a onclick="setMode(\'login\')">Log in</a>'
+    : 'New here? <a onclick="setMode(\'signup\')">Create an account</a>';
+  clearMsg();
+}
+
+async function doAuth(){
+  clearMsg();
+  const email = document.getElementById('fEmail').value.trim();
+  const pass = document.getElementById('fPass').value;
+  if (!email || !pass) return showMsg('Please enter your email and password.', 'err');
+  const btn = document.getElementById('authBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Please wait…';
+  try {
+    if (mode === 'signup') {
+      const name = document.getElementById('fName').value.trim() || email.split('@')[0];
+      const { error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ display_name:name, role:'Admin' } } });
+      if (error) throw error;
+      // If email confirmation is required there may be no session yet
+      const { data:{ session } } = await sb.auth.getSession();
+      if (!session) { showMsg('Account created! Please check your email to confirm, then log in here.', 'ok'); setMode('login'); btn.disabled=false; btn.textContent='Log in & Continue'; return; }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+    }
+    await enterPayState();
+  } catch (e) {
+    showMsg(e.message || 'Authentication failed.', 'err');
+    btn.disabled = false; btn.textContent = mode==='signup' ? 'Sign up & Continue' : 'Log in & Continue';
+  }
+}
+
+async function ensureOrg(user){
+  // Find an active org membership
+  const { data: mem } = await sb.from('org_members').select('org_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle();
+  if (mem && mem.org_id) return mem.org_id;
+  // None — create a workspace with a 7-day trial
+  const base = (user.user_metadata?.display_name || user.email.split('@')[0]);
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,30) + '-' + Math.random().toString(36).slice(2,6);
+  const { data: org, error } = await sb.from('organizations').insert({
+    name: base + "'s Team", slug, email: user.email, plan:'free', max_seats:3, max_projects:2,
+    trial_ends_at: new Date(Date.now()+7*24*60*60*1000).toISOString()
+  }).select().single();
+  if (error) throw error;
+  await sb.from('org_members').insert({ org_id: org.id, user_id: user.id, role:'owner', is_active:true });
+  return org.id;
+}
+
+let _orgId = null, _userEmail = '';
+async function enterPayState(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if (!user) return;
+  _userEmail = user.email;
+  showMsg('Setting up your workspace…', 'ok');
+  _orgId = await ensureOrg(user);
+  clearMsg();
+  document.getElementById('authBox').style.display = 'none';
+  document.getElementById('payBox').style.display = 'block';
+  document.getElementById('whoEmail').textContent = _userEmail;
+}
+
+async function pay(){
+  clearMsg();
+  const btn = document.getElementById('payBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Starting secure payment…';
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(SB_URL + '/functions/v1/razorpay-order', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token, 'apikey':SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ plan_id: planId, org_id: _orgId })
+    });
+    const order = await res.json();
+    if (order.error) throw new Error(order.error);
+    const rzp = new Razorpay({
+      key: order.key_id, amount: order.amount, currency: order.currency,
+      name:'True Site Sync', description: order.plan + ' Plan (annual)', order_id: order.order_id,
+      prefill:{ email:_userEmail }, theme:{ color:'#10b981' },
+      handler: function(){
+        document.querySelector('.card').innerHTML =
+          '<div class="head"><div class="logo"><span class="mark">TS</span> True Site Sync</div></div>' +
+          '<div class="body" style="text-align:center;padding:40px 28px;">' +
+          '<div style="font-size:48px;color:#10b981;margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>' +
+          '<h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">Payment Successful!</h2>' +
+          '<p style="font-size:13px;color:#64748b;margin-bottom:22px;">Your <strong>'+plan.name+'</strong> plan is being activated. Welcome aboard!</p>' +
+          '<a href="app.html" class="btn btn-pay" style="display:block;text-decoration:none;">Go to Dashboard</a></div>';
+      },
+      modal:{ ondismiss: function(){ btn.disabled=false; btn.innerHTML='Pay &amp; Activate Plan'; showMsg('Payment cancelled. You can try again anytime.', 'err'); } }
+    });
+    rzp.open();
+  } catch (e) {
+    showMsg(e.message || 'Could not start payment. Please try again.', 'err');
+    btn.disabled = false; btn.innerHTML = 'Pay &amp; Activate Plan';
+  }
+}
+
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+// On load: if already logged in, skip straight to pay state
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) { try { await enterPayState(); } catch(e){ showMsg('Could not load workspace: '+(e.message||e),'err'); } }
+})();
+</script>
+</body>
+</html>
