@@ -59,8 +59,6 @@ import {
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   cancelInvoice, deleteInvoice, openInvoiceInfo,
-  openItemModal, renderItemMasterTable, editItem,
-  renderRawMaterialTable, editRawMaterial, deleteRawMaterial,
   exportJSONBackup, restoreJSONBackup,
   renderSalesLedger, clearSalesLedgerFilters,
   cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger,
@@ -112,6 +110,7 @@ import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
+import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
