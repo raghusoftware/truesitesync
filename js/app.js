@@ -62,8 +62,6 @@ import {
   openItemModal, renderItemMasterTable, editItem,
   renderRawMaterialTable, editRawMaterial, deleteRawMaterial,
   exportJSONBackup, restoreJSONBackup,
-  loadCompanyProfile, saveCompanyProfile, handleLogoUpload,
-  removeCompanyLogo, updateProfilePreview,
   renderSalesLedger, clearSalesLedgerFilters,
   cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger,
   renderPurchaseLedger, clearPurchaseLedgerFilters,
@@ -113,6 +111,7 @@ import { renderPettyCash } from './modules/pettyCash.js';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js';
+import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
