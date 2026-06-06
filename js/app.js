@@ -64,10 +64,6 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-  openPaymentOutForm, savePaymentOutForm, renderPaymentOut,
-  clearPaymentOutFilters, deletePaymentOutRecord,
-  openExpenseForm, saveExpenseForm, renderExpenseCategories,
-  selectExpenseCategory, renderExpenseTransactions,
   openPurchaseOrderForm, addPOFormRow, calcPOFormTotal,
   savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder,
   openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn,
@@ -108,6 +104,7 @@ import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, de
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js';
 import { closeFullScreenForm } from './modules/formHelpers.js';
+import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
