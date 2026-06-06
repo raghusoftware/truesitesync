@@ -1336,7 +1336,7 @@ export function addGroupedItem(data) {
       </div>
     </div>
     <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
+      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos <button onclick="clearColumn(this,'nos')" title="Clear Nos column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">L <button onclick="clearColumn(this,'l')" title="Clear L column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">B <button onclick="clearColumn(this,'b')" title="Clear B column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">H <button onclick="clearColumn(this,'h')" title="Clear H column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
     <div class="flex flex-wrap items-center gap-1.5 px-2 pt-2 border-t border-slate-100 bg-slate-50 text-[11px]">
       <span class="font-bold text-slate-500">Apply to all lines →</span>
@@ -1387,6 +1387,15 @@ export function applyToAllLines(btn) {
     if (h !== '') tr.querySelector('.g-h').value = h;
     const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : '';
   });
+  _groupedItemTotal(card);
+}
+
+/** Clear one specific column (nos/l/b/h) across every line of the item */
+export function clearColumn(btn, col) {
+  const card = btn.closest('.g-item');
+  if (!card) return;
+  card.querySelectorAll('.g-line .g-' + col).forEach(inp => { inp.value = ''; });
+  card.querySelectorAll('.g-line').forEach(tr => { const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : ''; });
   _groupedItemTotal(card);
 }
 
@@ -1499,5 +1508,5 @@ function _groupedCollectEntries() {
 
 // Self-register grouped handlers on window (for inline onclick in app.html)
 if (typeof window !== 'undefined') {
-  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry, duplicateGroupedLine, duplicateGroupedItem, applyToAllLines, clearAllLines });
+  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry, duplicateGroupedLine, duplicateGroupedItem, applyToAllLines, clearAllLines, clearColumn });
 }
