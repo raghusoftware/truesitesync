@@ -651,7 +651,50 @@ async function _createNewOrg() {
 // ══════════════════════════════════════════
 // WINDOW BINDINGS (called from HTML onclick)
 // ══════════════════════════════════════════
+/** Dedicated "Plan & Billing" page — trial status + plans + pay buttons */
+export function renderPlanBilling() {
+  const container = document.getElementById('planBillingContent');
+  if (!container) return;
+  const org = _currentOrg;
+  if (!org) { container.innerHTML = '<p style="color:#64748b;font-size:13px;">Loading your workspace…</p>'; return; }
+  const currentPlan = org.plan || 'free';
+  const trialDays = org.trial_ends_at ? Math.max(0, Math.ceil((new Date(org.trial_ends_at) - Date.now()) / 86400000)) : 0;
+  const onTrial = currentPlan === 'free' && trialDays > 0;
+  const trialExpired = currentPlan === 'free' && trialDays === 0;
+
+  let banner;
+  if (onTrial) {
+    banner = `<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#065f46;">🎉 Free Trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left</div><p style="font-size:12px;color:#047857;margin:4px 0 0;">Your 7-day free trial includes the full platform. Choose a plan below to continue after it ends.</p></div>`;
+  } else if (trialExpired) {
+    banner = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#991b1b;">Your free trial has ended</div><p style="font-size:12px;color:#b91c1c;margin:4px 0 0;">Choose a plan below to keep using True Site Sync.</p></div>`;
+  } else {
+    banner = `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#1e40af;text-transform:capitalize;">Current Plan: ${currentPlan}</div><p style="font-size:12px;color:#1d4ed8;margin:4px 0 0;">Active subscription · ${org.max_seats} seats · ${org.max_projects} projects.</p></div>`;
+  }
+
+  const order = ['starter', 'business', 'pro', 'enterprise'];
+  const cards = order.map(id => {
+    const plan = PLANS[id];
+    const isCurrent = currentPlan === id;
+    const popular = id === 'business';
+    return `<div style="background:#fff;border:${isCurrent ? '2px solid #10b981' : '1px solid #e5e7eb'};border-radius:14px;padding:24px;text-align:center;${popular ? 'box-shadow:0 8px 24px -8px rgba(37,99,235,.25);' : ''}">
+      ${popular ? '<div style="font-size:9px;font-weight:800;color:#2563eb;letter-spacing:1px;margin-bottom:6px;">MOST POPULAR</div>' : ''}
+      <h4 style="font-size:17px;font-weight:800;color:#1e293b;margin:0 0 6px;">${plan.name}</h4>
+      <div style="font-size:26px;font-weight:900;color:#2563eb;">₹${plan.price.toLocaleString('en-IN')}<span style="font-size:12px;color:#94a3b8;font-weight:600;">/yr</span></div>
+      <div style="font-size:12px;color:#64748b;margin:14px 0 4px;">✓ ${plan.seats} team seats</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:18px;">✓ ${plan.projects} projects</div>
+      ${isCurrent
+        ? '<div style="font-size:12px;font-weight:700;color:#10b981;padding:10px;">✓ Current Plan</div>'
+        : `<button onclick="_orgUpgrade('${id}')" style="width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">${currentPlan === 'free' ? 'Buy Now' : 'Switch to ' + plan.name}</button>`}
+    </div>`;
+  }).join('');
+
+  container.innerHTML = banner +
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">${cards}</div>` +
+    `<p style="font-size:11px;color:#94a3b8;margin-top:18px;text-align:center;">Secure payment via Razorpay · Annual billing · GST invoice provided.</p>`;
+}
+
 export function bindOrgWindowFunctions() {
+  window.renderPlanBilling = renderPlanBilling;
   window._orgCreateNew = _createNewOrg;
   window._orgSaveSettings = _saveOrgSettings;
   window._orgInviteMember = async () => {

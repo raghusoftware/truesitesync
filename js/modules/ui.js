@@ -990,6 +990,7 @@ export function switchView(viewId) {
     renderInvoiceHistory();
   }
   if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); }
+  if (viewId === 'planBillingView') { if (typeof window.renderPlanBilling === 'function') window.renderPlanBilling(); }
   if (viewId === 'clientDashboardView') window.renderClientHub?.();
   if (viewId === 'partiesLedgerView') window.renderPartiesList?.();
   if (viewId === 'equipmentView') {

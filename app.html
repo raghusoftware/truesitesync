@@ -180,7 +180,8 @@
         <!-- ── System ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
         <button onclick="switchView('masterData')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="masterData"><span style="font-size:13px">&#128101;</span> Users & Roles</button>
-        <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#9881;</span> Settings & Config</button>
+        <button onclick="switchView('planBillingView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="planBillingView"><span style="font-size:13px">&#128179;</span> Plan &amp; Billing</button>
+        <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#9881;</span> Settings &amp; Config</button>
         <!-- Super Admin (hidden by default, shown only for admin emails) -->
         <div id="superAdminNav" style="display:none;">
           <p class="px-3 text-[9px] font-bold text-red-400 uppercase tracking-widest mt-4 mb-1.5">Super Admin</p>
@@ -1146,6 +1147,13 @@
             </div>
           </div>
           <div id="orgSettingsContent"></div>
+        </div>
+
+        <!-- ═══════ PLAN & BILLING ═══════ -->
+        <div id="planBillingView" class="view-section hide">
+          <h2 class="text-3xl font-extrabold text-slate-800 mb-2">Plan &amp; Billing</h2>
+          <p class="text-slate-500 mb-6 text-sm">Manage your subscription. Start with a 7-day free trial, then choose the plan that fits your team.</p>
+          <div id="planBillingContent" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"></div>
         </div>
 
         <!-- ═══════ SETTINGS MODULE ═══════ -->

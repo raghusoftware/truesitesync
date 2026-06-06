@@ -443,8 +443,10 @@ function _bootApp() {
       if (pendingPlan && VALID_PLANS.includes(pendingPlan) && typeof window._orgUpgrade === 'function') {
         // Clear the param so a refresh doesn't re-trigger
         history.replaceState({}, '', location.pathname);
+        // Land on the Plan & Billing page, then open the secure payment popup
+        if (typeof window.switchView === 'function') window.switchView('planBillingView');
         showToast('Opening secure payment…', 'success');
-        setTimeout(() => window._orgUpgrade(pendingPlan), 800);
+        setTimeout(() => window._orgUpgrade(pendingPlan), 900);
       }
     } catch (e) { console.warn('[plan] checkout launch failed:', e); }
   }).catch(e => console.warn('[org] load failed:', e));
