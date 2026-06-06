@@ -59,9 +59,6 @@ import {
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   cancelInvoice, deleteInvoice, openInvoiceInfo,
-  renderClientHub,
-  openClientModal, saveClient, renderClientTable,
-  editClient, deleteClient,
   openItemModal, renderItemMasterTable, editItem,
   renderRawMaterialTable, editRawMaterial, deleteRawMaterial,
   exportJSONBackup, restoreJSONBackup,
@@ -115,6 +112,7 @@ import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLe
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
+import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
