@@ -59,7 +59,6 @@ import {
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   cancelInvoice, deleteInvoice, openInvoiceInfo,
-  exportJSONBackup, restoreJSONBackup,
   renderSalesLedger, clearSalesLedgerFilters,
   cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger,
   renderPurchaseLedger, clearPurchaseLedgerFilters,
@@ -111,6 +110,7 @@ import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, r
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
+import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
