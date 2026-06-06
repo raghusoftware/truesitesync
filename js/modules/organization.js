@@ -49,6 +49,7 @@ export async function createOrganization(name, userId, userEmail) {
     plan: 'free',
     max_seats: 3,
     max_projects: 2,
+    trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   }).select().single();
 
   if (error) { console.error('[org] create failed:', error); return null; }

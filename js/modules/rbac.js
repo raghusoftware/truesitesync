@@ -79,18 +79,9 @@ export function initRBAC() {
     state.rbacRoles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
     saveAllData();
   }
-  // Seed admin user if no users exist (for RBAC role management)
-  if (!state.rbacUsers || !state.rbacUsers.length) {
-    state.rbacUsers = [{
-      id: 'usr_admin',
-      name: 'Admin',
-      username: 'admin',
-      role: 'Admin',
-      active: true,
-      createdAt: new Date().toISOString(),
-    }];
-    saveAllData();
-  }
+  // No default/seed user — the first person who logs in (via Supabase) becomes
+  // the Admin of their own workspace (see _ensureRbacUser).
+  if (!state.rbacUsers) { state.rbacUsers = []; saveAllData(); }
 }
 
 /**
@@ -213,6 +204,11 @@ export async function signupUserSupabase(email, password, displayName) {
 
 export function _ensureRbacUser(supaUser) {
   if (!state.rbacUsers) state.rbacUsers = [];
+  // Drop the legacy seeded local "admin" placeholder (pre-Supabase) if present
+  const before = state.rbacUsers.length;
+  state.rbacUsers = state.rbacUsers.filter(u => !(u.id === 'usr_admin' || (u.username === 'admin' && !u.supabaseId)));
+  let changed = state.rbacUsers.length !== before;
+
   const existing = state.rbacUsers.find(u => u.supabaseId === supaUser.id);
   if (!existing) {
     state.rbacUsers.push({
@@ -220,12 +216,15 @@ export function _ensureRbacUser(supaUser) {
       supabaseId: supaUser.id,
       name: supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0],
       username: supaUser.email,
+      email: supaUser.email,
+      phone: supaUser.user_metadata?.phone || supaUser.phone || '',
       role: 'Admin',
       active: true,
       createdAt: new Date().toISOString(),
     });
-    saveAllData();
+    changed = true;
   }
+  if (changed) saveAllData();
 }
 
 /**
