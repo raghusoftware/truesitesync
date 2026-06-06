@@ -1261,14 +1261,16 @@ function _groupedItemTotal(card) {
 
 function _gLineHTML(d) {
   d = d || {};
+  const inp = 'w-full px-2 border rounded text-sm';
+  const sty = 'style="height:36px;"';
   return `<tr class="g-line border-t border-slate-100">
-    <td class="p-1"><input type="text" class="g-label w-full p-1.5 border rounded text-xs" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
-    <td class="p-1"><input type="number" class="g-nos w-full p-1.5 border rounded text-xs text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" class="g-l w-full p-1.5 border rounded text-xs text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" class="g-b w-full p-1.5 border rounded text-xs text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" class="g-h w-full p-1.5 border rounded text-xs text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="text" class="g-qty w-full p-1.5 border rounded text-xs text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
-    <td class="p-1 text-center"><button onclick="removeGroupedLine(this)" class="text-red-400 hover:text-red-600 font-bold text-xs">✕</button></td>
+    <td class="p-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-nos ${inp} text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="text" ${sty} class="g-qty ${inp} text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
+    <td class="p-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy this line below" class="text-emerald-500 hover:bg-emerald-50 px-1 rounded font-bold text-sm">⧉</button><button onclick="removeGroupedLine(this)" title="Remove line" class="text-red-400 hover:bg-red-50 px-1 rounded font-bold text-sm">✕</button></td>
   </tr>`;
 }
 
@@ -1328,10 +1330,13 @@ export function addGroupedItem(data) {
       <div class="flex-1" style="min-width:200px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (type to search BOQ)</label><input type="text" autocomplete="off" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
       <div style="width:70px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Unit</label><input type="text" class="g-uom w-full p-1.5 border rounded text-xs text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
-      <button onclick="removeGroupedItem(this)" class="text-red-400 hover:text-red-600 font-bold text-xs ml-auto self-center" title="Remove item">✕ Item</button>
+      <div class="ml-auto self-center flex gap-1">
+        <button onclick="duplicateGroupedItem(this)" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-2 py-1 rounded font-bold text-xs" title="Duplicate this whole item">⧉ Copy Item</button>
+        <button onclick="removeGroupedItem(this)" class="text-red-400 hover:bg-red-50 border border-red-200 px-2 py-1 rounded font-bold text-xs" title="Remove item">✕ Item</button>
+      </div>
     </div>
     <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="width:30%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:5%;"></th>
+      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
     <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
       <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
@@ -1360,6 +1365,49 @@ export function removeGroupedLine(btn) {
 export function removeGroupedItem(btn) {
   if (!confirm('Remove this item and all its measurement lines?')) return;
   btn.closest('.g-item')?.remove();
+  _renumberGroupedItems();
+}
+
+/** Copy a measurement line right below itself (engineer-style: tweak only the changed dim) */
+export function duplicateGroupedLine(btn) {
+  const tr = btn.closest('tr');
+  if (!tr) return;
+  const d = {
+    remarks: tr.querySelector('.g-label')?.value || '',
+    nos: tr.querySelector('.g-nos')?.value || '',
+    l: tr.querySelector('.g-l')?.value || '',
+    b: tr.querySelector('.g-b')?.value || '',
+    h: tr.querySelector('.g-h')?.value || '',
+    qty: tr.querySelector('.g-qty')?.value || ''
+  };
+  tr.insertAdjacentHTML('afterend', _gLineHTML(d));
+  _groupedItemTotal(tr.closest('.g-item'));
+  // focus the new line's Height field (the value engineers usually change)
+  const next = tr.nextElementSibling;
+  next?.querySelector('.g-h')?.focus();
+  next?.querySelector('.g-h')?.select();
+}
+
+/** Copy a whole item (code/description + all its lines) as a new item */
+export function duplicateGroupedItem(btn) {
+  const card = btn.closest('.g-item');
+  if (!card) return;
+  const data = {
+    code: card.querySelector('.g-code')?.value || '',
+    description: card.querySelector('.g-desc')?.value || '',
+    uom: card.querySelector('.g-uom')?.value || '',
+    boqIndex: card.querySelector('.g-boq')?.value || '',
+    lines: Array.from(card.querySelectorAll('.g-line')).map(tr => ({
+      remarks: tr.querySelector('.g-label')?.value || '', nos: tr.querySelector('.g-nos')?.value || '',
+      l: tr.querySelector('.g-l')?.value || '', b: tr.querySelector('.g-b')?.value || '',
+      h: tr.querySelector('.g-h')?.value || '', qty: tr.querySelector('.g-qty')?.value || ''
+    }))
+  };
+  addGroupedItem(data);
+  // move the newly appended card to sit right after the source
+  const list = card.parentElement;
+  const newCard = list?.lastElementChild;
+  if (newCard && card.nextSibling) list.insertBefore(newCard, card.nextSibling);
   _renumberGroupedItems();
 }
 
@@ -1411,5 +1459,5 @@ function _groupedCollectEntries() {
 
 // Self-register grouped handlers on window (for inline onclick in app.html)
 if (typeof window !== 'undefined') {
-  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry });
+  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry, duplicateGroupedLine, duplicateGroupedItem });
 }
