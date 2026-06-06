@@ -1256,23 +1256,34 @@ function _groupedItemTotal(card) {
   card.querySelectorAll('.g-line').forEach(tr => { total += _gLineQty(tr); });
   const uom = card.querySelector('.g-uom')?.value || '';
   const tEl = card.querySelector('.g-total');
-  if (tEl) tEl.innerHTML = `Item Total: <span style="color:#2563eb;font-size:15px;">${total.toFixed(3)}</span> ${uom}`;
+  if (tEl) tEl.innerHTML = `Item Total <span class="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-extrabold" style="font-size:15px;">${total.toFixed(3)}</span> <span class="text-slate-400 font-semibold text-xs">${uom}</span>`;
 }
 
 function _gLineHTML(d) {
   d = d || {};
-  const inp = 'w-full px-2 border rounded text-sm';
-  const sty = 'style="height:36px;"';
-  return `<tr class="g-line border-t border-slate-100">
-    <td class="p-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
-    <td class="p-1"><input type="number" ${sty} class="g-nos ${inp} text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="text" ${sty} class="g-qty ${inp} text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
-    <td class="p-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy this line below" class="text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded font-bold" style="font-size:18px;line-height:1;">⧉</button><button onclick="removeGroupedLine(this)" title="Remove line" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded font-bold" style="font-size:15px;line-height:1;">🗑</button></td>
+  const inp = 'w-full px-2 border border-slate-200 rounded-md text-sm bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
+  const sty = 'style="height:34px;"';
+  return `<tr class="g-line even:bg-slate-50/60 hover:bg-blue-50/50 transition-colors">
+    <td class="px-1.5 py-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
+    <td class="px-1.5 py-1"><input type="number" ${sty} class="g-nos ${inp} text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="px-1.5 py-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="px-1.5 py-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="px-1.5 py-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)" onkeydown="window._gLineKey(event,this)"></td>
+    <td class="px-1.5 py-1"><input type="text" style="height:34px;" class="g-qty w-full px-2 border border-blue-100 rounded-md text-sm text-center font-extrabold text-blue-700 bg-blue-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
+    <td class="px-1 py-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="text-emerald-600 hover:bg-emerald-100 rounded-md inline-flex items-center justify-center" style="width:28px;height:28px;font-size:16px;">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="text-slate-400 hover:bg-red-100 hover:text-red-600 rounded-md inline-flex items-center justify-center" style="width:26px;height:28px;font-size:14px;">🗑</button></td>
   </tr>`;
 }
+
+/** Enter on the last cell adds a fresh line and jumps to it (Excel-style) */
+window._gLineKey = function (e, el) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const card = el.closest('.g-item');
+  const tb = card?.querySelector('.g-lines');
+  if (!tb) return;
+  tb.insertAdjacentHTML('beforeend', _gLineHTML({}));
+  tb.lastElementChild?.querySelector('.g-label')?.focus();
+};
 
 /** Type-to-search BOQ autocomplete for a grouped item's code/description input */
 window._gItemInput = function (input) {
@@ -1322,34 +1333,45 @@ export function addGroupedItem(data) {
   data = data || {};
   const hasBOQ = (_allSheetBoqItems || []).length > 0;
   const card = document.createElement('div');
-  card.className = 'g-item bg-white rounded-lg border border-slate-200 mb-3 shadow-sm';
+  card.className = 'g-item bg-white rounded-xl border border-slate-200 mb-4 shadow-sm overflow-hidden';
+  const hInp = 'w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
+  const lbl = 'block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5';
+  const colClr = (c, n) => `<button onclick="clearColumn(this,'${c}')" title="Clear ${n} column" class="ml-0.5 text-white/40 hover:text-white" style="font-size:10px;">✕</button>`;
   card.innerHTML = `
-    <div class="flex flex-wrap gap-2 items-end p-3 border-b border-slate-100 bg-slate-50 rounded-t-lg">
-      <div class="g-num font-extrabold text-slate-300 text-xl" style="width:28px;text-align:center;">#</div>
-      <div style="width:130px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Item Code</label><input type="text" autocomplete="off" class="g-code w-full p-1.5 border rounded text-xs font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Type code…" oninput="window._gItemInput(this)"></div>
-      <div class="flex-1" style="min-width:200px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (type to search BOQ)</label><input type="text" autocomplete="off" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
-      <div style="width:70px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Unit</label><input type="text" class="g-uom w-full p-1.5 border rounded text-xs text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
+    <div class="flex flex-wrap gap-3 items-end px-4 py-3 border-b border-slate-100" style="background:linear-gradient(180deg,#f8fafc,#ffffff);">
+      <div class="g-num flex items-center justify-center font-extrabold text-white rounded-lg" style="width:30px;height:30px;background:#1e3a8a;font-size:13px;flex-shrink:0;">#</div>
+      <div style="width:130px;position:relative;"><label class="${lbl}">Item Code</label><input type="text" autocomplete="off" class="g-code ${hInp} font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Type code…" oninput="window._gItemInput(this)"></div>
+      <div class="flex-1" style="min-width:220px;position:relative;"><label class="${lbl}">Description <span class="text-slate-300 normal-case font-normal">(type to search BOQ)</span></label><input type="text" autocomplete="off" class="g-desc ${hInp} font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
+      <div style="width:74px;"><label class="${lbl}">Unit</label><input type="text" class="g-uom ${hInp} text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
-      <div class="ml-auto self-center flex gap-1">
-        <button onclick="duplicateGroupedItem(this)" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-2 py-1 rounded font-bold text-xs" title="Duplicate this whole item">⧉ Copy Item</button>
-        <button onclick="removeGroupedItem(this)" class="text-red-400 hover:bg-red-50 border border-red-200 px-2 py-1 rounded font-bold text-xs" title="Remove item">✕ Item</button>
+      <div class="ml-auto self-center flex gap-1.5">
+        <button onclick="duplicateGroupedItem(this)" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-bold text-xs inline-flex items-center gap-1" title="Duplicate this whole item">⧉ Copy</button>
+        <button onclick="removeGroupedItem(this)" class="text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 px-2.5 py-1.5 rounded-lg font-bold text-xs" title="Remove item">🗑</button>
       </div>
     </div>
-    <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos <button onclick="clearColumn(this,'nos')" title="Clear Nos column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">L <button onclick="clearColumn(this,'l')" title="Clear L column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">B <button onclick="clearColumn(this,'b')" title="Clear B column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:14%;">H <button onclick="clearColumn(this,'h')" title="Clear H column" class="text-red-300 hover:text-red-600 font-bold" style="font-size:11px;">✕</button></th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
+    <div class="overflow-x-auto"><table class="min-w-full" style="table-layout:fixed;"><thead style="background:#1e3a8a;"><tr class="text-white/90 uppercase text-[10px] font-bold">
+      <th class="px-2 py-2 text-left" style="width:26%;">Particulars of work</th>
+      <th class="px-1 py-2" style="width:11%;">Nos${colClr('nos', 'Nos')}</th>
+      <th class="px-1 py-2" style="width:14%;">L${colClr('l', 'L')}</th>
+      <th class="px-1 py-2" style="width:14%;">B${colClr('b', 'B')}</th>
+      <th class="px-1 py-2" style="width:14%;">H${colClr('h', 'H')}</th>
+      <th class="px-1 py-2" style="width:12%;">Qty</th>
+      <th class="px-1 py-2" style="width:9%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
-    <div class="flex flex-wrap items-center gap-1.5 px-2 pt-2 border-t border-slate-100 bg-slate-50 text-[11px]">
-      <span class="font-bold text-slate-500">Apply to all lines →</span>
-      <input type="number" class="g-fill-nos w-14 p-1 border rounded text-center" placeholder="Nos">
-      <input type="number" class="g-fill-l w-16 p-1 border rounded text-center" placeholder="L">
-      <input type="number" class="g-fill-b w-16 p-1 border rounded text-center" placeholder="B">
-      <input type="number" class="g-fill-h w-16 p-1 border rounded text-center" placeholder="H">
-      <button onclick="applyToAllLines(this)" class="bg-blue-600 text-white px-2.5 py-1 rounded font-bold hover:bg-blue-700">Apply</button>
-      <button onclick="clearAllLines(this)" class="text-red-600 border border-red-200 px-2.5 py-1 rounded font-bold hover:bg-red-50">Clear All</button>
-    </div>
-    <div class="flex justify-between items-center p-2 bg-slate-50 rounded-b-lg">
-      <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
-      <div class="g-total text-sm font-bold text-slate-600">Item Total: <span style="color:#2563eb;font-size:15px;">0.000</span> </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t border-slate-100 bg-slate-50">
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="addGroupedLine(this)" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">+ Add Line</button>
+        <div class="flex items-center gap-1 text-[11px] text-slate-500 border-l border-slate-200 pl-2">
+          <span class="font-semibold text-slate-400">Fill all:</span>
+          <input type="number" class="g-fill-nos w-12 px-1 py-1 border border-slate-200 rounded text-center" placeholder="Nos">
+          <input type="number" class="g-fill-l w-14 px-1 py-1 border border-slate-200 rounded text-center" placeholder="L">
+          <input type="number" class="g-fill-b w-14 px-1 py-1 border border-slate-200 rounded text-center" placeholder="B">
+          <input type="number" class="g-fill-h w-14 px-1 py-1 border border-slate-200 rounded text-center" placeholder="H">
+          <button onclick="applyToAllLines(this)" class="bg-slate-700 text-white px-2.5 py-1 rounded font-bold hover:bg-slate-800">Apply</button>
+          <button onclick="clearAllLines(this)" class="text-slate-500 hover:text-red-600 px-1.5 py-1 font-semibold" title="Clear all measurements for this item">Clear</button>
+        </div>
+      </div>
+      <div class="g-total text-sm font-bold text-slate-500 flex items-center gap-2">Item Total <span class="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-extrabold" style="font-size:15px;">0.000</span></div>
     </div>`;
   list.appendChild(card);
   const linesTb = card.querySelector('.g-lines');
