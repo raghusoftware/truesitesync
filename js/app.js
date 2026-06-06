@@ -64,10 +64,6 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-  openPurchaseOrderForm, addPOFormRow, calcPOFormTotal,
-  savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder,
-  openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn,
-  openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset,
   openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm,
   setSIPayMode, loadSIPendingItems, addSIPendingItem,
   onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns,
@@ -105,6 +101,7 @@ import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, del
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js';
+import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
