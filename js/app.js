@@ -59,10 +59,6 @@ import {
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   cancelInvoice, deleteInvoice, openInvoiceInfo,
-  renderPurchaseLedger, clearPurchaseLedgerFilters,
-  viewPurchaseBill, deletePurchaseBill,
-  openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel,
-  updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill,
   openLabourModal, saveLabour, renderLabourMasterList, deleteLabour,
   loadAttendanceSheet, saveAttendance, renderMonthlyMuster,
   generateLabourSalary, downloadMusterCard,
@@ -110,6 +106,7 @@ import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompany
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
+import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
