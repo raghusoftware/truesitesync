@@ -37,22 +37,16 @@ import {
   deleteEquipment, deleteEquipmentLog
 } from './modules/fleet.js';
 import {
-  switchView, handleDescInput, hideAutocomplete,
+  switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
   openProjectForm, closeProjectForm, saveProject, deleteProject,
   addBOQRow, removeBOQRow, calcBOQRow, handleBOQUpload, downloadBOQTemplate,
   addNewBOQGroup, switchBOQTab, deleteActiveBOQGroup,
-  handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange,
   renderGlobalDashboard, clearDashboardFilters, renderAnalyticsDashboard,
   openVendorModal, saveVendor,
   addPurchaseRow, updatePurRowNums,
   openRawMaterialModal, saveRawMaterial,
   saveItem, saveInventoryTx, renderLiveInventory,
-  createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries,
-  loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet,
-  openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn,
-  toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet,
-  toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment,
   convertSheetToEstimate, directInvoiceFromSheet,
   generateAbstractFromSheet, confirmAndSaveAbstract,
   renderAbstractsList, deleteAbstract,
@@ -85,6 +79,7 @@ import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentO
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js';
 import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js';
 import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo } from './modules/saleInvoice.js';
+import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
