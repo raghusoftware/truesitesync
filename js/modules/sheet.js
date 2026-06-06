@@ -406,6 +406,8 @@ export function createNewSheet() {
   _currentSheetBoqItems = [];
   _ensureSheetProjectContext();
   addMoreEntries(5);
+  renderGroupedEntry([]);   // start with one empty item card
+  setEntryMode('grouped');  // grouped (Measurement-Book) view by default
   window.switchView('entrySheet');
 }
 
@@ -616,28 +618,7 @@ export function saveEntries() {
   const cId = document.getElementById('sheetClientSelect')?.value || '';
   if (!projId && !cId) return showToast('Please open a project first', 'error');
   const sNum = document.getElementById('sheetNum').value || `S-${Date.now().toString().slice(-5)}`;
-  const entries = [];
-  Array.from(document.getElementById('entryTableBody').rows).forEach(r => {
-    const code = r.querySelector('.code-input')?.value || '';
-    const desc = r.querySelector('.desc-input')?.value || '';
-    if (code || desc) {
-      const entry = {
-        code, description: desc, uom: r.querySelector('.uom-input')?.value || '',
-        boqIndex: r.querySelector('.boq-index-input')?.value ?? '',
-        nos: r.querySelector('.nos-input')?.value || '', l: r.querySelector('.l-input')?.value || '',
-        b: r.querySelector('.b-input')?.value || '', h: r.querySelector('.h-input')?.value || '',
-        coef: r.querySelector('.coef-input')?.value || '',
-        qty: parseFloat(r.querySelector('.qty-input')?.value) || 0,
-        remarks: r.querySelector('.remarks-input')?.value || ''
-      };
-      const customData = {};
-      r.querySelectorAll('.custom-col-input, .custom-dim-input').forEach(inp => {
-        customData[inp.dataset.colId] = inp.value || '';
-      });
-      if (Object.keys(customData).length) entry.customData = customData;
-      entries.push(entry);
-    }
-  });
+  const entries = _collectEntries();
   if (entries.length === 0) return showToast('Sheet is empty', 'error');
 
   let isBilled = false; let linkedAbstract = null;
@@ -733,6 +714,9 @@ export function loadSheet(id) {
     tbody.appendChild(tr);
   });
   while (tbody.rows.length < 5) addMoreEntries(1);
+  // Build grouped view from the same entries and show it by default
+  renderGroupedEntry(s.entries || []);
+  setEntryMode('grouped');
   // Load BBS and attachments
   _loadBBSData(s.id);
   // Restore BBS linked item
@@ -1180,4 +1164,240 @@ function _renderAttachmentsList(sheetId) {
         <button onclick="removeSheetAttachment('${sheetId}','${a.id}')" class="text-red-400 hover:text-red-600 text-xs flex-shrink-0" title="Remove">&#10005;</button>
       </div>`;
     }).join('')}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GROUPED (Measurement-Book) ENTRY — item once, many lines, auto total
+//  Coexists with the classic table; both read/write the same flat
+//  `entries` model so all PDFs / abstracts keep working.
+// ══════════════════════════════════════════════════════════════════
+let _entryMode = 'classic'; // 'classic' | 'grouped'
+
+export function getEntryMode() { return _entryMode; }
+
+export function setEntryMode(mode) {
+  _entryMode = mode === 'grouped' ? 'grouped' : 'classic';
+  const tableC = document.getElementById('tableContainer');
+  const groupedC = document.getElementById('groupedEntryContainer');
+  const classicBtns = document.getElementById('classicEntryBtns');
+  const groupedBtn = document.getElementById('groupedAddBtn');
+  const modeBtn = document.getElementById('entryModeBtn');
+  const grouped = _entryMode === 'grouped';
+  if (tableC) tableC.classList.toggle('hide', grouped);
+  if (groupedC) groupedC.classList.toggle('hide', !grouped);
+  if (classicBtns) classicBtns.classList.toggle('hide', grouped);
+  if (groupedBtn) groupedBtn.classList.toggle('hide', !grouped);
+  if (modeBtn) modeBtn.textContent = grouped ? '▤ Classic View' : '⊞ Grouped View';
+}
+
+export function toggleEntryMode() {
+  const entries = _collectEntries();           // read whatever mode is active now
+  const target = _entryMode === 'grouped' ? 'classic' : 'grouped';
+  setEntryMode(target);
+  if (target === 'grouped') renderGroupedEntry(entries);
+  else _renderClassicEntries(entries);
+}
+
+/** Read entries from whichever entry mode is currently active */
+function _collectEntries() {
+  return _entryMode === 'grouped' ? _groupedCollectEntries() : _classicCollectEntries();
+}
+
+/** Classic flat-table reader (was inline in saveEntries) */
+function _classicCollectEntries() {
+  const out = [];
+  Array.from(document.getElementById('entryTableBody').rows).forEach(r => {
+    const code = r.querySelector('.code-input')?.value || '';
+    const desc = r.querySelector('.desc-input')?.value || '';
+    if (code || desc) {
+      const entry = {
+        code, description: desc, uom: r.querySelector('.uom-input')?.value || '',
+        boqIndex: r.querySelector('.boq-index-input')?.value ?? '',
+        nos: r.querySelector('.nos-input')?.value || '', l: r.querySelector('.l-input')?.value || '',
+        b: r.querySelector('.b-input')?.value || '', h: r.querySelector('.h-input')?.value || '',
+        coef: r.querySelector('.coef-input')?.value || '',
+        qty: parseFloat(r.querySelector('.qty-input')?.value) || 0,
+        remarks: r.querySelector('.remarks-input')?.value || ''
+      };
+      const customData = {};
+      r.querySelectorAll('.custom-col-input, .custom-dim-input').forEach(inp => { customData[inp.dataset.colId] = inp.value || ''; });
+      if (Object.keys(customData).length) entry.customData = customData;
+      out.push(entry);
+    }
+  });
+  return out;
+}
+
+/** Rebuild the classic table rows from a flat entries[] */
+function _renderClassicEntries(entries) {
+  const tbody = document.getElementById('entryTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const hasBOQ = _currentSheetBoqItems.length > 0;
+  (entries || []).forEach(e => { const tr = document.createElement('tr'); tr.innerHTML = _buildRowHTML(hasBOQ, e); tbody.appendChild(tr); });
+  while (tbody.rows.length < 5) addMoreEntries(1);
+}
+
+function _gLineQty(tr) {
+  const read = sel => { const raw = tr.querySelector(sel)?.value ?? ''; if (raw === '') return { v: 1, has: false }; const n = parseFloat(raw); return { v: isNaN(n) ? 1 : n, has: true }; };
+  const nos = read('.g-nos'), l = read('.g-l'), b = read('.g-b'), h = read('.g-h'), c = read('.g-coef');
+  const any = nos.has || l.has || b.has || h.has || c.has;
+  return any ? (nos.v * l.v * b.v * h.v * c.v) : 0;
+}
+
+export function calcGroupedLine(input) {
+  const tr = input.closest('tr');
+  if (!tr) return;
+  const q = _gLineQty(tr);
+  const qEl = tr.querySelector('.g-qty');
+  if (qEl) qEl.value = q ? q.toFixed(3) : '';
+  _groupedItemTotal(input.closest('.g-item'));
+}
+
+function _groupedItemTotal(card) {
+  if (!card) return;
+  let total = 0;
+  card.querySelectorAll('.g-line').forEach(tr => { total += _gLineQty(tr); });
+  const uom = card.querySelector('.g-uom')?.value || '';
+  const tEl = card.querySelector('.g-total');
+  if (tEl) tEl.innerHTML = `Item Total: <span style="color:#2563eb;font-size:15px;">${total.toFixed(3)}</span> ${uom}`;
+}
+
+function _gLineHTML(d) {
+  d = d || {};
+  return `<tr class="g-line border-t border-slate-100">
+    <td class="p-1"><input type="text" class="g-label w-full p-1.5 border rounded text-xs" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
+    <td class="p-1"><input type="number" class="g-nos w-full p-1.5 border rounded text-xs text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" class="g-l w-full p-1.5 border rounded text-xs text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" class="g-b w-full p-1.5 border rounded text-xs text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" class="g-h w-full p-1.5 border rounded text-xs text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" class="g-coef w-full p-1.5 border rounded text-xs text-center" value="${d.coef || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="text" class="g-qty w-full p-1.5 border rounded text-xs text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
+    <td class="p-1 text-center"><button onclick="removeGroupedLine(this)" class="text-red-400 hover:text-red-600 font-bold text-xs">✕</button></td>
+  </tr>`;
+}
+
+function _gBoqOptions(selectedRef) {
+  let opts = '<option value="">— Pick BOQ item —</option>';
+  (_allSheetBoqItems || []).forEach(it => {
+    const ref = it._boqRef ?? '';
+    const label = ((it.code || '') + ' · ' + (it.description || it.name || '')).slice(0, 60);
+    opts += `<option value="${ref}" ${String(ref) === String(selectedRef) ? 'selected' : ''}>${label}</option>`;
+  });
+  return opts;
+}
+
+export function addGroupedItem(data) {
+  const container = document.getElementById('groupedEntryContainer');
+  if (!container) return;
+  let list = container.querySelector('.g-items');
+  if (!list) { container.innerHTML = '<div class="g-items"></div>'; list = container.querySelector('.g-items'); }
+  data = data || {};
+  const hasBOQ = (_allSheetBoqItems || []).length > 0;
+  const card = document.createElement('div');
+  card.className = 'g-item bg-white rounded-lg border border-slate-200 mb-3 shadow-sm';
+  card.innerHTML = `
+    <div class="flex flex-wrap gap-2 items-end p-3 border-b border-slate-100 bg-slate-50 rounded-t-lg">
+      <div class="g-num font-extrabold text-slate-300 text-xl" style="width:28px;text-align:center;">#</div>
+      ${hasBOQ ? `<div style="min-width:200px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Select BOQ Item</label><select class="g-boqpick w-full p-1.5 border rounded text-xs" onchange="window._gBoqPick(this)">${_gBoqOptions(data.boqIndex)}</select></div>` : ''}
+      <div style="width:110px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Item Code</label><input type="text" class="g-code w-full p-1.5 border rounded text-xs font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Code"></div>
+      <div class="flex-1" style="min-width:200px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (entered once)</label><input type="text" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth"></div>
+      <div style="width:70px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Unit</label><input type="text" class="g-uom w-full p-1.5 border rounded text-xs text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
+      <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
+      <button onclick="removeGroupedItem(this)" class="text-red-400 hover:text-red-600 font-bold text-xs ml-auto self-center" title="Remove item">✕ Item</button>
+    </div>
+    <div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
+      <th class="p-1 text-left" style="min-width:140px;">Particulars</th><th class="p-1" style="width:60px;">Nos</th><th class="p-1" style="width:70px;">L</th><th class="p-1" style="width:70px;">B</th><th class="p-1" style="width:70px;">H</th><th class="p-1" style="width:60px;">Coef</th><th class="p-1" style="width:80px;">Qty</th><th class="p-1" style="width:30px;"></th>
+    </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
+    <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
+      <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
+      <div class="g-total text-sm font-bold text-slate-600">Item Total: <span style="color:#2563eb;font-size:15px;">0.000</span> </div>
+    </div>`;
+  list.appendChild(card);
+  const linesTb = card.querySelector('.g-lines');
+  const lines = data.lines && data.lines.length ? data.lines : [{}];
+  lines.forEach(ln => linesTb.insertAdjacentHTML('beforeend', _gLineHTML(ln)));
+  _groupedItemTotal(card);
+  _renumberGroupedItems();
+}
+
+export function addGroupedLine(btn) {
+  const card = btn.closest('.g-item');
+  const tb = card?.querySelector('.g-lines');
+  if (tb) { tb.insertAdjacentHTML('beforeend', _gLineHTML({})); }
+}
+
+export function removeGroupedLine(btn) {
+  const card = btn.closest('.g-item');
+  btn.closest('tr')?.remove();
+  _groupedItemTotal(card);
+}
+
+export function removeGroupedItem(btn) {
+  if (!confirm('Remove this item and all its measurement lines?')) return;
+  btn.closest('.g-item')?.remove();
+  _renumberGroupedItems();
+}
+
+function _renumberGroupedItems() {
+  document.querySelectorAll('#groupedEntryContainer .g-item .g-num').forEach((el, i) => { el.textContent = i + 1; });
+}
+
+window._gBoqPick = function (sel) {
+  const card = sel.closest('.g-item');
+  const ref = sel.value;
+  const it = (_allSheetBoqItems || []).find(x => String(x._boqRef ?? '') === String(ref));
+  if (!it) return;
+  card.querySelector('.g-code').value = it.code || '';
+  card.querySelector('.g-desc').value = it.description || it.name || '';
+  card.querySelector('.g-uom').value = it.uom || it.unit || '';
+  card.querySelector('.g-boq').value = ref;
+  _groupedItemTotal(card);
+};
+window._gItemUomChanged = function (inp) { _groupedItemTotal(inp.closest('.g-item')); };
+
+/** Render grouped cards from a flat entries[] */
+export function renderGroupedEntry(entries) {
+  const container = document.getElementById('groupedEntryContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="g-items"></div>';
+  const groups = [];
+  const byKey = {};
+  (entries || []).forEach(e => {
+    const key = (e.boqIndex !== '' && e.boqIndex != null ? 'b:' + e.boqIndex : '') || ('c:' + (e.code || '') + '|' + (e.description || ''));
+    if (!byKey[key]) { byKey[key] = { code: e.code, description: e.description, uom: e.uom, boqIndex: e.boqIndex, lines: [] }; groups.push(byKey[key]); }
+    byKey[key].lines.push({ remarks: e.remarks, nos: e.nos, l: e.l, b: e.b, h: e.h, coef: e.coef, qty: e.qty });
+  });
+  if (!groups.length) { addGroupedItem(); return; }
+  groups.forEach(g => addGroupedItem(g));
+}
+
+/** Read grouped cards → flat entries[] */
+function _groupedCollectEntries() {
+  const out = [];
+  document.querySelectorAll('#groupedEntryContainer .g-item').forEach(card => {
+    const code = card.querySelector('.g-code')?.value || '';
+    const desc = card.querySelector('.g-desc')?.value || '';
+    const uom = card.querySelector('.g-uom')?.value || '';
+    const boqIndex = card.querySelector('.g-boq')?.value ?? '';
+    if (!code && !desc) return;
+    card.querySelectorAll('.g-line').forEach(tr => {
+      const nos = tr.querySelector('.g-nos')?.value || '';
+      const l = tr.querySelector('.g-l')?.value || '';
+      const b = tr.querySelector('.g-b')?.value || '';
+      const h = tr.querySelector('.g-h')?.value || '';
+      const coef = tr.querySelector('.g-coef')?.value || '';
+      const label = tr.querySelector('.g-label')?.value || '';
+      const qty = _gLineQty(tr);
+      if (nos || l || b || h || coef || label) {
+        out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, coef, qty: qty || 0, remarks: label });
+      }
+    });
+  });
+  return out;
+}
+
+// Self-register grouped handlers on window (for inline onclick in app.html)
+if (typeof window !== 'undefined') {
+  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry });
 }
