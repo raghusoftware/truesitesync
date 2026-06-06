@@ -54,26 +54,41 @@ export function exportSimpleMeasurementPdf(id) {
   if (pdfWO) info[0].push(`WO: ${pdfWO}`);
   info.forEach((line, i) => doc.text(line.join('  |  '), 14, y + 13 + i * 6));
 
-  const cc = s.customColumns || [];
-  const baseHead = ['Code', 'Description', 'Unit', 'Nos', 'L', 'B', 'H', 'Coef', 'Qty', 'Remarks'];
-  const head = [...baseHead, ...cc.map(c => c.name)];
+  // Grouped (Measurement-Book) body: item entered once -> measurement lines -> Total Quantity
+  const groups = groupSheetEntries(s.entries || []);
+  const head = [['Sr', 'Particulars of work', 'Nos', 'L', 'B', 'H', 'Coef', 'Qty', 'Unit']];
   const rows = [];
-  (s.entries || []).forEach(e => {
-    if (e.code || e.description) {
-      const row = [e.code || '', e.description || '', e.uom || '', e.nos || '', e.l || '', e.b || '', e.h || '', e.coef || '', e.qty || 0, e.remarks || ''];
-      cc.forEach(col => row.push(e.customData?.[col.id] || ''));
-      rows.push(row);
-    }
+  let itemNum = 0;
+  Object.keys(groups).forEach(key => {
+    const lines = groups[key];
+    const first = lines[0] || {};
+    itemNum++;
+    const title = (first.code ? first.code + ' — ' : '') + (first.description || first.code || '');
+    rows.push([
+      { content: itemNum, styles: { fontStyle: 'bold' } },
+      { content: title, colSpan: 8, styles: { fontStyle: 'bold', fillColor: [235, 242, 255], textColor: [30, 58, 138] } }
+    ]);
+    let total = 0;
+    lines.forEach(e => {
+      total += (e.qty || 0);
+      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', e.coef || '', (e.qty || 0).toFixed(3), e.uom || first.uom || '']);
+    });
+    rows.push([
+      '', { content: 'Total Quantity', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: total.toFixed(3), styles: { fontStyle: 'bold', halign: 'center', fillColor: [254, 243, 199] } },
+      { content: first.uom || '', styles: { fontStyle: 'bold', halign: 'center' } }
+    ]);
   });
-  const measCols = isP
-    ? { 0: { cellWidth: 14, fontStyle: 'bold' }, 1: { cellWidth: 'auto', overflow: 'linebreak' }, 2: { cellWidth: 10, halign: 'center' }, 3: { cellWidth: 9, halign: 'center' }, 4: { cellWidth: 11, halign: 'center' }, 5: { cellWidth: 11, halign: 'center' }, 6: { cellWidth: 11, halign: 'center' }, 7: { cellWidth: 9, halign: 'center' }, 8: { cellWidth: 14, fontStyle: 'bold', halign: 'center' }, 9: { cellWidth: 22, overflow: 'linebreak' } }
-    : { 0: { cellWidth: 18, fontStyle: 'bold' }, 1: { cellWidth: 50, overflow: 'linebreak' }, 2: { cellWidth: 12 }, 3: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 14, halign: 'center' }, 6: { cellWidth: 14, halign: 'center' }, 7: { cellWidth: 12, halign: 'center' }, 8: { cellWidth: 16, fontStyle: 'bold', halign: 'center' }, 9: { cellWidth: 30, overflow: 'linebreak' } };
   doc.autoTable({
-    startY: y + 28, head: [head],
-    body: rows, theme: 'grid', tableWidth: 'auto',
-    headStyles: { fillColor: [249, 115, 22], fontSize: isP ? 6.5 : 7, fontStyle: 'bold' },
-    styles: { fontSize: isP ? 6.5 : 7, cellPadding: 1.5, overflow: 'linebreak' },
-    columnStyles: measCols
+    startY: y + 28, head, body: rows, theme: 'grid', tableWidth: 'auto',
+    headStyles: { fillColor: [249, 115, 22], fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center' },
+    styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, overflow: 'linebreak' },
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
+      2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 15, halign: 'center' }, 4: { cellWidth: 15, halign: 'center' },
+      5: { cellWidth: 15, halign: 'center' }, 6: { cellWidth: 12, halign: 'center' },
+      7: { cellWidth: 20, halign: 'center', fontStyle: 'bold', textColor: [30, 58, 138] }, 8: { cellWidth: 14, halign: 'center' }
+    }
   });
 
   // BBS summary if exists

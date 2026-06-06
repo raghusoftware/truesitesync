@@ -1277,14 +1277,44 @@ function _gLineHTML(d) {
   </tr>`;
 }
 
-function _gBoqOptions(selectedRef) {
-  let opts = '<option value="">— Pick BOQ item —</option>';
-  (_allSheetBoqItems || []).forEach(it => {
-    const ref = it._boqRef ?? '';
-    const label = ((it.code || '') + ' · ' + (it.description || it.name || '')).slice(0, 60);
-    opts += `<option value="${ref}" ${String(ref) === String(selectedRef) ? 'selected' : ''}>${label}</option>`;
+/** Type-to-search BOQ autocomplete for a grouped item's code/description input */
+window._gItemInput = function (input) {
+  closeBoqDropdowns();
+  const val = (input.value || '').trim().toLowerCase();
+  if (!_currentSheetBoqItems.length && state.currentProjectId) _loadSheetProjectContext(state.currentProjectId);
+  if (!val || !_currentSheetBoqItems.length) return;
+  const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId;
+  const usedQty = _calcUsedQtyPerBOQ(projId);
+  const matches = _currentSheetBoqItems.map((it, idx) => ({ ...it, _idx: idx }))
+    .filter(it => (it.code || '').toLowerCase().includes(val) || (it.description || '').toLowerCase().includes(val));
+  const dd = document.createElement('div');
+  dd.className = 'boq-dropdown';
+  if (!matches.length) { dd.innerHTML = '<div class="boq-dd-empty">No matching BOQ items</div>'; _positionDropdown(dd, input); return; }
+  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+  const card = input.closest('.g-item');
+  matches.forEach(item => {
+    const refKey = item._boqRef || String(item._idx);
+    const used = usedQty[refKey] || usedQty[item._idx] || 0;
+    const bal = (item.qty || 0) - used;
+    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#10b981';
+    const div = document.createElement('div');
+    div.className = 'boq-dd-item';
+    const groupLabel = item._boqGroupName ? `<span class="dd-group" style="color:#6366f1;font-size:9px;font-weight:700;">[${item._boqGroupName}]</span> ` : '';
+    div.innerHTML = `${groupLabel}<span class="dd-code">${item.code || '—'}</span> <span class="dd-desc">${item.description || ''}</span> <span class="dd-uom">${item.uom || ''}</span> <span class="dd-bal" style="color:${balColor}">Bal: ${bal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>`;
+    div.onclick = () => _selectBOQItemForCard(card, item);
+    dd.appendChild(div);
   });
-  return opts;
+  _positionDropdown(dd, input);
+};
+
+function _selectBOQItemForCard(card, item) {
+  closeBoqDropdowns();
+  if (!card) return;
+  const c = card.querySelector('.g-code'); if (c) c.value = item.code || '';
+  const d = card.querySelector('.g-desc'); if (d) d.value = item.description || '';
+  const u = card.querySelector('.g-uom'); if (u) u.value = item.uom || '';
+  const b = card.querySelector('.g-boq'); if (b) b.value = item._boqRef || item._idx || '';
+  _groupedItemTotal(card);
 }
 
 export function addGroupedItem(data) {
@@ -1299,9 +1329,8 @@ export function addGroupedItem(data) {
   card.innerHTML = `
     <div class="flex flex-wrap gap-2 items-end p-3 border-b border-slate-100 bg-slate-50 rounded-t-lg">
       <div class="g-num font-extrabold text-slate-300 text-xl" style="width:28px;text-align:center;">#</div>
-      ${hasBOQ ? `<div style="min-width:200px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Select BOQ Item</label><select class="g-boqpick w-full p-1.5 border rounded text-xs" onchange="window._gBoqPick(this)">${_gBoqOptions(data.boqIndex)}</select></div>` : ''}
-      <div style="width:110px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Item Code</label><input type="text" class="g-code w-full p-1.5 border rounded text-xs font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Code"></div>
-      <div class="flex-1" style="min-width:200px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (entered once)</label><input type="text" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth"></div>
+      <div style="width:130px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Item Code</label><input type="text" autocomplete="off" class="g-code w-full p-1.5 border rounded text-xs font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Type code…" oninput="window._gItemInput(this)"></div>
+      <div class="flex-1" style="min-width:200px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (type to search BOQ)</label><input type="text" autocomplete="off" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
       <div style="width:70px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Unit</label><input type="text" class="g-uom w-full p-1.5 border rounded text-xs text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <button onclick="removeGroupedItem(this)" class="text-red-400 hover:text-red-600 font-bold text-xs ml-auto self-center" title="Remove item">✕ Item</button>
@@ -1343,17 +1372,6 @@ function _renumberGroupedItems() {
   document.querySelectorAll('#groupedEntryContainer .g-item .g-num').forEach((el, i) => { el.textContent = i + 1; });
 }
 
-window._gBoqPick = function (sel) {
-  const card = sel.closest('.g-item');
-  const ref = sel.value;
-  const it = (_allSheetBoqItems || []).find(x => String(x._boqRef ?? '') === String(ref));
-  if (!it) return;
-  card.querySelector('.g-code').value = it.code || '';
-  card.querySelector('.g-desc').value = it.description || it.name || '';
-  card.querySelector('.g-uom').value = it.uom || it.unit || '';
-  card.querySelector('.g-boq').value = ref;
-  _groupedItemTotal(card);
-};
 window._gItemUomChanged = function (inp) { _groupedItemTotal(inp.closest('.g-item')); };
 
 /** Render grouped cards from a flat entries[] */
