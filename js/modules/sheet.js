@@ -598,7 +598,7 @@ function _buildRowHTML(hasBOQ, e) {
     ${_buildCustomCellsForPosition('after-qty', v)}
     <td class="p-1 border" data-label="Remarks"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
     ${_buildCustomCellsForPosition('after-remarks', v)}
-    <td class="p-1 border text-center" data-label=""><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕ Remove Row</button></td>`;
+    <td class="p-1 border text-center" data-label=""><button onclick="this.closest('tr').remove()" title="Delete row" class="text-red-400 hover:bg-red-50 px-2 py-1 rounded font-bold" style="font-size:16px;line-height:1;">🗑</button></td>`;
 }
 
 export function addMoreEntries(count = 1) {
@@ -1266,11 +1266,11 @@ function _gLineHTML(d) {
   return `<tr class="g-line border-t border-slate-100">
     <td class="p-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
     <td class="p-1"><input type="number" ${sty} class="g-nos ${inp} text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1 col-l"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1 col-b"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1 col-h"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
+    <td class="p-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="p-1"><input type="text" ${sty} class="g-qty ${inp} text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
-    <td class="p-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy this line below" class="text-emerald-500 hover:bg-emerald-50 px-1 rounded font-bold text-sm">⧉</button><button onclick="removeGroupedLine(this)" title="Remove line" class="text-red-400 hover:bg-red-50 px-1 rounded font-bold text-sm">✕</button></td>
+    <td class="p-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy this line below" class="text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded font-bold" style="font-size:18px;line-height:1;">⧉</button><button onclick="removeGroupedLine(this)" title="Remove line" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded font-bold" style="font-size:15px;line-height:1;">🗑</button></td>
   </tr>`;
 }
 
@@ -1311,34 +1311,6 @@ function _selectBOQItemForCard(card, item) {
   const d = card.querySelector('.g-desc'); if (d) d.value = item.description || '';
   const u = card.querySelector('.g-uom'); if (u) u.value = item.uom || '';
   const b = card.querySelector('.g-boq'); if (b) b.value = item._boqRef || item._idx || '';
-  _applyItemMode(card, _modeFromUom(item.uom));  // auto-pick columns from the unit
-  _groupedItemTotal(card);
-}
-
-/** Infer how many dimension columns an item needs from its unit */
-function _modeFromUom(uom) {
-  const u = (uom || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (['m2', 'sqm', 'sqmt', 'sqmtr', 'sft', 'sqft', 'sqft'].includes(u)) return 'area';
-  if (['m3', 'cum', 'cm', 'cmt', 'brass', 'cuft', 'cft'].includes(u)) return 'volume';
-  if (['rmt', 'rm', 'm', 'mtr', 'meter', 'metre', 'lm', 'ft', 'feet'].includes(u)) return 'length';
-  if (['nos', 'no', 'each', 'ea', 'lot', 'ls', 'pcs', 'pc', 'set', 'job', 'point', 'kg', 'mt', 'ton', 'bag', 'ltr', 'litre', 'l'].includes(u)) return 'count';
-  return 'volume';
-}
-
-/** Show only the dimension columns relevant to the item's measure mode */
-function _applyItemMode(card, mode) {
-  if (!card) return;
-  mode = mode || 'volume';
-  const sel = card.querySelector('.g-mode');
-  if (sel && sel.value !== mode) sel.value = mode;
-  const show = { 'col-l': true, 'col-b': mode === 'volume' || mode === 'area', 'col-h': mode === 'volume' };
-  if (mode === 'count') show['col-l'] = false;
-  ['col-l', 'col-b', 'col-h'].forEach(cls => {
-    card.querySelectorAll('.' + cls).forEach(el => { el.style.display = show[cls] ? '' : 'none'; });
-    // clear hidden dimension inputs so they don't silently affect the qty
-    if (!show[cls]) card.querySelectorAll('.' + cls + ' input').forEach(inp => { inp.value = ''; });
-  });
-  card.querySelectorAll('.g-line').forEach(tr => { const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : ''; });
   _groupedItemTotal(card);
 }
 
@@ -1357,12 +1329,6 @@ export function addGroupedItem(data) {
       <div style="width:130px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Item Code</label><input type="text" autocomplete="off" class="g-code w-full p-1.5 border rounded text-xs font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Type code…" oninput="window._gItemInput(this)"></div>
       <div class="flex-1" style="min-width:200px;position:relative;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Description (type to search BOQ)</label><input type="text" autocomplete="off" class="g-desc w-full p-1.5 border rounded text-xs font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
       <div style="width:70px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Unit</label><input type="text" class="g-uom w-full p-1.5 border rounded text-xs text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
-      <div style="width:140px;"><label class="block text-[9px] font-bold text-slate-400 uppercase">Measure by</label><select class="g-mode w-full p-1.5 border rounded text-xs" onchange="window._gModeChange(this)">
-        <option value="volume">Volume · N×L×B×H</option>
-        <option value="area">Area · N×L×B</option>
-        <option value="length">Length · N×L</option>
-        <option value="count">Count · N</option>
-      </select></div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <div class="ml-auto self-center flex gap-1">
         <button onclick="duplicateGroupedItem(this)" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-2 py-1 rounded font-bold text-xs" title="Duplicate this whole item">⧉ Copy Item</button>
@@ -1370,7 +1336,7 @@ export function addGroupedItem(data) {
       </div>
     </div>
     <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1 col-l" style="width:14%;">L</th><th class="p-1 col-b" style="width:14%;">B</th><th class="p-1 col-h" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
+      <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
     <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
       <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
@@ -1380,7 +1346,6 @@ export function addGroupedItem(data) {
   const linesTb = card.querySelector('.g-lines');
   const lines = data.lines && data.lines.length ? data.lines : [{}];
   lines.forEach(ln => linesTb.insertAdjacentHTML('beforeend', _gLineHTML(ln)));
-  _applyItemMode(card, data.mode || _modeFromUom(data.uom));
   _groupedItemTotal(card);
   _renumberGroupedItems();
 }
@@ -1388,7 +1353,7 @@ export function addGroupedItem(data) {
 export function addGroupedLine(btn) {
   const card = btn.closest('.g-item');
   const tb = card?.querySelector('.g-lines');
-  if (tb) { tb.insertAdjacentHTML('beforeend', _gLineHTML({})); _applyItemMode(card, card.querySelector('.g-mode')?.value); }
+  if (tb) { tb.insertAdjacentHTML('beforeend', _gLineHTML({})); }
 }
 
 export function removeGroupedLine(btn) {
@@ -1416,13 +1381,10 @@ export function duplicateGroupedLine(btn) {
     qty: tr.querySelector('.g-qty')?.value || ''
   };
   tr.insertAdjacentHTML('afterend', _gLineHTML(d));
-  const card = tr.closest('.g-item');
-  const mode = card?.querySelector('.g-mode')?.value || 'volume';
-  _applyItemMode(card, mode);
-  // focus the last relevant dimension for this mode (the value engineers usually change)
+  _groupedItemTotal(tr.closest('.g-item'));
+  // focus the new line's Height field (the value engineers usually change)
   const next = tr.nextElementSibling;
-  const focusSel = mode === 'volume' ? '.g-h' : mode === 'area' ? '.g-b' : mode === 'length' ? '.g-l' : '.g-nos';
-  const fEl = next?.querySelector(focusSel);
+  const fEl = next?.querySelector('.g-h');
   if (fEl) { fEl.focus(); fEl.select(); }
 }
 
@@ -1435,7 +1397,6 @@ export function duplicateGroupedItem(btn) {
     description: card.querySelector('.g-desc')?.value || '',
     uom: card.querySelector('.g-uom')?.value || '',
     boqIndex: card.querySelector('.g-boq')?.value || '',
-    mode: card.querySelector('.g-mode')?.value || 'volume',
     lines: Array.from(card.querySelectorAll('.g-line')).map(tr => ({
       remarks: tr.querySelector('.g-label')?.value || '', nos: tr.querySelector('.g-nos')?.value || '',
       l: tr.querySelector('.g-l')?.value || '', b: tr.querySelector('.g-b')?.value || '',
@@ -1454,8 +1415,7 @@ function _renumberGroupedItems() {
   document.querySelectorAll('#groupedEntryContainer .g-item .g-num').forEach((el, i) => { el.textContent = i + 1; });
 }
 
-window._gItemUomChanged = function (inp) { const card = inp.closest('.g-item'); _applyItemMode(card, _modeFromUom(inp.value)); };
-window._gModeChange = function (sel) { _applyItemMode(sel.closest('.g-item'), sel.value); };
+window._gItemUomChanged = function (inp) { _groupedItemTotal(inp.closest('.g-item')); };
 
 /** Render grouped cards from a flat entries[] */
 export function renderGroupedEntry(entries) {
