@@ -3,6 +3,7 @@ import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
+import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
 
@@ -4325,31 +4326,7 @@ export function toggleSidebarDropdown(btn) {
 // ==========================================
 // GENERIC FULL-SCREEN FORM HELPERS
 // ==========================================
-export function closeFullScreenForm(panelId) {
-  const panel = document.getElementById(panelId);
-  if (panel) { panel.classList.add('hidden'); document.body.style.overflow = ''; }
-}
-
-function _openFullScreenForm(panelId) {
-  document.getElementById(panelId).classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-  const escH = (e) => { if (e.key === 'Escape') { closeFullScreenForm(panelId); document.removeEventListener('keydown', escH); } };
-  document.addEventListener('keydown', escH);
-}
-
-function _populateVendorSelect(selId) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- Select Vendor --</option>';
-  state.vendors.forEach(v => sel.innerHTML += `<option value="${v.id}">${v.name}</option>`);
-}
-
-function _populateAccountSelect(selId) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- Select Account --</option>';
-  (state.accounts || []).forEach(a => sel.innerHTML += `<option value="${a.id}">${a.name} (${a.type})</option>`);
-}
+// Shared form helpers moved to ./formHelpers.js
 
 // ==========================================
 // PAYMENT-OUT MODULE
@@ -4803,54 +4780,6 @@ export function deleteFixedAsset(id) {
 // ═══════ SALE MODULE FUNCTIONS ═══════
 // ==========================================
 
-function _populateClientSelect(selId) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- Select Client --</option>';
-  state.clients.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}${c.projectName ? ' — ' + c.projectName : ''}</option>`);
-}
-
-function _addGenericFormRow(tbodyId, calcFn) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-  const idx = tbody.rows.length + 1;
-  tbody.innerHTML += `<tr>
-    <td class="p-2 text-center text-slate-400 font-bold">${idx}</td>
-    <td class="p-2"><input type="text" class="w-full p-1.5 border rounded text-sm outline-none focus:border-blue-400" placeholder="Item description"></td>
-    <td class="p-2"><input type="number" class="w-full p-1.5 border rounded text-sm text-center outline-none" value="1" oninput="${calcFn}()"></td>
-    <td class="p-2"><input type="number" class="w-full p-1.5 border rounded text-sm text-right outline-none" value="0" oninput="${calcFn}()"></td>
-    <td class="p-2 text-right font-bold text-slate-700">${getCurrencySymbol()}0</td>
-    <td class="p-2 text-center"><button onclick="this.closest('tr').remove();${calcFn}()" class="text-red-400 hover:text-red-600 font-bold">✕</button></td>
-  </tr>`;
-}
-
-function _calcGenericFormTotal(tbodyId, subtotalId, totalId, gstPctId, gstAmtId) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-  let sub = 0;
-  Array.from(tbody.rows).forEach((r, i) => {
-    const inputs = r.querySelectorAll('input[type="number"]');
-    if (inputs.length >= 2) {
-      const qty = parseFloat(inputs[0].value) || 0;
-      const rate = parseFloat(inputs[1].value) || 0;
-      const amt = qty * rate;
-      sub += amt;
-      r.cells[4].textContent = getCurrencySymbol() + amt.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-    }
-    r.cells[0].textContent = i + 1;
-  });
-  const subEl = document.getElementById(subtotalId);
-  if (subEl) subEl.textContent = getCurrencySymbol() + sub.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-  let gst = 0;
-  if (gstPctId) {
-    const pct = parseFloat(document.getElementById(gstPctId)?.value) || 0;
-    gst = sub * pct / 100;
-    const gstEl = document.getElementById(gstAmtId);
-    if (gstEl) gstEl.textContent = getCurrencySymbol() + gst.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-  }
-  const totEl = document.getElementById(totalId);
-  if (totEl) totEl.textContent = getCurrencySymbol() + (sub + gst).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
 
 // ══════════════════════════════════════════════════════════════════
 // SALE INVOICE — Premium ERP Redesign

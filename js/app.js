@@ -63,7 +63,7 @@ import {
   loadAttendanceSheet, saveAttendance, renderMonthlyMuster,
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
-  toggleSidebarDropdown, closeFullScreenForm,
+  toggleSidebarDropdown,
   openPaymentOutForm, savePaymentOutForm, renderPaymentOut,
   clearPaymentOutFilters, deletePaymentOutRecord,
   openExpenseForm, saveExpenseForm, renderExpenseCategories,
@@ -107,6 +107,7 @@ import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js'
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js';
+import { closeFullScreenForm } from './modules/formHelpers.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
