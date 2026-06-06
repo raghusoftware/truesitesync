@@ -59,8 +59,6 @@ import {
   loadPendingAbstractsForBilling, toggleGstInputs,
   generateFinalInvoice, renderInvoiceHistory,
   cancelInvoice, deleteInvoice, openInvoiceInfo,
-  renderSalesLedger, clearSalesLedgerFilters,
-  cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger,
   renderPurchaseLedger, clearPurchaseLedgerFilters,
   viewPurchaseBill, deletePurchaseBill,
   openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel,
@@ -111,6 +109,7 @@ import { renderClientHub, openClientModal, saveClient, renderClientTable, editCl
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
+import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
