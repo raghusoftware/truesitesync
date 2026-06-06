@@ -56,7 +56,7 @@ export function exportSimpleMeasurementPdf(id) {
 
   // Grouped (Measurement-Book) body: item entered once -> measurement lines -> Total Quantity
   const groups = groupSheetEntries(s.entries || []);
-  const head = [['Sr', 'Particulars of work', 'Nos', 'L', 'B', 'H', 'Coef', 'Qty', 'Unit']];
+  const head = [['Sr', 'Particulars of work', 'Nos', 'L', 'B', 'H', 'Qty', 'Unit']];
   const rows = [];
   let itemNum = 0;
   Object.keys(groups).forEach(key => {
@@ -66,15 +66,15 @@ export function exportSimpleMeasurementPdf(id) {
     const title = (first.code ? first.code + ' — ' : '') + (first.description || first.code || '');
     rows.push([
       { content: itemNum, styles: { fontStyle: 'bold' } },
-      { content: title, colSpan: 8, styles: { fontStyle: 'bold', fillColor: [235, 242, 255], textColor: [30, 58, 138] } }
+      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: [235, 242, 255], textColor: [30, 58, 138] } }
     ]);
     let total = 0;
     lines.forEach(e => {
       total += (e.qty || 0);
-      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', e.coef || '', (e.qty || 0).toFixed(3), e.uom || first.uom || '']);
+      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', (e.qty || 0).toFixed(3), e.uom || first.uom || '']);
     });
     rows.push([
-      '', { content: 'Total Quantity', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
+      '', { content: 'Total Quantity', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: total.toFixed(3), styles: { fontStyle: 'bold', halign: 'center', fillColor: [254, 243, 199] } },
       { content: first.uom || '', styles: { fontStyle: 'bold', halign: 'center' } }
     ]);
@@ -85,9 +85,9 @@ export function exportSimpleMeasurementPdf(id) {
     styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, overflow: 'linebreak' },
     columnStyles: {
       0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
-      2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 15, halign: 'center' }, 4: { cellWidth: 15, halign: 'center' },
-      5: { cellWidth: 15, halign: 'center' }, 6: { cellWidth: 12, halign: 'center' },
-      7: { cellWidth: 20, halign: 'center', fontStyle: 'bold', textColor: [30, 58, 138] }, 8: { cellWidth: 14, halign: 'center' }
+      2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 18, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' },
+      5: { cellWidth: 18, halign: 'center' },
+      6: { cellWidth: 22, halign: 'center', fontStyle: 'bold', textColor: [30, 58, 138] }, 7: { cellWidth: 16, halign: 'center' }
     }
   });
 
@@ -330,9 +330,9 @@ export function exportDetailedMeasurementPdf(id) {
 export function exportToExcel() {
   if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
   const s = state.sheets.find(x => x.id === state.currentSheetId);
-  let csvContent = "data:text/csv;charset=utf-8,Code,Description,Unit,Nos,L,B,H,Coef,Qty,Remarks\n";
+  let csvContent = "data:text/csv;charset=utf-8,Code,Description,Unit,Nos,L,B,H,Qty,Remarks\n";
   s.entries.forEach(e => {
-    let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, e.coef, e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
+    let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
     csvContent += row.join(",") + "\n";
   });
   const encodedUri = encodeURI(csvContent);

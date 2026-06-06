@@ -449,13 +449,13 @@ export function handleSheetClientChange() {
 let _customColumns = []; // [{id, name, type, position}]
 
 // Position order map — columns before Qty are dimensions (multiply into Qty)
-const _COL_ORDER = { 'after-nos': 3.5, 'after-l': 4.5, 'after-b': 5.5, 'after-h': 6.5, 'after-coef': 7.5, 'after-qty': 8.5, 'after-remarks': 9.5 };
-const _COL_LABELS = { 'after-nos': 'After Nos', 'after-l': 'After L', 'after-b': 'After B', 'after-h': 'After H', 'after-coef': 'After Coef', 'after-qty': 'After Qty', 'after-remarks': 'After Remarks' };
+const _COL_ORDER = { 'after-nos': 3.5, 'after-l': 4.5, 'after-b': 5.5, 'after-h': 6.5, 'after-qty': 8.5, 'after-remarks': 9.5 };
+const _COL_LABELS = { 'after-nos': 'After Nos', 'after-l': 'After L', 'after-b': 'After B', 'after-h': 'After H', 'after-qty': 'After Qty', 'after-remarks': 'After Remarks' };
 function _isDimensionCol(col) { return (_COL_ORDER[col.position] || 9.5) < 8; }
 
 // Reference cell class for each position
-const _POS_REF_CLASS = { 'after-nos': '.nos-input', 'after-l': '.l-input', 'after-b': '.b-input', 'after-h': '.h-input', 'after-coef': '.coef-input', 'after-qty': '.qty-input', 'after-remarks': '.remarks-input' };
-const _POS_REF_HEADER = { 'after-nos': 'Nos', 'after-l': 'L', 'after-b': 'B', 'after-h': 'H', 'after-coef': 'Coef', 'after-qty': 'Qty', 'after-remarks': 'Remarks' };
+const _POS_REF_CLASS = { 'after-nos': '.nos-input', 'after-l': '.l-input', 'after-b': '.b-input', 'after-h': '.h-input', 'after-qty': '.qty-input', 'after-remarks': '.remarks-input' };
+const _POS_REF_HEADER = { 'after-nos': 'Nos', 'after-l': 'L', 'after-b': 'B', 'after-h': 'H', 'after-qty': 'Qty', 'after-remarks': 'Remarks' };
 
 export function getCustomColumns() { return _customColumns; }
 
@@ -594,8 +594,6 @@ function _buildRowHTML(hasBOQ, e) {
     ${_buildCustomCellsForPosition('after-b', v)}
     <td class="p-1 border" data-label="Height"><input type="number" class="table-input h-input" value="${v.h || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-h', v)}
-    <td class="p-1 border" data-label="Coef"><input type="number" class="table-input coef-input font-bold" value="${v.coef || ''}" oninput="calcQty(this)"></td>
-    ${_buildCustomCellsForPosition('after-coef', v)}
     <td class="p-1 border bg-slate-50" data-label="Quantity"><input type="text" class="table-input qty-input font-bold text-blue-700 text-lg" value="${v.qty || ''}" readonly></td>
     ${_buildCustomCellsForPosition('after-qty', v)}
     <td class="p-1 border" data-label="Remarks"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
@@ -991,7 +989,6 @@ export function postBBSToSheet(unit) {
     existingRow.querySelector('.l-input').value = qty.toFixed(3);
     existingRow.querySelector('.b-input').value = '';
     existingRow.querySelector('.h-input').value = '';
-    existingRow.querySelector('.coef-input').value = '';
     existingRow.querySelector('.qty-input').value = qty.toFixed(3);
     existingRow.querySelector('.uom-input').value = uom;
     const uomDisp = existingRow.querySelector('.uom-display');
@@ -1215,7 +1212,6 @@ function _classicCollectEntries() {
         boqIndex: r.querySelector('.boq-index-input')?.value ?? '',
         nos: r.querySelector('.nos-input')?.value || '', l: r.querySelector('.l-input')?.value || '',
         b: r.querySelector('.b-input')?.value || '', h: r.querySelector('.h-input')?.value || '',
-        coef: r.querySelector('.coef-input')?.value || '',
         qty: parseFloat(r.querySelector('.qty-input')?.value) || 0,
         remarks: r.querySelector('.remarks-input')?.value || ''
       };
@@ -1240,9 +1236,9 @@ function _renderClassicEntries(entries) {
 
 function _gLineQty(tr) {
   const read = sel => { const raw = tr.querySelector(sel)?.value ?? ''; if (raw === '') return { v: 1, has: false }; const n = parseFloat(raw); return { v: isNaN(n) ? 1 : n, has: true }; };
-  const nos = read('.g-nos'), l = read('.g-l'), b = read('.g-b'), h = read('.g-h'), c = read('.g-coef');
-  const any = nos.has || l.has || b.has || h.has || c.has;
-  return any ? (nos.v * l.v * b.v * h.v * c.v) : 0;
+  const nos = read('.g-nos'), l = read('.g-l'), b = read('.g-b'), h = read('.g-h');
+  const any = nos.has || l.has || b.has || h.has;
+  return any ? (nos.v * l.v * b.v * h.v) : 0;
 }
 
 export function calcGroupedLine(input) {
@@ -1271,7 +1267,6 @@ function _gLineHTML(d) {
     <td class="p-1"><input type="number" class="g-l w-full p-1.5 border rounded text-xs text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="p-1"><input type="number" class="g-b w-full p-1.5 border rounded text-xs text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="p-1"><input type="number" class="g-h w-full p-1.5 border rounded text-xs text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)"></td>
-    <td class="p-1"><input type="number" class="g-coef w-full p-1.5 border rounded text-xs text-center" value="${d.coef || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="p-1"><input type="text" class="g-qty w-full p-1.5 border rounded text-xs text-center font-bold text-blue-700 bg-slate-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
     <td class="p-1 text-center"><button onclick="removeGroupedLine(this)" class="text-red-400 hover:text-red-600 font-bold text-xs">✕</button></td>
   </tr>`;
@@ -1336,7 +1331,7 @@ export function addGroupedItem(data) {
       <button onclick="removeGroupedItem(this)" class="text-red-400 hover:text-red-600 font-bold text-xs ml-auto self-center" title="Remove item">✕ Item</button>
     </div>
     <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
-      <th class="p-1 text-left" style="width:28%;">Particulars</th><th class="p-1" style="width:9%;">Nos</th><th class="p-1" style="width:12%;">L</th><th class="p-1" style="width:12%;">B</th><th class="p-1" style="width:12%;">H</th><th class="p-1" style="width:8%;">Coef</th><th class="p-1" style="width:14%;">Qty</th><th class="p-1" style="width:5%;"></th>
+      <th class="p-1 text-left" style="width:30%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:5%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
     <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
       <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
@@ -1404,11 +1399,10 @@ function _groupedCollectEntries() {
       const l = tr.querySelector('.g-l')?.value || '';
       const b = tr.querySelector('.g-b')?.value || '';
       const h = tr.querySelector('.g-h')?.value || '';
-      const coef = tr.querySelector('.g-coef')?.value || '';
       const label = tr.querySelector('.g-label')?.value || '';
       const qty = _gLineQty(tr);
-      if (nos || l || b || h || coef || label) {
-        out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, coef, qty: qty || 0, remarks: label });
+      if (nos || l || b || h || label) {
+        out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, qty: qty || 0, remarks: label });
       }
     });
   });

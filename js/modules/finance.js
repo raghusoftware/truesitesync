@@ -29,7 +29,6 @@ export function calcQty(input) {
   const l = parseFloat(tr.querySelector('.l-input').value) || (tr.querySelector('.l-input').value === '0' ? 0 : 1);
   const b = parseFloat(tr.querySelector('.b-input').value) || (tr.querySelector('.b-input').value === '0' ? 0 : 1);
   const h = parseFloat(tr.querySelector('.h-input').value) || (tr.querySelector('.h-input').value === '0' ? 0 : 1);
-  const coef = parseFloat(tr.querySelector('.coef-input').value) || 1;
   let customDimProduct = 1;
   tr.querySelectorAll('.custom-dim-input').forEach(inp => {
     const v = parseFloat(inp.value);
@@ -37,7 +36,7 @@ export function calcQty(input) {
   });
   const hasVal = tr.querySelector('.nos-input').value || tr.querySelector('.l-input').value || tr.querySelector('.b-input').value || tr.querySelector('.h-input').value;
   const hasCustomDim = tr.querySelector('.custom-dim-input')?.value;
-  tr.querySelector('.qty-input').value = (hasVal || hasCustomDim) ? (n * l * b * h * coef * customDimProduct).toFixed(3) : '';
+  tr.querySelector('.qty-input').value = (hasVal || hasCustomDim) ? (n * l * b * h * customDimProduct).toFixed(3) : '';
 }
 
 export function calcEstimateRow(input) {
