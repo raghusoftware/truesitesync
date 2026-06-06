@@ -359,8 +359,14 @@ function _getAccountBalance(accId) {
     if (t.fromAccountId === accId) bal -= (parseFloat(t.amount) || 0);
     if (t.toAccountId === accId) bal += (parseFloat(t.amount) || 0);
   });
+  // Petty cash top-ups issued from this account
+  (state.pettyCashTxns || []).forEach(t => {
+    if (t.type === 'TRANSFER' && t.fromAccountId === accId) bal -= (parseFloat(t.amount) || 0);
+  });
   return bal;
 }
+// Expose for cross-module use (e.g. petty cash transfer validation)
+if (typeof window !== 'undefined') window._getAccountBalancePublic = _getAccountBalance;
 
 window._viewAccountLedger = function(accId) {
   const acc = state.accounts.find(a => a.id === accId);
@@ -372,6 +378,10 @@ window._viewAccountLedger = function(accId) {
   state.labourPayments.filter(l => l.accountId === accId).forEach(l => txs.push({ date: l.date, desc: 'Labour: ' + (l.ref || 'Wage'), credit: 0, debit: parseFloat(l.amount) || 0, id: l.id, type: 'labourPayments' }));
   (state.accountTransfers || []).filter(t => t.fromAccountId === accId).forEach(t => txs.push({ date: t.date, desc: 'Transfer to ' + (state.accounts.find(a => a.id === t.toAccountId)?.name || '?'), credit: 0, debit: parseFloat(t.amount) || 0, id: t.id, type: 'accountTransfers' }));
   (state.accountTransfers || []).filter(t => t.toAccountId === accId).forEach(t => txs.push({ date: t.date, desc: 'Transfer from ' + (state.accounts.find(a => a.id === t.fromAccountId)?.name || '?'), credit: parseFloat(t.amount) || 0, debit: 0, id: t.id, type: 'accountTransfers' }));
+  (state.pettyCashTxns || []).filter(t => t.type === 'TRANSFER' && t.fromAccountId === accId).forEach(t => {
+    const cn = (state.pettyCashCustodians || []).find(c => c.id === t.custodianId)?.name || 'custodian';
+    txs.push({ date: t.date, desc: 'Petty Cash → ' + cn, credit: 0, debit: parseFloat(t.amount) || 0, id: t.id, type: 'pettyCashTxns' });
+  });
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
 
   let bal = 0;

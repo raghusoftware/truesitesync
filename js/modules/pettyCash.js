@@ -11,6 +11,7 @@
 
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
+import { getCurrentUser } from './rbac.js';
 
 const PC_CATEGORIES = ['Site Materials', 'Travel / Transport', 'Food / Refreshments', 'Daily Wages', 'Tools / Hardware', 'Miscellaneous'];
 
@@ -19,13 +20,29 @@ function _pid() { return state.currentProjectId || null; }
 function _fmt(n) { return getCurrencySymbol() + (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+// ── role / wallet visibility ───────────────────────────────
+function _me() { return getCurrentUser(); }
+/** Admin (or no logged-in RBAC user) → sees & funds every wallet. */
+function _isPettyAdmin() { const u = _me(); return !u || u.role === 'Admin'; }
+/** True if the current user is allowed to see this custodian's wallet. */
+function _canSeeCustodian(c) {
+  if (_isPettyAdmin()) return true;
+  const u = _me();
+  if (!u) return false;
+  return c.userId === u.id || (c.email && u.email && c.email.toLowerCase() === u.email.toLowerCase());
+}
+
 function _custodians() {
   const pid = _pid();
-  return (state.pettyCashCustodians || []).filter(c => c.projectId === pid);
+  return (state.pettyCashCustodians || []).filter(c => c.projectId === pid && _canSeeCustodian(c));
 }
 function _txns() {
   const pid = _pid();
   return (state.pettyCashTxns || []).filter(t => t.projectId === pid);
+}
+function _accountBalanceFor(accId) {
+  if (typeof window._getAccountBalancePublic === 'function') return window._getAccountBalancePublic(accId);
+  return null;
 }
 function _balance(custId) {
   return _txns().filter(t => t.custodianId === custId)
@@ -145,14 +162,16 @@ function _renderWallets(root) {
     </div>`;
   }).join('');
 
-  root.innerHTML = `
-    ${_backBar('Wallets')}
+  const adminBar = _isPettyAdmin() ? `
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <button onclick="_pcCustodianModal()" style="padding:9px 16px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Custodian</button>
       <button onclick="_pcTransferModal()" style="padding:9px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" ${custs.length ? '' : 'disabled'}>⇪ Transfer Funds</button>
-    </div>
+    </div>` : `<div style="margin-bottom:16px;font-size:12px;color:#94a3b8;">You can view your wallet and log expenses. Funds are issued by the admin.</div>`;
+  root.innerHTML = `
+    ${_backBar('Wallets')}
+    ${adminBar}
     <div style="display:flex;flex-direction:column;gap:10px;">
-      ${rows || `<div style="text-align:center;padding:40px;color:#94a3b8;">No custodians yet. Add a Site Engineer or Plant Manager to start.</div>`}
+      ${rows || `<div style="text-align:center;padding:40px;color:#94a3b8;">${_isPettyAdmin() ? 'No custodians yet. Add a Site Engineer or Plant Manager to start.' : 'No wallet assigned to you yet. Ask your admin to set one up.'}</div>`}
     </div>`;
 }
 
@@ -161,8 +180,9 @@ function _renderWallets(root) {
 // ══════════════════════════════════════════════════════════
 function _renderCustodian(root, custId) {
   const c = (state.pettyCashCustodians || []).find(x => x.id === custId);
-  if (!c) { _pcSection = 'wallets'; return renderPettyCash(); }
+  if (!c || !_canSeeCustodian(c)) { _pcSection = 'wallets'; return renderPettyCash(); }
   const bal = _balance(custId);
+  const isAdm = _isPettyAdmin();
   const hist = _txns().filter(t => t.custodianId === custId).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
   const histRows = hist.map(t => _txnRow(t)).join('');
 
@@ -175,8 +195,8 @@ function _renderCustodian(root, custId) {
     </div>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <button onclick="_pcExpenseModal('${custId}')" style="padding:9px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🧾 Log Expense</button>
-      <button onclick="_pcTransferModal('${custId}')" style="padding:9px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⇪ Add Funds</button>
-      <button onclick="_pcCustodianModal('${custId}')" style="padding:9px 16px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>
+      ${isAdm ? `<button onclick="_pcTransferModal('${custId}')" style="padding:9px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⇪ Add Funds</button>
+      <button onclick="_pcCustodianModal('${custId}')" style="padding:9px 16px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>` : ''}
     </div>
     <h3 style="font-weight:800;color:#334155;margin-bottom:10px;">History</h3>
     <div style="display:flex;flex-direction:column;gap:8px;">${histRows || `<div style="color:#94a3b8;padding:20px;text-align:center;">No transactions yet.</div>`}</div>`;
@@ -187,7 +207,8 @@ function _renderCustodian(root, custId) {
 // ══════════════════════════════════════════════════════════
 function _renderLedger(root) {
   const custs = _custodians();
-  let list = _txns();
+  const visibleIds = new Set(custs.map(c => c.id));
+  let list = _txns().filter(t => visibleIds.has(t.custodianId));
   if (_pcLedgerFilter) list = list.filter(t => t.custodianId === _pcLedgerFilter);
   list = list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
   const opts = ['<option value="">All custodians</option>', ...custs.map(c => `<option value="${c.id}" ${_pcLedgerFilter === c.id ? 'selected' : ''}>${_esc(c.name)}</option>`)].join('');
@@ -266,11 +287,16 @@ const _inp = 'width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radiu
 // ── Add / edit custodian ──
 window._pcCustodianModal = function (editId) {
   const c = editId ? (state.pettyCashCustodians || []).find(x => x.id === editId) : null;
+  const users = (state.rbacUsers || []).filter(u => u.active !== false);
+  const userOpts = ['<option value="">— Not linked (admin-only) —</option>',
+    ...users.map(u => `<option value="${_esc(u.id)}" data-email="${_esc(u.email || '')}" ${c && c.userId === u.id ? 'selected' : ''}>${_esc(u.name || u.username || u.email)} · ${_esc(u.role || '')}</option>`)].join('');
   _modal(`${_modalHead(c ? 'Edit Custodian' : 'Add Custodian')}
     <div style="padding:20px;">
       <input id="pcCustName" placeholder="Full name *" value="${c ? _esc(c.name) : ''}" style="${_inp}">
       <input id="pcCustRole" placeholder="Role (e.g. Site Engineer)" value="${c ? _esc(c.role || '') : ''}" style="${_inp}">
       <input id="pcCustPhone" placeholder="Phone (optional)" value="${c ? _esc(c.phone || '') : ''}" style="${_inp}">
+      <label style="font-size:12px;font-weight:700;color:#64748b;">Link to app user (this person sees only their own wallet)</label>
+      <select id="pcCustUser" style="${_inp}margin-top:4px;">${userOpts}</select>
       <div style="display:flex;gap:10px;margin-top:6px;">
         <button onclick="_pcSaveCustodian('${editId || ''}')" style="flex:1;padding:11px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Save</button>
         ${c ? `<button onclick="_pcDeleteCustodian('${editId}')" style="padding:11px 16px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:10px;font-weight:700;cursor:pointer;">Delete</button>` : ''}
@@ -282,11 +308,14 @@ window._pcSaveCustodian = function (editId) {
   if (!name) return showToast('Name is required', 'error');
   const role = document.getElementById('pcCustRole').value.trim();
   const phone = document.getElementById('pcCustPhone').value.trim();
+  const userSel = document.getElementById('pcCustUser');
+  const userId = userSel ? userSel.value : '';
+  const email = userSel && userSel.selectedOptions[0] ? (userSel.selectedOptions[0].dataset.email || '') : '';
   if (editId) {
     const c = state.pettyCashCustodians.find(x => x.id === editId);
-    if (c) { c.name = name; c.role = role; c.phone = phone; }
+    if (c) { c.name = name; c.role = role; c.phone = phone; c.userId = userId || null; c.email = email || null; }
   } else {
-    state.pettyCashCustodians.push({ id: 'pcc_' + Date.now(), name, role, phone, projectId: _pid(), createdAt: Date.now() });
+    state.pettyCashCustodians.push({ id: 'pcc_' + Date.now(), name, role, phone, userId: userId || null, email: email || null, projectId: _pid(), createdAt: Date.now() });
   }
   saveAllData();
   _pcCloseModal();
@@ -302,32 +331,49 @@ window._pcDeleteCustodian = function (id) {
 
 // ── Transfer funds ──
 window._pcTransferModal = function (presetCust) {
+  if (!_isPettyAdmin()) return showToast('Only an admin can issue funds', 'error');
   const custs = _custodians();
   if (!custs.length) return showToast('Add a custodian first', 'error');
   const opts = custs.map(c => `<option value="${c.id}" ${presetCust === c.id ? 'selected' : ''}>${_esc(c.name)} — ${_fmt(_balance(c.id))}</option>`).join('');
+  const accs = state.accounts || [];
+  const accOpts = accs.length
+    ? accs.map(a => { const b = _accountBalanceFor(a.id); return `<option value="${_esc(a.id)}">${_esc(a.name)} (${_esc(a.type || 'Account')})${b == null ? '' : ' — ' + _fmt(b)}</option>`; }).join('')
+    : '';
   _modal(`${_modalHead('Transfer Funds')}
     <div style="padding:20px;">
+      <label style="font-size:12px;font-weight:700;color:#64748b;">From account (Bank / Cash)</label>
+      ${accs.length
+        ? `<select id="pcTrFromAcc" style="${_inp}margin-top:4px;">${accOpts}</select>`
+        : `<div style="${_inp}margin-top:4px;color:#dc2626;background:#fef2f2;border-color:#fecaca;">No Bank/Cash accounts yet. Add one in Finance → Accounts first.</div>`}
       <label style="font-size:12px;font-weight:700;color:#64748b;">To custodian</label>
       <select id="pcTrCust" style="${_inp}margin-top:4px;">${opts}</select>
       <input id="pcTrAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
       <input id="pcTrDate" type="date" value="${new Date().toISOString().split('T')[0]}" style="${_inp}">
       <input id="pcTrNote" placeholder="Note (e.g. Weekly site expenses)" style="${_inp}">
-      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">⇪ Transfer</button>
+      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;" ${accs.length ? '' : 'disabled'}>⇪ Transfer</button>
     </div>`);
 };
 window._pcDoTransfer = function () {
+  if (!_isPettyAdmin()) return showToast('Only an admin can issue funds', 'error');
+  const fromAccEl = document.getElementById('pcTrFromAcc');
+  const fromAccountId = fromAccEl ? fromAccEl.value : '';
   const custodianId = document.getElementById('pcTrCust').value;
   const amount = parseFloat(document.getElementById('pcTrAmount').value);
+  if (!fromAccountId) return showToast('Select the Bank/Cash account the money comes from', 'error');
   if (!custodianId || !(amount > 0)) return showToast('Select custodian and enter a valid amount', 'error');
+  const bal = _accountBalanceFor(fromAccountId);
+  if (bal != null && amount > bal && !confirm(`This account only has ${_fmt(bal)}. Transfer ${_fmt(amount)} anyway?`)) return;
+  const accName = (state.accounts || []).find(a => a.id === fromAccountId)?.name || 'Account';
   state.pettyCashTxns.push({
-    id: 'pct_' + Date.now(), type: 'TRANSFER', custodianId, amount,
+    id: 'pct_' + Date.now(), type: 'TRANSFER', custodianId, amount, fromAccountId, fromAccountName: accName,
     note: document.getElementById('pcTrNote').value.trim(),
     date: document.getElementById('pcTrDate').value || new Date().toISOString().split('T')[0],
     projectId: _pid(), createdAt: Date.now()
   });
   saveAllData(); _pcCloseModal();
-  showToast(`Transferred ${_fmt(amount)} to ${_custName(custodianId)}`, 'success');
+  showToast(`Transferred ${_fmt(amount)} from ${accName} to ${_custName(custodianId)}`, 'success');
   renderPettyCash();
+  if (typeof window.renderAccounts === 'function') window.renderAccounts();
 };
 
 // ── Log expense (with photo receipt) ──
