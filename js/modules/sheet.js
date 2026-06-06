@@ -1338,7 +1338,16 @@ export function addGroupedItem(data) {
     <div class="overflow-x-auto"><table class="min-w-full text-xs" style="table-layout:fixed;"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr>
       <th class="p-1 text-left" style="width:26%;">Particulars</th><th class="p-1" style="width:11%;">Nos</th><th class="p-1" style="width:14%;">L</th><th class="p-1" style="width:14%;">B</th><th class="p-1" style="width:14%;">H</th><th class="p-1" style="width:12%;">Qty</th><th class="p-1" style="width:9%;"></th>
     </tr></thead><tbody class="g-lines bg-white"></tbody></table></div>
-    <div class="flex justify-between items-center p-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
+    <div class="flex flex-wrap items-center gap-1.5 px-2 pt-2 border-t border-slate-100 bg-slate-50 text-[11px]">
+      <span class="font-bold text-slate-500">Apply to all lines →</span>
+      <input type="number" class="g-fill-nos w-14 p-1 border rounded text-center" placeholder="Nos">
+      <input type="number" class="g-fill-l w-16 p-1 border rounded text-center" placeholder="L">
+      <input type="number" class="g-fill-b w-16 p-1 border rounded text-center" placeholder="B">
+      <input type="number" class="g-fill-h w-16 p-1 border rounded text-center" placeholder="H">
+      <button onclick="applyToAllLines(this)" class="bg-blue-600 text-white px-2.5 py-1 rounded font-bold hover:bg-blue-700">Apply</button>
+      <button onclick="clearAllLines(this)" class="text-red-600 border border-red-200 px-2.5 py-1 rounded font-bold hover:bg-red-50">Clear All</button>
+    </div>
+    <div class="flex justify-between items-center p-2 bg-slate-50 rounded-b-lg">
       <button onclick="addGroupedLine(this)" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded font-bold hover:bg-blue-100">+ Add Line</button>
       <div class="g-total text-sm font-bold text-slate-600">Item Total: <span style="color:#2563eb;font-size:15px;">0.000</span> </div>
     </div>`;
@@ -1359,6 +1368,37 @@ export function addGroupedLine(btn) {
 export function removeGroupedLine(btn) {
   const card = btn.closest('.g-item');
   btn.closest('tr')?.remove();
+  _groupedItemTotal(card);
+}
+
+/** Fill the "Apply to all" values into every line of the item (blank fields are skipped) */
+export function applyToAllLines(btn) {
+  const card = btn.closest('.g-item');
+  if (!card) return;
+  const nos = card.querySelector('.g-fill-nos')?.value ?? '';
+  const l = card.querySelector('.g-fill-l')?.value ?? '';
+  const b = card.querySelector('.g-fill-b')?.value ?? '';
+  const h = card.querySelector('.g-fill-h')?.value ?? '';
+  if (nos === '' && l === '' && b === '' && h === '') { showToast('Enter a value to apply first', 'warning'); return; }
+  card.querySelectorAll('.g-line').forEach(tr => {
+    if (nos !== '') tr.querySelector('.g-nos').value = nos;
+    if (l !== '') tr.querySelector('.g-l').value = l;
+    if (b !== '') tr.querySelector('.g-b').value = b;
+    if (h !== '') tr.querySelector('.g-h').value = h;
+    const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : '';
+  });
+  _groupedItemTotal(card);
+}
+
+/** Clear all measurement data (label + dims + qty) for every line in the item */
+export function clearAllLines(btn) {
+  const card = btn.closest('.g-item');
+  if (!card) return;
+  if (!confirm('Clear all measurement values for this item?')) return;
+  card.querySelectorAll('.g-line').forEach(tr => {
+    ['.g-label', '.g-nos', '.g-l', '.g-b', '.g-h', '.g-qty'].forEach(s => { const e = tr.querySelector(s); if (e) e.value = ''; });
+  });
+  ['.g-fill-nos', '.g-fill-l', '.g-fill-b', '.g-fill-h'].forEach(s => { const e = card.querySelector(s); if (e) e.value = ''; });
   _groupedItemTotal(card);
 }
 
@@ -1459,5 +1499,5 @@ function _groupedCollectEntries() {
 
 // Self-register grouped handlers on window (for inline onclick in app.html)
 if (typeof window !== 'undefined') {
-  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry, duplicateGroupedLine, duplicateGroupedItem });
+  Object.assign(window, { setEntryMode, toggleEntryMode, addGroupedItem, addGroupedLine, removeGroupedLine, removeGroupedItem, calcGroupedLine, renderGroupedEntry, duplicateGroupedLine, duplicateGroupedItem, applyToAllLines, clearAllLines });
 }
