@@ -32,37 +32,20 @@ export async function createOrganization(name, userId, userEmail) {
   const sb = getSupabase();
   if (!sb) return null;
 
-  // Check if user already has an org — prevent duplicates
-  const { data: existing } = await sb.from('org_members').select('org_id').eq('user_id', userId).eq('is_active', true).limit(1);
-  if (existing && existing.length > 0) {
-    console.log('[org] User already has org, skipping create');
-    const { data: existingOrg } = await sb.from('organizations').select('*').eq('id', existing[0].org_id).single();
-    if (existingOrg) { _currentOrg = existingOrg; return existingOrg; }
-  }
-
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
-
-  const { data: org, error } = await sb.from('organizations').insert({
-    name,
-    slug,
-    email: userEmail,
-    plan: 'free',
-    max_seats: 3,
-    max_projects: 2,
-    trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-  }).select().single();
-
-  if (error) { console.error('[org] create failed:', error); return null; }
-
-  // Add creator as owner
-  await sb.from('org_members').insert({
-    org_id: org.id,
-    user_id: userId,
-    role: 'owner',
+  // Atomic create (org + owner membership) via SECURITY DEFINER RPC.
+  // This avoids the RLS RETURNING/SELECT-policy trap: a plain
+  // insert().select() on organizations fails because the membership row
+  // (which org_select depends on) does not exist yet at RETURNING time.
+  // The RPC also reuses an existing workspace if the user already has one.
+  const { data: orgId, error } = await sb.rpc('create_org_with_owner', {
+    p_name: name,
+    p_email: userEmail,
   });
+  if (error || !orgId) { console.error('[org] create failed:', error); return null; }
 
-  _currentOrg = org;
-  return org;
+  const { data: org } = await sb.from('organizations').select('*').eq('id', orgId).single();
+  if (org) { _currentOrg = org; _currentOrg._userRole = 'owner'; }
+  return org || null;
 }
 
 /** Load current user's organization */

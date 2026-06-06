@@ -64,6 +64,13 @@
       <button class="btn btn-pay" id="authBtn" onclick="doAuth()">Log in &amp; Continue</button>
       <p class="toggle" id="toggleLine">New here? <a onclick="setMode('signup')">Create an account</a></p>
     </div>
+    <div id="otpBox" style="display:none;">
+      <p style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">Verify your email</p>
+      <p style="font-size:12px;color:#64748b;margin-bottom:12px;">We emailed a 6-digit code to <strong id="otpEmail"></strong>. Enter it below to activate your account.</p>
+      <label>Verification code</label><input id="fOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code" style="letter-spacing:4px;font-weight:700;text-align:center;">
+      <button class="btn btn-pay" id="otpBtn" onclick="verifyOtp()">Verify &amp; Continue</button>
+      <p class="toggle">Didn't get it? <a onclick="resendOtp()">Resend code</a> · <a onclick="backToAuth()">Change email</a></p>
+    </div>
     <div id="payBox" style="display:none;">
       <p style="font-size:13px;color:#475569;margin-bottom:14px;">Signed in as <strong id="whoEmail"></strong></p>
       <button class="btn btn-pay" id="payBtn" onclick="pay()">Pay &amp; Activate Plan</button>
@@ -125,9 +132,9 @@ async function doAuth(){
       const name = document.getElementById('fName').value.trim() || email.split('@')[0];
       const { error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ display_name:name, role:'Admin' } } });
       if (error) throw error;
-      // If email confirmation is required there may be no session yet
+      // If email confirmation is required there is no session yet — verify with a code in-page
       const { data:{ session } } = await sb.auth.getSession();
-      if (!session) { showMsg('Account created! Please check your email to confirm, then log in here.', 'ok'); setMode('login'); btn.disabled=false; btn.textContent='Log in & Continue'; return; }
+      if (!session) { _pendingEmail = email; openOtpStep(email); btn.disabled=false; btn.textContent='Sign up & Continue'; return; }
     } else {
       const { error } = await sb.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
@@ -139,20 +146,57 @@ async function doAuth(){
   }
 }
 
+// ── Email verification (OTP) step ─────────────────────────────
+let _pendingEmail = '';
+function openOtpStep(email){
+  _pendingEmail = email;
+  document.getElementById('authBox').style.display = 'none';
+  document.getElementById('otpBox').style.display = 'block';
+  document.getElementById('otpEmail').textContent = email;
+  document.getElementById('fOtp').value = '';
+  clearMsg();
+  document.getElementById('fOtp').focus();
+}
+function backToAuth(){
+  document.getElementById('otpBox').style.display = 'none';
+  document.getElementById('authBox').style.display = 'block';
+  clearMsg();
+}
+async function verifyOtp(){
+  clearMsg();
+  const token = (document.getElementById('fOtp').value || '').trim();
+  if (token.length < 6) return showMsg('Enter the 6-digit code from your email.', 'err');
+  const btn = document.getElementById('otpBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Verifying…';
+  try {
+    let { error } = await sb.auth.verifyOtp({ email:_pendingEmail, token, type:'signup' });
+    if (error) { const r = await sb.auth.verifyOtp({ email:_pendingEmail, token, type:'email' }); if (r.error) throw error; }
+    document.getElementById('otpBox').style.display = 'none';
+    await enterPayState();
+  } catch (e) {
+    showMsg(e.message || 'Invalid or expired code. Please try again.', 'err');
+    btn.disabled = false; btn.textContent = 'Verify & Continue';
+  }
+}
+async function resendOtp(){
+  clearMsg();
+  try {
+    const { error } = await sb.auth.resend({ type:'signup', email:_pendingEmail });
+    if (error) throw error;
+    showMsg('A new code has been sent to your email.', 'ok');
+  } catch (e) { showMsg(e.message || 'Could not resend the code.', 'err'); }
+}
+
 async function ensureOrg(user){
   // Find an active org membership
   const { data: mem } = await sb.from('org_members').select('org_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle();
   if (mem && mem.org_id) return mem.org_id;
-  // None — create a workspace with a 7-day trial
+  // None — create a workspace with a 7-day trial via the atomic RPC
+  // (avoids the RLS RETURNING/SELECT-policy failure on first org).
   const base = (user.user_metadata?.display_name || user.email.split('@')[0]);
-  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,30) + '-' + Math.random().toString(36).slice(2,6);
-  const { data: org, error } = await sb.from('organizations').insert({
-    name: base + "'s Team", slug, email: user.email, plan:'free', max_seats:3, max_projects:2,
-    trial_ends_at: new Date(Date.now()+7*24*60*60*1000).toISOString()
-  }).select().single();
+  const { data: orgId, error } = await sb.rpc('create_org_with_owner', { p_name: base + "'s Team", p_email: user.email });
   if (error) throw error;
-  await sb.from('org_members').insert({ org_id: org.id, user_id: user.id, role:'owner', is_active:true });
-  return org.id;
+  return orgId;
 }
 
 let _orgId = null, _userEmail = '';
