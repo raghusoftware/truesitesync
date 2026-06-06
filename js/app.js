@@ -437,6 +437,17 @@ function _bootApp() {
     // Pre-load members and invites
     await loadOrgMembers();
     await loadOrgInvites();
+    // If arriving from a landing-page "Buy Now" link (app.html?plan=X), launch checkout
+    try {
+      const pendingPlan = new URLSearchParams(location.search).get('plan');
+      const VALID_PLANS = ['starter', 'business', 'pro', 'enterprise'];
+      if (pendingPlan && VALID_PLANS.includes(pendingPlan) && typeof window._orgUpgrade === 'function') {
+        // Clear the param so a refresh doesn't re-trigger
+        history.replaceState({}, '', location.pathname);
+        showToast('Opening secure payment…', 'success');
+        setTimeout(() => window._orgUpgrade(pendingPlan), 800);
+      }
+    } catch (e) { console.warn('[plan] checkout launch failed:', e); }
   }).catch(e => console.warn('[org] load failed:', e));
 
   // Hide sidebar items user can't access

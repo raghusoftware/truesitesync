@@ -13,9 +13,10 @@ import { showToast } from './utils.js';
 
 const PLANS = {
   free:       { name: 'Free',       seats: 3,  projects: 2,   price: 0,     label: 'Free Trial' },
-  starter:    { name: 'Starter',    seats: 5,  projects: 5,   price: 499,   label: '₹499/mo' },
-  business:   { name: 'Business',   seats: 15, projects: 20,  price: 1499,  label: '₹1,499/mo' },
-  enterprise: { name: 'Enterprise', seats: 50, projects: 100, price: 2999,  label: '₹2,999/mo' },
+  starter:    { name: 'Starter',    seats: 5,  projects: 5,   price: 5000,  label: '₹5,000/yr' },
+  business:   { name: 'Business',   seats: 12, projects: 20,  price: 12000, label: '₹12,000/yr' },
+  pro:        { name: 'Pro',        seats: 25, projects: 50,  price: 25000, label: '₹25,000/yr' },
+  enterprise: { name: 'Enterprise', seats: 50, projects: 100, price: 50000, label: '₹50,000/yr' },
 };
 
 let _currentOrg = null;
@@ -534,7 +535,7 @@ export function renderBillingPanel() {
         ${isCurrent ? '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#10b981;margin-bottom:6px;letter-spacing:1px;">Current Plan</div>' : ''}
         <h4 style="font-size:16px;font-weight:800;color:#1e293b;margin:0 0 4px;">${plan.name}</h4>
         <div style="font-size:22px;font-weight:900;color:#2563eb;margin:8px 0;">${plan.price ? '₹' + plan.price.toLocaleString('en-IN') : 'Free'}</div>
-        <p style="font-size:11px;color:#94a3b8;margin:0 0 12px;">${plan.price ? 'per month' : '7-day trial'}</p>
+        <p style="font-size:11px;color:#94a3b8;margin:0 0 12px;">${plan.price ? 'per year' : '7-day trial'}</p>
         <div style="font-size:11px;color:#64748b;margin-bottom:4px;">✓ ${plan.seats} team seats</div>
         <div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${plan.projects} projects</div>
         ${isCurrent ? '<span style="font-size:11px;color:#10b981;font-weight:600;">Active</span>' :
@@ -547,7 +548,7 @@ export function renderBillingPanel() {
     <!-- Extra seats -->
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px;margin-bottom:20px;">
       <h4 style="font-size:13px;font-weight:700;color:#92400e;margin:0 0 8px;">Need more seats?</h4>
-      <p style="font-size:12px;color:#78716c;margin:0 0 12px;">Buy additional seats at ₹500/seat/month without changing your plan.</p>
+      <p style="font-size:12px;color:#78716c;margin:0 0 12px;">Buy additional seats at ₹500/seat/year without changing your plan.</p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <input type="number" id="extraSeatsCount" value="5" min="1" max="50" style="width:70px;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;text-align:center;">
         <span style="font-size:12px;color:#78716c;">seats × ₹500 =</span>
