@@ -990,7 +990,7 @@ export function switchView(viewId) {
   }
   if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); }
   if (viewId === 'clientDashboardView') window.renderClientHub?.();
-  if (viewId === 'partiesLedgerView') renderPartiesList();
+  if (viewId === 'partiesLedgerView') window.renderPartiesList?.();
   if (viewId === 'equipmentView') {
     const today = new Date().toISOString().split('T')[0];
     if (document.getElementById('eqLogDate')) document.getElementById('eqLogDate').value = today;
@@ -3917,7 +3917,7 @@ export function generateLabourSalary(labourId, month, amount) {
   state.labourSalaries.push({ id: 'lsal_' + Date.now(), labourId, month, amount, date: new Date().toISOString().split('T')[0] });
   saveLabourData(); renderMonthlyMuster();
   showToast('Salary Posted to Party Ledger as Payable!', 'success');
-  renderPartiesList();
+  window.renderPartiesList?.();
 }
 
 /** Chooser: All labour vs individual muster card */
@@ -4017,273 +4017,7 @@ export function downloadMusterCard(labourId, startDate, endDate) {
 // ==========================================
 // PARTIES LEDGER
 // ==========================================
-export function renderPartiesList() {
-  const searchTerm = document.getElementById('partySearch').value.toLowerCase();
-  const typeFilter = document.getElementById('partyTypeFilter')?.value || 'All';
-  const container = document.getElementById('partiesListContainer');
-  container.innerHTML = '';
-  let allParties = [];
-  state.clients.forEach(c => {
-    let billed = state.abstracts.filter(a => a.clientId === c.id).reduce((s, a) => s + a.totalAmount, 0) + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
-    let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
-    allParties.push({ id: c.id, name: c.name, type: 'Client', balance: billed - paid });
-  });
-  state.vendors.forEach(v => {
-    let purchased = state.vendorMaterials.filter(m => m.vendorId === v.id).reduce((s, m) => s + (m.totalAmount || parseFloat(m.amount) || 0), 0);
-    let paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
-    allParties.push({ id: v.id, name: v.name, type: 'Vendor', balance: purchased - paid });
-  });
-  state.labourMaster.forEach(l => {
-    let totalSalary = state.labourSalaries.filter(s => s.labourId === l.id).reduce((sum, s) => sum + parseFloat(s.amount), 0);
-    let totalPaid = state.labourPayments.filter(p => p.labourId === l.id).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-    allParties.push({ id: l.id, name: l.name + ' (Labour)', type: 'Labour', balance: totalSalary - totalPaid });
-  });
-  allParties.sort((a, b) => a.name.localeCompare(b.name));
-  allParties.forEach(p => {
-    if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return;
-    if (typeFilter !== 'All' && p.type !== typeFilter) return;
-    let colorClass = 'text-slate-500'; let formattedBal = '0.00';
-    if (p.type === 'Client') {
-      if (p.balance > 0) { colorClass = 'text-green-600'; formattedBal = p.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
-      else if (p.balance < 0) { colorClass = 'text-red-500'; formattedBal = Math.abs(p.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
-    } else if (p.type === 'Vendor' || p.type === 'Labour') {
-      if (p.balance > 0) { colorClass = 'text-red-500'; formattedBal = p.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
-      else if (p.balance < 0) { colorClass = 'text-green-600'; formattedBal = Math.abs(p.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
-    }
-    const isSelected = state.currentSelectedParty?.id === p.id ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-slate-50 border-l-4 border-transparent';
-    const typeIcon = p.type === 'Client' ? '🏢' : p.type === 'Vendor' ? '🏭' : '👷';
-    container.innerHTML += `<div class="cursor-pointer p-3 flex justify-between items-center transition ${isSelected}" onclick="selectParty('${p.id}', '${p.type}')"><div class="flex items-center gap-2"><span style="font-size:14px;">${typeIcon}</span><div><p class="font-bold text-slate-800 text-xs truncate w-32" title="${p.name}">${p.name}</p><p class="text-[9px] text-slate-400 font-medium">${p.type}</p></div></div><span class="font-bold ${colorClass} text-sm">${formattedBal}</span></div>`;
-  });
-}
-
-export function renderPartyTransactions() {
-  if (!state.currentSelectedParty) return;
-  const { id, type } = state.currentSelectedParty;
-  let txs = [];
-  if (type === 'Client') {
-    const c = state.clients.find(x => x.id === id);
-    document.getElementById('selectedPartyName').textContent = c.name;
-    document.getElementById('selectedPartyType').textContent = 'CLIENT';
-    document.getElementById('partyActionButtons').innerHTML = `<button onclick="switchView('billingView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Sale</button><button onclick="switchView('accountingView')" class="bg-green-50 text-green-600 px-4 py-2 rounded-full font-bold text-xs border border-green-200 hover:bg-green-100 shadow-sm">+ Add Receipt</button>`;
-    state.abstracts.filter(a => a.clientId === id).forEach(a => txs.push({ date: a.date, number: a.abstractNum, type: 'Sale (Abstract)', total: a.totalAmount, isDebit: true, _src: 'abstracts', _id: a.id }));
-    state.invoices.filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNum, type: 'Sale (GST Applied)', total: i.taxAmount, isDebit: true, _src: 'invoices', _id: i.id }));
-    state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: parseFloat(p.amount), isDebit: false, _src: 'paymentsIn', _id: p.id, _editable: true }));
-  } else if (type === 'Vendor') {
-    const v = state.vendors.find(x => x.id === id);
-    document.getElementById('selectedPartyName').textContent = v.name;
-    document.getElementById('selectedPartyType').textContent = 'VENDOR';
-    document.getElementById('partyActionButtons').innerHTML = `<button onclick="switchView('vendorView')" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-full font-bold text-xs border border-blue-200 hover:bg-blue-100 shadow-sm">+ Add Purchase</button><button onclick="switchView('vendorView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Payment</button>`;
-    state.vendorMaterials.filter(m => m.vendorId === id).forEach(m => txs.push({ date: m.date, number: m.billNo || 'Purchase', type: 'Purchase', total: m.totalAmount || parseFloat(m.amount) || 0, isDebit: false, _src: 'vendorMaterials', _id: m.id }));
-    state.vendorPayments.filter(p => p.vendorId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Payment', type: 'Payment', total: parseFloat(p.amount), isDebit: true, _src: 'vendorPayments', _id: p.id, _editable: true }));
-  } else if (type === 'Labour') {
-    const l = state.labourMaster.find(x => x.id === id);
-    document.getElementById('selectedPartyName').textContent = l.name;
-    document.getElementById('selectedPartyType').textContent = 'LABOUR';
-    document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment/Advance</button>`;
-    state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false, _src: 'labourSalaries', _id: s.id }));
-    state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
-  }
-  txs.sort((a, b) => new Date(a.date) - new Date(b.date));
-  const tbody = document.getElementById('partyTransactionsBody');
-  tbody.innerHTML = '';
-  let runningBal = 0;
-  txs.forEach((t, idx) => {
-    if (type === 'Client') runningBal += t.isDebit ? t.total : -t.total;
-    else if (type === 'Vendor' || type === 'Labour') runningBal += t.isDebit ? -t.total : t.total;
-    const isPayment = t.type.includes('Payment') || t.type.includes('Receipt');
-    let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
-    // Per-row actions
-    const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
-    const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-500 hover:bg-blue-50 px-1.5 py-1 rounded">✏️</button>` : '';
-    const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${t.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
-  });
-  if (txs.length === 0) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No transactions found.</td></tr>`;
-  const ft = document.getElementById('partyClosingBalance');
-  ft.textContent = `${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Advance)' : ''}`;
-  ft.className = `text-xl font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-400' : 'text-red-400') : 'text-white'}`;
-}
-
-/** Edit an editable transaction (payment/receipt amount, date, ref) */
-window._editPartyTx = function(src, id) {
-  const rec = (state[src] || []).find(x => x.id === id);
-  if (!rec) return;
-  const amount = prompt('Amount (₹):', rec.amount);
-  if (amount === null) return;
-  if (isNaN(amount) || parseFloat(amount) <= 0) { showToast('Invalid amount', 'error'); return; }
-  rec.amount = parseFloat(amount);
-  const date = prompt('Date (YYYY-MM-DD):', rec.date);
-  if (date) rec.date = date;
-  const ref = prompt('Reference / Note:', rec.ref || '');
-  if (ref !== null) rec.ref = ref;
-  saveAllData();
-  renderPartyTransactions(); renderPartiesList();
-  showToast('Transaction updated', 'success');
-};
-
-/** Delete a transaction */
-window._deletePartyTx = function(src, id) {
-  const labels = { paymentsIn: 'receipt', vendorPayments: 'vendor payment', labourPayments: 'labour payment', vendorMaterials: 'purchase bill', abstracts: 'abstract', invoices: 'invoice', labourSalaries: 'salary entry' };
-  if (!confirm(`Delete this ${labels[src] || 'transaction'}? This cannot be undone.`)) return;
-  state[src] = (state[src] || []).filter(x => x.id !== id);
-  saveAllData();
-  renderPartyTransactions(); renderPartiesList();
-  showToast('Transaction deleted', 'error');
-};
-
-/** Preview + download a payment receipt PDF */
-window._partyReceipt = function(src, id) {
-  const rec = (state[src] || []).find(x => x.id === id);
-  if (!rec) { showToast('Record not found', 'error'); return; }
-  const { type } = state.currentSelectedParty || {};
-  const partyId = state.currentSelectedParty?.id;
-  let partyName = '';
-  if (type === 'Client') partyName = state.clients.find(c => c.id === partyId)?.name || '';
-  else if (type === 'Vendor') partyName = state.vendors.find(v => v.id === partyId)?.name || '';
-  else if (type === 'Labour') partyName = state.labourMaster.find(l => l.id === partyId)?.name || '';
-
-  const amount = (parseFloat(rec.amount) || rec.totalAmount || rec.taxAmount || 0);
-  const isReceipt = src === 'paymentsIn';
-  const docTitle = isReceipt ? 'RECEIPT' : (src === 'vendorPayments' || src === 'labourPayments') ? 'PAYMENT VOUCHER' : 'TRANSACTION';
-  const acc = state.accounts.find(a => a.id === rec.accountId);
-
-  const doc = new window.jspdf.jsPDF('p', 'mm', 'a5');
-  let y = getCompanyHeaderForPDF(doc);
-  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
-  doc.text(docTitle, 74, y, null, null, 'center'); y += 10;
-  doc.setDrawColor(220); doc.line(12, y, 136, y); y += 8;
-
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(60);
-  const row = (label, val) => { doc.setFont('helvetica','bold'); doc.text(label, 14, y); doc.setFont('helvetica','normal'); doc.text(String(val), 60, y); y += 8; };
-  row(type === 'Client' ? 'Received From:' : 'Paid To:', partyName);
-  row('Date:', rec.date || '—');
-  row('Reference:', rec.ref || rec.billNo || rec.invoiceNum || '—');
-  if (acc) row('Via Account:', acc.name);
-  y += 4;
-  doc.setFillColor(240, 249, 255); doc.rect(12, y - 4, 124, 14, 'F');
-  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(5, 150, 105);
-  doc.text('Amount:', 16, y + 4);
-  doc.text(pdfMoney(amount), 132, y + 4, null, null, 'right');
-  y += 20;
-  doc.setFontSize(8); doc.setTextColor(120); doc.setFont('helvetica', 'normal');
-  doc.text('This is a computer-generated receipt.', 74, y, null, null, 'center');
-  y += 18;
-  doc.setDrawColor(180); doc.line(90, y, 134, y); y += 5;
-  doc.setFontSize(9); doc.text('Authorised Signatory', 112, y, null, null, 'center');
-
-  mobileSavePDF(doc, `${docTitle}_${partyName.replace(/\s+/g, '_')}_${rec.date || ''}.pdf`);
-  showToast('Receipt generated', 'success');
-};
-
-export function selectParty(id, type) {
-  state.currentSelectedParty = { id, type };
-  document.getElementById('partyEmptyState').style.display = 'none';
-  renderPartiesList();
-  renderPartyTransactions();
-  _renderPartyInfoCard(id, type);
-}
-
-function _renderPartyInfoCard(id, type) {
-  let infoEl = document.getElementById('partyInfoCard');
-  if (!infoEl) return;
-  let party = null;
-  if (type === 'Client') party = state.clients.find(c => c.id === id);
-  else if (type === 'Vendor') party = state.vendors.find(v => v.id === id);
-  else if (type === 'Labour') party = state.labourMaster.find(l => l.id === id);
-  if (!party) { infoEl.innerHTML = ''; return; }
-
-  const phone = party.contact || party.phone || '';
-  const gst = party.gst || party.gstNumber || '';
-  const addr = party.address || '';
-  const email = party.email || '';
-
-  infoEl.innerHTML = `
-    <div style="display:flex;flex-wrap:wrap;gap:16px;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:11px;align-items:center;">
-      ${phone ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Phone:</strong> ${phone}</span>` : ''}
-      ${gst ? `<span style="color:#475569;"><strong style="color:#94a3b8;">GST:</strong> ${gst}</span>` : ''}
-      ${email ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Email:</strong> ${email}</span>` : ''}
-      ${addr ? `<span style="color:#475569;"><strong style="color:#94a3b8;">Address:</strong> ${addr}</span>` : ''}
-      <div style="margin-left:auto;display:flex;gap:6px;">
-        <button onclick="_editParty('${id}','${type}')" style="padding:3px 10px;font-size:10px;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;cursor:pointer;">Edit</button>
-        <button onclick="_deleteParty('${id}','${type}')" style="padding:3px 10px;font-size:10px;font-weight:600;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;cursor:pointer;">Delete</button>
-      </div>
-    </div>`;
-}
-
-export function _editParty(id, type) {
-  if (type === 'Client') {
-    const c = state.clients.find(x => x.id === id);
-    if (!c) return;
-    const name = prompt('Client Name:', c.name);
-    if (!name) return;
-    c.name = name;
-    const phone = prompt('Phone:', c.contact || c.phone || '');
-    if (phone !== null) c.contact = phone;
-    const gst = prompt('GST Number:', c.gst || '');
-    if (gst !== null) c.gst = gst;
-    const addr = prompt('Address:', c.address || '');
-    if (addr !== null) c.address = addr;
-    const email = prompt('Email:', c.email || '');
-    if (email !== null) c.email = email;
-    saveAllData();
-    showToast('Client updated', 'success');
-  } else if (type === 'Vendor') {
-    const v = state.vendors.find(x => x.id === id);
-    if (!v) return;
-    const name = prompt('Vendor Name:', v.name);
-    if (!name) return;
-    v.name = name;
-    const phone = prompt('Phone:', v.contact || '');
-    if (phone !== null) v.contact = phone;
-    const gst = prompt('GST Number:', v.gst || '');
-    if (gst !== null) v.gst = gst;
-    const addr = prompt('Address:', v.address || '');
-    if (addr !== null) v.address = addr;
-    saveAllData();
-    showToast('Vendor updated', 'success');
-  } else if (type === 'Labour') {
-    const l = state.labourMaster.find(x => x.id === id);
-    if (!l) return;
-    const name = prompt('Labour Name:', l.name);
-    if (!name) return;
-    l.name = name;
-    const phone = prompt('Phone:', l.phone || '');
-    if (phone !== null) l.phone = phone;
-    const rate = prompt('Daily Rate:', l.dailyRate || '');
-    if (rate !== null) l.dailyRate = parseFloat(rate) || 0;
-    saveAllData();
-    showToast('Labour updated', 'success');
-  }
-  renderPartiesList();
-  renderPartyTransactions();
-  _renderPartyInfoCard(id, type);
-  populateDropdowns();
-}
-
-export function _deleteParty(id, type) {
-  let name = '';
-  if (type === 'Client') name = state.clients.find(x => x.id === id)?.name;
-  else if (type === 'Vendor') name = state.vendors.find(x => x.id === id)?.name;
-  else if (type === 'Labour') name = state.labourMaster.find(x => x.id === id)?.name;
-
-  if (!confirm(`Delete "${name}" (${type})?\n\nThis will NOT delete their transactions (invoices, payments, etc). Only the party record will be removed.`)) return;
-
-  if (type === 'Client') {
-    state.clients = state.clients.filter(x => x.id !== id);
-  } else if (type === 'Vendor') {
-    state.vendors = state.vendors.filter(x => x.id !== id);
-  } else if (type === 'Labour') {
-    state.labourMaster = state.labourMaster.filter(x => x.id !== id);
-  }
-
-  state.currentSelectedParty = null;
-  saveAllData();
-  showToast(`${type} "${name}" deleted`, 'error');
-  document.getElementById('partyEmptyState').style.display = '';
-  document.getElementById('partyInfoCard').innerHTML = '';
-  renderPartiesList();
-  populateDropdowns();
-}
+// Parties Ledger moved to ./parties.js
 
 export function openLabourPaymentModal(labourId) {
   document.getElementById('lpLabourId').value = labourId;
@@ -4306,7 +4040,7 @@ export function saveLabourPayment() {
   state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId, date, accountId, amount, ref });
   saveLabourData();
   document.getElementById('labourPaymentModal').classList.add('hidden');
-  renderPartyTransactions(); renderPartiesList(); renderAccounts();
+  window.renderPartyTransactions?.(); window.renderPartiesList?.(); renderAccounts();
   showToast('Labour Payment Recorded!', 'success');
 }
 
@@ -4359,7 +4093,7 @@ window._recordAdvance = function() {
     const note = document.getElementById('pmNote').value || 'Advance';
     if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
     state.labourAdvances.push({ id: 'adv_' + Date.now(), labourId, amount, date, accountId, note, settled: false });
-    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
     showToast(`Advance ₹${amount.toLocaleString('en-IN')} recorded`, 'success');
     return true;
   });
@@ -4384,7 +4118,7 @@ window._recordDeduction = function() {
     const note = document.getElementById('pmNote').value || '';
     if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
     state.labourDeductions.push({ id: 'ded_' + Date.now(), labourId, deductionType, amount, date, note, settled: false });
-    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
     showToast(`Deduction ₹${amount.toLocaleString('en-IN')} (${deductionType}) recorded`, 'success');
     return true;
   });
@@ -4452,7 +4186,7 @@ window._bulkLabourPayment = function() {
       (state.labourAdvances || []).filter(a => a.labourId === lid && !a.settled).forEach(a => a.settled = true);
       totalPaid += net;
     });
-    saveAllData(); renderMonthlyMuster(); renderPartiesList();
+    saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
     showToast(`Paid ${cur}${totalPaid.toLocaleString('en-IN')} to ${checked.length} workers (advances deducted)`, 'success');
     return true;
   }, 'Pay Selected', 480);
@@ -4513,7 +4247,7 @@ window._finalSettlement = function() {
     (state.labourPPE || []).filter(p => p.labourId === labourId && !p.returned).forEach(p => { p.returned = true; p.writtenOff = true; });
     const l = state.labourMaster.find(x => x.id === labourId);
     if (l) l.status = 'Settled';
-    saveAllData(); renderMonthlyMuster(); renderPartiesList(); renderLabourMasterList();
+    saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.(); renderLabourMasterList();
     showToast(`Final settlement done for ${l?.name || 'worker'}`, 'success');
     return true;
   }, 'Settle & Close', 460);

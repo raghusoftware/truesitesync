@@ -62,8 +62,7 @@ import {
   openLabourModal, saveLabour, renderLabourMasterList, deleteLabour,
   loadAttendanceSheet, saveAttendance, renderMonthlyMuster,
   generateLabourSalary, downloadMusterCard,
-  renderPartiesList, renderPartyTransactions,
-  selectParty, openLabourPaymentModal, saveLabourPayment, _editParty, _deleteParty,
+  openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown, closeFullScreenForm,
   openPaymentOutForm, savePaymentOutForm, renderPaymentOut,
   clearPaymentOutFilters, deletePaymentOutRecord,
@@ -107,6 +106,7 @@ import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable,
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js';
+import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
