@@ -1840,6 +1840,9 @@ export function renderAbstractsList() {
                 <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="exportRABillExcel('${a.id}');this.parentElement.remove()" class="w-full text-left px-3 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-50 flex items-center gap-2.5"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block flex-shrink-0"></span> RA Bill Excel</button>
               </template>
+              ${a.isInvoiced ? '' : `<button onclick="openAbstractEditor('${a.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Abstract">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </button>`}
               <button onclick="deleteAbstract('${a.id}')" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Abstract">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
@@ -1864,6 +1867,124 @@ export function deleteAbstract(id) {
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.();
     showToast('Abstract deleted & Measurement Sheet restored', 'success');
   }
+}
+
+// ==========================================
+// EDITABLE ABSTRACT EDITOR
+// ==========================================
+let _editingAbstractId = null;
+
+function _absEditRowHTML(d) {
+  d = d || {};
+  const esc = (v) => String(v ?? '').replace(/"/g, '&quot;');
+  const inp = 'w-full px-1.5 py-1 border border-slate-200 rounded text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200';
+  return `<tr class="abs-erow border-b border-slate-100 hover:bg-blue-50/40">
+    <td class="p-1 text-center text-xs text-slate-400 abs-rnum"></td>
+    <td class="p-1"><input type="text" class="abs-code ${inp} font-mono uppercase" value="${esc(d.code)}" placeholder="Code"></td>
+    <td class="p-1"><input type="text" class="abs-desc ${inp}" value="${esc(d.desc)}" placeholder="Description of work"></td>
+    <td class="p-1"><input type="text" class="abs-uom ${inp} text-center" value="${esc(d.uom)}" placeholder="Unit"></td>
+    <td class="p-1"><input type="number" step="any" class="abs-qty ${inp} text-right" value="${d.qty ?? ''}" oninput="calcAbstractEditRow(this)"></td>
+    <td class="p-1"><input type="number" step="any" class="abs-rate ${inp} text-right" value="${d.rate ?? ''}" placeholder="0.00" oninput="calcAbstractEditRow(this)"></td>
+    <td class="p-1 text-right font-bold text-slate-800 abs-amt whitespace-nowrap">0.00</td>
+    <td class="p-1 text-center"><input type="hidden" class="abs-boq" value="${esc(d.boqIndex)}"><input type="hidden" class="abs-ref" value="${esc(d.ref)}"><button onclick="removeAbstractEditRow(this)" class="text-slate-300 hover:text-red-600" title="Remove row">🗑</button></td>
+  </tr>`;
+}
+
+function _renumberAbstractEditRows() {
+  document.querySelectorAll('#absEditBody .abs-erow .abs-rnum').forEach((el, i) => { el.textContent = i + 1; });
+}
+
+function _recalcAbstractEditTotal() {
+  let total = 0;
+  document.querySelectorAll('#absEditBody .abs-erow').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('.abs-qty')?.value) || 0;
+    const rate = parseFloat(tr.querySelector('.abs-rate')?.value) || 0;
+    total += qty * rate;
+  });
+  const t = document.getElementById('absEditTotal');
+  if (t) t.textContent = getCurrencySymbol() + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return total;
+}
+
+export function calcAbstractEditRow(input) {
+  const tr = input.closest('tr'); if (!tr) return;
+  const qty = parseFloat(tr.querySelector('.abs-qty')?.value) || 0;
+  const rate = parseFloat(tr.querySelector('.abs-rate')?.value) || 0;
+  const ae = tr.querySelector('.abs-amt');
+  if (ae) ae.textContent = (qty * rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  _recalcAbstractEditTotal();
+}
+
+export function openAbstractEditor(id) {
+  const abs = state.abstracts.find(a => a.id === id);
+  if (!abs) return showToast('Abstract not found', 'error');
+  if (abs.isInvoiced) return showToast('This abstract is locked inside an invoice and cannot be edited', 'error');
+  _editingAbstractId = id;
+  const client = state.clients.find(c => c.id === abs.clientId);
+  document.getElementById('absEditNum').textContent = abs.abstractNum || '';
+  document.getElementById('absEditClient').textContent = client?.name || 'Client';
+  document.getElementById('absEditSheet').textContent = abs.sheetNum || '—';
+  document.getElementById('absEditDate').value = abs.date || '';
+  document.getElementById('absEditArea').value = abs.area || '';
+  const body = document.getElementById('absEditBody');
+  body.innerHTML = '';
+  (abs.items || []).forEach(it => body.insertAdjacentHTML('beforeend', _absEditRowHTML(it)));
+  if (!(abs.items || []).length) body.insertAdjacentHTML('beforeend', _absEditRowHTML({}));
+  _renumberAbstractEditRows();
+  body.querySelectorAll('.abs-erow').forEach(tr => { const q = tr.querySelector('.abs-qty'); if (q) calcAbstractEditRow(q); });
+  _recalcAbstractEditTotal();
+  document.getElementById('abstractEditModal').classList.remove('hidden');
+}
+
+export function addAbstractEditRow() {
+  const body = document.getElementById('absEditBody');
+  if (!body) return;
+  body.insertAdjacentHTML('beforeend', _absEditRowHTML({}));
+  _renumberAbstractEditRows();
+  body.lastElementChild?.querySelector('.abs-code')?.focus();
+}
+
+export function removeAbstractEditRow(btn) {
+  const body = document.getElementById('absEditBody');
+  btn.closest('tr')?.remove();
+  if (body && !body.querySelector('.abs-erow')) body.insertAdjacentHTML('beforeend', _absEditRowHTML({}));
+  _renumberAbstractEditRows();
+  _recalcAbstractEditTotal();
+}
+
+export function closeAbstractEditor() {
+  document.getElementById('abstractEditModal')?.classList.add('hidden');
+  _editingAbstractId = null;
+}
+
+export function saveAbstractEdits() {
+  if (!_editingAbstractId) return;
+  const abs = state.abstracts.find(a => a.id === _editingAbstractId);
+  if (!abs) return;
+  const items = [];
+  let total = 0;
+  document.querySelectorAll('#absEditBody .abs-erow').forEach(tr => {
+    const code = (tr.querySelector('.abs-code')?.value || '').trim();
+    const desc = (tr.querySelector('.abs-desc')?.value || '').trim();
+    if (!code && !desc) return;
+    const uom = (tr.querySelector('.abs-uom')?.value || '').trim();
+    const qty = parseFloat(tr.querySelector('.abs-qty')?.value) || 0;
+    const rate = parseFloat(tr.querySelector('.abs-rate')?.value) || 0;
+    const boqIndex = tr.querySelector('.abs-boq')?.value || '';
+    const ref = tr.querySelector('.abs-ref')?.value || '';
+    const amount = qty * rate;
+    total += amount;
+    items.push({ code, desc, uom, qty, rate, amount, boqIndex, ref });
+  });
+  if (!items.length) return showToast('Add at least one item with a code or description', 'error');
+  abs.items = items;
+  abs.totalAmount = total;
+  abs.date = document.getElementById('absEditDate')?.value || abs.date;
+  abs.area = document.getElementById('absEditArea')?.value || abs.area;
+  saveAllData();
+  renderAbstractsList();
+  closeAbstractEditor();
+  showToast('Abstract updated', 'success');
 }
 
 // ==========================================

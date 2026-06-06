@@ -1336,7 +1336,7 @@ export function addGroupedItem(data) {
   card.className = 'g-item bg-white rounded-xl border border-slate-200 mb-4 shadow-sm overflow-hidden';
   const hInp = 'w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
   const lbl = 'block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5';
-  const colClr = (c, n) => `<button onclick="clearColumn(this,'${c}')" title="Clear ${n} column" class="ml-0.5 text-white/40 hover:text-white" style="font-size:10px;">✕</button>`;
+  const colClr = (c, n) => `<button onclick="clearColumn(this,'${c}')" title="Clear ${n} column" class="ml-1 inline-flex items-center justify-center rounded font-bold" style="width:16px;height:16px;font-size:11px;line-height:1;color:#fecaca;background:rgba(239,68,68,.85);">✕</button>`;
   card.innerHTML = `
     <div class="flex flex-wrap gap-3 items-end px-4 py-3 border-b border-slate-100" style="background:linear-gradient(180deg,#f8fafc,#ffffff);">
       <div class="g-num flex items-center justify-center font-extrabold text-white rounded-lg" style="width:30px;height:30px;background:#1e3a8a;font-size:13px;flex-shrink:0;">#</div>
