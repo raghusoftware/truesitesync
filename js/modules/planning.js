@@ -8,10 +8,157 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, formatINR } from './utils.js';
+import { showToast, formatINR, mobileSavePDF } from './utils.js';
+const _planHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : 14;
 
 // ── Status constants ──
 const TASK_STATUSES = ['Not Started', 'Ready to Start', 'In Progress', 'On Hold', 'Completed', 'Cancelled'];
+
+function _truncatePdf(doc, str, maxW) {
+  str = String(str || '');
+  if (doc.getTextWidth(str) <= maxW) return str;
+  let s = str;
+  while (s.length > 1 && doc.getTextWidth(s + '…') > maxW) s = s.slice(0, -1);
+  return s + '…';
+}
+
+/**
+ * Professional Planning & Schedule PDF: company header, project summary, a
+ * Gantt timeline (status-coloured bars + progress + dependency links) and full
+ * schedule + material / equipment / labour requirement tables.
+ */
+export function exportPlanningPDF() {
+  try {
+    const pid = state.currentProjectId;
+    if (!pid) return showToast('Open a project first', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const proj = (state.projects || []).find(p => p.id === pid) || {};
+    const tasks = (state.planningTasks || []).filter(t => t.projectId === pid);
+    if (!tasks.length) return showToast('No tasks to export', 'error');
+
+    const matName = m => m.materialName || (state.rawMaterials || []).find(r => r.id === m.materialId)?.name || m.materialId || '—';
+    const matUnit = m => (state.rawMaterials || []).find(r => r.id === m.materialId)?.unit || '';
+    const eqName = e => e.equipmentName || (state.equipmentList || []).find(x => x.id === e.equipmentId)?.name || e.equipmentId || '—';
+    const taskName = id => tasks.find(t => t.id === id)?.name || '';
+    const fmtD = d => d || '—';
+    const DAY = 86400000;
+    const dur = (a, b) => { if (!a || !b) return ''; const d = Math.round((new Date(b) - new Date(a)) / DAY) + 1; return isNaN(d) ? '' : String(d); };
+    const STC = { 'Not Started': [148, 163, 184], 'Ready to Start': [16, 185, 129], 'In Progress': [59, 130, 246], 'On Hold': [245, 158, 11], 'Completed': [99, 102, 241], 'Cancelled': [239, 68, 68] };
+    const stColor = s => STC[s] || [148, 163, 184];
+
+    const doc = new window.jspdf.jsPDF('l', 'mm', 'a4');
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const ml = 10, mr = 10;
+
+    let y = _planHeader(doc, { ml, mr });
+    doc.setFillColor(30, 58, 138); doc.rect(ml, y, pw - ml - mr, 8, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('PROJECT PLANNING & SCHEDULE', pw / 2, y + 5.6, { align: 'center' });
+    y += 12; doc.setTextColor(0, 0, 0);
+
+    const wo = (proj.boqs || []).map(g => g.woNumber).filter(Boolean).join(', ') || proj.woNumber || '';
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Project: ${proj.name || '—'}${wo ? '   |   WO: ' + wo : ''}   |   Tasks: ${tasks.length}   |   Generated: ${new Date().toLocaleDateString('en-IN')}`, ml, y);
+    y += 4;
+    doc.setFontSize(8); doc.setTextColor(90);
+    doc.text(TASK_STATUSES.map(s => `${s}: ${tasks.filter(t => t.status === s).length}`).join('   ·   '), ml, y);
+    y += 6; doc.setTextColor(0);
+
+    // ── Gantt timeline ──
+    const dated = tasks.filter(t => t.startDate && t.endDate && !isNaN(new Date(t.startDate)) && !isNaN(new Date(t.endDate)));
+    if (dated.length) {
+      const minT = Math.min(...dated.map(t => +new Date(t.startDate)));
+      const maxT = Math.max(...dated.map(t => +new Date(t.endDate)));
+      const dayCount = Math.max(1, Math.round((maxT - minT) / DAY) + 1);
+      const labelW = 68, gx = ml + labelW, gw = pw - mr - gx, pxPerDay = gw / dayCount, rowH = 6;
+      let gy;
+      const header = topY => {
+        doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
+        doc.text('Schedule Timeline (Gantt)', ml, topY);
+        const hy = topY + 4;
+        doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(120);
+        for (let d = 0; d <= dayCount; d += 7) {
+          const x = gx + d * pxPerDay;
+          doc.text(new Date(minT + d * DAY).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }), x, hy, { align: 'left' });
+        }
+        doc.setTextColor(0);
+        return hy + 3;
+      };
+      gy = header(y);
+      const gridTop = gy;
+      const rowMap = {};
+      const ordered = [...dated].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+      ordered.forEach(t => {
+        if (gy + rowH > ph - 14) { doc.addPage('a4', 'l'); y = 14; gy = header(y); }
+        const sx = gx + Math.round((new Date(t.startDate) - minT) / DAY) * pxPerDay;
+        const ex = gx + (Math.round((new Date(t.endDate) - minT) / DAY) + 1) * pxPerDay;
+        const barW = Math.max(1.5, ex - sx);
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(30);
+        doc.text(_truncatePdf(doc, t.name, labelW - 3), ml, gy + rowH - 2);
+        doc.setDrawColor(241, 245, 249); doc.setLineWidth(0.1); doc.line(gx, gy + rowH, gx + gw, gy + rowH);
+        const col = stColor(t.status), tint = col.map(c => Math.round(c + (255 - c) * 0.55));
+        doc.setFillColor(tint[0], tint[1], tint[2]);
+        doc.roundedRect(sx, gy + 1, barW, rowH - 2.5, 0.8, 0.8, 'F');
+        const prog = t.status === 'Completed' ? 100 : (parseFloat(t.progress) || 0);
+        if (prog > 0) { doc.setFillColor(col[0], col[1], col[2]); doc.roundedRect(sx, gy + 1, Math.max(1, barW * prog / 100), rowH - 2.5, 0.8, 0.8, 'F'); }
+        rowMap[t.id] = { y: gy + rowH / 2, x1: sx, x2: ex };
+        gy += rowH;
+      });
+      doc.setDrawColor(148, 163, 184); doc.setLineWidth(0.2);
+      ordered.forEach(t => {
+        const a = rowMap[t.dependsOn], b = rowMap[t.id];
+        if (t.dependsOn && a && b) { doc.line(a.x2, a.y, b.x1, b.y); }
+      });
+      // legend
+      gy += 3; let lx = ml;
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+      TASK_STATUSES.forEach(s => { const c = stColor(s); doc.setFillColor(c[0], c[1], c[2]); doc.roundedRect(lx, gy - 2.5, 3, 3, 0.5, 0.5, 'F'); doc.setTextColor(60); doc.text(s, lx + 4, gy, { align: 'left' }); lx += 4 + doc.getTextWidth(s) + 6; });
+      doc.setTextColor(0);
+      y = gy + 4;
+    }
+
+    // ── Detail tables (fresh page) ──
+    const section = (title, head, body, colStyles) => {
+      if (!body.length) return;
+      if (y > ph - 34) { doc.addPage('a4', 'l'); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
+      doc.text(title, ml, y);
+      doc.autoTable({
+        startY: y + 2, head: [head], body, theme: 'grid',
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 7.5, halign: 'center', fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+        columnStyles: colStyles || {}, margin: { left: ml, right: mr },
+      });
+      y = doc.lastAutoTable.finalY + 8; doc.setTextColor(0);
+    };
+
+    doc.addPage('a4', 'l'); y = 14;
+    section('Task Schedule', ['Sr', 'Task', 'Area', 'Priority', 'Status', 'Prog', 'Start', 'End', 'Days', 'Assigned To', 'Depends On'],
+      tasks.map((t, i) => [i + 1, t.name || '', t.area || '', t.priority || '', t.status || '', (t.status === 'Completed' ? 100 : (parseFloat(t.progress) || 0)) + '%', fmtD(t.startDate), fmtD(t.endDate), dur(t.startDate, t.endDate), t.assignedTo || '', taskName(t.dependsOn)]),
+      { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 'auto' }, 5: { halign: 'center' }, 8: { halign: 'center' } });
+
+    const matRows = [];
+    tasks.forEach(t => (state.taskMaterials || []).filter(m => m.taskId === t.id).forEach(m => matRows.push([t.name, matName(m), m.qtyRequired ?? '', matUnit(m), m.fromRecipe ? 'Mix Design' : 'Manual'])));
+    section('Material Requirements', ['Task', 'Material', 'Qty', 'Unit', 'Source'], matRows, { 2: { halign: 'right' } });
+
+    const eqRows = [];
+    tasks.forEach(t => (state.taskEquipment || []).filter(e => e.taskId === t.id).forEach(e => eqRows.push([t.name, eqName(e), fmtD(t.startDate), fmtD(t.endDate)])));
+    section('Equipment Schedule', ['Task', 'Equipment', 'From', 'To'], eqRows);
+
+    const labRows = [];
+    tasks.forEach(t => (t.labourReq || []).forEach(l => labRows.push([t.name, l.trade, String(l.count)])));
+    section('Labour Requirements', ['Task', 'Trade', 'No.'], labRows, { 2: { halign: 'center' } });
+
+    mobileSavePDF(doc, `Planning_${(proj.name || 'Project').replace(/[\\/]/g, '-')}.pdf`);
+    showToast('Planning PDF downloaded');
+  } catch (err) {
+    console.error('Planning PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+if (typeof window !== 'undefined') window.exportPlanningPDF = exportPlanningPDF;
+
 const TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const MATERIAL_STATUSES = ['Required', 'Ordered', 'Available', 'Insufficient'];
 
@@ -82,7 +229,10 @@ export function renderPlanningView() {
         </select>
         <input type="text" id="planSearchInput" placeholder="Search tasks..." class="p-2 text-xs border border-slate-300 rounded-lg bg-white w-48" oninput="window._planRefreshList()">
       </div>
-      <button onclick="window._planOpenTaskForm()" class="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm transition">+ Add Task</button>
+      <div class="flex items-center gap-2">
+        <button onclick="window.exportPlanningPDF&&window.exportPlanningPDF()" class="bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-slate-800 shadow-sm transition inline-flex items-center gap-1.5">&#128196; Export PDF</button>
+        <button onclick="window._planOpenTaskForm()" class="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm transition">+ Add Task</button>
+      </div>
     </div>
 
     <!-- Task List -->
