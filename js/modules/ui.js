@@ -14,6 +14,7 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 const MODULE_CARDS = [
   { id: 'planningView', icon: '&#128197;', label: 'Planning', desc: 'Tasks, scheduling & resources', color: '#0ea5e9', stateKey: 'planningTasks' },
   { id: 'microPlanView', icon: '&#128221;', label: 'Micro Planning', desc: 'Daily task decomposition & labor', color: '#6366f1', stateKey: 'microTasks' },
+  { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
   { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
   { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#10b981', stateKey: 'rawMaterials' },
@@ -1115,6 +1116,7 @@ export function switchView(viewId) {
   if (viewId === 'measurementListView') window.renderMeasurementList?.();
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
+  if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { if (typeof window.renderRecipeView === 'function') window.renderRecipeView(); }
   if (viewId === 'vendorView') {

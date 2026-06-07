@@ -80,7 +80,8 @@ const STORAGE_KEYS = {
   stockAudits: 'mes_stock_audits',
   savedPlans: 'mes_saved_plans',
   pettyCashCustodians: 'mes_petty_cash_custodians',
-  pettyCashTxns: 'mes_petty_cash_txns'
+  pettyCashTxns: 'mes_petty_cash_txns',
+  issues: 'mes_issues'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -176,6 +177,7 @@ export const state = {
   savedPlans: load(STORAGE_KEYS.savedPlans, []),
   pettyCashCustodians: load(STORAGE_KEYS.pettyCashCustodians, []),
   pettyCashTxns: load(STORAGE_KEYS.pettyCashTxns, []),
+  issues: load(STORAGE_KEYS.issues, []),
 
   currentProjectId: null,
   currentSheetId: null,
@@ -341,7 +343,7 @@ export function migrateToProjects() {
     'saleFixedAssets','otherIncome','itemsMaster','savedPOs',
     'leads','tenders','cubeTests','ncrReports','incidents','ppeChecks',
     'equipUtilization','dailyProgress','milestones','qualityChecks',
-    'planningTasks','taskMaterials','taskEquipment'];
+    'planningTasks','taskMaterials','taskEquipment','issues'];
   arrKeys.forEach(key => {
     if (Array.isArray(state[key])) {
       state[key].forEach(rec => { if (!rec.projectId) rec.projectId = defaultProjId; });
