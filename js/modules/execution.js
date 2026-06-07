@@ -37,6 +37,28 @@ function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp
 function _arr(key) { return (state[key] || []).filter(r => r.projectId === _pid()); }
 function _num(v) { return parseFloat(v) || 0; }
 
+// ── cross-module links (Planning tasks / Vendors / BOQ / Pours) ──
+function _projTasks() { return (state.planningTasks || []).filter(t => t.projectId === _pid()); }
+function _taskName(id) { const t = (state.planningTasks || []).find(x => x.id === id); return t ? (t.name || t.title || 'Task') : ''; }
+function _vendors() { return (state.vendors || []); }
+function _vendorName(id) { return (state.vendors || []).find(v => v.id === id)?.name || ''; }
+function _projBoqItems() {
+  const proj = (state.projects || []).find(p => p.id === _pid());
+  const out = [];
+  if (proj?.boqs?.length) proj.boqs.forEach(g => (g.items || []).forEach((it, i) => out.push({ ref: g.id + ':' + i, label: (it.code ? it.code + ' — ' : '') + (it.description || it.code || 'Item') })));
+  else if (proj?.boqItems?.length) proj.boqItems.forEach((it, i) => out.push({ ref: String(i), label: (it.code ? it.code + ' — ' : '') + (it.description || 'Item') }));
+  return out;
+}
+function _boqLabel(ref) { return (_projBoqItems().find(b => b.ref === ref) || {}).label || ''; }
+function _pours() { return _arr('concretePours'); }
+const _opt = (val, label, cur) => `<option value="${_esc(val)}" ${String(cur) === String(val) ? 'selected' : ''}>${_esc(label)}</option>`;
+function _taskSelect(id, cur) { return `<select id="${id}" style="${_inp}"><option value="">— None —</option>${_projTasks().map(t => _opt(t.id, t.name || t.title || 'Task', cur)).join('')}</select>`; }
+function _boqSelect(id, cur) { return `<select id="${id}" style="${_inp}"><option value="">— None —</option>${_projBoqItems().map(b => _opt(b.ref, b.label, cur)).join('')}</select>`; }
+function _vendorSelect(id, cur) { return `<select id="${id}" style="${_inp}"><option value="">— Select / none —</option>${_vendors().map(v => _opt(v.id, v.name, cur)).join('')}</select>`; }
+function _pourSelect(id, cur) { return `<select id="${id}" style="${_inp}"><option value="">— None —</option>${_pours().map(p => _opt(p.id, (p.pourNo || 'Pour') + ' · ' + (p.element || '') + ' ' + (p.grade || ''), cur)).join('')}</select>`; }
+
+// `_inp` / `_lbl` are defined further down; forward-declare via hoisted consts below.
+
 function _compressImage(file) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) { resolve(null); return; }
@@ -194,7 +216,7 @@ function _renderDPR(root) {
   const rows = list.map(d => `<div onclick="_exDprForm('${d.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0ea5e9;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(d.date)} ${d.weather ? '· ' + _esc(d.weather) : ''}${d.area ? ' · ' + _esc(d.area) : ''}</div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(d.workDone || '')}</div>
-    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}</div></div>
+    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}</div></div>
     ${_rowActions('dailyProgress', d)}</div>`).join('');
   root.innerHTML = _listShell('Daily Progress Report', '+ Add DPR', "_exDprForm()", rows, list.length);
 }
@@ -214,13 +236,17 @@ window._exDprForm = function (id) {
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Equipment Deployed</label><input id="dpEquip" placeholder="e.g. 1 JCB, 2 mixers" value="${d ? _esc(d.equipment) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Hindrances / Delays</label><input id="dpHindrance" placeholder="Any blockers" value="${d ? _esc(d.hindrance) : ''}" style="${_inp}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('dpTask', d?.taskId)}</div>
+      <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('dpBoq', d?.boqRef)}</div>
+    </div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
   </div>`);
 };
 window._exDprSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { date: v('dpDate') || _today(), weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), photo: _pendingPhoto || null };
+  const data = { date: v('dpDate') || _today(), weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.dailyProgress.push({ id: 'dpr_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
@@ -237,7 +263,7 @@ function _renderPours(root) {
     return `<div onclick="_exPourForm('${p.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #f97316;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:13px;">${_esc(p.pourNo || 'Pour')} · ${_esc(p.element || '')} ${p.grade ? '<span style="font-weight:700;color:#f97316;">' + _esc(p.grade) + '</span>' : ''}</div>
     <div style="font-size:11px;color:#64748b;">${_esc(p.location || '')} · ${_num(p.volume).toFixed(2)} m³ · ${_esc(p.date)}</div>
-    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Pre-pour checks ${checks}/${POUR_CHECKS.length} · Cubes: ${p.cubes || 0} · Slump: ${p.slump || '—'}</div></div>
+    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Pre-pour checks ${checks}/${POUR_CHECKS.length} · Cubes: ${p.cubes || 0} · Slump: ${p.slump || '—'}${(p.vendorId || p.supplier) ? ' · &#127981; ' + _esc(_vendorName(p.vendorId) || p.supplier) : ''}${p.taskId ? ' · &#128197; ' + _esc(_taskName(p.taskId)) : ''}</div></div>
     ${_rowActions('concretePours', p)}</div>`; }).join('');
   root.innerHTML = _listShell('Concrete Pour Card', '+ New Pour Card', "_exPourForm()", rows, list.length);
 }
@@ -265,8 +291,12 @@ window._exPourForm = function (id) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Cubes Cast</label><input id="cpCubes" type="number" value="${p ? p.cubes || '' : ''}" style="${_inp}"></div>
-      <div><label style="${_lbl}">RMC Supplier</label><input id="cpSupplier" placeholder="Supplier / site mix" value="${p ? _esc(p.supplier) : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">RMC Vendor</label>${_vendorSelect('cpVendor', p?.vendorId)}</div>
       <div><label style="${_lbl}">Batch / DC No.</label><input id="cpBatch" value="${p ? _esc(p.batchNo) : ''}" style="${_inp}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('cpTask', p?.taskId)}</div>
+      <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('cpBoq', p?.boqRef)}</div>
     </div>
     <div style="margin:14px 0;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;">
       <div style="font-size:12px;font-weight:800;color:#9a3412;margin-bottom:8px;">Pre-Pour Checklist</div>
@@ -289,7 +319,8 @@ window._exPourSave = function (id) {
   const data = {
     pourNo: v('cpNo'), date: v('cpDate') || _today(), element: v('cpElement'), grade: v('cpGrade'),
     volume: _num(v('cpVolume')), location: v('cpLocation'), startTime: v('cpStart'), endTime: v('cpEnd'),
-    slump: v('cpSlump'), cubes: _num(v('cpCubes')), supplier: v('cpSupplier'), batchNo: v('cpBatch'),
+    slump: v('cpSlump'), cubes: _num(v('cpCubes')), vendorId: v('cpVendor'), supplier: _vendorName(v('cpVendor')), batchNo: v('cpBatch'),
+    taskId: v('cpTask'), boqRef: v('cpBoq'),
     checklist, approvedBy: v('cpApproved'), status: v('cpStatus') || 'Completed', remarks: v('cpRemarks'), photo: _pendingPhoto || null,
   };
   if (!state.concretePours) state.concretePours = [];
@@ -323,6 +354,7 @@ window._exMsForm = function (id) {
       <div><label style="${_lbl}">Progress (%)</label><input id="msProgress" type="number" min="0" max="100" value="${m ? m.progress || 0 : 0}" style="${_inp}"></div>
       <div><label style="${_lbl}">Status</label><select id="msStatus" style="${_inp}">${sel(['Not Started', 'In Progress', 'Completed', 'Delayed'], m?.status || 'Not Started')}</select></div>
     </div>
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Linked Task (Planning)</label>${_taskSelect('msTask', m?.taskId)}</div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Remarks</label><input id="msRemarks" value="${m ? _esc(m.remarks) : ''}" style="${_inp}"></div>
     <button onclick="_exMsSave('${id || ''}')" style="width:100%;padding:11px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${m ? 'Save' : 'Add Milestone'}</button>
   </div>`);
@@ -330,7 +362,7 @@ window._exMsForm = function (id) {
 window._exMsSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
   const name = v('msName'); if (!name) return showToast('Milestone name required', 'error');
-  const data = { name, plannedDate: v('msPlanned'), actualDate: v('msActual'), progress: _num(v('msProgress')), status: v('msStatus') || 'Not Started', remarks: v('msRemarks') };
+  const data = { name, plannedDate: v('msPlanned'), actualDate: v('msActual'), progress: _num(v('msProgress')), status: v('msStatus') || 'Not Started', taskId: v('msTask'), remarks: v('msRemarks') };
   if (!state.milestones) state.milestones = [];
   if (id) { const r = state.milestones.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.milestones.push({ id: 'ms_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
@@ -366,6 +398,10 @@ window._exQForm = function (id) {
       <div><label style="${_lbl}">Result / Value</label><input id="qResult" placeholder="e.g. 32 MPa" value="${q ? _esc(q.result) : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">Status</label><select id="qStatus" style="${_inp}">${sel(['Open', 'Pass', 'Fail', 'Closed'], q?.status || 'Open')}</select></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Related Concrete Pour</label>${_pourSelect('qPour', q?.pourId)}</div>
+      <div><label style="${_lbl}">Related Task</label>${_taskSelect('qTask', q?.taskId)}</div>
+    </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Remarks</label><input id="qRemarks" value="${q ? _esc(q.remarks) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'qPrev')" style="font-size:12px;"><div id="qPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
     <button onclick="_exQSave('${id || ''}')" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${q ? 'Save' : 'Add Record'}</button>
@@ -373,7 +409,7 @@ window._exQForm = function (id) {
 };
 window._exQSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { type: v('qType') || 'Inspection', date: v('qDate') || _today(), element: v('qElement'), grade: v('qGrade'), result: v('qResult'), status: v('qStatus') || 'Open', remarks: v('qRemarks'), photo: _pendingPhoto || null };
+  const data = { type: v('qType') || 'Inspection', date: v('qDate') || _today(), element: v('qElement'), grade: v('qGrade'), result: v('qResult'), status: v('qStatus') || 'Open', pourId: v('qPour'), taskId: v('qTask'), remarks: v('qRemarks'), photo: _pendingPhoto || null };
   if (!state.qualityChecks) state.qualityChecks = [];
   if (id) { const r = state.qualityChecks.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.qualityChecks.push({ id: 'qc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
@@ -406,14 +442,17 @@ window._exSForm = function (id) {
     <div style="margin-bottom:12px;"><label style="${_lbl}">Location</label><input id="sLocation" value="${s ? _esc(s.location) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Description</label><textarea id="sDesc" rows="2" style="${_inp}resize:vertical;">${s ? _esc(s.description) : ''}</textarea></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Action Taken</label><input id="sAction" value="${s ? _esc(s.actionTaken) : ''}" style="${_inp}"></div>
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Reported By</label><input id="sReporter" value="${s ? _esc(s.reportedBy) : ''}" style="${_inp}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Reported By</label><input id="sReporter" value="${s ? _esc(s.reportedBy) : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Related Task</label>${_taskSelect('sTask', s?.taskId)}</div>
+    </div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'sPrev')" style="font-size:12px;"><div id="sPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
     <button onclick="_exSSave('${id || ''}')" style="width:100%;padding:11px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Record'}</button>
   </div>`);
 };
 window._exSSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { type: v('sType') || 'Incident', severity: v('sSev') || 'Low', date: v('sDate') || _today(), location: v('sLocation'), description: v('sDesc'), actionTaken: v('sAction'), reportedBy: v('sReporter'), photo: _pendingPhoto || null };
+  const data = { type: v('sType') || 'Incident', severity: v('sSev') || 'Low', date: v('sDate') || _today(), location: v('sLocation'), description: v('sDesc'), actionTaken: v('sAction'), reportedBy: v('sReporter'), taskId: v('sTask'), photo: _pendingPhoto || null };
   if (!state.incidents) state.incidents = [];
   if (id) { const r = state.incidents.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.incidents.push({ id: 'inc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });

@@ -67,7 +67,7 @@ import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderIssues } from './modules/issues.js?v=1.3.21';
-import { renderExecution } from './modules/execution.js?v=1.3.31';
+import { renderExecution } from './modules/execution.js?v=1.3.32';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.24';
