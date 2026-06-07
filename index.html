@@ -308,9 +308,9 @@ footer{position:relative;z-index:2;padding:60px 24px 30px;border-top:1px solid v
           <i class="fa-brands fa-windows"></i>
           <div style="text-align:left"><div style="font-size:16px">Windows</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Windows 10 / 11 — 64-bit</div></div>
         </a>
-        <a href="#" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25);opacity:.7;cursor:default">
-          <i class="fa-brands fa-google-play"></i>
-          <div style="text-align:left"><div style="font-size:16px">Android</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Coming Soon on Play Store</div></div>
+        <a href="#" onclick="openDownloadGate('android');return false" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25)">
+          <i class="fa-brands fa-android"></i>
+          <div style="text-align:left"><div style="font-size:16px">Android</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Download APK — Android 7.0+</div></div>
         </a>
         <a href="#" class="dl-btn" style="background:rgba(255,255,255,.05);color:var(--text);border:1px solid rgba(255,255,255,.1)">
           <i class="fa-brands fa-apple"></i>
@@ -453,7 +453,8 @@ document.head.appendChild(style);
 
 <script>
 const DL_URLS = {
-  windows: 'https://cuxblomxefwgdcijmpjk.supabase.co/functions/v1/download?file=exe'
+  windows: 'https://cuxblomxefwgdcijmpjk.supabase.co/functions/v1/download?file=exe',
+  android: 'https://cuxblomxefwgdcijmpjk.supabase.co/functions/v1/download?file=apk'
 };
 
 const SB_URL = 'https://cuxblomxefwgdcijmpjk.supabase.co';
