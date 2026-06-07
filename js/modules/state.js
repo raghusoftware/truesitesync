@@ -261,51 +261,42 @@ export async function pushAllToCloud() {
   return syncPushAll(state, STORAGE_KEYS);
 }
 
-/** Seed demo data on first run */
-export function seedDemoData() {
-  if (state.clients.length > 0 && state.projects.length > 0) return;
-  const pId = 'proj_' + Date.now();
-  const cId = 'c_' + Date.now();
-  const boqGroupId = 'boq_' + Date.now();
-  const boqItems = [
-    { code: 'EXC-001', description: 'Excavation in all types of soil', uom: 'M3', qty: 500, rate: 250 },
-    { code: 'RCC-001', description: 'RCC M20 Grade concrete', uom: 'M3', qty: 200, rate: 5000 },
-    { code: 'STL-001', description: 'Structural Steel TMT bars', uom: 'MT', qty: 50, rate: 52000 },
-    { code: 'BRK-001', description: 'Brick masonry in CM 1:6', uom: 'M3', qty: 150, rate: 4500 },
-    { code: 'PLT-001', description: 'Internal cement plaster 12mm', uom: 'M2', qty: 3000, rate: 180 },
-    { code: 'PNT-001', description: 'Exterior weather coat paint', uom: 'M2', qty: 2500, rate: 85 },
-    { code: 'TLE-001', description: 'Vitrified floor tiles 600x600', uom: 'M2', qty: 1200, rate: 950 },
-    { code: 'PLB-001', description: 'Plumbing CPVC pipe supply & fixing', uom: 'RM', qty: 800, rate: 120 },
-    { code: 'ELC-001', description: 'Electrical wiring with conduit', uom: 'Point', qty: 200, rate: 650 },
-    { code: 'WTP-001', description: 'Waterproofing treatment', uom: 'M2', qty: 400, rate: 350 }
-  ];
-  if (!state.projects.length) {
-    state.projects.push({
-      id: pId, name: 'City Mall Phase 1', code: 'CMP-001',
-      clientName: 'DEMO', location: 'Mumbai, Maharashtra',
-      startDate: new Date().toISOString().split('T')[0], endDate: '',
-      manager: '', budget: 5000000, status: 'Active',
-      description: 'Demo project — City Mall construction phase 1',
-      color: '#3b82f6', createdAt: new Date().toISOString(),
-      boqs: [{ id: boqGroupId, name: 'Main BOQ', type: 'BOQ', woNumber: 'WO-2026-001', woDate: new Date().toISOString().split('T')[0], items: boqItems, poValue: boqItems.reduce((s, i) => s + (i.qty * i.rate), 0) }],
-      boqItems: boqItems
-    });
+/** Demo seeding is disabled — new accounts start empty. Kept as a no-op
+ *  so existing imports/window bindings don't break. */
+export function seedDemoData() { /* no demo data — fresh start for all users */ }
+
+/**
+ * One-time removal of the legacy built-in demo data ("City Mall Phase 1" /
+ * "DEMO" client / "Demo Supplier Co." etc.) that older builds seeded into
+ * accounts. Matches on the exact seed signatures only, so real user records
+ * named similarly are never touched. Returns true if anything was removed.
+ */
+export function purgeDemoData() {
+  const n0 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length;
+
+  // Demo client: name 'DEMO' tied to the demo project name
+  const demoClientIds = (state.clients || [])
+    .filter(c => c.name === 'DEMO' && c.projectName === 'City Mall Phase 1')
+    .map(c => c.id);
+  if (demoClientIds.length) {
+    state.clients = state.clients.filter(c => !demoClientIds.includes(c.id));
+    demoClientIds.forEach(id => { if (state.items && state.items[id]) delete state.items[id]; });
   }
-  if (!state.clients.length) {
-    state.clients.push({ id: cId, name: 'DEMO', projectName: 'City Mall Phase 1', projectId: pId });
-    state.items[cId] = {
-      'EXC-001': { code: 'EXC-001', description: 'Excavation in all types of soil', uom: 'M3', rate: 250 },
-      'RCC-001': { code: 'RCC-001', description: 'RCC M20 Grade concrete', uom: 'M3', rate: 5000 }
-    };
-    state.rawMaterials.push(
-      { id: 'rm_1', name: 'Cement', type: 'Raw Material', unit: 'Bag', minStock: 50, projectId: pId },
-      { id: 'rm_2', name: 'Drill Machine', type: 'Tools', unit: 'Nos', minStock: 2, projectId: pId }
-    );
-    state.vendors.push({ id: 'v_1', name: 'Demo Supplier Co.', contact: '9876543210', gst: '24AAAAA0000A1Z5', address: 'Demo Address', projectId: pId });
-  }
-  migrateToProjects();
-  saveAllData();
+
+  // Demo project (exact name + code)
+  state.projects = (state.projects || []).filter(p => !(p.name === 'City Mall Phase 1' && p.code === 'CMP-001'));
+
+  // Demo vendor (exact name + GST)
+  state.vendors = (state.vendors || []).filter(v => !(v.name === 'Demo Supplier Co.' && v.gst === '24AAAAA0000A1Z5'));
+
+  // Demo raw material / tool (exact seed ids + names)
+  state.rawMaterials = (state.rawMaterials || []).filter(r =>
+    !((r.id === 'rm_1' && r.name === 'Cement') || (r.id === 'rm_2' && r.name === 'Drill Machine')));
+
+  const n1 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length;
+  return n1 !== n0;
 }
+if (typeof window !== 'undefined') window.purgeDemoData = purgeDemoData;
 
 /** Migrate existing data — assign projectId to records that don't have one */
 export function migrateToProjects() {

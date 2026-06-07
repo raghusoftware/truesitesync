@@ -396,6 +396,10 @@ function _bootApp() {
 
   // No demo data — fresh start for new users
   // if (!state.clients.length && !state.sheets.length) { seedDemoData(); }
+  // Remove any legacy built-in demo data (City Mall / DEMO) left in old accounts.
+  // Called via window (not a named import) so a freshly-bumped app.js paired with
+  // a still-cached older state.js can't fail at module-link time — it just no-ops.
+  try { if (typeof window.purgeDemoData === 'function' && window.purgeDemoData()) { saveAllData(); pushAllToCloud().catch(() => {}); } } catch (e) { console.warn('[boot] demo purge failed:', e); }
   // Migrate existing data to projects if needed
   if (state.projects.length && state.clients.some(c => !c.projectId)) {
     migrateToProjects();
