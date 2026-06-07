@@ -103,7 +103,12 @@ export function onSIWOChange() {
   const gstRate = opt.dataset.gst || '';
   // Fill PO fields
   document.getElementById('siFormPO').value = wo;
-  if (woDate) document.getElementById('siFormPODate').value = woDate;
+  if (woDate) {
+    document.getElementById('siFormPODate').value = woDate;
+    // Default the invoice/document date from the selected WO/PO date (still editable)
+    const dEl = document.getElementById('siFormDate');
+    if (dEl) dEl.value = woDate;
+  }
   // Fill GST if available
   if (gstRate) {
     const gstEl = document.getElementById('siFormGstPct');
