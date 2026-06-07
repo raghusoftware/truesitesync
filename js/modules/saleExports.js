@@ -32,8 +32,25 @@ export function exportSaleInvoicePDF(id) {
   const ml = 14, mr = 14;
   const cur = (getPdfCurrency() || 'Rs.').trim();
 
-  // ── Our company header (from company profile / header settings) ──
-  let y = getCompanyHeaderForPDF(doc) + 2;
+  // ── Company header: logo at top-left, name beside it, details on one line ──
+  let y = 14;
+  let textX = ml;
+  if (cp.logo) {
+    try { doc.addImage(cp.logo, 'PNG', ml, y, 22, 22); textX = ml + 27; } catch {}
+  }
+  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text(cp.CompanyName || 'YOUR COMPANY', textX, y + 6);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(70, 70, 70);
+  const hp = [];
+  if (cp.Address) hp.push(cp.Address);
+  if (cp.Phone) hp.push('Ph: ' + cp.Phone);
+  if (cp.Email) hp.push(cp.Email);
+  if (cp.GST) hp.push('GSTIN: ' + cp.GST);
+  let dy = y + 11;
+  doc.splitTextToSize(hp.join('   |   '), pw - textX - mr).forEach(line => { doc.text(line, textX, dy); dy += 4; });
+  y = Math.max(y + 22, dy) + 2;
+  doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y);
+  y += 4; doc.setTextColor(0, 0, 0);
 
   // Title bar
   doc.setFillColor(30, 58, 138);
@@ -150,14 +167,18 @@ export function exportSaleInvoicePDF(id) {
   doc.setFont('helvetica', 'normal');
   doc.splitTextToSize(amountToWordsINR(inv.total || 0), pw - ml - mr).forEach(line => { doc.text(line, ml, y); y += 4.2; });
   y += 2;
-  const received = parseFloat(inv.received) || 0;
-  doc.text('Received : ' + cur + ' ' + _num2(received), ml, y);
-  doc.text('Balance : ' + cur + ' ' + _num2((inv.total || 0) - received), ml, y + 4.5);
+  const sigY = y;
+  // Received / Balance — only when enabled in invoice settings
+  if (state.printSettings?.invoiceShowReceived) {
+    const received = parseFloat(inv.received) || 0;
+    doc.text('Received : ' + cur + ' ' + _num2(received), ml, y);
+    doc.text('Balance : ' + cur + ' ' + _num2((inv.total || 0) - received), ml, y + 4.5);
+  }
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-  doc.text('For ' + (cp.CompanyName || 'Company') + ':', valX, y, { align: 'right' });
+  doc.text('For ' + (cp.CompanyName || 'Company') + ':', valX, sigY, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text('Authorized Signatory', valX, y + 16, { align: 'right' });
+  doc.text('Authorized Signatory', valX, sigY + 16, { align: 'right' });
 
   if (inv.notes) { y += 22; doc.setFontSize(7.5); doc.setTextColor(90, 90, 90); doc.text('Notes: ' + inv.notes, ml, y); }
 

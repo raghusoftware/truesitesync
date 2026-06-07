@@ -69,6 +69,13 @@ window._setInvoiceMinRows = function(v) {
   showToast('Tax Invoice minimum rows set to ' + n, 'success');
 };
 
+window._setInvoiceShowReceived = function(checked) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.invoiceShowReceived = !!checked;
+  saveAllData();
+  showToast(checked ? 'Received & Balance will show on invoices' : 'Received & Balance hidden on invoices', 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -92,6 +99,10 @@ function renderPrintConfigTab() {
         <input type="number" min="0" max="40" value="${invMinRows}" onchange="window._setInvoiceMinRows(this.value)" class="w-24 border rounded-lg px-3 py-2 text-sm font-bold">
         <span class="text-[11px] text-slate-500 flex-1 min-w-[200px]">Blank rows are added so the invoice items table always has at least this many lines &mdash; keeps the page looking full and proper. Set 0 to disable.</span>
       </div>
+      <label class="flex items-center gap-2 mt-3 cursor-pointer">
+        <input type="checkbox" ${state.printSettings?.invoiceShowReceived ? 'checked' : ''} onchange="window._setInvoiceShowReceived(this.checked)" class="w-4 h-4 accent-blue-600">
+        <span class="text-xs font-medium text-slate-700">Show &ldquo;Received&rdquo; &amp; &ldquo;Balance&rdquo; on the Tax Invoice</span>
+      </label>
     </div>
 
     <!-- ═══ MEASUREMENT PDF ORIENTATION ═══ -->
