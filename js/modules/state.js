@@ -298,6 +298,37 @@ export function purgeDemoData() {
 }
 if (typeof window !== 'undefined') window.purgeDemoData = purgeDemoData;
 
+/**
+ * Link existing projects to the shared client master (Client → Projects).
+ * For each project that has a clientName but no valid clientId, find a client
+ * by name (case-insensitive) or create one from the project's embedded client
+ * fields, then set project.clientId. Idempotent. Returns true if it changed data.
+ */
+export function migrateClientsProjects() {
+  let changed = false;
+  if (!state.clients) state.clients = [];
+  const clients = state.clients;
+  const byName = (nm) => clients.find(c => (c.name || '').trim().toLowerCase() === (nm || '').trim().toLowerCase());
+  (state.projects || []).forEach(p => {
+    if (p.clientId && clients.some(c => c.id === p.clientId)) return;
+    const nm = (p.clientName || '').trim();
+    if (!nm) return;
+    let c = byName(nm);
+    if (!c) {
+      c = {
+        id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        name: nm, contact: p.clientContact || '', phone: p.clientPhone || '', email: p.clientEmail || '',
+        gst: p.clientGst || '', pan: p.clientPan || '', address: p.clientAddress || '',
+        createdAt: new Date().toISOString(),
+      };
+      clients.push(c); changed = true;
+    }
+    if (p.clientId !== c.id) { p.clientId = c.id; changed = true; }
+  });
+  return changed;
+}
+if (typeof window !== 'undefined') window.migrateClientsProjects = migrateClientsProjects;
+
 /** Migrate existing data — assign projectId to records that don't have one */
 export function migrateToProjects() {
   const defaultProjId = state.projects[0]?.id;

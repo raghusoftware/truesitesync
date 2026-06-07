@@ -24,28 +24,108 @@ const MODULE_CARDS = [
 ];
 
 /** Navigate to Projects Home */
+// Two-level home navigation: null = show clients list; otherwise show that client's projects
+let _homeClientId = null;
+
 export function goProjectsHome() {
   state.currentProjectId = null;
+  _homeClientId = null;
   document.getElementById('projectContextNav')?.classList.add('hidden');
   const badge = document.getElementById('headerProjBadge');
   if (badge) { badge.classList.add('hidden'); badge.textContent = ''; }
   switchView('projectsHome');
 }
 
-/** Render the projects landing page */
+/** Drill into a client to see its projects */
+export function openClientProjects(clientId) {
+  _homeClientId = clientId;
+  switchView('projectsHome');
+  renderProjectsHome();
+}
+
+/** Back to the clients list */
+export function backToClients() {
+  _homeClientId = null;
+  renderProjectsHome();
+}
+
+/** Header action button — context aware (New Client vs Add Project) */
+export function projHomeAction() {
+  if (_homeClientId) { openProjectForm(null, _homeClientId); }
+  else if (typeof window.openClientModal === 'function') { window.openClientModal(); }
+}
+
+/** Render the home landing page — clients list, or one client's projects */
 export function renderProjectsHome() {
   const grid = document.getElementById('projectsGrid');
   const empty = document.getElementById('projectsEmpty');
   if (!grid) return;
+  const backBtn = document.getElementById('projHomeBack');
+  const titleEl = document.getElementById('projHomeTitle');
+  const subEl = document.getElementById('projHomeSub');
+  const actLabel = document.getElementById('projHomeActionLabel');
+  const clients = state.clients || [];
   const projects = state.projects || [];
-  if (!projects.length) {
-    grid.innerHTML = ''; if (empty) empty.classList.remove('hidden');
+  const statusColors = { Planning: '#f59e0b', Active: '#10b981', 'On Hold': '#f97316', Completed: '#6366f1' };
+
+  // If the drilled-in client no longer exists, reset
+  if (_homeClientId && !clients.some(c => c.id === _homeClientId)) _homeClientId = null;
+
+  // ── MODE A: Clients list ───────────────────────────────
+  if (!_homeClientId) {
+    if (backBtn) backBtn.classList.add('hidden');
+    if (titleEl) titleEl.textContent = 'My Clients';
+    if (subEl) subEl.textContent = 'Create a client, then add projects under it.';
+    if (actLabel) actLabel.textContent = 'New Client';
+    if (!clients.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+    if (empty) empty.classList.add('hidden');
+    grid.innerHTML = clients.map(c => {
+      const projCount = projects.filter(p => p.clientId === c.id).length;
+      const initial = (c.name || '?').charAt(0).toUpperCase();
+      return `<div onclick="openClientProjects('${c.id}')" class="bg-white rounded-2xl border border-slate-200 overflow-hidden cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 hover:border-blue-200 group" style="box-shadow:0 1px 4px rgba(0,0,0,.04);">
+        <div style="height:6px;background:#6366f1;"></div>
+        <div class="p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div style="width:42px;height:42px;background:#6366f115;border:2px solid #6366f130;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#4f46e5;flex-shrink:0;">${initial}</div>
+              <div class="min-w-0">
+                <h3 class="font-extrabold text-slate-800 text-sm group-hover:text-blue-600 transition truncate">${c.name}</h3>
+                <p class="text-[10px] text-slate-400 font-medium truncate">${c.phone || c.email || c.gst || 'Client'}</p>
+              </div>
+            </div>
+            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 whitespace-nowrap">${projCount} project${projCount === 1 ? '' : 's'}</span>
+          </div>
+          <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+            <span class="text-[10px] text-slate-400 font-semibold">Open &rarr;</span>
+            <div class="flex items-center gap-1">
+              <button onclick="event.stopPropagation();editClient('${c.id}')" class="text-[10px] font-bold text-blue-500 hover:bg-blue-50 px-2 py-1 rounded transition" title="Edit client">&#9998; Edit</button>
+              <button onclick="event.stopPropagation();deleteClient('${c.id}')" class="text-[10px] font-bold text-red-400 hover:bg-red-50 px-2 py-1 rounded transition" title="Delete client">&#128465;</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
     return;
   }
+
+  // ── MODE B: One client's projects ──────────────────────
+  const client = clients.find(c => c.id === _homeClientId);
+  if (backBtn) backBtn.classList.remove('hidden');
+  if (titleEl) titleEl.textContent = client ? client.name : 'Projects';
+  if (subEl) subEl.textContent = 'Projects under this client.';
+  if (actLabel) actLabel.textContent = 'Add Project';
+  const clientProjects = projects.filter(p => p.clientId === _homeClientId);
   if (empty) empty.classList.add('hidden');
-  grid.innerHTML = projects.map(p => {
+  if (!clientProjects.length) {
+    grid.innerHTML = `<div class="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200">
+      <div style="font-size:48px;opacity:.3;margin-bottom:12px;">&#127959;</div>
+      <p class="text-sm text-slate-400 mb-4">No projects yet for this client.</p>
+      <button onclick="openProjectForm(null,'${_homeClientId}')" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow hover:bg-blue-700 transition">+ Add Project</button>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = clientProjects.map(p => {
     const color = p.color || '#3b82f6';
-    const statusColors = { Planning: '#f59e0b', Active: '#10b981', 'On Hold': '#f97316', Completed: '#6366f1' };
     const stColor = statusColors[p.status] || '#94a3b8';
     return `<div onclick="openProject('${p.id}')" class="bg-white rounded-2xl border border-slate-200 overflow-hidden cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 hover:border-blue-200 group" style="box-shadow:0 1px 4px rgba(0,0,0,.04);">
       <div style="height:6px;background:${color};"></div>
@@ -55,7 +135,7 @@ export function renderProjectsHome() {
             <div style="width:42px;height:42px;background:${color}15;border:2px solid ${color}30;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">&#127959;</div>
             <div>
               <h3 class="font-extrabold text-slate-800 text-sm group-hover:text-blue-600 transition">${p.name}</h3>
-              <p class="text-[10px] text-slate-400 font-medium">${p.code || ''} ${p.clientName ? '&middot; ' + p.clientName : ''}</p>
+              <p class="text-[10px] text-slate-400 font-medium">${p.code || ''}</p>
             </div>
           </div>
           <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:${stColor}18;color:${stColor};border:1px solid ${stColor}30;">${p.status || 'Active'}</span>
@@ -430,7 +510,44 @@ export function downloadBOQTemplate() {
 // ── Project Form Open/Close/Save ──
 
 /** Open project form (add or edit) */
-export function openProjectForm(editId) {
+/** Fill the project-form client dropdown and select the given client (or "new"). */
+function _populateProjFormClients(selectedClientId) {
+  const sel = document.getElementById('projFormClientSelect');
+  if (!sel) return;
+  const opts = ['<option value="__new__">＋ Add a new client…</option>'];
+  (state.clients || []).forEach(c => {
+    opts.push(`<option value="${c.id}">${(c.name || 'Unnamed').replace(/</g, '&lt;')}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  sel.value = (selectedClientId && (state.clients || []).some(c => c.id === selectedClientId)) ? selectedClientId : '__new__';
+  _projFormClientChanged();
+}
+
+/** When the project-form client dropdown changes: autofill (existing) or clear (new). */
+export function _projFormClientChanged() {
+  const sel = document.getElementById('projFormClientSelect');
+  if (!sel) return;
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+  const idEl = document.getElementById('projFormClientId');
+  if (sel.value === '__new__') {
+    if (idEl) idEl.value = '';
+    ['projFormClient', 'projFormClientContact', 'projFormClientPhone', 'projFormClientEmail', 'projFormClientGst', 'projFormClientPan', 'projFormClientAddr'].forEach(id => setVal(id, ''));
+    document.getElementById('projFormClient')?.removeAttribute('readonly');
+    return;
+  }
+  const c = (state.clients || []).find(x => x.id === sel.value);
+  if (!c) return;
+  if (idEl) idEl.value = c.id;
+  setVal('projFormClient', c.name);
+  setVal('projFormClientContact', c.contact);
+  setVal('projFormClientPhone', c.phone);
+  setVal('projFormClientEmail', c.email);
+  setVal('projFormClientGst', c.gst);
+  setVal('projFormClientPan', c.pan);
+  setVal('projFormClientAddr', c.address);
+}
+
+export function openProjectForm(editId, presetClientId) {
   const panel = document.getElementById('projectFormPanel');
   if (!panel) return;
   const titleEl = document.getElementById('projFormTitle');
@@ -460,6 +577,7 @@ export function openProjectForm(editId) {
     setVal('projFormClientGst', p.clientGst);
     setVal('projFormClientPan', p.clientPan);
     setVal('projFormClientAddr', p.clientAddress);
+    _populateProjFormClients(p.clientId);
     // BOQ — multiple groups (WO/PO details stored per group)
     if (p.boqs && p.boqs.length) {
       _boqGroups = JSON.parse(JSON.stringify(p.boqs));
@@ -502,6 +620,8 @@ export function openProjectForm(editId) {
     setVal('projFormDesc', '');
     // Client
     ['projFormClient','projFormClientContact','projFormClientPhone','projFormClientEmail','projFormClientGst','projFormClientPan','projFormClientAddr'].forEach(id => setVal(id, ''));
+    setVal('projFormClientId', '');
+    _populateProjFormClients(presetClientId || '');
     // BOQ — empty (WO/PO details stored per group)
     _boqGroups = [];
     _activeBoqGroupIdx = 0;
@@ -523,8 +643,28 @@ export function saveProject() {
   if (!name) { showToast('Project name is required', 'error'); return; }
   const editId = document.getElementById('projFormId')?.value;
   const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
+
+  // Resolve / create the client this project belongs to (client is the parent entity)
+  const clientName = getVal('projFormClient');
+  if (!clientName) { showToast('Please choose or enter a client for this project', 'error'); return; }
+  const clientFields = {
+    name: clientName, contact: getVal('projFormClientContact'), phone: getVal('projFormClientPhone'),
+    email: getVal('projFormClientEmail'), gst: getVal('projFormClientGst').toUpperCase(),
+    pan: getVal('projFormClientPan').toUpperCase(), address: getVal('projFormClientAddr'),
+  };
+  if (!state.clients) state.clients = [];
+  let clientId = getVal('projFormClientId');
+  let clientRec = clientId ? state.clients.find(c => c.id === clientId) : null;
+  if (!clientRec) {
+    clientRec = state.clients.find(c => (c.name || '').trim().toLowerCase() === clientName.toLowerCase());
+    if (!clientRec) { clientRec = { id: 'c_' + Date.now(), createdAt: new Date().toISOString() }; state.clients.push(clientRec); }
+  }
+  Object.assign(clientRec, clientFields); // keep client master in sync with form edits
+  clientId = clientRec.id;
+
   const data = {
     name,
+    clientId,
     code: getVal('projFormCode'),
     manager: getVal('projFormManager'),
     location: getVal('projFormLocation'),
@@ -559,7 +699,7 @@ export function saveProject() {
     state.projects.push(data);
     showToast('Project created!');
   }
-  saveAllData(); closeProjectForm();
+  saveAllData(); populateDropdowns(); closeProjectForm();
   if (state.currentProjectId) renderProjectDashboard();
   else renderProjectsHome();
 }

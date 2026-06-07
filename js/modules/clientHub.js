@@ -37,44 +37,67 @@ export function renderClientHub() {
 // ==========================================
 // MASTER DATA
 // ==========================================
-export function openClientModal() {
+const _cf = (id) => (document.getElementById(id)?.value || '').trim();
+const _setCf = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+
+export function openClientModal(editId) {
+  const c = editId ? state.clients.find(x => x.id === editId) : null;
+  _setCf('modalClientId', c ? c.id : '');
+  _setCf('modalClientName', c ? c.name : '');
+  _setCf('modalClientContact', c ? c.contact : '');
+  _setCf('modalClientPhone', c ? c.phone : '');
+  _setCf('modalClientEmail', c ? c.email : '');
+  _setCf('modalClientGst', c ? c.gst : '');
+  _setCf('modalClientPan', c ? c.pan : '');
+  _setCf('modalClientAddr', c ? c.address : '');
+  const t = document.getElementById('clientModalTitle'); if (t) t.textContent = c ? 'Edit Client' : 'Add Client';
   document.getElementById('clientModal').classList.remove('hidden');
-  document.getElementById('modalClientName').value = '';
-  document.getElementById('modalClientProject').value = '';
 }
 
 export function saveClient() {
-  const name = document.getElementById('modalClientName').value;
-  if (name) {
-    state.clients.push({ id: 'c_' + Date.now(), name, projectName: document.getElementById('modalClientProject').value });
-    saveAllData(); document.getElementById('clientModal').classList.add('hidden');
-    populateDropdowns(); renderClientTable();
+  const name = _cf('modalClientName');
+  if (!name) { showToast('Client name is required', 'error'); return; }
+  const editId = _cf('modalClientId');
+  const data = {
+    name,
+    contact: _cf('modalClientContact'), phone: _cf('modalClientPhone'), email: _cf('modalClientEmail'),
+    gst: _cf('modalClientGst').toUpperCase(), pan: _cf('modalClientPan').toUpperCase(), address: _cf('modalClientAddr'),
+  };
+  if (editId) {
+    const c = state.clients.find(x => x.id === editId);
+    if (c) Object.assign(c, data);
+  } else {
+    state.clients.push({ id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() });
   }
+  saveAllData();
+  document.getElementById('clientModal').classList.add('hidden');
+  populateDropdowns();
+  if (typeof window.renderProjectsHome === 'function') window.renderProjectsHome();
+  renderClientTable();
+  showToast(editId ? 'Client updated' : 'Client added', 'success');
 }
 
 export function renderClientTable() {
   const tbody = document.getElementById('clientTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   state.clients.forEach(c => {
-    tbody.innerHTML += `<tr><td class="px-4 py-3 font-bold">${c.name}</td><td class="px-4 py-3">${c.projectName}</td><td class="px-4 py-3 text-right"><button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded mr-1">Edit</button><button onclick="deleteClient('${c.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded">Del</button></td></tr>`;
+    const projCount = (state.projects || []).filter(p => p.clientId === c.id).length;
+    tbody.innerHTML += `<tr><td class="px-4 py-3 font-bold">${c.name}</td><td class="px-4 py-3">${projCount} project${projCount === 1 ? '' : 's'}</td><td class="px-4 py-3 text-right"><button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded mr-1">Edit</button><button onclick="deleteClient('${c.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded">Del</button></td></tr>`;
   });
 }
 
 export function editClient(id) {
-  const c = state.clients.find(x => x.id === id);
-  if (!c) return;
-  const newName = prompt("Edit Client Name:", c.name);
-  if (newName === null || newName.trim() === "") return;
-  const newProj = prompt("Edit Project Name:", c.projectName);
-  if (newProj === null) return;
-  c.name = newName.trim(); c.projectName = newProj.trim();
-  saveAllData(); populateDropdowns(); renderClientTable(); renderMasterClientList();
-  showToast("Client details updated successfully");
+  openClientModal(id);
 }
 
 export function deleteClient(id) {
-  if (confirm("Delete this client?")) {
+  const projCount = (state.projects || []).filter(p => p.clientId === id).length;
+  if (projCount) { showToast(`Cannot delete — this client has ${projCount} project${projCount === 1 ? '' : 's'}. Remove or reassign them first.`, 'error'); return; }
+  if (confirm('Delete this client?')) {
     state.clients = state.clients.filter(c => c.id !== id);
-    saveAllData(); renderClientTable(); showToast("Client deleted");
+    saveAllData(); populateDropdowns(); renderClientTable();
+    if (typeof window.renderProjectsHome === 'function') window.renderProjectsHome();
+    showToast('Client deleted');
   }
 }

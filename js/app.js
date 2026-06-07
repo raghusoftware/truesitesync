@@ -39,6 +39,7 @@ import {
 import {
   switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
+  openClientProjects, backToClients, projHomeAction, _projFormClientChanged,
   openProjectForm, closeProjectForm, saveProject, deleteProject,
   addBOQRow, removeBOQRow, calcBOQRow, handleBOQUpload, downloadBOQTemplate,
   addNewBOQGroup, switchBOQTab, deleteActiveBOQGroup,
@@ -59,7 +60,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js';
+} from './modules/ui.js?v=1.3.10';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
@@ -67,7 +68,7 @@ import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLe
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
-import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js';
+import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.10';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
@@ -162,6 +163,7 @@ Object.assign(window, {
   // UI
   switchView, handleDescInput, hideAutocomplete,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
+  openClientProjects, backToClients, projHomeAction, _projFormClientChanged,
   openProjectForm, closeProjectForm, saveProject, deleteProject,
   addBOQRow, removeBOQRow, calcBOQRow, handleBOQUpload, downloadBOQTemplate,
   addNewBOQGroup, switchBOQTab, deleteActiveBOQGroup,
@@ -400,6 +402,8 @@ function _bootApp() {
   // Called via window (not a named import) so a freshly-bumped app.js paired with
   // a still-cached older state.js can't fail at module-link time — it just no-ops.
   try { if (typeof window.purgeDemoData === 'function' && window.purgeDemoData()) { saveAllData(); pushAllToCloud().catch(() => {}); } } catch (e) { console.warn('[boot] demo purge failed:', e); }
+  // Link existing projects to the shared client master (Client → Projects hierarchy)
+  try { if (typeof window.migrateClientsProjects === 'function' && window.migrateClientsProjects()) { saveAllData(); pushAllToCloud().catch(() => {}); } } catch (e) { console.warn('[boot] client/project migration failed:', e); }
   // Migrate existing data to projects if needed
   if (state.projects.length && state.clients.some(c => !c.projectId)) {
     migrateToProjects();
