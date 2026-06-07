@@ -472,7 +472,7 @@ function _showConfirmationScreen(email) {
       <p style="font-size:15px;font-weight:700;color:#1e3a8a;margin:0 0 24px;word-break:break-all;">${email}</p>
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:18px;text-align:left;">
         <p style="font-size:12px;color:#1e3a8a;font-weight:700;margin:0 0 8px;">Enter the 6-digit code from the email</p>
-        <input id="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:18px;font-weight:700;letter-spacing:6px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:10px;" onkeydown="if(event.key==='Enter')window._rbacVerifySignupOtp('${email}')">
+        <input id="signupOtp" type="text" inputmode="numeric" maxlength="8" placeholder="Enter code" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:10px;" onkeydown="if(event.key==='Enter')window._rbacVerifySignupOtp('${email}')">
         <button onclick="window._rbacVerifySignupOtp('${email}')" id="otpVerifyBtn" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Verify &amp; Continue</button>
         <p style="font-size:10px;color:#94a3b8;margin:8px 0 0;text-align:center;">…or just click the confirmation link in the email.</p>
       </div>

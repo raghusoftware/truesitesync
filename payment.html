@@ -67,7 +67,7 @@
     <div id="otpBox" style="display:none;">
       <p style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">Verify your email</p>
       <p style="font-size:12px;color:#64748b;margin-bottom:12px;">We emailed a 6-digit code to <strong id="otpEmail"></strong>. Enter it below to activate your account.</p>
-      <label>Verification code</label><input id="fOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code" style="letter-spacing:4px;font-weight:700;text-align:center;">
+      <label>Verification code</label><input id="fOtp" type="text" inputmode="numeric" maxlength="8" placeholder="Enter code" autocomplete="one-time-code" style="letter-spacing:4px;font-weight:700;text-align:center;">
       <button class="btn btn-pay" id="otpBtn" onclick="verifyOtp()">Verify &amp; Continue</button>
       <p class="toggle">Didn't get it? <a onclick="resendOtp()">Resend code</a> · <a onclick="backToAuth()">Change email</a></p>
     </div>
