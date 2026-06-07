@@ -30,7 +30,7 @@
 .table-input[readonly] { background: #f9fafb; color: #6b7280; cursor: not-allowed; font-weight: 500; }
 
 /* Toast */
-#toastContainer { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+#toastContainer { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 2147483647; display: flex; flex-direction: column; gap: 0.5rem; }
 .toast { padding: 0.75rem 1.25rem; border-radius: 8px; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.25s ease-out forwards; }
 .toast-success { background: #059669; }
 .toast-error { background: #dc2626; }
