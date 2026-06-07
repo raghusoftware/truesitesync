@@ -23,6 +23,14 @@ function _measOrientation() {
 function _pageCenterX(orient) { return orient === 'landscape' ? 148 : 105; }
 
 /** Simple Measurement Sheet PDF */
+/** Parse a #rrggbb hex into [r,g,b]; falls back when invalid. */
+function _rgb(hex, fallback) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
+  if (!m) return fallback;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 export function exportSimpleMeasurementPdf(id) {
   try {
   const sheetId = id || state.currentSheetId;
@@ -41,6 +49,9 @@ export function exportSimpleMeasurementPdf(id) {
   const doc = new window.jspdf.jsPDF(orient);
   let y = getCompanyHeaderForPDF(doc);
   const sym = getCurrencySymbol();
+  // User-selectable measurement PDF accent colour (Settings → Print)
+  const accent = _rgb(state.printSettings?.measurementColor, [249, 115, 22]);
+  const tint = accent.map(ch => Math.round(ch + (255 - ch) * 0.88));
 
   doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
   doc.text('MEASUREMENT SHEET', cx, y + 5, null, null, 'center');
@@ -66,7 +77,7 @@ export function exportSimpleMeasurementPdf(id) {
     const title = (first.code ? first.code + ' — ' : '') + (first.description || first.code || '');
     rows.push([
       { content: itemNum, styles: { fontStyle: 'bold' } },
-      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: [235, 242, 255], textColor: [30, 58, 138] } }
+      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: tint, textColor: accent } }
     ]);
     let total = 0;
     lines.forEach(e => {
@@ -81,13 +92,13 @@ export function exportSimpleMeasurementPdf(id) {
   });
   doc.autoTable({
     startY: y + 28, head, body: rows, theme: 'grid', tableWidth: 'auto',
-    headStyles: { fillColor: [249, 115, 22], fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center' },
+    headStyles: { fillColor: accent, fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center' },
     styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, overflow: 'linebreak' },
     columnStyles: {
       0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
       2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 18, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' },
       5: { cellWidth: 18, halign: 'center' },
-      6: { cellWidth: 22, halign: 'center', fontStyle: 'bold', textColor: [30, 58, 138] }, 7: { cellWidth: 16, halign: 'center' }
+      6: { cellWidth: 22, halign: 'center', fontStyle: 'bold', textColor: accent }, 7: { cellWidth: 16, halign: 'center' }
     }
   });
 

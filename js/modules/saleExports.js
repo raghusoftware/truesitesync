@@ -14,6 +14,14 @@ import { formatNumber2, amountToWordsINR } from './format.js';
 
 const _num2 = formatNumber2;
 
+/** Parse a #rrggbb hex into [r,g,b]; falls back when invalid. */
+function _rgb(hex, fallback) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
+  if (!m) return fallback;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 /**
  * "Simple" Tax Invoice theme — our company header + a clean GST invoice table.
  * Supports a configurable minimum number of table rows (blank filler rows) so
@@ -31,6 +39,8 @@ export function exportSaleInvoicePDF(id) {
   const pw = doc.internal.pageSize.getWidth();
   const ml = 14, mr = 14;
   const cur = (getPdfCurrency() || 'Rs.').trim();
+  // User-selectable invoice accent colour (Settings → Print)
+  const accent = _rgb(state.printSettings?.invoiceColor, [30, 58, 138]);
 
   // ── Company header: logo at top-left, name beside it, details on one line ──
   let y = 14;
@@ -53,7 +63,7 @@ export function exportSaleInvoicePDF(id) {
   y += 4; doc.setTextColor(0, 0, 0);
 
   // Title bar
-  doc.setFillColor(30, 58, 138);
+  doc.setFillColor(accent[0], accent[1], accent[2]);
   doc.rect(ml, y, pw - ml - mr, 8, 'F');
   doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
   doc.text('TAX INVOICE', pw / 2, y + 5.6, { align: 'center' });
@@ -110,7 +120,7 @@ export function exportSaleInvoicePDF(id) {
     body,
     foot: [['', 'Total', '', intStr(sumQty), '', '', _num2(sumTax), _num2(sumGross)]],
     theme: 'grid',
-    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 8, halign: 'center', fontStyle: 'bold' },
+    headStyles: { fillColor: accent, textColor: 255, fontSize: 8, halign: 'center', fontStyle: 'bold' },
     footStyles: { fillColor: [241, 245, 249], textColor: 0, fontStyle: 'bold', fontSize: 8 },
     styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 7 },
     columnStyles: {

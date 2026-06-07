@@ -76,6 +76,20 @@ window._setInvoiceShowReceived = function(checked) {
   showToast(checked ? 'Received & Balance will show on invoices' : 'Received & Balance hidden on invoices', 'success');
 };
 
+window._setInvoiceColor = function(hex) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.invoiceColor = hex || '#1e3a8a';
+  saveAllData();
+  showToast('Invoice theme colour updated', 'success');
+};
+
+window._setMeasurementColor = function(hex) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.measurementColor = hex || '#f97316';
+  saveAllData();
+  showToast('Measurement PDF colour updated', 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -103,6 +117,11 @@ function renderPrintConfigTab() {
         <input type="checkbox" ${state.printSettings?.invoiceShowReceived ? 'checked' : ''} onchange="window._setInvoiceShowReceived(this.checked)" class="w-4 h-4 accent-blue-600">
         <span class="text-xs font-medium text-slate-700">Show &ldquo;Received&rdquo; &amp; &ldquo;Balance&rdquo; on the Tax Invoice</span>
       </label>
+      <div class="flex items-center gap-3 mt-3">
+        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
+        <input type="color" value="${state.printSettings?.invoiceColor || '#1e3a8a'}" onchange="window._setInvoiceColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Invoice header & table colour">
+        <span class="text-[11px] text-slate-400">Used for the invoice title bar and table header.</span>
+      </div>
     </div>
 
     <!-- ═══ MEASUREMENT PDF ORIENTATION ═══ -->
@@ -114,6 +133,11 @@ function renderPrintConfigTab() {
       <div class="flex gap-2">
         <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
         <button onclick="window._setMeasOrientation('landscape')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📑 Landscape</button>
+      </div>
+      <div class="flex items-center gap-3 mt-3">
+        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
+        <input type="color" value="${state.printSettings?.measurementColor || '#f97316'}" onchange="window._setMeasurementColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Measurement PDF table colour">
+        <span class="text-[11px] text-slate-400">Used for the measurement table header & item titles.</span>
       </div>
       <p class="text-[10px] text-slate-400 mt-2">Applies to all measurement sheet PDFs.</p>
     </div>
