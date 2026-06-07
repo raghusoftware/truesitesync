@@ -269,7 +269,7 @@ export function exportRABillExcel(abstractId) {
   mesMerges.push({ s: { r: mr, c: 0 }, e: { r: mr, c: lastCol } }); mr++;
   mesRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
   mesMerges.push({ s: { r: mr, c: 0 }, e: { r: mr, c: lastCol } }); mr++;
-  mesRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+  mesRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
   mesMerges.push({ s: { r: mr, c: 0 }, e: { r: mr, c: lastCol } }); mr++;
 
   const baseHeaders = ['Sr. No.', 'Description', 'Nos.', 'Length', 'Breadth', 'Height', 'Total'];
@@ -340,7 +340,7 @@ export function exportRABillExcel(abstractId) {
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
     bbsRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
-    bbsRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+    bbsRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
 
     bbsRows.push(['SN', 'Description', 'DIA', 'No of Bar', 'No.', 'Total Bars', 'A', 'B', 'C', 'D', 'Hook', 'Cut Len', 'Total Len', '8mm', '10mm', '12mm', '16mm', '20mm']);
@@ -391,7 +391,7 @@ export function exportRABillExcel(abstractId) {
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 11 } }); ar++;
   absRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 11 } }); ar++;
-  absRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+  absRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 11 } }); ar++;
   absRows.push([]); ar++;
 

@@ -183,7 +183,7 @@ export function exportDetailedMeasurementPdf(id) {
   const details = [
     `Name of Work: ${proj?.description || proj?.name || '—'}`,
     `Name of Contractor: ${c?.name || proj?.clientName || '—'}`,
-    `Name of Authority: ${cp.CompanyName || '—'}`
+    `Name of Authority: ${state.printSettings?.authorityName || cp.CompanyName || '—'}`
   ];
   details.forEach(line => { doc.text(line, ml, y + 4); y += 5; });
   y += 3;
@@ -391,7 +391,7 @@ export function exportDetailedMeasurementExcel() {
   merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } }); r++;
   mesRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
   merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } }); r++;
-  mesRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+  mesRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
   merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } }); r++;
 
   // Column headers
@@ -478,7 +478,7 @@ export function exportDetailedMeasurementExcel() {
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
     bbsRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
-    bbsRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+    bbsRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
     bbsMerges.push({ s: { r: br, c: 0 }, e: { r: br, c: totalCols - 1 } }); br++;
 
     bbsRows.push(['SN', 'Description', 'DIA', 'No of Bar', 'No.', 'Total Bars', 'A', 'B', 'C', 'D', 'Hook', 'Cut Len', 'Total Len', '8mm', '10mm', '12mm', '16mm', '20mm']);
@@ -534,7 +534,7 @@ export function exportDetailedMeasurementExcel() {
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 6 } }); ar++;
   absRows.push(['Name of Contractor :- ' + (c?.name || proj?.clientName || '—')]);
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 6 } }); ar++;
-  absRows.push(['Name of Authority :- ' + (cp.CompanyName || '—')]);
+  absRows.push(['Name of Authority :- ' + (state.printSettings?.authorityName || cp.CompanyName || '—')]);
   absMerges.push({ s: { r: ar, c: 0 }, e: { r: ar, c: 6 } }); ar++;
 
   absRows.push(['Item No.', 'Item Description', 'Unit', 'Tender Qty', 'Done Qty', 'Rate', 'Total Allow Amount']);

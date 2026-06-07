@@ -97,6 +97,13 @@ window._setMeasurementTotalColor = function(hex) {
   showToast('Total Quantity colour updated', 'success');
 };
 
+window._setAuthorityName = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.authorityName = (v || '').trim();
+  saveAllData();
+  showToast('Name of Authority updated', 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -129,6 +136,16 @@ function renderPrintConfigTab() {
         <input type="color" value="${state.printSettings?.invoiceColor || '#1e3a8a'}" onchange="window._setInvoiceColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Invoice header & table colour">
         <span class="text-[11px] text-slate-400">Used for the invoice title bar and table header.</span>
       </div>
+    </div>
+
+    <!-- ═══ NAME OF AUTHORITY ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#9997;</span>
+        <h4 class="font-bold text-sm text-slate-800">Name of Authority (Measurement & Abstract)</h4>
+      </div>
+      <input type="text" value="${(state.printSettings?.authorityName || '').replace(/"/g,'&quot;')}" onchange="window._setAuthorityName(this.value)" placeholder="e.g. Executive Engineer / Authorized Signatory name" class="w-full border rounded-lg px-3 py-2 text-sm">
+      <p class="text-[10px] text-slate-400 mt-2">Printed as &ldquo;Name of Authority&rdquo; on measurement sheets, RA bills & abstracts. Leave blank to use the company name.</p>
     </div>
 
     <!-- ═══ MEASUREMENT PDF ORIENTATION ═══ -->
