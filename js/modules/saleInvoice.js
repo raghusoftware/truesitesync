@@ -875,14 +875,28 @@ export function viewSaleInvoiceInfo(id) {
 export function _navigateToAbstract(absId) {
   const abs = (state.abstracts || []).find(a => a.id === absId);
   if (!abs) { showToast('Abstract not found', 'error'); return; }
-  // Open the project that contains this abstract
-  if (abs.projectId) {
-    openProject(abs.projectId);
-    setTimeout(() => window.switchView('abstractsView'), 200);
-    setTimeout(() => renderAbstractsList(), 300);
-  } else {
+  const reveal = () => {
     window.switchView('abstractsView');
     renderAbstractsList();
+    let tries = 0;
+    const focusCard = () => {
+      const el = document.getElementById('abscard_' + absId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'box-shadow .3s, background-color .3s';
+        el.style.boxShadow = '0 0 0 3px #f59e0b';
+        el.style.backgroundColor = '#fffbeb';
+        setTimeout(() => { el.style.boxShadow = ''; el.style.backgroundColor = ''; }, 2400);
+      } else if (tries++ < 12) { setTimeout(focusCard, 120); }
+    };
+    setTimeout(focusCard, 150);
+  };
+  // Open the project that contains this abstract, then reveal the exact card
+  if (abs.projectId && state.currentProjectId !== abs.projectId) {
+    openProject(abs.projectId);
+    setTimeout(reveal, 260);
+  } else {
+    reveal();
   }
 }
 

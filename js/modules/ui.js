@@ -1918,7 +1918,7 @@ export function renderAbstractsList() {
       ? `<span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">&#10003; Invoiced: ${a.linkedInvoice}</span>`
       : `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-xs px-3 py-1 rounded-full font-bold border border-amber-200">&#9679; Pending Invoice</span>`;
     container.innerHTML += `
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition p-4">
+      <div id="abscard_${a.id}" class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition p-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <!-- Left: Info -->
           <div class="flex items-start gap-4 flex-1 min-w-0">
