@@ -1335,17 +1335,20 @@ export function openVendorModal() {
 export function saveVendor() {
   const name = document.getElementById('modalVenName').value;
   if (!name) return showToast('Name Required', 'error');
-  state.vendors.push({
+  const rec = {
     id: 'v_' + Date.now(), name,
     contact: document.getElementById('modalVenContact').value,
     gst: document.getElementById('modalVenGST').value.toUpperCase(),
-    address: document.getElementById('modalVenAddress').value
-  });
+    address: document.getElementById('modalVenAddress').value,
+    projectId: state.currentProjectId || undefined
+  };
+  state.vendors.push(rec);
   saveAllData();
   document.getElementById('vendorModal').classList.add('hidden');
   populateDropdowns();
   showToast('Vendor Saved');
   renderMasterVendorList();
+  if (typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(rec);
 }
 
 export function addPurchaseRow(count = 1) {

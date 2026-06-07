@@ -63,11 +63,13 @@ export function saveClient() {
     contact: _cf('modalClientContact'), phone: _cf('modalClientPhone'), email: _cf('modalClientEmail'),
     gst: _cf('modalClientGst').toUpperCase(), pan: _cf('modalClientPan').toUpperCase(), address: _cf('modalClientAddr'),
   };
+  let createdRec = null;
   if (editId) {
     const c = state.clients.find(x => x.id === editId);
     if (c) Object.assign(c, data);
   } else {
-    state.clients.push({ id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() });
+    createdRec = { id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() };
+    state.clients.push(createdRec);
   }
   saveAllData();
   document.getElementById('clientModal').classList.add('hidden');
@@ -75,6 +77,7 @@ export function saveClient() {
   if (typeof window.renderProjectsHome === 'function') window.renderProjectsHome();
   renderClientTable();
   showToast(editId ? 'Client updated' : 'Client added', 'success');
+  if (createdRec && typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(createdRec);
 }
 
 export function renderClientTable() {

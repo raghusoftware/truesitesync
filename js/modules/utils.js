@@ -284,6 +284,31 @@ export function getSimpleHeaderForPDF(doc, opts = {}) {
 // classic header instead of failing at module-link time.
 if (typeof window !== 'undefined') window.getSimpleHeaderForPDF = getSimpleHeaderForPDF;
 
+// ── Inline "add new client / vendor" from any sale/purchase form dropdown ──
+if (typeof window !== 'undefined') {
+  window._addPartyInline = function (selId, type) {
+    window._pendingPartySelect = selId || '';
+    if (type === 'vendor') { if (window.openVendorModal) window.openVendorModal(); }
+    else { if (window.openClientModal) window.openClientModal(); }
+  };
+  // Called by saveClient / saveVendor after a new record is created — drops it
+  // into the dropdown that triggered the add and selects it (firing change).
+  window._applyPendingPartySelect = function (rec) {
+    const selId = window._pendingPartySelect; window._pendingPartySelect = '';
+    if (!selId || !rec) return;
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    if (!Array.from(sel.options).some(o => o.value === rec.id)) {
+      const o = document.createElement('option');
+      o.value = rec.id;
+      o.textContent = rec.name + (rec.projectName ? ' - ' + rec.projectName : '');
+      sel.appendChild(o);
+    }
+    sel.value = rec.id;
+    sel.dispatchEvent(new Event('change'));
+  };
+}
+
 /** Get company header for jsPDF documents */
 export function getCompanyHeaderForPDF(doc) {
   const cp = state.companyProfile;
