@@ -5,9 +5,9 @@ name: Mirror to web.truesitesync.com
 #
 # One-time setup (see WEB_SUBDOMAIN_SETUP.md):
 #   1. Create an empty public repo: raghusoftware/truesitesync-web
-#   2. Add a Personal Access Token (repo / contents:write on that repo) as a
-#      secret named WEB_DEPLOY_TOKEN in THIS repo.
-#   3. In truesitesync-web → Settings → Pages → Source = branch "gh-pages".
+#   2. Add a Personal Access Token (repo / contents:write) as a secret named
+#      WEB_DEPLOY_TOKEN in THIS repo.
+#   3. In truesitesync-web -> Settings -> Pages -> Source = branch "gh-pages".
 #   4. Add DNS record: CNAME  web  ->  raghusoftware.github.io
 
 on:
@@ -21,8 +21,9 @@ permissions:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    # Skip gracefully if the token hasn't been added yet
-    if: ${{ true }}
+    # Map the secret into an env var (secrets can't be used directly in `if`).
+    env:
+      HAS_TOKEN: ${{ secrets.WEB_DEPLOY_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +32,7 @@ jobs:
         run: echo "web.truesitesync.com" > CNAME
 
       - name: Deploy to truesitesync-web
-        if: ${{ secrets.WEB_DEPLOY_TOKEN != '' }}
+        if: env.HAS_TOKEN == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           personal_token: ${{ secrets.WEB_DEPLOY_TOKEN }}
@@ -39,5 +40,9 @@ jobs:
           publish_branch: gh-pages
           publish_dir: .
           force_orphan: true
-          exclude_assets: '.github,tests,node_modules,**/package.json,**/package-lock.json'
+          exclude_assets: '.github,tests,node_modules'
           commit_message: "Sync from truesitesync@${{ github.sha }}"
+
+      - name: Note if token missing
+        if: env.HAS_TOKEN != 'true'
+        run: echo "WEB_DEPLOY_TOKEN secret not set — skipping mirror. Add it in repo Settings → Secrets and variables → Actions."
