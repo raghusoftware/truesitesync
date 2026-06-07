@@ -18,7 +18,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.3.35';
+} from './controllers/reportController.js?v=1.3.36';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -69,6 +69,7 @@ import { renderPettyCash } from './modules/pettyCash.js';
 import { renderIssues } from './modules/issues.js?v=1.3.21';
 import { renderExecution } from './modules/execution.js?v=1.3.33';
 import './modules/projectReport.js?v=1.3.35';
+import './modules/financeReports.js?v=1.3.36';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.24';
