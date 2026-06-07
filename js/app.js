@@ -67,7 +67,7 @@ import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderIssues } from './modules/issues.js?v=1.3.21';
-import { renderExecution } from './modules/execution.js?v=1.3.32';
+import { renderExecution } from './modules/execution.js?v=1.3.33';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.24';
@@ -275,17 +275,22 @@ Object.assign(window, {
   _rbacLogout: async () => {
     console.log('[logout] Starting logout...');
     _appBooted = false;
-    try { await logoutUser(); } catch(e) { console.warn('[logout] error:', e); }
-    // Force full UI reset
-    const app = document.getElementById('appContainer');
-    if (app) app.style.display = 'none';
-    const sidebar = document.getElementById('appSidebar');
-    if (sidebar) sidebar.style.display = '';
-    // Clear local session data
-    localStorage.removeItem('mes_current_user');
-    sessionStorage.clear();
-    showLoginPage();
-    console.log('[logout] Done');
+    try { window.stopRealtime?.(); } catch {}
+    // Sign out of Supabase, but never hang the UI on a slow/offline network.
+    try {
+      const sb = getSupabase();
+      if (sb) await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 3000))]);
+    } catch (e) { console.warn('[logout] signOut error:', e); }
+    // Force-clear every session token so the reload definitely lands on login.
+    try {
+      localStorage.removeItem('mes_current_user');
+      sessionStorage.clear();
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
+    console.log('[logout] Done — reloading');
+    location.reload();
   },
   _rbacOpenUserForm: openUserForm,
   _rbacSaveUser: saveUser,

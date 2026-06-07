@@ -12,7 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, mobileSavePDF } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 
 // ── option lists ───────────────────────────────────────────
@@ -264,7 +264,11 @@ function _renderPours(root) {
     <div style="min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:13px;">${_esc(p.pourNo || 'Pour')} · ${_esc(p.element || '')} ${p.grade ? '<span style="font-weight:700;color:#f97316;">' + _esc(p.grade) + '</span>' : ''}</div>
     <div style="font-size:11px;color:#64748b;">${_esc(p.location || '')} · ${_num(p.volume).toFixed(2)} m³ · ${_esc(p.date)}</div>
     <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Pre-pour checks ${checks}/${POUR_CHECKS.length} · Cubes: ${p.cubes || 0} · Slump: ${p.slump || '—'}${(p.vendorId || p.supplier) ? ' · &#127981; ' + _esc(_vendorName(p.vendorId) || p.supplier) : ''}${p.taskId ? ' · &#128197; ' + _esc(_taskName(p.taskId)) : ''}</div></div>
-    ${_rowActions('concretePours', p)}</div>`; }).join('');
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <button onclick="event.stopPropagation();_exPourPDF('${p.id}')" title="Print pour card" style="border:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">&#128424; PDF</button>
+      ${_photoBtn('concretePours', p)}
+      <button onclick="event.stopPropagation();_exDel('concretePours','${p.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button>
+    </div></div>`; }).join('');
   root.innerHTML = _listShell('Concrete Pour Card', '+ New Pour Card', "_exPourForm()", rows, list.length);
 }
 window._exPourForm = function (id) {
@@ -313,6 +317,81 @@ window._exPourForm = function (id) {
     <button onclick="_exPourSave('${id || ''}')" style="width:100%;padding:11px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${p ? 'Save Pour Card' : 'Create Pour Card'}</button>
   </div>`);
 };
+// ── Printable Concrete Pour Card PDF ──
+window._exPourPDF = function (id) {
+  try {
+    const p = (state.concretePours || []).find(x => x.id === id);
+    if (!p) return showToast('Pour not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const proj = (state.projects || []).find(x => x.id === p.projectId) || {};
+    const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
+    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+    const ml = 14, mr = 14;
+    const accent = [249, 115, 22];
+
+    let y = (typeof window.getSimpleHeaderForPDF === 'function') ? window.getSimpleHeaderForPDF(doc, { ml, mr }) : 16;
+    doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(ml, y, pw - ml - mr, 9, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('CONCRETE POUR CARD', pw / 2, y + 6.2, { align: 'center' });
+    y += 13; doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Project: ${proj.name || '—'}    |    Pour No: ${p.pourNo || '—'}    |    Date: ${p.date || '—'}`, ml, y);
+    y += 3;
+
+    const fld = (l, v) => [l, (v === undefined || v === null || v === '') ? '—' : String(v)];
+    const dur = (p.startTime || '') + (p.endTime ? ' – ' + p.endTime : '');
+    const pairs = [
+      fld('Element', p.element), fld('Grade', p.grade),
+      fld('Volume (m³)', p.volume), fld('Slump (mm)', p.slump),
+      fld('Location / Grid', p.location), fld('Pour Time', dur),
+      fld('Cubes Cast', p.cubes), fld('RMC Vendor', _vendorName(p.vendorId) || p.supplier),
+      fld('Batch / DC No.', p.batchNo), fld('Status', p.status),
+      fld('Linked Task', _taskName(p.taskId)), fld('BOQ Item', _boqLabel(p.boqRef)),
+    ];
+    const rows = [];
+    for (let i = 0; i < pairs.length; i += 2) rows.push([pairs[i][0], pairs[i][1], pairs[i + 1] ? pairs[i + 1][0] : '', pairs[i + 1] ? pairs[i + 1][1] : '']);
+    doc.autoTable({
+      startY: y + 2, body: rows, theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2.2 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 34, fillColor: [255, 247, 237] }, 1: { cellWidth: 62 }, 2: { fontStyle: 'bold', cellWidth: 34, fillColor: [255, 247, 237] }, 3: { cellWidth: 'auto' } },
+      margin: { left: ml, right: mr },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(154, 52, 18);
+    doc.text('Pre-Pour Checklist', ml, y); doc.setTextColor(0);
+    const ck = p.checklist || {};
+    doc.autoTable({
+      startY: y + 2, head: [['Check', 'Done']], body: POUR_CHECKS.map(([k, label]) => [label, ck[k] ? 'Yes' : 'No']),
+      theme: 'grid', headStyles: { fillColor: accent, textColor: 255, fontSize: 8.5 },
+      styles: { fontSize: 8.5, cellPadding: 1.8 }, columnStyles: { 1: { halign: 'center', cellWidth: 24 } }, margin: { left: ml, right: mr },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+
+    if (p.remarks) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Remarks:', ml, y);
+      doc.setFont('helvetica', 'normal');
+      doc.splitTextToSize(p.remarks, pw - ml - mr - 20).forEach((ln, i) => doc.text(ln, ml + 18, y + i * 4));
+      y += 8;
+    }
+
+    const sy = Math.max(y + 10, ph - 32);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0);
+    const sigW = (pw - ml - mr) / 3;
+    [['Prepared By', ''], ['Checked By', p.approvedBy || ''], ['Approved By', '']].forEach(([lbl, nm], i) => {
+      const x = ml + i * sigW;
+      doc.line(x, sy, x + sigW - 12, sy);
+      doc.text(lbl + (nm ? ': ' + nm : ''), x, sy + 5);
+    });
+
+    mobileSavePDF(doc, `PourCard_${(p.pourNo || 'CPC').replace(/[\\/]/g, '-')}.pdf`);
+    showToast('Pour card PDF downloaded');
+  } catch (err) {
+    console.error('Pour card PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+};
+
 window._exPourSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
   const checklist = {}; POUR_CHECKS.forEach(([k]) => { checklist[k] = !!document.getElementById('cpck_' + k)?.checked; });
