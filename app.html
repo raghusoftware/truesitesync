@@ -17,7 +17,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.3.26">
-    <script type="module" src="js/app.js?v=1.3.30"></script>
+    <script type="module" src="js/app.js?v=1.3.31"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -129,6 +129,7 @@
           <button onclick="switchView('planningView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="planningView"><span style="font-size:13px">&#128197;</span> Planning</button>
           <button onclick="switchView('microPlanView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="microPlanView"><span style="font-size:13px">&#128203;</span> Micro Plan</button>
           <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
+          <button onclick="switchView('executionView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="executionView"><span style="font-size:13px">&#127959;</span> Execution</button>
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
           <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> Equipment</button>
           <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> Inventory</button>
@@ -732,6 +733,9 @@
         <!-- ═══════ PETTY CASH ═══════ -->
         <div id="issuesView" class="view-section hide">
           <div id="issuesRoot"></div>
+        </div>
+        <div id="executionView" class="view-section hide">
+          <div id="executionRoot"></div>
         </div>
         <div id="pettyCashView" class="view-section hide">
           <div id="pettyCashRoot"></div>

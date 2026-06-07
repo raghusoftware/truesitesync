@@ -51,6 +51,7 @@ const STORAGE_KEYS = {
   dailyProgress: 'mes_daily_progress',
   milestones: 'mes_milestones',
   qualityChecks: 'mes_quality_checks',
+  concretePours: 'mes_concrete_pours',
   planningTasks: 'mes_planning_tasks',
   taskMaterials: 'mes_task_materials',
   taskEquipment: 'mes_task_equipment',
@@ -147,6 +148,7 @@ export const state = {
   dailyProgress: load(STORAGE_KEYS.dailyProgress, []),
   milestones: load(STORAGE_KEYS.milestones, []),
   qualityChecks: load(STORAGE_KEYS.qualityChecks, []),
+  concretePours: load(STORAGE_KEYS.concretePours, []),
   planningTasks: load(STORAGE_KEYS.planningTasks, []),
   taskMaterials: load(STORAGE_KEYS.taskMaterials, []),
   taskEquipment: load(STORAGE_KEYS.taskEquipment, []),
@@ -376,7 +378,7 @@ export function migrateToProjects() {
     'saleFixedAssets','otherIncome','itemsMaster','savedPOs',
     'leads','tenders','cubeTests','ncrReports','incidents','ppeChecks',
     'equipUtilization','dailyProgress','milestones','qualityChecks',
-    'planningTasks','taskMaterials','taskEquipment','issues'];
+    'planningTasks','taskMaterials','taskEquipment','issues','concretePours'];
   arrKeys.forEach(key => {
     if (Array.isArray(state[key])) {
       state[key].forEach(rec => { if (!rec.projectId) rec.projectId = defaultProjId; });
