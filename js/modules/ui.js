@@ -510,41 +510,26 @@ export function downloadBOQTemplate() {
 // ── Project Form Open/Close/Save ──
 
 /** Open project form (add or edit) */
-/** Fill the project-form client dropdown and select the given client (or "new"). */
+/** Fill the project-form client dropdown and select the given client. */
 function _populateProjFormClients(selectedClientId) {
   const sel = document.getElementById('projFormClientSelect');
   if (!sel) return;
-  const opts = ['<option value="__new__">＋ Add a new client…</option>'];
-  (state.clients || []).forEach(c => {
-    opts.push(`<option value="${c.id}">${(c.name || 'Unnamed').replace(/</g, '&lt;')}</option>`);
-  });
-  sel.innerHTML = opts.join('');
-  sel.value = (selectedClientId && (state.clients || []).some(c => c.id === selectedClientId)) ? selectedClientId : '__new__';
+  const clients = state.clients || [];
+  if (!clients.length) {
+    sel.innerHTML = '<option value="">— No clients yet — add a client from Home first —</option>';
+    sel.value = '';
+  } else {
+    sel.innerHTML = clients.map(c => `<option value="${c.id}">${(c.name || 'Unnamed').replace(/</g, '&lt;')}</option>`).join('');
+    sel.value = (selectedClientId && clients.some(c => c.id === selectedClientId)) ? selectedClientId : clients[0].id;
+  }
   _projFormClientChanged();
 }
 
-/** When the project-form client dropdown changes: autofill (existing) or clear (new). */
+/** Mirror the selected client id into the hidden field. */
 export function _projFormClientChanged() {
   const sel = document.getElementById('projFormClientSelect');
-  if (!sel) return;
-  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
   const idEl = document.getElementById('projFormClientId');
-  if (sel.value === '__new__') {
-    if (idEl) idEl.value = '';
-    ['projFormClient', 'projFormClientContact', 'projFormClientPhone', 'projFormClientEmail', 'projFormClientGst', 'projFormClientPan', 'projFormClientAddr'].forEach(id => setVal(id, ''));
-    document.getElementById('projFormClient')?.removeAttribute('readonly');
-    return;
-  }
-  const c = (state.clients || []).find(x => x.id === sel.value);
-  if (!c) return;
-  if (idEl) idEl.value = c.id;
-  setVal('projFormClient', c.name);
-  setVal('projFormClientContact', c.contact);
-  setVal('projFormClientPhone', c.phone);
-  setVal('projFormClientEmail', c.email);
-  setVal('projFormClientGst', c.gst);
-  setVal('projFormClientPan', c.pan);
-  setVal('projFormClientAddr', c.address);
+  if (sel && idEl) idEl.value = sel.value || '';
 }
 
 export function openProjectForm(editId, presetClientId) {
@@ -644,27 +629,14 @@ export function saveProject() {
   const editId = document.getElementById('projFormId')?.value;
   const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
 
-  // Resolve / create the client this project belongs to (client is the parent entity)
-  const clientName = getVal('projFormClient');
-  if (!clientName) { showToast('Please choose or enter a client for this project', 'error'); return; }
-  const clientFields = {
-    name: clientName, contact: getVal('projFormClientContact'), phone: getVal('projFormClientPhone'),
-    email: getVal('projFormClientEmail'), gst: getVal('projFormClientGst').toUpperCase(),
-    pan: getVal('projFormClientPan').toUpperCase(), address: getVal('projFormClientAddr'),
-  };
-  if (!state.clients) state.clients = [];
-  let clientId = getVal('projFormClientId');
-  let clientRec = clientId ? state.clients.find(c => c.id === clientId) : null;
-  if (!clientRec) {
-    clientRec = state.clients.find(c => (c.name || '').trim().toLowerCase() === clientName.toLowerCase());
-    if (!clientRec) { clientRec = { id: 'c_' + Date.now(), createdAt: new Date().toISOString() }; state.clients.push(clientRec); }
-  }
-  Object.assign(clientRec, clientFields); // keep client master in sync with form edits
-  clientId = clientRec.id;
+  // Project belongs to a client selected from the client master.
+  const clientId = getVal('projFormClientId') || document.getElementById('projFormClientSelect')?.value || '';
+  const clientRec = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
+  if (!clientRec) { showToast('Please select a client for this project (add a client from Home first)', 'error'); return; }
 
   const data = {
     name,
-    clientId,
+    clientId: clientRec.id,
     code: getVal('projFormCode'),
     manager: getVal('projFormManager'),
     location: getVal('projFormLocation'),
@@ -673,14 +645,14 @@ export function saveProject() {
     endDate: getVal('projFormEnd'),
     color: getVal('projFormColor') || '#3b82f6',
     description: getVal('projFormDesc'),
-    // Client
-    clientName: getVal('projFormClient'),
-    clientContact: getVal('projFormClientContact'),
-    clientPhone: getVal('projFormClientPhone'),
-    clientEmail: getVal('projFormClientEmail'),
-    clientGst: getVal('projFormClientGst'),
-    clientPan: getVal('projFormClientPan'),
-    clientAddress: getVal('projFormClientAddr'),
+    // Client snapshot (sourced from the client master, kept for PDFs/back-compat)
+    clientName: clientRec.name || '',
+    clientContact: clientRec.contact || '',
+    clientPhone: clientRec.phone || '',
+    clientEmail: clientRec.email || '',
+    clientGst: clientRec.gst || '',
+    clientPan: clientRec.pan || '',
+    clientAddress: clientRec.address || '',
     // BOQ items — save active tab first, then all groups (WO/PO details stored per BOQ group)
     boqItems: (() => { _saveActiveBoqGroupData(); return _getAllBoqItemsFlat(_boqGroups); })(),
     boqs: (() => { _saveActiveBoqGroupData(); return JSON.parse(JSON.stringify(_boqGroups)); })(),

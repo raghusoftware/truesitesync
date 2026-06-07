@@ -17,7 +17,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css">
-    <script type="module" src="js/app.js?v=1.3.10"></script>
+    <script type="module" src="js/app.js?v=1.3.11"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -345,50 +345,16 @@
             </div>
           </div>
 
-          <!-- ── Section 2: Client Details ── -->
+          <!-- ── Section 2: Client ── -->
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden" style="box-shadow:0 1px 4px rgba(0,0,0,.04);">
             <div class="px-5 py-3 border-b" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);">
-              <h4 class="text-sm font-extrabold text-slate-700 flex items-center gap-2"><span style="font-size:15px;">&#129309;</span> Client Details</h4>
+              <h4 class="text-sm font-extrabold text-slate-700 flex items-center gap-2"><span style="font-size:15px;">&#129309;</span> Client</h4>
             </div>
             <div class="p-5">
               <input type="hidden" id="projFormClientId">
-              <div class="mb-4">
-                <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client *</label>
-                <select id="projFormClientSelect" onchange="_projFormClientChanged()" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-semibold bg-white">
-                  <option value="__new__">＋ Add a new client…</option>
-                </select>
-                <p class="text-[10px] text-slate-400 mt-1">Pick an existing client, or choose &ldquo;Add a new client&rdquo; and fill the details below.</p>
-              </div>
-              <div class="grid grid-cols-3 gap-4">
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client / Company Name *</label>
-                  <input type="text" id="projFormClient" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-semibold" placeholder="Client name">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Contact Person</label>
-                  <input type="text" id="projFormClientContact" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400" placeholder="Contact person">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Phone</label>
-                  <input type="text" id="projFormClientPhone" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400" placeholder="Mobile / Phone">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Email</label>
-                  <input type="email" id="projFormClientEmail" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400" placeholder="client@email.com">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client GSTIN</label>
-                  <input type="text" id="projFormClientGst" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-mono uppercase" placeholder="22AAAAA0000A1Z5" maxlength="15">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">PAN</label>
-                  <input type="text" id="projFormClientPan" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-mono uppercase" placeholder="ABCDE1234F" maxlength="10">
-                </div>
-                <div class="col-span-3">
-                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client Address</label>
-                  <input type="text" id="projFormClientAddr" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400" placeholder="Full billing address">
-                </div>
-              </div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client *</label>
+              <select id="projFormClientSelect" onchange="_projFormClientChanged()" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-semibold bg-white"></select>
+              <p class="text-[10px] text-slate-400 mt-1">This project belongs to the selected client. Client details (contact, GST, PAN, address) are managed on the client itself &mdash; Home &rarr; client card &rarr; Edit.</p>
             </div>
           </div>
 
