@@ -96,10 +96,10 @@ import {
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords
 } from './modules/pdfThemes.js';
 import {
-  renderSettingsView, switchSettingsTab, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
+  renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js';
+} from './modules/settings.js?v=1.3.13';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,
@@ -252,7 +252,7 @@ Object.assign(window, {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   // Settings Module
-  renderSettingsView, switchSettingsTab, settPrintSwitchDoc,
+  renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc,
   savePrintConfig, resetPrintConfig, settThemeSwitchDoc,
   selectTheme, saveCurrencySettings, saveAutoNumbering,
   _anPreview: anPreview, restoreJSONBackupFromSettings,

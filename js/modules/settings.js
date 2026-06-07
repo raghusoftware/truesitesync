@@ -5,21 +5,24 @@ import { state, saveAllData } from './state.js';
 import { showToast } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js';
 
-// ─── Tab Navigation ───
-let _activeSettingsTab = 'settCompany';
-export function switchSettingsTab(tabId) {
+// ─── Settings hub navigation (icon grid → drill into a section) ───
+let _activeSettingsTab = null;
+
+/** Show the settings icon-grid home (no section open). */
+export function backToSettingsHome() {
+  _activeSettingsTab = null;
+  document.getElementById('settingsHomeGrid')?.classList.remove('hide');
+  document.getElementById('settingsBack')?.classList.add('hidden');
+  document.querySelectorAll('.sett-tab-panel').forEach(p => p.classList.add('hide'));
+}
+
+/** Open one settings section (card click). */
+export function openSettingsSection(tabId) {
   _activeSettingsTab = tabId;
-  document.querySelectorAll('.sett-tab-btn').forEach(b => {
-    b.classList.toggle('bg-blue-600', b.dataset.tab === tabId);
-    b.classList.toggle('text-white', b.dataset.tab === tabId);
-    b.classList.toggle('bg-slate-100', b.dataset.tab !== tabId);
-    b.classList.toggle('text-slate-700', b.dataset.tab !== tabId);
-  });
-  document.querySelectorAll('.sett-tab-panel').forEach(p => {
-    p.classList.toggle('hide', p.id !== tabId);
-  });
+  document.getElementById('settingsHomeGrid')?.classList.add('hide');
+  document.getElementById('settingsBack')?.classList.remove('hidden');
+  document.querySelectorAll('.sett-tab-panel').forEach(p => p.classList.toggle('hide', p.id !== tabId));
   if (tabId === 'settPrint') renderPrintConfigTab();
-  if (tabId === 'settThemes') renderThemeTab();
   if (tabId === 'settCurrency') renderCurrencyTab();
   if (tabId === 'settAutoNum') renderAutoNumberingTab();
   if (tabId === 'settBackup') renderBackupTab();
@@ -27,9 +30,12 @@ export function switchSettingsTab(tabId) {
   if (tabId === 'settOrg' && typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
 }
 
-// ─── Render the Settings view on load ───
+/** Back-compat: callers that jump straight to a section still work. */
+export function switchSettingsTab(tabId) { openSettingsSection(tabId); }
+
+// ─── Render the Settings view on load → show the hub home ───
 export function renderSettingsView() {
-  switchSettingsTab(_activeSettingsTab);
+  backToSettingsHome();
 }
 
 // ─── PRINT CONFIGURATION ───
