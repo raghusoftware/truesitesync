@@ -229,7 +229,27 @@ async function pay(){
       key: order.key_id, amount: order.amount, currency: order.currency,
       name:'True Site Sync', description: order.plan + ' Plan (annual)', order_id: order.order_id,
       prefill:{ email:_userEmail }, theme:{ color:'#10b981' },
-      handler: function(){
+      handler: async function(resp){
+        // Verify the payment signature SERVER-SIDE before showing success.
+        showMsg('Verifying payment…', 'ok');
+        try {
+          const vr = await fetch(SB_URL + '/functions/v1/razorpay-verify', {
+            method:'POST',
+            headers:{ 'apikey':SB_KEY, 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature
+            })
+          });
+          const vd = await vr.json();
+          if (!vr.ok || !vd.verified) throw new Error(vd.error || 'Payment verification failed');
+        } catch (err) {
+          showMsg('Payment received but could not be verified: ' + (err.message || err) + '. Please contact support.', 'err');
+          btn.disabled = false; btn.innerHTML = 'Pay &amp; Activate Plan';
+          return;
+        }
+        clearMsg();
         document.querySelector('.card').innerHTML =
           '<div class="head"><div class="logo"><span class="mark">TS</span> True Site Sync</div></div>' +
           '<div class="body" style="text-align:center;padding:40px 28px;">' +
@@ -239,6 +259,11 @@ async function pay(){
           '<a href="app.html" class="btn btn-pay" style="display:block;text-decoration:none;">Go to Dashboard</a></div>';
       },
       modal:{ ondismiss: function(){ btn.disabled=false; btn.innerHTML='Pay &amp; Activate Plan'; showMsg('Payment cancelled. You can try again anytime.', 'err'); } }
+    });
+    rzp.on('payment.failed', function(resp){
+      const d = (resp && resp.error) ? resp.error.description : '';
+      showMsg('Payment failed' + (d ? ': ' + d : '. Please try again.'), 'err');
+      btn.disabled = false; btn.innerHTML = 'Pay &amp; Activate Plan';
     });
     rzp.open();
   } catch (e) {
