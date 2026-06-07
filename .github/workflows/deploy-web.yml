@@ -31,6 +31,13 @@ jobs:
       - name: Set subdomain CNAME
         run: echo "web.truesitesync.com" > CNAME
 
+      - name: Make the app the entry point for the web subdomain
+        # web.truesitesync.com should open the app directly, not the marketing
+        # landing. Keep the landing reachable at /home.html just in case.
+        run: |
+          cp index.html home.html
+          cp app.html index.html
+
       - name: Deploy to truesitesync-web
         if: env.HAS_TOKEN == 'true'
         uses: peaceiris/actions-gh-pages@v4
