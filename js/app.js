@@ -60,7 +60,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.3.25';
+} from './modules/ui.js?v=1.3.30';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
@@ -384,6 +384,9 @@ window._bootApp = _bootApp;
 function _bootApp() {
   if (_appBooted) return; // prevent double-boot
   _appBooted = true;
+
+  // Live multi-device sync — other devices' changes appear instantly.
+  try { window.startCloudRealtime?.(); } catch (e) { console.warn('[boot] realtime start failed:', e); }
 
   // Hide login, show app
   const loginPage = document.getElementById('loginPage');

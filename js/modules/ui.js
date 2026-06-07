@@ -24,6 +24,19 @@ const MODULE_CARDS = [
   { id: 'abstractsView', icon: '&#128209;', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
 ];
 
+// Re-render the active view (used by realtime sync). Skips while the user is
+// mid-edit in a full-screen sheet or the project form, to avoid yanking the UI.
+if (typeof window !== 'undefined') {
+  window.refreshCurrentView = function () {
+    const v = window.__currentViewId;
+    if (!v) return;
+    if (document.querySelector('.fullscreen-sheet')) return;
+    const pf = document.getElementById('projectFormPanel');
+    if (pf && pf.style.display && pf.style.display !== 'none') return;
+    try { switchView(v); } catch {}
+  };
+}
+
 /** Navigate to Projects Home */
 // Two-level home navigation: null = show clients list; otherwise show that client's projects
 let _homeClientId = null;
@@ -1080,6 +1093,7 @@ export function switchView(viewId) {
   document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));
   const viewEl = document.getElementById(viewId);
   if (!viewEl) { console.warn('View not found:', viewId); return; }
+  if (typeof window !== 'undefined') window.__currentViewId = viewId;
   viewEl.classList.remove('hide');
   // Measurement entry opens as full-screen overlay — hide sidebar
   if (viewId === 'entrySheet') {

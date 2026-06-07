@@ -63,6 +63,40 @@ export function markSyncReady() {
 // Safety: never block local-only / offline users forever.
 setTimeout(() => markSyncReady(), 15000);
 
+// ── Realtime: apply changes made by other devices/tabs the instant they land ──
+let _rtChannel = null;
+export async function startRealtime(applyFn) {
+  try {
+    const sb = getSupabase();
+    if (!sb || _rtChannel) return;
+    const userId = await _uidAsync();
+    if (!userId) return;
+    _rtChannel = sb.channel('rt_user_data_' + userId)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          try {
+            const row = payload.new && payload.new.data_key ? payload.new : null;
+            if (!row) return;
+            const key = row.data_key;
+            let incomingJson;
+            try { incomingJson = JSON.stringify(row.data); } catch { return; }
+            if (_lastJson[key] === incomingJson) return;           // our own echo
+            const incomingTs = Date.parse(row.updated_at) || Date.now();
+            if (incomingTs <= _getLocalTs(key)) return;            // not newer than local
+            _lastJson[key] = incomingJson;
+            _setLocalTs(key, incomingTs);
+            if (typeof applyFn === 'function') applyFn(key, row.data);
+          } catch (e) { console.warn('[rt] apply error:', e); }
+        })
+      .subscribe((status) => { if (status === 'SUBSCRIBED') console.log('[rt] realtime sync active'); });
+  } catch (e) { console.warn('[rt] start failed:', e); }
+}
+export function stopRealtime() {
+  try { if (_rtChannel) { getSupabase()?.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
+}
+if (typeof window !== 'undefined') { window.startRealtime = startRealtime; window.stopRealtime = stopRealtime; }
+
 window.addEventListener('online', () => {
   _online = true;
   _flushDirty();

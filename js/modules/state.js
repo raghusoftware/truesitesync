@@ -344,6 +344,26 @@ export function migrateClientsProjects() {
 }
 if (typeof window !== 'undefined') window.migrateClientsProjects = migrateClientsProjects;
 
+/** Apply a change pushed from another device/tab (realtime) into local state. */
+let _rtRefreshTimer = null;
+export function applyRemoteChange(key, data) {
+  const storageKey = STORAGE_KEYS[key];
+  if (!storageKey) return;
+  state[key] = data;
+  try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
+  // Debounce a single UI refresh after a burst of remote changes.
+  if (_rtRefreshTimer) clearTimeout(_rtRefreshTimer);
+  _rtRefreshTimer = setTimeout(() => {
+    if (typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast('Updated from another device', 'info');
+  }, 500);
+}
+/** Start live cloud sync (other devices' changes appear instantly). */
+export function startCloudRealtime() {
+  if (typeof window !== 'undefined' && typeof window.startRealtime === 'function') window.startRealtime(applyRemoteChange);
+}
+if (typeof window !== 'undefined') window.startCloudRealtime = startCloudRealtime;
+
 /** Migrate existing data — assign projectId to records that don't have one */
 export function migrateToProjects() {
   const defaultProjId = state.projects[0]?.id;
