@@ -104,6 +104,13 @@ window._setAuthorityName = function(v) {
   showToast('Name of Authority updated', 'success');
 };
 
+window._setAbstractColor = function(hex) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.abstractColor = hex || '#1e3a8a';
+  saveAllData();
+  showToast('Abstract PDF colour updated', 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -165,6 +172,19 @@ function renderPrintConfigTab() {
         <input type="color" value="${state.printSettings?.measurementTotalColor || '#fef3c7'}" onchange="window._setMeasurementTotalColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Total Quantity cell colour">
       </div>
       <p class="text-[10px] text-slate-400 mt-2">Theme colour = table header & item titles. Total Quantity colour = the per-item total cell. Applies to all measurement PDFs.</p>
+    </div>
+
+    <!-- ═══ ABSTRACT / RA BILL PDF COLOUR ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#128209;</span>
+        <h4 class="font-bold text-sm text-slate-800">Abstract / RA Bill PDF Colour</h4>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
+        <input type="color" value="${state.printSettings?.abstractColor || '#1e3a8a'}" onchange="window._setAbstractColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Abstract PDF table & title colour">
+        <span class="text-[11px] text-slate-400">Used for the abstract & RA-bill table header and titles.</span>
+      </div>
     </div>
 
     <!-- ═══ HEADER CONFIGURATION ═══ -->

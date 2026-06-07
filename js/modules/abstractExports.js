@@ -18,6 +18,14 @@ import { BBS_UNIT_WEIGHTS } from './constants.js';
 
 const _num2 = formatNumber2;
 
+/** Parse a #rrggbb hex into [r,g,b]; falls back when invalid. */
+function _rgb(hex, fallback) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
+  if (!m) return fallback;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 export function exportAbstractPDF(id) {
   try {
   const a = state.abstracts.find(x => x.id === id);
@@ -30,8 +38,9 @@ export function exportAbstractPDF(id) {
   const sym = getPdfCurrency().trim();
 
   const doc = new window.jspdf.jsPDF('portrait');
+  const accent = _rgb(state.printSettings?.abstractColor, [30, 58, 138]);
   let nextY = _simpleHeader(doc);
-  doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 58, 138);
+  doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
   nextY += 8;
   doc.setFontSize(9.5); doc.setFont("helvetica", "normal"); doc.setTextColor(60, 60, 60);
@@ -40,9 +49,9 @@ export function exportAbstractPDF(id) {
   doc.text(`Ref Sheet: ${a.sheetNum || '—'} | Area: ${a.area || '—'}`, 14, nextY + 12);
   let rows = [];
   (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', (i.qty || 0).toFixed(3), i.uom || '', _num2(i.rate), _num2(i.amount)]));
-  doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
+  doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: accent, textColor: [255,255,255], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   let gtY = doc.lastAutoTable.finalY + 12;
-  doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 58, 138);
+  doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
   doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, gtY);
   doc.setFontSize(9); doc.setFont("helvetica", "italic"); doc.setTextColor(60, 60, 60);
   const words = doc.splitTextToSize(`Amount in Words: ${amountToWordsINR(a.totalAmount)}`, doc.internal.pageSize.width - 28);
@@ -66,11 +75,12 @@ export function exportDetailedAbstractPDF(id) {
   const { grandPreAmt, grandThisAmt, grandTotalAmt } = totals;
 
   const doc = new window.jspdf.jsPDF('portrait');
+  const accent = _rgb(state.printSettings?.abstractColor, [30, 58, 138]);
   let y = _simpleHeader(doc);
   const pw = doc.internal.pageSize.width;
 
   // Title
-  doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 138);
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(accent[0], accent[1], accent[2]);
   doc.text('DETAILED ABSTRACT OF MEASUREMENT', pw / 2, y + 5, null, null, 'center');
   y += 10;
 
@@ -120,7 +130,7 @@ export function exportDetailedAbstractPDF(id) {
     body: rows,
     theme: 'grid',
     margin: { left: 4, right: 4 },
-    headStyles: { fillColor: [255, 215, 0], textColor: [0, 0, 0], fontSize: 5, fontStyle: 'bold', halign: 'center', lineWidth: 0.2, lineColor: [0, 0, 0], cellPadding: 0.8 },
+    headStyles: { fillColor: accent, textColor: [255, 255, 255], fontSize: 5, fontStyle: 'bold', halign: 'center', lineWidth: 0.2, lineColor: [0, 0, 0], cellPadding: 0.8 },
     styles: { fontSize: 5, cellPadding: 0.8, lineWidth: 0.15, lineColor: [0, 0, 0], overflow: 'linebreak' },
     columnStyles: {
       0: { halign: 'center', cellWidth: 8 },
