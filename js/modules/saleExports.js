@@ -10,6 +10,7 @@
 
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF } from './utils.js';
+const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2, amountToWordsINR } from './format.js';
 
 const _num2 = formatNumber2;
@@ -42,25 +43,8 @@ export function exportSaleInvoicePDF(id) {
   // User-selectable invoice accent colour (Settings → Print)
   const accent = _rgb(state.printSettings?.invoiceColor, [30, 58, 138]);
 
-  // ── Company header: logo at top-left, name beside it, details on one line ──
-  let y = 14;
-  let textX = ml;
-  if (cp.logo) {
-    try { doc.addImage(cp.logo, 'PNG', ml, y, 22, 22); textX = ml + 27; } catch {}
-  }
-  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text(cp.CompanyName || 'YOUR COMPANY', textX, y + 6);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(70, 70, 70);
-  const hp = [];
-  if (cp.Address) hp.push(cp.Address);
-  if (cp.Phone) hp.push('Ph: ' + cp.Phone);
-  if (cp.Email) hp.push(cp.Email);
-  if (cp.GST) hp.push('GSTIN: ' + cp.GST);
-  let dy = y + 11;
-  doc.splitTextToSize(hp.join('   |   '), pw - textX - mr).forEach(line => { doc.text(line, textX, dy); dy += 4; });
-  y = Math.max(y + 22, dy) + 2;
-  doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y);
-  y += 4; doc.setTextColor(0, 0, 0);
+  // ── Company header (logo top-left + single-line details) ──
+  let y = _simpleHeader(doc, { ml, mr });
 
   // Title bar
   doc.setFillColor(accent[0], accent[1], accent[2]);

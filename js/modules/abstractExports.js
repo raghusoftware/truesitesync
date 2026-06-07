@@ -10,6 +10,7 @@
 
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileSaveXLSX } from './utils.js';
+const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2 } from './format.js';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
@@ -29,7 +30,7 @@ export function exportAbstractPDF(id) {
   const sym = getPdfCurrency().trim();
 
   const doc = new window.jspdf.jsPDF('portrait');
-  let nextY = getCompanyHeaderForPDF(doc);
+  let nextY = _simpleHeader(doc);
   doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 58, 138);
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
   nextY += 8;
@@ -65,7 +66,7 @@ export function exportDetailedAbstractPDF(id) {
   const { grandPreAmt, grandThisAmt, grandTotalAmt } = totals;
 
   const doc = new window.jspdf.jsPDF('portrait');
-  let y = getCompanyHeaderForPDF(doc);
+  let y = _simpleHeader(doc);
   const pw = doc.internal.pageSize.width;
 
   // Title

@@ -90,6 +90,13 @@ window._setMeasurementColor = function(hex) {
   showToast('Measurement PDF colour updated', 'success');
 };
 
+window._setMeasurementTotalColor = function(hex) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.measurementTotalColor = hex || '#fef3c7';
+  saveAllData();
+  showToast('Total Quantity colour updated', 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -134,12 +141,13 @@ function renderPrintConfigTab() {
         <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
         <button onclick="window._setMeasOrientation('landscape')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📑 Landscape</button>
       </div>
-      <div class="flex items-center gap-3 mt-3">
+      <div class="flex items-center gap-3 mt-3 flex-wrap">
         <span class="text-xs font-medium text-slate-700">Theme colour:</span>
         <input type="color" value="${state.printSettings?.measurementColor || '#f97316'}" onchange="window._setMeasurementColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Measurement PDF table colour">
-        <span class="text-[11px] text-slate-400">Used for the measurement table header & item titles.</span>
+        <span class="text-xs font-medium text-slate-700 ml-2">Total Quantity colour:</span>
+        <input type="color" value="${state.printSettings?.measurementTotalColor || '#fef3c7'}" onchange="window._setMeasurementTotalColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Total Quantity cell colour">
       </div>
-      <p class="text-[10px] text-slate-400 mt-2">Applies to all measurement sheet PDFs.</p>
+      <p class="text-[10px] text-slate-400 mt-2">Theme colour = table header & item titles. Total Quantity colour = the per-item total cell. Applies to all measurement PDFs.</p>
     </div>
 
     <!-- ═══ HEADER CONFIGURATION ═══ -->

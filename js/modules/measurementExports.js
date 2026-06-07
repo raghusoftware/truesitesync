@@ -10,6 +10,7 @@
 
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF, mobileSaveXLSX } from './utils.js';
+const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
@@ -47,11 +48,12 @@ export function exportSimpleMeasurementPdf(id) {
 
   // Direct inline rendering (theme engine removed — respects orientation setting)
   const doc = new window.jspdf.jsPDF(orient);
-  let y = getCompanyHeaderForPDF(doc);
+  let y = _simpleHeader(doc);
   const sym = getCurrencySymbol();
-  // User-selectable measurement PDF accent colour (Settings → Print)
+  // User-selectable measurement PDF colours (Settings → Print)
   const accent = _rgb(state.printSettings?.measurementColor, [249, 115, 22]);
   const tint = accent.map(ch => Math.round(ch + (255 - ch) * 0.88));
+  const totalFill = _rgb(state.printSettings?.measurementTotalColor, [254, 243, 199]);
 
   doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
   doc.text('MEASUREMENT SHEET', cx, y + 5, null, null, 'center');
@@ -86,7 +88,7 @@ export function exportSimpleMeasurementPdf(id) {
     });
     rows.push([
       '', { content: 'Total Quantity', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: total.toFixed(3), styles: { fontStyle: 'bold', halign: 'center', fillColor: [254, 243, 199] } },
+      { content: total.toFixed(3), styles: { fontStyle: 'bold', halign: 'center', fillColor: totalFill } },
       { content: first.uom || '', styles: { fontStyle: 'bold', halign: 'center' } }
     ]);
   });
@@ -163,7 +165,7 @@ export function exportDetailedMeasurementPdf(id) {
   const prevQtyMap = computeSheetPrevQtyMap(s, state.sheets);
   const groupedEntries = groupSheetEntries(s.entries);
 
-  let y = getCompanyHeaderForPDF(doc);
+  let y = _simpleHeader(doc);
 
   doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
   doc.text('MEASUREMENT BOOK', pw / 2, y, { align: 'center' });
@@ -298,7 +300,7 @@ export function exportDetailedMeasurementPdf(id) {
   const bbs = (state.bbsData || {})[s.id];
   if (bbs && bbs.length) {
     doc.addPage('landscape');
-    y = getCompanyHeaderForPDF(doc);
+    y = _simpleHeader(doc);
     doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
     doc.text('Detail of Steel (BBS)', doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
     y += 6;

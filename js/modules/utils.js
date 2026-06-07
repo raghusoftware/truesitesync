@@ -252,6 +252,38 @@ export function printReport(elemId, title) {
   window.print();
 }
 
+/**
+ * "Simple" PDF header — logo at the top-left corner, company name beside it,
+ * and address | phone | email | GSTIN on a single line. Shared by the invoice,
+ * measurement and abstract PDFs so their headers look identical.
+ * Returns the y position just below the header (after a separator rule).
+ */
+export function getSimpleHeaderForPDF(doc, opts = {}) {
+  const cp = state.companyProfile || {};
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = opts.ml ?? 14, mr = opts.mr ?? 14;
+  let y = 14, textX = ml;
+  if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, y, 22, 22); textX = ml + 27; } catch {} }
+  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text(cp.CompanyName || 'YOUR COMPANY', textX, y + 6);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(70, 70, 70);
+  const hp = [];
+  if (cp.Address) hp.push(cp.Address);
+  if (cp.Phone) hp.push('Ph: ' + cp.Phone);
+  if (cp.Email) hp.push(cp.Email);
+  if (cp.GST) hp.push('GSTIN: ' + cp.GST);
+  let dy = y + 11;
+  doc.splitTextToSize(hp.join('   |   '), pw - textX - mr).forEach(line => { doc.text(line, textX, dy); dy += 4; });
+  y = Math.max(y + 22, dy) + 2;
+  doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y);
+  doc.setTextColor(0, 0, 0);
+  return y + 4;
+}
+// Exposed on window so exporter modules can use it even if their (pinned)
+// build is paired with a still-cached older utils.js — they fall back to the
+// classic header instead of failing at module-link time.
+if (typeof window !== 'undefined') window.getSimpleHeaderForPDF = getSimpleHeaderForPDF;
+
 /** Get company header for jsPDF documents */
 export function getCompanyHeaderForPDF(doc) {
   const cp = state.companyProfile;
