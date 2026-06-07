@@ -23,6 +23,38 @@ const DEBOUNCE_MS = 1500;
 let _online = navigator.onLine;
 const _dirtyKeys = new Set();
 
+// ── Push gating: never push to cloud until the initial pull has completed,
+//    so a freshly-opened (stale) tab can't overwrite newer cloud data. ──
+let _syncReady = false;
+const _queuedKeys = new Set();
+const _localTs = {};               // dataKey -> last local-change time (ms)
+
+function _getLocalTs(key) {
+  if (_localTs[key]) return _localTs[key];
+  try { const s = localStorage.getItem('mes_ts_' + key); return s ? parseInt(s) : 0; } catch { return 0; }
+}
+function _setLocalTs(key, ms) {
+  _localTs[key] = ms;
+  try { localStorage.setItem('mes_ts_' + key, String(ms)); } catch {}
+}
+export function getLocalKeyTs(key) { return _getLocalTs(key); }
+export function setLocalKeyTs(key, ms) { _setLocalTs(key, ms); }
+
+/** Called once the initial cloud pull is done — releases queued pushes. */
+export function markSyncReady() {
+  if (_syncReady) return;
+  _syncReady = true;
+  const keys = [..._queuedKeys]; _queuedKeys.clear();
+  keys.forEach(k => {
+    const v = _pendingValues[k];
+    if (v === undefined) return;
+    delete _pendingValues[k];
+    _pushKey(k, v);
+  });
+}
+// Safety: never block local-only / offline users forever.
+setTimeout(() => markSyncReady(), 15000);
+
 window.addEventListener('online', () => {
   _online = true;
   _flushDirty();
@@ -101,6 +133,10 @@ async function _pushKey(dataKey, value) {
  */
 export function syncPush(dataKey, value) {
   _pendingValues[dataKey] = value;
+  _setLocalTs(dataKey, Date.now());
+  // Hold all cloud pushes until the first pull finishes — prevents a stale tab
+  // from overwriting newer cloud data before it has loaded it.
+  if (!_syncReady) { _queuedKeys.add(dataKey); return; }
   if (_pendingSaves[dataKey]) clearTimeout(_pendingSaves[dataKey]);
   _pendingSaves[dataKey] = setTimeout(() => {
     delete _pendingSaves[dataKey];
@@ -235,7 +271,7 @@ export async function syncPullAll() {
     if (!data || !data.length) return {};
 
     const result = {};
-    data.forEach(row => { result[row.data_key] = row.data; });
+    data.forEach(row => { result[row.data_key] = { data: row.data, updatedAt: row.updated_at }; });
     return result;
   } catch { return null; }
 }

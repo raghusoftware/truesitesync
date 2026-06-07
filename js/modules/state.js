@@ -1,4 +1,4 @@
-import { syncPush, syncPullAll, syncPushAll, registerStorageKeys } from '../database/sync.js';
+import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady } from '../database/sync.js';
 
 const STORAGE_KEYS = {
   clients: 'mes_clients',
@@ -237,20 +237,32 @@ export function saveEquipmentData() {
 export async function loadFromCloud() {
   try {
     const cloudData = await syncPullAll();
-    if (!cloudData || !Object.keys(cloudData).length) return false;
+    if (!cloudData || !Object.keys(cloudData).length) { markSyncReady(); return false; }
 
-    let merged = 0;
+    let merged = 0, kept = 0;
     for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
-      if (cloudData[key] !== undefined && cloudData[key] !== null) {
-        state[key] = cloudData[key];
-        localStorage.setItem(storageKey, JSON.stringify(cloudData[key]));
-        merged++;
+      const c = cloudData[key];
+      if (!c || c.data === undefined || c.data === null) continue;
+      const cloudTs = Date.parse(c.updatedAt) || 0;
+      const localTs = getLocalKeyTs(key);
+      // Keep local only if it has genuinely newer un-synced changes; otherwise
+      // the cloud copy wins (prevents a stale browser from keeping old data).
+      if (localTs && localTs > cloudTs + 1000) {
+        syncPush(key, state[key]); // local newer → re-push (queued until ready)
+        kept++;
+        continue;
       }
+      state[key] = c.data;
+      localStorage.setItem(storageKey, JSON.stringify(c.data));
+      setLocalKeyTs(key, cloudTs);
+      merged++;
     }
-    console.log(`[sync] Loaded ${merged} keys from cloud`);
+    console.log(`[sync] Loaded ${merged} keys from cloud (kept ${kept} newer-local)`);
+    markSyncReady();
     return merged > 0;
   } catch (e) {
     console.warn('[sync] loadFromCloud failed:', e);
+    markSyncReady();
     return false;
   }
 }
