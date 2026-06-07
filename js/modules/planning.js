@@ -214,6 +214,7 @@ function _renderTaskCard(t) {
               <h4 class="text-sm font-bold text-slate-800 truncate">${t.name}</h4>
               <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;">${t.status}</span>
               ${t.priority === 'Critical' || t.priority === 'High' ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${pc}15;color:${pc};">&#9650; ${t.priority}</span>` : ''}
+              ${(() => { const n = (typeof window !== 'undefined' && window.getOpenIssueCountForTask) ? window.getOpenIssueCountForTask(t.id) : 0; return n ? `<span onclick="event.stopPropagation();window.switchView&&window.switchView('issuesView')" title="${n} open issue${n > 1 ? 's' : ''} on this task" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 cursor-pointer" style="background:#ef444415;color:#ef4444;border:1px solid #ef444430;">&#128681; ${n} issue${n > 1 ? 's' : ''}</span>` : ''; })()}
             </div>
             ${t.description ? `<p class="text-[11px] text-slate-400 truncate">${t.description}</p>` : ''}
           </div>

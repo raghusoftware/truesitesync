@@ -55,6 +55,9 @@ function _boqLabel(ref) { return (_projBoqItems().find(b => b.ref === ref) || {}
 
 /** Public: issues linked to a planning task (for planning/micro-planning UI). */
 export function getIssuesForTask(taskId) { return (state.issues || []).filter(i => i.taskId === taskId); }
+/** Public: count of OPEN (unsolved) issues linked to a planning task. */
+export function getOpenIssueCountForTask(taskId) { return (state.issues || []).filter(i => i.taskId === taskId && i.status !== 'Solved').length; }
+if (typeof window !== 'undefined') window.getOpenIssueCountForTask = getOpenIssueCountForTask;
 /** Public: open-issue count for a BOQ ref. */
 export function getOpenIssueCountForBoq(ref) { return (state.issues || []).filter(i => i.boqRef === ref && i.status !== 'Solved').length; }
 
