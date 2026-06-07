@@ -15,6 +15,9 @@ import { getSupabase } from '../database/supabase.js';
 export const ACCESS_MODULES = [
   { id: 'projectDashboard', label: 'Dashboard', group: 'Project' },
   { id: 'planningView', label: 'Planning', group: 'Project' },
+  { id: 'microPlanView', label: 'Micro Planning', group: 'Project' },
+  { id: 'issuesView', label: 'Issues', group: 'Project' },
+  { id: 'pettyCashView', label: 'Petty Cash', group: 'Project' },
   { id: 'labourView', label: 'Labour', group: 'Project' },
   { id: 'equipmentView', label: 'Equipment', group: 'Project' },
   { id: 'inventoryView', label: 'Inventory', group: 'Project' },
@@ -59,10 +62,10 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'planningView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'planningView', 'microPlanView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
   Engineer: { permissions: [
-    'projectDashboard', 'planningView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'planningView', 'microPlanView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
 };
 
@@ -79,6 +82,17 @@ export function initRBAC() {
     state.rbacRoles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
     saveAllData();
   }
+  // Migration: full-access roles (Admin/CEO/Owner) always include every module,
+  // so newly-added modules (e.g. Issues, Petty Cash, Micro Planning) are granted
+  // automatically on existing workspaces instead of silently missing.
+  let _rolesChanged = false;
+  ['Admin', 'CEO', 'Owner'].forEach(r => {
+    const role = state.rbacRoles[r];
+    if (!role) return;
+    role.permissions = role.permissions || [];
+    ALL_MODULE_IDS.forEach(id => { if (!role.permissions.includes(id)) { role.permissions.push(id); _rolesChanged = true; } });
+  });
+  if (_rolesChanged) saveAllData();
   // No default/seed user — the first person who logs in (via Supabase) becomes
   // the Admin of their own workspace (see _ensureRbacUser).
   if (!state.rbacUsers) { state.rbacUsers = []; saveAllData(); }
