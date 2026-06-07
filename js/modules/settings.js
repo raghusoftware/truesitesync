@@ -61,6 +61,14 @@ window._setMeasOrientation = function(o) {
   showToast('Measurement PDF set to ' + o, 'success');
 };
 
+window._setInvoiceMinRows = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  const n = Math.max(0, Math.min(40, parseInt(v) || 0));
+  state.printSettings.invoiceMinRows = n;
+  saveAllData();
+  showToast('Tax Invoice minimum rows set to ' + n, 'success');
+};
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -72,7 +80,20 @@ function renderPrintConfigTab() {
   const styles = [{v:'bold',l:'Bold'},{v:'normal',l:'Normal'},{v:'bolditalic',l:'Bold Italic'},{v:'italic',l:'Italic'}];
 
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
+  const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
   c.innerHTML = `
+    <!-- ═══ TAX INVOICE MIN ROWS ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#128203;</span>
+        <h4 class="font-bold text-sm text-slate-800">Tax Invoice &mdash; Minimum Table Rows</h4>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <input type="number" min="0" max="40" value="${invMinRows}" onchange="window._setInvoiceMinRows(this.value)" class="w-24 border rounded-lg px-3 py-2 text-sm font-bold">
+        <span class="text-[11px] text-slate-500 flex-1 min-w-[200px]">Blank rows are added so the invoice items table always has at least this many lines &mdash; keeps the page looking full and proper. Set 0 to disable.</span>
+      </div>
+    </div>
+
     <!-- ═══ MEASUREMENT PDF ORIENTATION ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">

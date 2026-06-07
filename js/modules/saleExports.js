@@ -10,74 +10,159 @@
 
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF } from './utils.js';
-import { formatNumber2 } from './format.js';
-import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js';
+import { formatNumber2, amountToWordsINR } from './format.js';
 
 const _num2 = formatNumber2;
 
+/**
+ * "Simple" Tax Invoice theme — our company header + a clean GST invoice table.
+ * Supports a configurable minimum number of table rows (blank filler rows) so
+ * the items table always looks full/proper: Settings → Print → Tax Invoice
+ * minimum rows (state.printSettings.invoiceMinRows).
+ */
 export function exportSaleInvoicePDF(id) {
   const inv = (state.saleInvoices || []).find(i => i.id === id);
   if (!inv) { showToast('Invoice not found', 'error'); return; }
   const c = state.clients.find(x => x.id === inv.clientId);
   const clientName = c?.name || inv.clientName || 'Unknown';
+  const cp = state.companyProfile || {};
 
-  // Try theme engine
-  const themeId = getActiveThemeId('invoice');
-  if (themeId && THEMES.invoice && THEMES.invoice[themeId]) {
-    const doc = new window.jspdf.jsPDF();
-    const items = (inv.items || []).map((it, idx) => ({ sn: idx+1, ref: it.hsn || '', desc: it.desc, qty: it.qty, unit: it.unit, rate: it.rate, taxPct: it.taxPct, amount: it.amount }));
-    const data = { invoiceNum: inv.invoiceNo || '', date: inv.date, clientName, projectName: inv.projectName || '', status: inv.status || 'Active', items, subtotal: inv.subtotal, taxAmount: inv.gstAmount || 0, gstType: inv.gstType, taxPct: inv.taxPct, totalAmount: inv.grandTotal || inv.subtotal + (inv.gstAmount||0), payType: inv.payType };
-    renderWithTheme('invoice', themeId, doc, data);
-    mobileSavePDF(doc,`SaleInvoice_${inv.invoiceNo || id}.pdf`);
-    return;
-  }
-
-  // Fallback
   const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
   const pw = doc.internal.pageSize.getWidth();
-  let y = getCompanyHeaderForPDF(doc);
-  doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
-  doc.text('TAX INVOICE', pw / 2, y, { align: 'center' }); y += 7;
-  // Invoice details
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
-  doc.text('Invoice No: ' + (inv.invoiceNo || ''), 14, y);
-  doc.text('Date: ' + (inv.date || ''), pw - 14, y, { align: 'right' }); y += 5;
-  doc.text('Client: ' + clientName, 14, y);
-  doc.text('Pay Type: ' + (inv.payType || ''), pw - 14, y, { align: 'right' }); y += 5;
-  if (inv.poNo) { doc.text('WO/PO: ' + inv.poNo, 14, y); y += 5; }
-  y += 2;
-  // Items table
-  const rows = (inv.items || []).map((item, i) => [
-    i + 1, item.desc, item.hsn || '', item.qty, item.unit || '',
-    _num2(item.rate || 0), item.taxPct + '%',
-    _num2(item.amount || 0)
+  const ml = 14, mr = 14;
+  const cur = (getPdfCurrency() || 'Rs.').trim();
+
+  // ── Our company header (from company profile / header settings) ──
+  let y = getCompanyHeaderForPDF(doc) + 2;
+
+  // Title bar
+  doc.setFillColor(30, 58, 138);
+  doc.rect(ml, y, pw - ml - mr, 8, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+  doc.text('TAX INVOICE', pw / 2, y + 5.6, { align: 'center' });
+  y += 12; doc.setTextColor(0, 0, 0);
+
+  // ── Bill To (left) + Invoice details (right) ──
+  const colR = pw / 2 + 4;
+  let ly = y, ry = y;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('Bill To:', ml, ly); ly += 4.5;
+  doc.setFontSize(9.5); doc.text(clientName, ml, ly); ly += 4.5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  const addr = (c?.address || inv.clientAddress || '').toString();
+  if (addr) doc.splitTextToSize(addr, pw / 2 - ml - 6).forEach(line => { doc.text(line, ml, ly); ly += 4; });
+  if (c?.gst) { doc.text('GSTIN: ' + c.gst, ml, ly); ly += 4; }
+  if (inv.stateOfSupply) { doc.text('State: ' + inv.stateOfSupply, ml, ly); ly += 4; }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('Invoice Details:', colR, ry); ry += 4.5;
+  doc.setFontSize(8.5);
+  const detail = (label, val) => {
+    if (val === undefined || val === null || val === '') return;
+    doc.setFont('helvetica', 'bold'); doc.text(label, colR, ry);
+    const lw = doc.getTextWidth(label);
+    doc.setFont('helvetica', 'normal'); doc.text(' ' + val, colR + lw, ry); ry += 4;
+  };
+  detail('No:', inv.invoiceNo || '');
+  detail('Date:', inv.date || '');
+  detail('Place of Supply:', inv.stateOfSupply || '');
+  detail('PO No:', inv.poNo || '');
+  detail('PO Date:', inv.poDate || '');
+  y = Math.max(ly, ry) + 3;
+
+  // ── Items table (with minimum filler rows) ──
+  const items = inv.items || [];
+  const intStr = (n) => _num2(n).replace(/\.00$/, '');
+  const body = items.map((it, i) => [
+    i + 1, it.desc || '', it.hsn || '', intStr(it.qty || 0), it.unit || '',
+    _num2(it.rate || 0),
+    _num2(it.taxAmount || 0) + (it.taxPct ? ` (${it.taxPct}%)` : ''),
+    _num2(it.amount || 0),
   ]);
-  const invCur = getPdfCurrency().trim();
+  const minRows = Math.max(0, parseInt(state.printSettings?.invoiceMinRows ?? 8) || 0);
+  while (body.length < minRows) body.push(['', '', '', '', '', '', '', '']);
+
+  const sumQty = items.reduce((s, it) => s + (parseFloat(it.qty) || 0), 0);
+  const sumTax = items.reduce((s, it) => s + (parseFloat(it.taxAmount) || 0), 0);
+  const sumGross = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+  const sumTaxable = sumGross - sumTax;
+
   doc.autoTable({
-    startY: y, head: [['#', 'Description', 'HSN/SAC', 'Qty', 'Unit', `Rate (${invCur})`, 'Tax', `Amount (${invCur})`]],
-    body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 8 },
-    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 50 }, 2: { cellWidth: 18 }, 3: { halign: 'right', cellWidth: 12 }, 4: { cellWidth: 12 }, 5: { halign: 'right', cellWidth: 25 }, 6: { halign: 'right', cellWidth: 14 }, 7: { halign: 'right', cellWidth: 28 } },
-    margin: { left: 14, right: 14 }
+    startY: y,
+    head: [['#', 'Item name', 'HSN/SAC', 'Quantity', 'Unit', `Price/Unit (${cur})`, `GST (${cur})`, `Amount (${cur})`]],
+    body,
+    foot: [['', 'Total', '', intStr(sumQty), '', '', _num2(sumTax), _num2(sumGross)]],
+    theme: 'grid',
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 8, halign: 'center', fontStyle: 'bold' },
+    footStyles: { fillColor: [241, 245, 249], textColor: 0, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 7 },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 26, halign: 'right' },
+      6: { cellWidth: 26, halign: 'right' }, 7: { cellWidth: 28, halign: 'right' },
+    },
+    margin: { left: ml, right: mr },
   });
-  y = doc.lastAutoTable.finalY + 6;
-  // Summary
-  const summaryData = [
-    ['Subtotal', pdfMoney(inv.subtotal)],
-    ['Tax', pdfMoney(inv.gstAmount)],
-  ];
-  if (inv.tcsAmount) summaryData.push(['TCS', pdfMoney(inv.tcsAmount)]);
-  if (inv.roundAmt) summaryData.push(['Round Off', (inv.roundAmt > 0 ? '+' : '') + inv.roundAmt.toFixed(2)]);
-  summaryData.push(['Grand Total', pdfMoney(inv.total)]);
-  doc.setTextColor(0, 0, 0);
-  summaryData.forEach(([label, val]) => {
-    const isBold = label === 'Grand Total';
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    doc.setFontSize(isBold ? 10 : 9);
-    doc.text(label + ':', pw - 70, y); doc.text(val, pw - 14, y, { align: 'right' }); y += 5;
+  y = doc.lastAutoTable.finalY + 4;
+
+  // ── Tax summary (HSN-wise, CGST + SGST split) — left half ──
+  const groups = {};
+  items.forEach(it => {
+    const k = it.hsn || '-';
+    if (!groups[k]) groups[k] = { taxable: 0, tax: 0, rate: parseFloat(it.taxPct) || 0 };
+    groups[k].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
+    groups[k].tax += (parseFloat(it.taxAmount) || 0);
   });
-  if (inv.notes) { y += 4; doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.text('Notes: ' + inv.notes, 14, y); }
-  mobileSavePDF(doc,(inv.invoiceNo || 'Invoice') + '.pdf');
-  showToast('PDF downloaded!');
+  const taxBody = Object.entries(groups).map(([hsn, g]) => {
+    const half = g.tax / 2, hr = g.rate / 2;
+    return [hsn, _num2(g.taxable), hr ? hr + '%' : '', _num2(half), hr ? hr + '%' : '', _num2(half), _num2(g.tax)];
+  });
+  taxBody.push(['TOTAL', _num2(sumTaxable), '', _num2(sumTax / 2), '', _num2(sumTax / 2), _num2(sumTax)]);
+  doc.autoTable({
+    startY: y,
+    head: [['HSN/SAC', `Taxable`, 'CGST%', `CGST`, 'SGST%', `SGST`, `Total Tax`]],
+    body: taxBody, theme: 'grid',
+    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 7, halign: 'center' },
+    styles: { fontSize: 7, cellPadding: 1.4, halign: 'right' },
+    columnStyles: { 0: { halign: 'center' } },
+    margin: { left: ml, right: pw / 2 + 2 },
+  });
+  const taxBottom = doc.lastAutoTable.finalY;
+
+  // ── Totals (right half) ──
+  let ty = y + 2; const totX = pw / 2 + 6, valX = pw - mr;
+  const totRow = (label, val, bold) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(bold ? 10 : 9);
+    doc.text(label, totX, ty); doc.text(val, valX, ty, { align: 'right' }); ty += bold ? 6 : 5;
+  };
+  totRow('Sub Total :', cur + ' ' + _num2(sumGross));
+  if (inv.tcsAmount) totRow('TCS :', cur + ' ' + _num2(inv.tcsAmount));
+  if (inv.roundAmt) totRow('Round Off :', (inv.roundAmt < 0 ? '- ' : '+ ') + cur + ' ' + _num2(Math.abs(inv.roundAmt)));
+  totRow('Total :', cur + ' ' + _num2(inv.total), true);
+  y = Math.max(taxBottom, ty) + 6;
+
+  // ── Payment mode, amount in words, received/balance, signature ──
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('Payment Mode: ', ml, y);
+  doc.setFont('helvetica', 'normal'); doc.text(inv.payType || 'Credit', ml + doc.getTextWidth('Payment Mode: '), y);
+  y += 6;
+  doc.setFont('helvetica', 'bold'); doc.text('Invoice Amount in Words:', ml, y); y += 4.5;
+  doc.setFont('helvetica', 'normal');
+  doc.splitTextToSize(amountToWordsINR(inv.total || 0), pw - ml - mr).forEach(line => { doc.text(line, ml, y); y += 4.2; });
+  y += 2;
+  const received = parseFloat(inv.received) || 0;
+  doc.text('Received : ' + cur + ' ' + _num2(received), ml, y);
+  doc.text('Balance : ' + cur + ' ' + _num2((inv.total || 0) - received), ml, y + 4.5);
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('For ' + (cp.CompanyName || 'Company') + ':', valX, y, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.text('Authorized Signatory', valX, y + 16, { align: 'right' });
+
+  if (inv.notes) { y += 22; doc.setFontSize(7.5); doc.setTextColor(90, 90, 90); doc.text('Notes: ' + inv.notes, ml, y); }
+
+  mobileSavePDF(doc, (inv.invoiceNo || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
+  showToast('Invoice PDF downloaded');
 }
 
 // ── Print Sale Invoice ──
