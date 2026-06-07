@@ -1,4 +1,4 @@
-import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady } from '../database/sync.js';
+import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline } from '../database/sync.js';
 
 const STORAGE_KEYS = {
   clients: 'mes_clients',
@@ -255,6 +255,7 @@ export async function loadFromCloud() {
       state[key] = c.data;
       localStorage.setItem(storageKey, JSON.stringify(c.data));
       setLocalKeyTs(key, cloudTs);
+      seedSyncBaseline(key, c.data); // adopted cloud → don't re-push unchanged
       merged++;
     }
     console.log(`[sync] Loaded ${merged} keys from cloud (kept ${kept} newer-local)`);

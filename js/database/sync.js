@@ -28,6 +28,14 @@ const _dirtyKeys = new Set();
 let _syncReady = false;
 const _queuedKeys = new Set();
 const _localTs = {};               // dataKey -> last local-change time (ms)
+const _lastJson = {};              // dataKey -> JSON of last value seen (dirty check)
+
+/** Record a key's current value as the synced baseline WITHOUT pushing it.
+ *  Called after adopting the cloud copy so an unchanged key isn't re-pushed
+ *  (which would clobber a newer cloud copy from another device). */
+export function seedSyncBaseline(key, value) {
+  try { _lastJson[key] = JSON.stringify(value); } catch {}
+}
 
 function _getLocalTs(key) {
   if (_localTs[key]) return _localTs[key];
@@ -132,6 +140,13 @@ async function _pushKey(dataKey, value) {
  * Writes localStorage immediately, queues Supabase push.
  */
 export function syncPush(dataKey, value) {
+  // Dirty check: skip keys that haven't actually changed since the last
+  // push/load. saveAllData() pushes every key on every save, so without this a
+  // stale tab would keep re-pushing (and clobbering) data it never touched.
+  let json;
+  try { json = JSON.stringify(value); } catch { json = null; }
+  if (json !== null && _lastJson[dataKey] === json) return;
+  if (json !== null) _lastJson[dataKey] = json;
   _pendingValues[dataKey] = value;
   _setLocalTs(dataKey, Date.now());
   // Hold all cloud pushes until the first pull finishes — prevents a stale tab
