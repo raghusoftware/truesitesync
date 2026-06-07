@@ -403,6 +403,9 @@ function _upgradeLoginForm() {
           <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Password</label>
           <input type="password" id="loginPassword" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;transition:border .15s;" placeholder="Min. 6 characters" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'" onkeydown="if(event.key==='Enter')window._rbacHandleLogin()">
         </div>
+        <div id="forgotPwRow" style="text-align:right;margin-top:-12px;margin-bottom:16px;">
+          <a href="#" onclick="window._rbacForgotPassword();return false;" style="font-size:11px;color:#3b82f6;font-weight:600;text-decoration:none;">Forgot password?</a>
+        </div>
         <button id="loginBtn" onclick="window._rbacHandleLogin()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,.35);transition:opacity .15s;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">Sign In</button>
         <p style="text-align:center;margin-top:18px;font-size:12px;color:#64748b;">
           <span id="authToggleText">Don't have an account?</span>
@@ -436,14 +439,17 @@ export function toggleAuthMode() {
 
   if (errEl) errEl.style.display = 'none';
   if (successEl) successEl.style.display = 'none';
+  const forgotRow = document.getElementById('forgotPwRow');
 
   if (_isSignupMode) {
     if (nameField) nameField.style.display = '';
+    if (forgotRow) forgotRow.style.display = 'none';
     if (subtitle) subtitle.textContent = 'Create a new account';
     if (btn) btn.textContent = 'Create Account';
     if (toggleText) toggleText.textContent = 'Already have an account?';
     if (toggleLink) toggleLink.textContent = 'Sign In';
   } else {
+    if (forgotRow) forgotRow.style.display = '';
     if (nameField) nameField.style.display = 'none';
     if (subtitle) subtitle.textContent = 'Sign in to your account';
     if (btn) btn.textContent = 'Sign In';
@@ -464,15 +470,13 @@ function _showConfirmationScreen(email) {
       <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Check Your Email</h2>
       <p style="font-size:14px;color:#64748b;margin:0 0 6px;line-height:1.5;">We've sent a confirmation link to</p>
       <p style="font-size:15px;font-weight:700;color:#1e3a8a;margin:0 0 24px;word-break:break-all;">${email}</p>
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:24px;text-align:left;">
-        <p style="font-size:12px;color:#16a34a;font-weight:600;margin:0 0 8px;">What to do next:</p>
-        <ol style="font-size:12px;color:#334155;margin:0;padding-left:18px;line-height:1.8;">
-          <li>Open your email inbox</li>
-          <li>Click the confirmation link from True Site Sync</li>
-          <li>You'll be redirected back here, logged in!</li>
-        </ol>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:18px;text-align:left;">
+        <p style="font-size:12px;color:#1e3a8a;font-weight:700;margin:0 0 8px;">Enter the 6-digit code from the email</p>
+        <input id="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:18px;font-weight:700;letter-spacing:6px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:10px;" onkeydown="if(event.key==='Enter')window._rbacVerifySignupOtp('${email}')">
+        <button onclick="window._rbacVerifySignupOtp('${email}')" id="otpVerifyBtn" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Verify &amp; Continue</button>
+        <p style="font-size:10px;color:#94a3b8;margin:8px 0 0;text-align:center;">…or just click the confirmation link in the email.</p>
       </div>
-      <p style="font-size:11px;color:#94a3b8;margin:0 0 16px;">Didn't receive the email? Check your spam folder or</p>
+      <p style="font-size:11px;color:#94a3b8;margin:0 0 16px;">Didn't receive it? Check spam or</p>
       <button onclick="window._rbacResendConfirmation('${email}')" id="resendBtn" style="background:none;border:2px solid #e2e8f0;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;color:#3b82f6;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='#3b82f6';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='none'">Resend Confirmation Email</button>
       <div style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:16px;">
         <a href="#" onclick="window._rbacBackToLogin();return false;" style="font-size:12px;color:#64748b;text-decoration:none;font-weight:600;">&#8592; Back to Sign In</a>
@@ -512,6 +516,100 @@ export function backToLogin() {
     _upgradeLoginForm();
     setTimeout(() => { const el = document.getElementById('loginEmail'); if (el) el.focus(); }, 100);
   }
+}
+
+/** Verify the 6-digit signup email OTP and log the user in. */
+export async function verifySignupOtp(email) {
+  const sb = getSupabase();
+  if (!sb) return;
+  const token = (document.getElementById('signupOtp')?.value || '').trim();
+  if (token.length < 6) { showToast('Enter the 6-digit code', 'error'); return; }
+  const btn = document.getElementById('otpVerifyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; btn.style.opacity = '0.7'; }
+  try {
+    let { error } = await sb.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) { const r = await sb.auth.verifyOtp({ email, token, type: 'email' }); if (r.error) throw error; }
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    try { await pushAllToCloud(); } catch {}
+    if (typeof window._bootApp === 'function') window._bootApp();
+    showToast('Email verified — welcome!', 'success');
+  } catch (e) {
+    showToast(e.message || 'Invalid or expired code. Try again.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify & Continue'; btn.style.opacity = '1'; }
+  }
+}
+
+/** Send a password-reset email to the address in the login form. */
+export async function forgotPassword() {
+  const sb = getSupabase();
+  if (!sb) return;
+  const email = (document.getElementById('loginEmail')?.value || '').trim();
+  const errEl = document.getElementById('loginError');
+  const okEl = document.getElementById('loginSuccess');
+  if (errEl) errEl.style.display = 'none';
+  if (okEl) okEl.style.display = 'none';
+  if (!email) { if (errEl) { errEl.textContent = 'Enter your email above first, then click "Forgot password?"'; errEl.style.display = 'block'; } return; }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    if (error) throw error;
+    if (okEl) { okEl.textContent = 'Password reset link sent to ' + email + '. Open it to set a new password.'; okEl.style.display = 'block'; }
+  } catch (e) {
+    if (errEl) { errEl.textContent = e.message || 'Could not send reset email.'; errEl.style.display = 'block'; }
+  }
+}
+
+/** Shown when the user returns from a password-reset email (PASSWORD_RECOVERY). */
+export function showPasswordResetScreen() {
+  const loginEl = document.getElementById('loginPage');
+  const app = document.getElementById('appContainer');
+  if (app) app.style.display = 'none';
+  if (!loginEl) return;
+  loginEl.dataset.upgraded = '';
+  loginEl.style.display = 'flex';
+  loginEl.innerHTML = `
+    <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 6px;text-align:center;">Set a New Password</h2>
+      <p style="font-size:13px;color:#64748b;margin:0 0 22px;text-align:center;">Enter a new password for your account.</p>
+      <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
+      <input id="prPass" type="password" placeholder="New password (min 6)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;">
+      <input id="prPass2" type="password" placeholder="Confirm new password" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacSubmitNewPassword()">
+      <button id="prBtn" onclick="window._rbacSubmitNewPassword()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+    </div>`;
+}
+
+/** Apply the new password (during a recovery session) and enter the app. */
+export async function submitNewPassword() {
+  const sb = getSupabase();
+  if (!sb) return;
+  const p1 = document.getElementById('prPass')?.value || '';
+  const p2 = document.getElementById('prPass2')?.value || '';
+  const err = document.getElementById('prError');
+  const showErr = m => { if (err) { err.textContent = m; err.style.display = 'block'; } };
+  if (p1.length < 6) return showErr('Password must be at least 6 characters');
+  if (p1 !== p2) return showErr('Passwords do not match');
+  const btn = document.getElementById('prBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; btn.style.opacity = '0.7'; }
+  try {
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) throw error;
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    showToast('Password updated — signed in!', 'success');
+    try { await loadFromCloud(); } catch {}
+    if (typeof window._bootApp === 'function') window._bootApp();
+  } catch (e) {
+    showErr(e.message || 'Could not update password.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; btn.style.opacity = '1'; }
+  }
+}
+
+// Self-register (cache-safe — avoids new named imports in app.js).
+if (typeof window !== 'undefined') {
+  window._rbacVerifySignupOtp = verifySignupOtp;
+  window._rbacForgotPassword = forgotPassword;
+  window._rbacShowPasswordReset = showPasswordResetScreen;
+  window._rbacSubmitNewPassword = submitNewPassword;
 }
 
 export async function handleLogin() {

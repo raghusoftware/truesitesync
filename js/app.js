@@ -350,6 +350,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         _appBooted = false;
         return;
       }
+      if (event === 'PASSWORD_RECOVERY') {
+        // User clicked the reset-password email link — show the set-new-password screen.
+        try { if (window._hideSplash) window._hideSplash(); window._rbacShowPasswordReset?.(); } catch (e) { console.warn('[auth] recovery UI:', e); }
+        return;
+      }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
