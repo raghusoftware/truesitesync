@@ -215,6 +215,9 @@ export function runReport(reportId, params = {}) {
   // Track in history
   addReportHistory(reportId, reportDef.name);
 
+  // Custom composite builder — Project Report (master)
+  if (reportId === 'project_report') { _renderProjectReportPanel(); return; }
+
   // Execute query
   const result = engine.generateReport(reportId, params);
 
@@ -787,6 +790,29 @@ window._rptSearchReports = searchReports;
 window._rptFilterCatReports = filterCatReports;
 window._rptApplyFilters = applyFilters;
 window._rptClearFilters = clearFilters;
+function _renderProjectReportPanel() {
+  const container = document.getElementById('reportsDashContent');
+  if (!container) return;
+  const projects = state.projects || [];
+  const cur = state.currentProjectId || (projects[0] && projects[0].id) || '';
+  const opts = projects.map(p => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${(p.name || 'Project').replace(/</g, '&lt;')}${p.code ? ' (' + p.code + ')' : ''}</option>`).join('');
+  container.innerHTML = `
+    <div style="max-width:640px;margin:0 auto;">
+      <button onclick="renderReportsDashboard()" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+        <h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">&#127970; Project Report (Master)</h2>
+        <p style="font-size:13px;color:#64748b;margin-bottom:18px;">One consolidated report — project &amp; WO info, financial summary, schedule, execution (DPR / pours / milestones / quality / safety), labour, equipment, sales &amp; purchase transactions, issues and site photos.</p>
+        ${projects.length ? `
+        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;">Select Project</label>
+        <select id="prjRptSel" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:18px;">${opts}</select>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="window.exportProjectReportPDF(document.getElementById('prjRptSel').value)" style="flex:1;min-width:160px;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128424; Download PDF</button>
+          <button onclick="window.exportProjectReportExcel(document.getElementById('prjRptSel').value)" style="flex:1;min-width:160px;padding:12px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128202; Download Excel</button>
+        </div>` : '<p style="color:#94a3b8;">No projects yet. Create a project first.</p>'}
+      </div>
+    </div>`;
+}
+
 window._rptRefreshReport = () => { if (_currentReportId) runReport(_currentReportId); };
 window._rptExportReportPDF = exportReportPDF;
 window._rptExportReportExcel = exportReportExcel;
