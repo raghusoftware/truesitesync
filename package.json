@@ -23,7 +23,8 @@
     "publish": [{
       "provider": "github",
       "owner": "raghusoftware",
-      "repo": "truesitesync"
+      "repo": "truesitesync",
+      "releaseType": "release"
     }],
     "directories": {
       "output": "dist"
