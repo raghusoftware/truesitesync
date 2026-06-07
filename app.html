@@ -17,7 +17,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.3.26">
-    <script type="module" src="js/app.js?v=1.3.38"></script>
+    <script type="module" src="js/app.js?v=1.3.39"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2542,9 +2542,18 @@
                   <select id="siFormWO" class="si-field" onchange="onSIWOChange()">
                     <option value="">-- Select WO/PO --</option>
                   </select>
-                  <div class="si-po-wrap" style="margin-top:4px;">
-                    <input type="text" id="siFormPO" class="si-field" placeholder="Or type PO manually..." oninput="searchSIPO()" onfocus="searchSIPO()" autocomplete="off">
-                    <div id="siPODropdown" class="si-po-dropdown"></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;align-items:start;">
+                    <div>
+                      <label class="si-lbl">PO No.</label>
+                      <div class="si-po-wrap">
+                        <input type="text" id="siFormPO" class="si-field" placeholder="PO number" oninput="searchSIPO()" onfocus="searchSIPO()" autocomplete="off">
+                        <div id="siPODropdown" class="si-po-dropdown"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="si-lbl">PO Date</label>
+                      <input type="date" id="siFormPODate" class="si-field">
+                    </div>
                   </div>
                   <input type="hidden" id="siFormPOId">
                 </div>
@@ -2564,10 +2573,6 @@
                   <div>
                     <label class="si-lbl">Due Date</label>
                     <input type="date" id="siFormDueDate" class="si-field">
-                  </div>
-                  <div>
-                    <label class="si-lbl">PO Date</label>
-                    <input type="date" id="siFormPODate" class="si-field">
                   </div>
                   <div>
                     <label class="si-lbl">Payment Terms</label>
