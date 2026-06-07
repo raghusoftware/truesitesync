@@ -307,6 +307,27 @@ if (typeof window !== 'undefined') {
     sel.value = rec.id;
     sel.dispatchEvent(new Event('change'));
   };
+
+  // "Add Party" chooser used by the Parties ledger — pick Client / Vendor / Labour.
+  window._addPartyChooser = function () {
+    let o = document.getElementById('addPartyChooser');
+    if (!o) {
+      o = document.createElement('div');
+      o.id = 'addPartyChooser';
+      o.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);z-index:200000;display:flex;align-items:center;justify-content:center;padding:16px;';
+      o.addEventListener('click', e => { if (e.target === o) o.style.display = 'none'; });
+      document.body.appendChild(o);
+    }
+    window._pendingPartySelect = ''; // not from a dropdown
+    const btn = (label, icon, fn) => `<button onclick="document.getElementById('addPartyChooser').style.display='none';${fn}" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;font-weight:700;color:#0f172a;font-size:14px;margin-bottom:8px;">${icon} ${label}</button>`;
+    o.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h3 style="font-weight:800;font-size:17px;color:#0f172a;">Add Party</h3><button onclick="document.getElementById('addPartyChooser').style.display='none'" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:16px;">×</button></div>
+      ${btn('Client', '🏢', 'window.openClientModal&&window.openClientModal();')}
+      ${btn('Vendor / Supplier', '🏭', 'window.openVendorModal&&window.openVendorModal();')}
+      ${btn('Labour', '👷', 'window.openLabourModal&&window.openLabourModal();')}
+    </div>`;
+    o.style.display = 'flex';
+  };
 }
 
 /** Get company header for jsPDF documents */

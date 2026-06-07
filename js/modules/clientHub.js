@@ -78,6 +78,7 @@ export function saveClient() {
   renderClientTable();
   showToast(editId ? 'Client updated' : 'Client added', 'success');
   if (createdRec && typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(createdRec);
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
 }
 
 export function renderClientTable() {

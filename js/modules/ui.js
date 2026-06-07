@@ -1349,6 +1349,7 @@ export function saveVendor() {
   showToast('Vendor Saved');
   renderMasterVendorList();
   if (typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(rec);
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
 }
 
 export function addPurchaseRow(count = 1) {
@@ -2328,6 +2329,7 @@ export function saveLabour() {
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
   renderLabourMasterList(); renderMonthlyMuster();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
 }
 
 export function renderLabourMasterList() {
