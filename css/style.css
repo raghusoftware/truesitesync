@@ -1604,3 +1604,41 @@ div[id$="FormPanel"]:not(.hidden) {
   #planningView > .flex.items-center.justify-between,
   #microPlanView > .flex.items-center.justify-between { flex-direction: column; align-items: stretch !important; gap: 10px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE — Project resource modules (Phase 4): Inventory, Equipment,
+   Tools, Assets, Labour, Micro-Planning
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Resource hub icon tiles → comfortable 2-across app launcher */
+  #invGrid, #equipGrid, #labourGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  #invGrid > div, #equipGrid > div, #labourGrid > div { padding: 18px 10px !important; }
+  #invGrid > div > div:first-child,
+  #equipGrid > div > div:first-child,
+  #labourGrid > div > div:first-child { width: 46px !important; height: 46px !important; font-size: 22px !important; }
+
+  /* Headers with any justify-between variant wrap cleanly */
+  .flex.justify-between.items-end,
+  .flex.items-end.justify-between,
+  .flex.justify-between.items-start { flex-wrap: wrap; gap: 8px; }
+
+  /* Micro-Planning stat rows: 3-up is too tight on phones → 2-up */
+  #microPlanView .grid.grid-cols-3 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Resource-module tables: denser text + smooth horizontal scroll */
+  #inventoryView table, #assetsView table, #labourView table,
+  #equipmentView table, #recipeView table, #microPlanView table {
+    font-size: 11px !important; min-width: 600px;
+  }
+  #inventoryView thead th, #assetsView thead th, #labourView thead th,
+  #equipmentView thead th, #recipeView thead th, #microPlanView thead th {
+    font-size: 10px !important; white-space: nowrap; padding: 6px 8px !important;
+  }
+  #inventoryView .overflow-x-auto, #assetsView .overflow-x-auto, #labourView .overflow-x-auto,
+  #equipmentView .overflow-x-auto, #recipeView .overflow-x-auto, #microPlanView .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
