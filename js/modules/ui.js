@@ -202,7 +202,26 @@ export function renderProjectDashboard() {
   }
   const pid = proj.id;
   const kpiEl = document.getElementById('projDashKPIs');
-  if (kpiEl) kpiEl.innerHTML = '';
+  if (kpiEl) {
+    const boqCount = (proj.boqs || []).length || (proj.woNumber ? 1 : 0);
+    const sheetCount = (state.sheets || []).filter(s => s.projectId === pid).length;
+    const invCount = (state.saleInvoices || []).filter(i => i.projectId === pid).length;
+    const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
+    const kpis = [
+      { label: 'BOQ / PO', value: boqCount, icon: '📋', color: '#3b82f6' },
+      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#10b981' },
+      { label: 'Invoices', value: invCount, icon: '🧾', color: '#8b5cf6' },
+      { label: 'Open Issues', value: openIssues, icon: '⚠️', color: openIssues ? '#ef4444' : '#94a3b8' },
+    ];
+    kpiEl.innerHTML = kpis.map(k => `
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
+        <div style="width:38px;height:38px;border-radius:11px;background:${k.color}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${k.icon}</div>
+        <div class="min-w-0">
+          <div class="text-xl font-extrabold text-slate-800 leading-none">${k.value}</div>
+          <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide truncate mt-1">${k.label}</div>
+        </div>
+      </div>`).join('');
+  }
   // Module cards
   const grid = document.getElementById('moduleCardsGrid');
   if (!grid) return;

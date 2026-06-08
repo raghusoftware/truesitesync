@@ -1526,3 +1526,35 @@ div[id$="FormPanel"]:not(.hidden) {
 }
 
 @keyframes mSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE — Project module (Phase 2): app-launcher dashboard + cards
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Project dashboard header: stack title + actions, full-width buttons */
+  #projectDashboard > .flex.items-center.justify-between { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  #projectDashboard > .flex.items-center.justify-between .flex.items-center.gap-3 { width: 100%; }
+  #projectDashboard > .flex.items-center.justify-between .flex.items-center.gap-3 button { flex: 1; text-align: center; min-height: 38px !important; }
+
+  /* KPI strip: 2 across, compact */
+  #projDashKPIs { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; margin-bottom: 16px !important; }
+  #projDashKPIs > div { padding: 12px !important; border-radius: 16px !important; }
+
+  /* Module grid → 3-col app-launcher tiles (icon on top, label below) */
+  #moduleCardsGrid { grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; }
+  #moduleCardsGrid > div { padding: 14px 6px !important; border-radius: 18px !important; }
+  #moduleCardsGrid > div > .flex { flex-direction: column !important; align-items: center !important; gap: 8px !important; text-align: center; }
+  #moduleCardsGrid > div h4 { font-size: 11px !important; line-height: 1.15; }
+  #moduleCardsGrid > div p { display: none !important; }      /* hide description */
+  #moduleCardsGrid > div > .flex > span { display: none !important; }  /* hide hover arrow */
+
+  /* Clients / Projects home cards: tighter padding, real tap targets */
+  #projectsGrid { gap: 12px !important; }
+  #projectsGrid .p-5 { padding: 16px !important; }
+  #projectsGrid button { min-height: 36px !important; font-size: 12px !important; padding: 6px 12px !important; }
+
+  /* Home header: stack title + add button (full-width, thumb-friendly) */
+  #projectsHome > .flex.items-center.justify-between,
+  #projectsHome .flex.items-center.justify-between:first-of-type { flex-wrap: wrap; gap: 10px; }
+  #projHomeActionBtn { width: 100%; justify-content: center; min-height: 46px; }
+}
