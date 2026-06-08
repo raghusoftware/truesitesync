@@ -162,12 +162,20 @@ async function _resolveOrg() {
       if (data && data.org_id) {
         _orgId = data.org_id;
       } else {
-        // First-time user → create their organization + owner membership atomically.
-        let email = null; try { const { data: u } = await sb.auth.getUser(); email = u?.user?.email || null; } catch {}
-        const nm = (email || 'My Company').split('@')[0];
-        const { data: newOrg, error } = await sb.rpc('create_org_with_owner', { p_name: nm, p_email: email });
-        if (!error && newOrg) _orgId = newOrg;
-        else console.warn('[sync] org create failed:', error && error.message);
+        // No membership yet. First, accept any pending invite → join that company's
+        // shared org. Only if there's no invite do we create a brand-new org.
+        try {
+          const { data: joinedOrg } = await sb.rpc('accept_pending_invites');
+          if (joinedOrg) _orgId = joinedOrg;
+        } catch (e) { console.warn('[sync] accept invite failed:', e); }
+
+        if (!_orgId) {
+          let email = null; try { const { data: u } = await sb.auth.getUser(); email = u?.user?.email || null; } catch {}
+          const nm = (email || 'My Company').split('@')[0];
+          const { data: newOrg, error } = await sb.rpc('create_org_with_owner', { p_name: nm, p_email: email });
+          if (!error && newOrg) _orgId = newOrg;
+          else console.warn('[sync] org create failed:', error && error.message);
+        }
       }
     } catch (e) { console.warn('[sync] org resolve failed:', e); }
     if (_orgId) { try { localStorage.setItem('mes_org_id', _orgId); } catch {} }

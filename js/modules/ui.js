@@ -1148,7 +1148,7 @@ export function switchView(viewId) {
     document.getElementById('billingAbstractsContainer').classList.add('hide');
     renderInvoiceHistory();
   }
-  if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); }
+  if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); if (typeof window.renderOrgTeam === 'function') window.renderOrgTeam(); }
   if (viewId === 'planBillingView') { if (typeof window.renderPlanBilling === 'function') window.renderPlanBilling(); }
   if (viewId === 'clientDashboardView') window.renderClientHub?.();
   if (viewId === 'partiesLedgerView') window.renderPartiesList?.();
