@@ -111,7 +111,7 @@ import {
   mpOpenTaskForm, mpAddLabourRow, mpCloseTaskForm, mpSaveTask, mpDeleteTask,
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization
-} from './modules/microPlanning.js';
+} from './modules/microPlanning.js?v=1.4.3';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {

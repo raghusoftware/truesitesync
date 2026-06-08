@@ -810,7 +810,31 @@ let _mpMode = 'daily'; // 'daily' | 'weekly'
 
 export function mpSwitchMode(mode) {
   _mpMode = mode;
-  renderMicroPlanningView();
+  // Update only the toggle buttons' styling — do NOT re-render the whole view
+  // (that reset back to the hub grid, which felt like the button "going back").
+  const d = document.getElementById('mpModeDaily');
+  const w = document.getElementById('mpModeWeekly');
+  if (d) d.className = 'px-3 py-2 rounded-md text-xs font-bold transition ' + (mode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200');
+  if (w) w.className = 'px-3 py-2 rounded-md text-xs font-bold transition ' + (mode === 'weekly' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200');
+  // If a plan is already generated in this session, re-render it in the new mode.
+  if (_mpDecomposed && Object.keys(_mpDecomposed).length) {
+    const sheets = document.getElementById('mpDailySheets');
+    if (sheets) {
+      const allWorkers = _getProjectWorkers();
+      if (mode === 'weekly') {
+        sheets.innerHTML = _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, _mpHorizonStart, _mpHorizonEnd);
+      } else {
+        const workDays = Object.keys(_mpDecomposed).filter(x => _mpDecomposed[x].length > 0).sort();
+        let html = '';
+        workDays.forEach(day => {
+          const chunks = _mpDecomposed[day];
+          const conflicts = detectConflicts(chunks, _mpAllocations[day], allWorkers.filter(x => _isWorkerAvailable(x, day)));
+          html += generateDailySheet(day, _mpAllocations[day], conflicts, chunks, allWorkers);
+        });
+        sheets.innerHTML = html;
+      }
+    }
+  }
 }
 
 export function renderMicroPlanningView() {
@@ -956,8 +980,8 @@ export function renderMicroPlanningView() {
         <input type="date" id="mpEndDate" value="${_mpHorizonEnd}" class="border rounded-lg px-3 py-2 text-sm">
       </div>
       <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
-        <button onclick="_mpSwitchMode('daily')" class="px-3 py-2 rounded-md text-xs font-bold transition ${_mpMode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'}">Daily View</button>
-        <button onclick="_mpSwitchMode('weekly')" class="px-3 py-2 rounded-md text-xs font-bold transition ${_mpMode === 'weekly' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}">Weekly View</button>
+        <button id="mpModeDaily" onclick="_mpSwitchMode('daily')" class="px-3 py-2 rounded-md text-xs font-bold transition ${_mpMode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'}">Daily View</button>
+        <button id="mpModeWeekly" onclick="_mpSwitchMode('weekly')" class="px-3 py-2 rounded-md text-xs font-bold transition ${_mpMode === 'weekly' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}">Weekly View</button>
       </div>
       <button onclick="_mpGenerate()" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition">Generate Plan</button>
       <button onclick="_mpToggleUtil()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-300 transition">Heatmap</button>
