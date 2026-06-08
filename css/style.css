@@ -1642,3 +1642,40 @@ div[id$="FormPanel"]:not(.hidden) {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE — Finance & Admin (Phase 5): Parties Ledger, Bank & Cash,
+   Users & Roles, Plan & Billing
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Master-detail layouts → stack list above detail, drop fixed viewport heights */
+  #partiesLedgerView { height: auto !important; flex-direction: column; }
+  #accountsManagerView > .flex.flex-col { height: auto !important; }
+  #partiesLedgerView > div:first-child,
+  #accountsManagerView > .flex.flex-col > div:first-child {
+    width: 100% !important; max-height: 42vh;
+  }
+  #partiesLedgerView > div:last-child,
+  #accountsManagerView > .flex.flex-col > div:last-child {
+    width: 100% !important; min-height: 56vh;
+  }
+  /* Detail action buttons wrap to a tidy row */
+  #partyActionButtons, #accountsManagerView .p-4 .flex.gap-2.flex-wrap { flex-wrap: wrap; gap: 6px; }
+
+  /* Users & Roles / Plan & Billing cards: lighter padding on phones */
+  #masterData #usersRolesSection, #planBillingContent { padding: 14px !important; }
+
+  /* Finance / admin tables: denser text + smooth horizontal scroll */
+  #partiesLedgerView table, #accountsManagerView table, #masterData table,
+  #masterFinancialView table, #accountingView table, #planBillingView table,
+  #clientDashboardView table {
+    font-size: 11px !important; min-width: 560px;
+  }
+  #partiesLedgerView thead th, #masterData thead th, #masterFinancialView thead th,
+  #clientDashboardView thead th {
+    font-size: 10px !important; white-space: nowrap; padding: 6px 8px !important;
+  }
+  #partiesLedgerView .overflow-x-auto, #accountsManagerView .overflow-x-auto,
+  #masterData .overflow-x-auto, #masterFinancialView .overflow-x-auto,
+  #clientDashboardView .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+}
