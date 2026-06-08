@@ -95,7 +95,6 @@ export function renderExecution() {
   if (_section === 'dashboard') return _renderDashboard(root);
   if (_section === 'dpr') return _renderDPR(root);
   if (_section === 'pour') return _renderPours(root);
-  if (_section === 'milestones') return _renderMilestones(root);
   if (_section === 'quality') return _renderQuality(root);
   if (_section === 'safety') return _renderSafety(root);
   return _renderHome(root);
@@ -120,12 +119,11 @@ function _renderHome(root) {
     </div>`;
   root.innerHTML = `
     <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Site Execution</h2>
-    <p class="text-sm text-slate-400 mb-5">Daily progress, concrete pours, milestones, quality & safety</p>
+    <p class="text-sm text-slate-400 mb-5">Daily progress, concrete pours, quality & safety</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
       ${card('&#128202;', '#1e3a8a', 'Dashboard', 'Overview & KPIs', 'dashboard')}
       ${card('&#128221;', '#0ea5e9', 'Daily Progress', 'DPR — work done daily', 'dpr', _arr('dailyProgress').length)}
       ${card('&#129521;', '#f97316', 'Concrete Pour Card', 'Pour records & checks', 'pour', _arr('concretePours').length)}
-      ${card('&#127937;', '#6366f1', 'Milestones', 'Planned vs actual', 'milestones', _arr('milestones').length)}
       ${card('&#9989;', '#10b981', 'Quality', 'Cube tests, NCR, checks', 'quality', _arr('qualityChecks').length)}
       ${card('&#9937;', '#ef4444', 'Safety', 'Incidents & PPE', 'safety', _arr('incidents').length)}
     </div>`;
@@ -139,8 +137,6 @@ function _renderDashboard(root) {
   const dprThisMonth = _arr('dailyProgress').filter(d => (d.date || '').startsWith(month)).length;
   const pours = _arr('concretePours');
   const pourVol = pours.reduce((s, p) => s + _num(p.volume), 0);
-  const ms = _arr('milestones');
-  const msDone = ms.filter(m => m.status === 'Completed').length;
   const q = _arr('qualityChecks');
   const qOpen = q.filter(x => x.status !== 'Closed' && x.status !== 'Pass').length;
   const safety = _arr('incidents');
@@ -150,7 +146,6 @@ function _renderDashboard(root) {
       ${kpi('DPRs this month', dprThisMonth, '#0ea5e9', '&#128221;')}
       ${kpi('Concrete poured', pourVol.toFixed(1) + ' m³', '#f97316', '&#129521;')}
       ${kpi('Pours logged', pours.length, '#f59e0b', '&#128203;')}
-      ${kpi('Milestones done', msDone + ' / ' + ms.length, '#6366f1', '&#127937;')}
       ${kpi('Open quality items', qOpen, '#10b981', '&#9989;')}
       ${kpi('Safety records', safety.length, '#ef4444', '&#9937;')}
     </div>`;
@@ -406,46 +401,6 @@ window._exPourSave = function (id) {
   if (id) { const r = state.concretePours.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.concretePours.push({ id: 'cpc_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
   _pendingPhoto = null; saveAllData(); _exCloseModal(); showToast('Pour card saved', 'success'); renderExecution();
-};
-
-// ══════════════════════════════════════════════════════════
-//  MILESTONES
-// ══════════════════════════════════════════════════════════
-function _renderMilestones(root) {
-  const list = _arr('milestones').sort((a, b) => (a.plannedDate || '').localeCompare(b.plannedDate || ''));
-  const stC = { 'Not Started': '#94a3b8', 'In Progress': '#0ea5e9', 'Completed': '#10b981', 'Delayed': '#ef4444' };
-  const rows = list.map(m => { const c = stC[m.status] || '#94a3b8'; return `<div onclick="_exMsForm('${m.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${c};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
-    <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(m.name)} <span style="font-size:9px;font-weight:800;color:${c};background:${c}15;border-radius:8px;padding:1px 7px;">${_esc(m.status || 'Not Started')}</span></div>
-    <div style="font-size:11px;color:#64748b;">Planned: ${_esc(m.plannedDate || '—')}${m.actualDate ? ' · Actual: ' + _esc(m.actualDate) : ''} · ${_num(m.progress)}%</div></div>
-    <button onclick="event.stopPropagation();_exDel('milestones','${m.id}')" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button></div>`; }).join('');
-  root.innerHTML = _listShell('Milestones', '+ Add Milestone', "_exMsForm()", rows, list.length);
-}
-window._exMsForm = function (id) {
-  const m = id ? (state.milestones || []).find(x => x.id === id) : null;
-  const sel = (opts, cur) => opts.map(o => `<option ${cur === o ? 'selected' : ''}>${o}</option>`).join('');
-  _modal(`${_head(m ? 'Edit Milestone' : 'Add Milestone')}<div style="padding:20px;">
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Milestone</label><input id="msName" placeholder="e.g. Foundation complete" value="${m ? _esc(m.name) : ''}" style="${_inp}"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div><label style="${_lbl}">Planned Date</label><input id="msPlanned" type="date" value="${m ? _esc(m.plannedDate) : ''}" style="${_inp}"></div>
-      <div><label style="${_lbl}">Actual Date</label><input id="msActual" type="date" value="${m ? _esc(m.actualDate) : ''}" style="${_inp}"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div><label style="${_lbl}">Progress (%)</label><input id="msProgress" type="number" min="0" max="100" value="${m ? m.progress || 0 : 0}" style="${_inp}"></div>
-      <div><label style="${_lbl}">Status</label><select id="msStatus" style="${_inp}">${sel(['Not Started', 'In Progress', 'Completed', 'Delayed'], m?.status || 'Not Started')}</select></div>
-    </div>
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Linked Task (Planning)</label>${_taskSelect('msTask', m?.taskId)}</div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Remarks</label><input id="msRemarks" value="${m ? _esc(m.remarks) : ''}" style="${_inp}"></div>
-    <button onclick="_exMsSave('${id || ''}')" style="width:100%;padding:11px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${m ? 'Save' : 'Add Milestone'}</button>
-  </div>`);
-};
-window._exMsSave = function (id) {
-  const v = i => (document.getElementById(i)?.value || '').trim();
-  const name = v('msName'); if (!name) return showToast('Milestone name required', 'error');
-  const data = { name, plannedDate: v('msPlanned'), actualDate: v('msActual'), progress: _num(v('msProgress')), status: v('msStatus') || 'Not Started', taskId: v('msTask'), remarks: v('msRemarks') };
-  if (!state.milestones) state.milestones = [];
-  if (id) { const r = state.milestones.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.milestones.push({ id: 'ms_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
-  saveAllData(); _exCloseModal(); showToast('Milestone saved', 'success'); renderExecution();
 };
 
 // ══════════════════════════════════════════════════════════

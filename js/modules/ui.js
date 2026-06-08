@@ -3062,8 +3062,11 @@ export function generateLabourSalary(labourId, month, amount) {
 window._musterCardChooser = function() {
   const labours = _projectLabour();
   if (!labours.length) { showToast('No labour records found', 'error'); return; }
+  // Use the date the user picked in Mark Attendance (attDate) to decide the
+  // month, falling back to the muster month filter, then the current month.
+  const selDate = document.getElementById('attDate')?.value || '';
   const monthFilter = document.getElementById('attMonthFilter');
-  const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
+  const selMonth = (selDate ? selDate.substring(0, 7) : (monthFilter?.value || new Date().toISOString().substring(0, 7)));
 
   const [yr, mo] = selMonth.split('-').map(Number);
   const lastDay = new Date(yr, mo, 0).getDate();
@@ -3092,9 +3095,10 @@ window._musterCardChooser = function() {
 };
 
 export function downloadMusterCard(labourId, startDate, endDate) {
-  // Default to current/selected month if no range given
+  // Default to the selected attendance date's month (then muster filter, then now)
   if (!startDate || !endDate) {
-    const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
+    const selDate = document.getElementById('attDate')?.value || '';
+    const selMonth = selDate ? selDate.substring(0, 7) : (document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7));
     const [yr, mo] = selMonth.split('-').map(Number);
     startDate = `${selMonth}-01`;
     endDate = `${selMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`;

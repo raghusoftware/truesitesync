@@ -60,14 +60,14 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.1';
+} from './modules/ui.js?v=1.4.4';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderIssues } from './modules/issues.js?v=1.3.21';
-import { renderExecution } from './modules/execution.js?v=1.3.33';
+import { renderExecution } from './modules/execution.js?v=1.4.4';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.36';
 import './modules/mobileShell.js?v=1.4.0';
