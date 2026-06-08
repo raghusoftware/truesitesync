@@ -1461,3 +1461,68 @@ div[id$="FormPanel"]:not(.hidden) {
   .ef-grid { grid-template-columns: 1fr; }
   .ef-modal { max-width: 100%; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE SHELL — bottom nav, safe areas, native-feel modals
+   (mobileShell.js). Desktop ≥769px unaffected.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Bottom navigation bar — hidden on desktop, shown ≤768px */
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  body.app-ready .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 9000;
+    background: #ffffff;
+    border-top: 1px solid var(--gray-200, #e2e8f0);
+    box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-bottom-nav .mbn-item {
+    flex: 1 1 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px;
+    background: none; border: none; outline: none;
+    color: #64748b;
+    font-size: 10px !important; font-weight: 600;
+    min-height: 0 !important;
+    padding: 8px 0 6px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color .15s;
+  }
+  .mobile-bottom-nav .mbn-item i { font-size: 18px; line-height: 1; }
+  .mobile-bottom-nav .mbn-item.active { color: var(--blue-600, #2563eb); }
+  .mobile-bottom-nav .mbn-item:active { color: var(--blue-700, #1d4ed8); }
+
+  /* Make room so the bottom bar never covers content / FABs */
+  #appContainer main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
+  .fullscreen-sheet { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* Safe-area top padding for the app header (status bar / notch) */
+  #breadcrumbBar { padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important; }
+  #appSidebar { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* Native-feel modals: slide up as a bottom sheet, full width */
+  [id$="Modal"] > div,
+  [id$="Modal"] .modal-card,
+  .ef-modal {
+    border-radius: 18px 18px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    margin: 0 !important;
+    animation: mSheetUp .22s ease;
+  }
+  [id$="Modal"] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+}
+
+@keyframes mSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }

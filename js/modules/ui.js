@@ -1094,7 +1094,18 @@ export function switchView(viewId) {
   document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));
   const viewEl = document.getElementById(viewId);
   if (!viewEl) { console.warn('View not found:', viewId); return; }
-  if (typeof window !== 'undefined') window.__currentViewId = viewId;
+  // Maintain a navigation history stack for the Android hardware back button
+  // and the mobile bottom-nav. Every navigation funnels through here.
+  if (typeof window !== 'undefined') {
+    const prev = window.__currentViewId;
+    if (!window.__viewHistory) window.__viewHistory = [];
+    if (!window.__navBack && prev && prev !== viewId) {
+      window.__viewHistory.push(prev);
+      if (window.__viewHistory.length > 50) window.__viewHistory.shift();
+    }
+    window.__navBack = false;
+    window.__currentViewId = viewId;
+  }
   viewEl.classList.remove('hide');
   // Measurement entry opens as full-screen overlay — hide sidebar
   if (viewId === 'entrySheet') {
@@ -1105,6 +1116,7 @@ export function switchView(viewId) {
   }
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.target === viewId));
   _updateBreadcrumb(viewId);
+  try { window.highlightBottomNav?.(); } catch {}
 
   if (viewId === 'projectsHome') renderProjectsHome();
   if (viewId === 'projectDashboard') renderProjectDashboard();
