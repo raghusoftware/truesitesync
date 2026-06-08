@@ -1,4 +1,4 @@
-import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline } from '../database/sync.js';
+import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
 
 const STORAGE_KEYS = {
   clients: 'mes_clients',
@@ -247,15 +247,19 @@ export async function loadFromCloud() {
       if (!c || c.data === undefined || c.data === null) continue;
       const cloudTs = Date.parse(c.updatedAt) || 0;
       const localTs = getLocalKeyTs(key);
-      // Keep local only if it has genuinely newer un-synced changes; otherwise
-      // the cloud copy wins (prevents a stale browser from keeping old data).
-      if (localTs && localTs > cloudTs + 1000) {
-        syncPush(key, state[key]); // local newer → re-push (queued until ready)
+      let newJson; try { newJson = JSON.stringify(c.data); } catch { newJson = null; }
+      let curJson; try { curJson = JSON.stringify(state[key]); } catch { curJson = null; }
+      // Keep local ONLY if it genuinely differs AND is newer (un-synced offline
+      // edits from this device). Otherwise the cloud copy wins so every device —
+      // and every module — converges to the same data.
+      if (newJson !== null && curJson === newJson) { setLocalKeyTs(key, cloudTs); seedSyncBaseline(key, c.data); continue; }
+      if (localTs && localTs > cloudTs + 1000 && curJson !== null) {
+        syncPush(key, state[key]); // local newer & different → re-push (queued until ready)
         kept++;
         continue;
       }
       state[key] = c.data;
-      localStorage.setItem(storageKey, JSON.stringify(c.data));
+      localStorage.setItem(storageKey, newJson);
       setLocalKeyTs(key, cloudTs);
       seedSyncBaseline(key, c.data); // adopted cloud → don't re-push unchanged
       merged++;
@@ -385,15 +389,18 @@ export async function pullRemoteUpdates() {
     for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
       const c = cloud[key];
       if (!c || c.data === undefined || c.data === null) continue;
-      const cloudTs = Date.parse(c.updatedAt) || 0;
-      const localTs = getLocalKeyTs(key);
-      if (cloudTs && cloudTs <= localTs) continue;            // local is same/newer
       let newJson; try { newJson = JSON.stringify(c.data); } catch { continue; }
       let curJson; try { curJson = JSON.stringify(state[key]); } catch { curJson = null; }
-      setLocalKeyTs(key, cloudTs);
-      if (curJson === newJson) { seedSyncBaseline(key, c.data); continue; } // unchanged
+      const cloudTs = Date.parse(c.updatedAt) || 0;
+      if (curJson === newJson) { setLocalKeyTs(key, cloudTs); seedSyncBaseline(key, c.data); continue; } // already in sync
+      // Cloud differs from local. Keep local ONLY if we have a genuine un-synced
+      // local edit for this key (it will be pushed). Otherwise adopt cloud so
+      // every device converges — this is what makes ALL modules sync, not just
+      // clients/projects.
+      if (hasPendingPush(key)) continue;
       state[key] = c.data;
       try { localStorage.setItem(storageKey, newJson); } catch {}
+      setLocalKeyTs(key, cloudTs);
       seedSyncBaseline(key, c.data);                          // adopted → don't re-push
       applied++;
     }

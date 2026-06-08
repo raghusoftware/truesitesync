@@ -48,6 +48,14 @@ function _setLocalTs(key, ms) {
 export function getLocalKeyTs(key) { return _getLocalTs(key); }
 export function setLocalKeyTs(key, ms) { _setLocalTs(key, ms); }
 
+/** True if this key has local changes that haven't been confirmed pushed yet
+ *  (queued, debounced, or dirty). Used by the pull/merge logic so we only keep
+ *  the local copy when there's a genuine un-synced edit — otherwise the cloud
+ *  copy always wins, guaranteeing every device converges. */
+export function hasPendingPush(key) {
+  return _dirtyKeys.has(key) || _queuedKeys.has(key) || (_pendingValues[key] !== undefined);
+}
+
 /** Called once the initial cloud pull is done — releases queued pushes. */
 export function markSyncReady() {
   if (_syncReady) return;
@@ -95,7 +103,7 @@ export async function startRealtime(applyFn) {
 export function stopRealtime() {
   try { if (_rtChannel) { getSupabase()?.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
 }
-if (typeof window !== 'undefined') { window.startRealtime = startRealtime; window.stopRealtime = stopRealtime; }
+if (typeof window !== 'undefined') { window.startRealtime = startRealtime; window.stopRealtime = stopRealtime; window.flushPendingSaves = flushPendingSaves; }
 
 window.addEventListener('online', () => {
   _online = true;

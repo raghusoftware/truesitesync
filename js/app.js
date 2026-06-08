@@ -606,6 +606,19 @@ function _updateSyncBadge() {
 // Update sync badge every 10s
 setInterval(_updateSyncBadge, 10000);
 
+// Manual "Sync Now" — click the header badge to force a cloud pull + flush.
+window._manualSync = async function () {
+  const el = document.getElementById('headerSyncBadge');
+  if (el) { el.textContent = '🔄 Syncing…'; el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 cursor-pointer'; }
+  try { window.flushPendingSaves?.(); } catch {}
+  let n = 0;
+  try { n = (await window.pullRemoteUpdates?.()) || 0; } catch {}
+  if (typeof window.showToast === 'function') {
+    window.showToast(n > 0 ? `Synced — ${n} item${n === 1 ? '' : 's'} updated from cloud` : 'Up to date — everything is synced', n > 0 ? 'success' : 'info');
+  }
+  _updateSyncBadge();
+};
+
 // ══════════════════════════════════════
 // IN-APP UPDATE CHECKER
 // ══════════════════════════════════════
