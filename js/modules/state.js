@@ -366,6 +366,66 @@ export function startCloudRealtime() {
 }
 if (typeof window !== 'undefined') window.startCloudRealtime = startCloudRealtime;
 
+/**
+ * Pull the latest cloud data and apply any keys that are newer than the local
+ * copy. This is the reliable cross-device safety net: realtime (postgres_changes)
+ * delivers instant updates when the socket is healthy, but a periodic pull +
+ * pull-on-focus guarantees every module (not just clients/projects) shows the
+ * newest data within seconds on every device — even if the realtime socket
+ * dropped or the device was asleep.
+ */
+let _pulling = false;
+export async function pullRemoteUpdates() {
+  if (_pulling) return 0;
+  _pulling = true;
+  try {
+    const cloud = await syncPullAll();
+    if (!cloud) return 0;
+    let applied = 0;
+    for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+      const c = cloud[key];
+      if (!c || c.data === undefined || c.data === null) continue;
+      const cloudTs = Date.parse(c.updatedAt) || 0;
+      const localTs = getLocalKeyTs(key);
+      if (cloudTs && cloudTs <= localTs) continue;            // local is same/newer
+      let newJson; try { newJson = JSON.stringify(c.data); } catch { continue; }
+      let curJson; try { curJson = JSON.stringify(state[key]); } catch { curJson = null; }
+      setLocalKeyTs(key, cloudTs);
+      if (curJson === newJson) { seedSyncBaseline(key, c.data); continue; } // unchanged
+      state[key] = c.data;
+      try { localStorage.setItem(storageKey, newJson); } catch {}
+      seedSyncBaseline(key, c.data);                          // adopted → don't re-push
+      applied++;
+    }
+    if (applied && typeof window !== 'undefined') {
+      if (typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
+      if (typeof window.showToast === 'function') window.showToast('Synced latest data', 'info');
+    }
+    return applied;
+  } catch (e) {
+    console.warn('[sync] pullRemoteUpdates failed:', e);
+    return 0;
+  } finally { _pulling = false; }
+}
+if (typeof window !== 'undefined') window.pullRemoteUpdates = pullRemoteUpdates;
+
+/**
+ * Near-real-time cross-device sync safety net: pull every 20s while online,
+ * and immediately whenever the app/tab/window regains focus (i.e. the moment
+ * you switch to another device). Idempotent.
+ */
+export function startPeriodicSync() {
+  if (typeof window === 'undefined' || window.__periodicSyncStarted) return;
+  window.__periodicSyncStarted = true;
+  setInterval(() => { if (navigator.onLine) pullRemoteUpdates(); }, 20000);
+  window.addEventListener('focus', () => { if (navigator.onLine) pullRemoteUpdates(); });
+  window.addEventListener('online', () => pullRemoteUpdates());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) pullRemoteUpdates();
+  });
+}
+if (typeof window !== 'undefined') window.startPeriodicSync = startPeriodicSync;
+
 /** Migrate existing data — assign projectId to records that don't have one */
 export function migrateToProjects() {
   const defaultProjId = state.projects[0]?.id;

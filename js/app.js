@@ -111,7 +111,7 @@ import {
   mpOpenTaskForm, mpAddLabourRow, mpCloseTaskForm, mpSaveTask, mpDeleteTask,
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization
-} from './modules/microPlanning.js?v=1.4.3';
+} from './modules/microPlanning.js?v=1.4.5';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
@@ -403,6 +403,9 @@ function _bootApp() {
 
   // Live multi-device sync — other devices' changes appear instantly.
   try { window.startCloudRealtime?.(); } catch (e) { console.warn('[boot] realtime start failed:', e); }
+  // Near-real-time safety net: periodic pull + pull-on-focus so every module
+  // syncs across devices even if the realtime socket drops.
+  try { window.startPeriodicSync?.(); } catch (e) { console.warn('[boot] periodic sync failed:', e); }
 
   // Mobile shell: bottom nav, hardware back button, safe areas.
   try { document.body.classList.add('app-ready'); window.initMobileShell?.(); } catch (e) { console.warn('[boot] mobile shell init failed:', e); }

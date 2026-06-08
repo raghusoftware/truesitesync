@@ -1093,8 +1093,28 @@ export function mpGenerate() {
   const tasks = _getAllTasks();
   const allWorkers = _getProjectWorkers();
 
-  if (!tasks.length) { showToast('No tasks found. Add a task first.', 'error'); return; }
-  if (!allWorkers.length) { showToast('No workers found. Add labour in Labour module.', 'error'); return; }
+  // Show a clear, visible reason (not just a toast) when generation can't run,
+  // and jump to the plan area so the user actually sees the message.
+  const _notice = (icon, title, msg, action) => {
+    const sheets = document.getElementById('mpDailySheets');
+    if (sheets) sheets.innerHTML = `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:16px;padding:28px 20px;text-align:center;">
+      <div style="font-size:34px;margin-bottom:8px;">${icon}</div>
+      <h3 style="font-size:15px;font-weight:800;color:#92400e;margin-bottom:4px;">${title}</h3>
+      <p style="font-size:13px;color:#b45309;margin-bottom:14px;">${msg}</p>${action || ''}</div>`;
+    if (typeof window._openMpSection === 'function') window._openMpSection('plan');
+  };
+
+  if (!tasks.length) {
+    _notice('🗓️', 'No tasks to plan', 'Add at least one task (with start &amp; end dates) in the <b>Planning</b> module — or use <b>+ Add Task</b> in the Tasks section here.',
+      `<button onclick="_openMpSection('tasks')" style="background:#1e3a8a;color:#fff;border:none;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">+ Add a Task</button>`);
+    showToast('No tasks found — add a task first', 'error');
+    return;
+  }
+  if (!allWorkers.length) {
+    _notice('👷', 'No workers available', 'Add labour in the <b>Labour</b> module first, then generate the plan.');
+    showToast('No workers found — add labour first', 'error');
+    return;
+  }
 
   _mpDecomposed = decomposeTasksToDaily(tasks, _mpHorizonStart, _mpHorizonEnd);
   _mpAllocations = {};
@@ -1104,7 +1124,8 @@ export function mpGenerate() {
 
   const workDays = Object.keys(_mpDecomposed).filter(d => _mpDecomposed[d].length > 0).sort();
   if (!workDays.length) {
-    sheetsContainer.innerHTML = '<div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center"><p class="text-yellow-700 text-sm font-medium">No tasks in this date range. Adjust dates or add tasks.</p></div>';
+    _notice('📅', 'No tasks in this date range', `Your tasks fall outside <b>${_mpHorizonStart}</b> → <b>${_mpHorizonEnd}</b>. Widen the Start/End dates to cover your task dates, then Generate again.`);
+    showToast('No tasks in the selected date range', 'warning');
     return;
   }
 
