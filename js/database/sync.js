@@ -144,14 +144,31 @@ async function _uidAsync() {
 //  PUSH — Save one key to Supabase (upsert)
 // ════════════════════════════════════════════════
 
+// ── Batched save→sync feedback ────────────────────────────────────────────
+// Every save pushes to Supabase. We collect the results of a burst of pushes
+// and, ~900ms after the last one settles, tell the UI once: "synced" or "error".
+let _batchOk = 0, _batchErr = 0, _batchTimer = null;
+function _reportPush(ok) {
+  if (ok) _batchOk++; else _batchErr++;
+  if (_batchTimer) clearTimeout(_batchTimer);
+  _batchTimer = setTimeout(() => {
+    const ok = _batchOk, err = _batchErr;
+    _batchOk = 0; _batchErr = 0; _batchTimer = null;
+    if (typeof window !== 'undefined' && typeof window._onSyncBatch === 'function') {
+      try { window._onSyncBatch({ ok: err === 0, okCount: ok, errCount: err }); } catch {}
+    }
+  }, 900);
+}
+
 async function _pushKey(dataKey, value) {
   const sb = getSupabase();
   if (!sb || !_online) {
     _dirtyKeys.add(dataKey);
+    _reportPush(false);
     return false;
   }
   const userId = await _uidAsync();
-  if (!userId) { _dirtyKeys.add(dataKey); return false; }
+  if (!userId) { _dirtyKeys.add(dataKey); _reportPush(false); return false; }
 
   try {
     const { error } = await sb
@@ -166,13 +183,16 @@ async function _pushKey(dataKey, value) {
     if (error) {
       console.warn(`[sync] push ${dataKey} failed:`, error.message);
       _dirtyKeys.add(dataKey);
+      _reportPush(false);
       return false;
     }
     _dirtyKeys.delete(dataKey);
+    _reportPush(true);
     return true;
   } catch (e) {
     console.warn(`[sync] push ${dataKey} error:`, e);
     _dirtyKeys.add(dataKey);
+    _reportPush(false);
     return false;
   }
 }

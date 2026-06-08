@@ -73,7 +73,7 @@ export function renderPartyTransactions() {
     const l = state.labourMaster.find(x => x.id === id);
     document.getElementById('selectedPartyName').textContent = l.name;
     document.getElementById('selectedPartyType').textContent = 'LABOUR';
-    document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment/Advance</button>`;
+    document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment</button>`;
     state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false, _src: 'labourSalaries', _id: s.id }));
     state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
   }
@@ -88,7 +88,7 @@ export function renderPartyTransactions() {
     let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
     // Per-row actions
     const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
-    const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-500 hover:bg-blue-50 px-1.5 py-1 rounded">✏️</button>` : '';
+    const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>` : '';
     const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${t.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
   });

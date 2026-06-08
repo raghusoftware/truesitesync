@@ -606,6 +606,25 @@ function _updateSyncBadge() {
 // Update sync badge every 10s
 setInterval(_updateSyncBadge, 10000);
 
+// Per-save sync feedback: the sync layer calls this ~once after a burst of saves
+// settles. Success → brief "saved to cloud"; failure → clear error so the user
+// knows their change is only on this device (and will retry).
+let _lastSyncToast = 0;
+window._onSyncBatch = function ({ ok, errCount }) {
+  _updateSyncBadge();
+  const now = Date.now();
+  if (!ok) {
+    // Always surface sync failures.
+    if (typeof window.showToast === 'function') window.showToast('⚠️ Saved on this device — cloud sync failed. Will retry; tap ☁️ to sync now.', 'error');
+    _lastSyncToast = now;
+    return;
+  }
+  // Throttle success confirmations so rapid edits don't spam (max once / 4s).
+  if (now - _lastSyncToast < 4000) return;
+  _lastSyncToast = now;
+  if (typeof window.showToast === 'function') window.showToast('☁️ Saved & synced to cloud', 'success');
+};
+
 // Manual "Sync Now" — click the header badge to force a cloud pull + flush.
 window._manualSync = async function () {
   const el = document.getElementById('headerSyncBadge');
