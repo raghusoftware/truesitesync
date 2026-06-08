@@ -2282,6 +2282,12 @@ export function openInvoiceInfo(id) {
 // ==========================================
 // Purchase ledger moved to ./purchase.js
 
+// Labour onboarding modal state — base64 photo / ID doc captured before save.
+// (Must be declared: ES modules are strict-mode, so assigning to an undeclared
+// variable throws a ReferenceError and silently breaks open/save.)
+let _labPhotoData = '';
+let _labIdDocData = '';
+
 export function openLabourModal(editId) {
   document.getElementById('labourModal').classList.remove('hidden');
   _labPhotoData = ''; _labIdDocData = '';
