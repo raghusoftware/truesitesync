@@ -364,9 +364,7 @@ function _upgradeLoginForm() {
   loginEl.innerHTML = `
     <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
       <div style="text-align:center;margin-bottom:28px;">
-        <div style="width:56px;height:56px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
-          <span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:0.5px;">TS</span>
-        </div>
+        <img src="assets/logo.png" alt="True Site Sync" style="width:84px;height:84px;object-fit:contain;border-radius:16px;margin-bottom:12px;">
         <h2 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 4px;">Welcome to True Site Sync</h2>
         <p style="font-size:13px;color:#64748b;margin:0;" id="loginSubtitle">Sign in to your account</p>
       </div>

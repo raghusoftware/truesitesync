@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checkout — True Site Sync</title>
+<link rel="icon" type="image/png" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
@@ -46,7 +48,7 @@
 <a href="index.html" class="back"><i class="fa-solid fa-arrow-left"></i> Back</a>
 <div class="card">
   <div class="head">
-    <div class="logo"><span class="mark">TS</span> True Site Sync</div>
+    <div class="logo"><img src="assets/logo.png" alt="TS" class="mark" style="object-fit:contain;background:#fff;"> True Site Sync</div>
     <h1>You're subscribing to</h1>
     <div class="plan-name" id="planName">—</div>
     <div class="price" id="planPrice">—<span> / year</span></div>
@@ -251,7 +253,7 @@ async function pay(){
         }
         clearMsg();
         document.querySelector('.card').innerHTML =
-          '<div class="head"><div class="logo"><span class="mark">TS</span> True Site Sync</div></div>' +
+          '<div class="head"><div class="logo"><img src="assets/logo.png" alt="TS" class="mark" style="object-fit:contain;background:#fff;"> True Site Sync</div></div>' +
           '<div class="body" style="text-align:center;padding:40px 28px;">' +
           '<div style="font-size:48px;color:#10b981;margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>' +
           '<h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">Payment Successful!</h2>' +

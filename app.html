@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>True Site Sync - Construction Management Platform</title>
+    <link rel="icon" type="image/png" href="assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <!-- Vendor libs (bundled locally for offline/desktop support) -->
     <script src="js/vendor/tailwind.min.js"></script>
     <script src="js/vendor/jspdf.min.js"></script>
@@ -17,16 +19,14 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.3.26">
-    <script type="module" src="js/app.js?v=1.3.39"></script>
+    <script type="module" src="js/app.js?v=1.3.40"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
     <!-- ═══ Splash / Loading Screen ═══ -->
     <div id="splashScreen" style="display:flex;position:fixed;inset:0;z-index:9999999;background:linear-gradient(135deg,#0a0f1a 0%,#0f1f35 50%,#0a0f1a 100%);align-items:center;justify-content:center;flex-direction:column;gap:20px;">
       <div style="text-align:center;">
-        <div style="width:72px;height:72px;background:linear-gradient(135deg,#10b981,#059669);border-radius:18px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 8px 32px rgba(16,185,129,.3);">
-          <span style="color:#fff;font-size:24px;font-weight:900;letter-spacing:1px;">TS</span>
-        </div>
+        <img src="assets/logo.png" alt="True Site Sync" style="width:96px;height:96px;object-fit:contain;background:#fff;border-radius:18px;margin-bottom:20px;box-shadow:0 8px 32px rgba(16,185,129,.3);">
         <h1 style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px;">True Site Sync</h1>
         <p style="color:#64748b;font-size:12px;font-weight:500;margin:0 0 24px;">Construction Management Platform</p>
         <div id="splashProgress" style="width:200px;height:3px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:0 auto;">
@@ -84,9 +84,7 @@
     <div id="loginPage" style="display:flex;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);align-items:center;justify-content:center;">
       <!-- Loading spinner shown until JS upgrades this -->
       <div style="text-align:center;">
-        <div style="width:56px;height:56px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-          <span style="color:#fff;font-size:12px;font-weight:900;letter-spacing:0.5px;">TS</span>
-        </div>
+        <img src="assets/logo.png" alt="True Site Sync" style="width:72px;height:72px;object-fit:contain;background:#fff;border-radius:14px;margin-bottom:16px;">
         <p style="color:#94a3b8;font-size:13px;font-weight:600;">Loading...</p>
       </div>
     </div>
@@ -98,9 +96,7 @@
     <!-- ═══ Context-Aware Sidebar ═══ -->
     <aside id="appSidebar" class="w-60 bg-[#0f172a] text-white flex flex-col shadow-2xl z-20 flex-shrink-0 no-print">
       <div class="px-5 py-4 border-b border-slate-800 flex items-center gap-3" style="background:linear-gradient(135deg,#1e293b,#0f172a);">
-        <div style="width:36px;height:36px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:0.5px;">TS</span>
-        </div>
+        <img src="assets/logo.png" alt="True Site Sync" style="width:36px;height:36px;object-fit:contain;background:#fff;border-radius:10px;flex-shrink:0;">
         <div>
           <h1 class="text-base font-extrabold tracking-tight" style="line-height:1.15;">True Site Sync</h1>
           <p class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Construction Management</p>
