@@ -1558,3 +1558,49 @@ div[id$="FormPanel"]:not(.hidden) {
   #projectsHome .flex.items-center.justify-between:first-of-type { flex-wrap: wrap; gap: 10px; }
   #projHomeActionBtn { width: 100%; justify-content: center; min-height: 46px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE — Site modules (Phase 3): Execution, Issues, Petty Cash,
+   Planning, Micro-Planning
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* JS-rendered module modals → full-width bottom sheets */
+  #exModalOverlay, #issueModalOverlay, #pcModalOverlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  #exModalOverlay > div, #issueModalOverlay > div, #pcModalOverlay > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 18px 18px 0 0 !important;
+    max-height: 94vh !important;
+    animation: mSheetUp .22s ease;
+  }
+  /* Stack every multi-column form row inside those modals (forms read 1-up) */
+  #exModalOverlay [style*="grid-template-columns:1fr 1fr"],
+  #issueModalOverlay [style*="grid-template-columns:1fr 1fr"],
+  #pcModalOverlay [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Dashboards: collapse only the very cramped 3-column rows */
+  #executionRoot [style*="1fr 1fr 1fr"],
+  #issuesRoot [style*="1fr 1fr 1fr"],
+  #pettyCashRoot [style*="1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Execution hub icon tiles: comfortable 3-across on phones */
+  #executionRoot [style*="minmax(165px"],
+  #pettyCashRoot [style*="minmax(165px"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Planning / Micro-Planning wide tables → smooth horizontal scroll, denser */
+  #planningView .overflow-x-auto, #microPlanView .overflow-x-auto,
+  #planningView table, #microPlanView table { -webkit-overflow-scrolling: touch; }
+  #planningView table, #microPlanView table { font-size: 11px !important; min-width: 640px; }
+  #planningView thead th, #microPlanView thead th { font-size: 10px !important; white-space: nowrap; }
+
+  /* Planning/Micro headers + toolbars stack cleanly */
+  #planningView > .flex.items-center.justify-between,
+  #microPlanView > .flex.items-center.justify-between { flex-direction: column; align-items: stretch !important; gap: 10px; }
+}
