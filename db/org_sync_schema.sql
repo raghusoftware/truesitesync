@@ -75,14 +75,20 @@ begin
 end $$;
 
 -- 5) ATOMIC ORG CREATION for first-time users (org + owner membership) -------
+-- organizations.slug is NOT NULL + UNIQUE → generate one from the name.
 create or replace function public.create_org_with_owner(p_name text, p_email text)
 returns uuid
 language plpgsql security definer
 set search_path = public
 as $$
-declare new_org uuid;
+declare new_org uuid; base text; sl text;
 begin
-  insert into public.organizations(name) values (coalesce(nullif(p_name,''),'My Company'))
+  base := lower(regexp_replace(coalesce(nullif(p_name,''),'org'), '[^a-zA-Z0-9]+', '-', 'g'));
+  base := trim(both '-' from base);
+  if base = '' then base := 'org'; end if;
+  sl := base || '-' || substr(md5(random()::text || clock_timestamp()::text), 1, 6);
+  insert into public.organizations(name, slug)
+    values (coalesce(nullif(p_name,''),'My Company'), sl)
     returning id into new_org;
   insert into public.org_members(org_id, user_id, role, is_active, joined_at)
     values (new_org, auth.uid(), 'owner', true, now())

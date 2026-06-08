@@ -77,27 +77,28 @@ export async function startRealtime(applyFn) {
   try {
     const sb = getSupabase();
     if (!sb || _rtChannel) return;
-    const userId = await _uidAsync();
-    if (!userId) return;
-    _rtChannel = sb.channel('rt_user_data_' + userId)
+    const orgId = await _resolveOrg();
+    if (!orgId) return;
+    // Org-wide channel: every teammate's change on any module lands instantly.
+    _rtChannel = sb.channel('rt_module_data_' + orgId)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${userId}` },
+        { event: '*', schema: 'public', table: 'module_data', filter: `organization_id=eq.${orgId}` },
         (payload) => {
           try {
-            const row = payload.new && payload.new.data_key ? payload.new : null;
+            const row = payload.new && payload.new.module_name ? payload.new : null;
             if (!row) return;
-            const key = row.data_key;
+            const key = row.module_name;
             let incomingJson;
-            try { incomingJson = JSON.stringify(row.data); } catch { return; }
+            try { incomingJson = JSON.stringify(row.payload); } catch { return; }
             if (_lastJson[key] === incomingJson) return;           // our own echo
             const incomingTs = Date.parse(row.updated_at) || Date.now();
             if (incomingTs <= _getLocalTs(key)) return;            // not newer than local
             _lastJson[key] = incomingJson;
             _setLocalTs(key, incomingTs);
-            if (typeof applyFn === 'function') applyFn(key, row.data);
+            if (typeof applyFn === 'function') applyFn(key, row.payload);
           } catch (e) { console.warn('[rt] apply error:', e); }
         })
-      .subscribe((status) => { if (status === 'SUBSCRIBED') console.log('[rt] realtime sync active'); });
+      .subscribe((status) => { if (status === 'SUBSCRIBED') console.log('[rt] org realtime sync active'); });
   } catch (e) { console.warn('[rt] start failed:', e); }
 }
 export function stopRealtime() {
@@ -141,6 +142,48 @@ async function _uidAsync() {
 }
 
 // ════════════════════════════════════════════════
+//  ORGANIZATION RESOLUTION — org-shared sync via module_data
+//  Every member of the same company shares one live dataset.
+// ════════════════════════════════════════════════
+let _orgId = null;
+let _orgResolving = null;
+/** Resolve (and cache) the current user's organization id; create one on first use. */
+async function _resolveOrg() {
+  if (_orgId) return _orgId;
+  if (_orgResolving) return _orgResolving;       // de-dupe concurrent callers
+  _orgResolving = (async () => {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const userId = await _uidAsync();
+    if (!userId) return null;
+    try {
+      const { data } = await sb.from('org_members')
+        .select('org_id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle();
+      if (data && data.org_id) {
+        _orgId = data.org_id;
+      } else {
+        // First-time user → create their organization + owner membership atomically.
+        let email = null; try { const { data: u } = await sb.auth.getUser(); email = u?.user?.email || null; } catch {}
+        const nm = (email || 'My Company').split('@')[0];
+        const { data: newOrg, error } = await sb.rpc('create_org_with_owner', { p_name: nm, p_email: email });
+        if (!error && newOrg) _orgId = newOrg;
+        else console.warn('[sync] org create failed:', error && error.message);
+      }
+    } catch (e) { console.warn('[sync] org resolve failed:', e); }
+    if (_orgId) { try { localStorage.setItem('mes_org_id', _orgId); } catch {} }
+    return _orgId;
+  })();
+  const r = await _orgResolving; _orgResolving = null; return r;
+}
+/** Best-effort synchronous org id (for unload flush) from the in-memory/local cache. */
+function _orgIdSync() {
+  if (_orgId) return _orgId;
+  try { return localStorage.getItem('mes_org_id'); } catch { return null; }
+}
+export function getOrgId() { return _orgIdSync(); }
+if (typeof window !== 'undefined') window.getSyncOrgId = getOrgId;
+
+// ════════════════════════════════════════════════
 //  PUSH — Save one key to Supabase (upsert)
 // ════════════════════════════════════════════════
 
@@ -167,18 +210,22 @@ async function _pushKey(dataKey, value) {
     _reportPush(false);
     return false;
   }
+  const orgId = await _resolveOrg();
   const userId = await _uidAsync();
-  if (!userId) { _dirtyKeys.add(dataKey); _reportPush(false); return false; }
+  if (!orgId || !userId) { _dirtyKeys.add(dataKey); _reportPush(false); return false; }
 
   try {
+    // Org-shared store: one row per (org, module key). Everyone in the company
+    // reads/writes the same row, so data syncs across all their devices.
     const { error } = await sb
-      .from('user_data')
+      .from('module_data')
       .upsert({
-        user_id: userId,
-        data_key: dataKey,
-        data: value,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id,data_key' });
+        organization_id: orgId,
+        module_name: dataKey,
+        record_id: dataKey,
+        payload: value,
+        updated_by: userId
+      }, { onConflict: 'organization_id,module_name,record_id' });
 
     if (error) {
       console.warn(`[sync] push ${dataKey} failed:`, error.message);
@@ -252,7 +299,8 @@ function _accessToken() {
 export function flushPendingSaves() {
   const userId = _uid();
   const token = _accessToken();
-  if (!userId || !token) return;
+  const orgId = _orgIdSync();
+  if (!userId || !token || !orgId) return;
 
   // Gather everything not yet persisted: debounced values + offline dirty keys.
   const rows = [];
@@ -260,7 +308,7 @@ export function flushPendingSaves() {
   const add = (key, value) => {
     if (value === undefined || seen.has(key)) return;
     seen.add(key);
-    rows.push({ user_id: userId, data_key: key, data: value, updated_at: new Date().toISOString() });
+    rows.push({ organization_id: orgId, module_name: key, record_id: key, payload: value, updated_by: userId, updated_at: new Date().toISOString() });
   };
 
   for (const key of Object.keys(_pendingValues)) {
@@ -278,7 +326,7 @@ export function flushPendingSaves() {
   if (!rows.length) return;
 
   try {
-    fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id,data_key`, {
+    fetch(`${SUPABASE_URL}/rest/v1/module_data?on_conflict=organization_id,module_name,record_id`, {
       method: 'POST',
       keepalive: true, // survives the page being closed
       headers: {
@@ -308,19 +356,20 @@ if (typeof document !== 'undefined') {
 export async function syncPull(dataKey) {
   const sb = getSupabase();
   if (!sb || !_online) return null;
-  const userId = await _uidAsync();
-  if (!userId) return null;
+  const orgId = await _resolveOrg();
+  if (!orgId) return null;
 
   try {
     const { data, error } = await sb
-      .from('user_data')
-      .select('data, updated_at')
-      .eq('user_id', userId)
-      .eq('data_key', dataKey)
+      .from('module_data')
+      .select('payload, updated_at')
+      .eq('organization_id', orgId)
+      .eq('module_name', dataKey)
+      .eq('record_id', dataKey)
       .maybeSingle();
 
     if (error) { console.warn(`[sync] pull ${dataKey}:`, error.message); return null; }
-    return data ? data.data : null;
+    return data ? data.payload : null;
   } catch { return null; }
 }
 
@@ -335,20 +384,20 @@ export async function syncPull(dataKey) {
 export async function syncPullAll() {
   const sb = getSupabase();
   if (!sb || !_online) return null;
-  const userId = await _uidAsync();
-  if (!userId) return null;
+  const orgId = await _resolveOrg();
+  if (!orgId) return null;
 
   try {
     const { data, error } = await sb
-      .from('user_data')
-      .select('data_key, data, updated_at')
-      .eq('user_id', userId);
+      .from('module_data')
+      .select('module_name, payload, updated_at')
+      .eq('organization_id', orgId);
 
     if (error) { console.warn('[sync] pullAll:', error.message); return null; }
     if (!data || !data.length) return {};
 
     const result = {};
-    data.forEach(row => { result[row.data_key] = { data: row.data, updatedAt: row.updated_at }; });
+    data.forEach(row => { result[row.module_name] = { data: row.payload, updatedAt: row.updated_at }; });
     return result;
   } catch { return null; }
 }
@@ -360,16 +409,19 @@ export async function syncPullAll() {
 export async function syncPushAll(stateObj, storageKeys) {
   const sb = getSupabase();
   if (!sb || !_online) return false;
+  const orgId = await _resolveOrg();
   const userId = await _uidAsync();
-  if (!userId) return false;
+  if (!orgId || !userId) return false;
 
   const rows = [];
   for (const [key, storageKey] of Object.entries(storageKeys)) {
     if (stateObj[key] !== undefined) {
       rows.push({
-        user_id: userId,
-        data_key: key,
-        data: stateObj[key],
+        organization_id: orgId,
+        module_name: key,
+        record_id: key,
+        payload: stateObj[key],
+        updated_by: userId,
         updated_at: new Date().toISOString()
       });
     }
@@ -381,8 +433,8 @@ export async function syncPushAll(stateObj, storageKeys) {
     const batch = rows.slice(i, i + BATCH);
     try {
       const { error } = await sb
-        .from('user_data')
-        .upsert(batch, { onConflict: 'user_id,data_key' });
+        .from('module_data')
+        .upsert(batch, { onConflict: 'organization_id,module_name,record_id' });
       if (error) console.warn('[sync] pushAll batch error:', error.message);
     } catch (e) {
       console.warn('[sync] pushAll batch exception:', e);
