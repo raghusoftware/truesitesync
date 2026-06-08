@@ -539,6 +539,9 @@ export async function verifySignupOtp(email) {
 }
 
 /** Send a password-reset email to the address in the login form. */
+// Email of the account currently going through a code-based password reset.
+let _recoveryEmail = '';
+
 export async function forgotPassword() {
   const sb = getSupabase();
   if (!sb) return;
@@ -548,12 +551,76 @@ export async function forgotPassword() {
   if (errEl) errEl.style.display = 'none';
   if (okEl) okEl.style.display = 'none';
   if (!email) { if (errEl) { errEl.textContent = 'Enter your email above first, then click "Forgot password?"'; errEl.style.display = 'block'; } return; }
+  const link = document.getElementById('forgotPwRow');
   try {
+    if (link) link.style.opacity = '0.5';
+    // Sends the recovery email. If the Supabase "Reset Password" template uses
+    // {{ .Token }}, the user receives a 6-digit code they type in below — this
+    // works in the desktop app, web, and mobile (no redirect/link required).
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
     if (error) throw error;
-    if (okEl) { okEl.textContent = 'Password reset link sent to ' + email + '. Open it to set a new password.'; okEl.style.display = 'block'; }
+    _recoveryEmail = email;
+    showPasswordResetCodeScreen(email);
   } catch (e) {
-    if (errEl) { errEl.textContent = e.message || 'Could not send reset email.'; errEl.style.display = 'block'; }
+    if (errEl) { errEl.textContent = e.message || 'Could not send reset email. Check your connection and try again.'; errEl.style.display = 'block'; }
+  } finally {
+    if (link) link.style.opacity = '1';
+  }
+}
+
+/** Screen shown after a reset code is emailed: enter code + new password. */
+export function showPasswordResetCodeScreen(email) {
+  const loginEl = document.getElementById('loginPage');
+  const app = document.getElementById('appContainer');
+  if (app) app.style.display = 'none';
+  if (!loginEl) return;
+  loginEl.dataset.upgraded = '';
+  loginEl.style.display = 'flex';
+  loginEl.innerHTML = `
+    <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
+      <div style="text-align:center;margin-bottom:22px;">
+        <img src="assets/logo.png" alt="True Site Sync" style="width:72px;height:72px;object-fit:contain;border-radius:14px;margin-bottom:12px;">
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 6px;">Reset Your Password</h2>
+        <p style="font-size:13px;color:#64748b;margin:0;">We emailed a 6-digit code to <b>${email}</b>. Enter it below with your new password.</p>
+      </div>
+      <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
+      <input id="prCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter code" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:12px;">
+      <input id="prPass" type="password" placeholder="New password (min 6)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;">
+      <input id="prPass2" type="password" placeholder="Confirm new password" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacResetWithCode()">
+      <button id="prBtn" onclick="window._rbacResetWithCode()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+      <p style="text-align:center;margin:16px 0 0;"><a href="#" onclick="window._rbacShowLogin&&window._rbacShowLogin();return false;" style="font-size:12px;color:#64748b;font-weight:600;text-decoration:none;">Back to sign in</a></p>
+    </div>`;
+  setTimeout(() => document.getElementById('prCode')?.focus(), 50);
+}
+
+/** Verify the emailed recovery code, then set the new password and sign in. */
+export async function resetWithCode() {
+  const sb = getSupabase();
+  if (!sb) return;
+  const code = (document.getElementById('prCode')?.value || '').trim();
+  const p1 = document.getElementById('prPass')?.value || '';
+  const p2 = document.getElementById('prPass2')?.value || '';
+  const err = document.getElementById('prError');
+  const showErr = m => { if (err) { err.textContent = m; err.style.display = 'block'; } };
+  if (err) err.style.display = 'none';
+  if (code.length < 6) return showErr('Enter the 6-digit code from your email');
+  if (p1.length < 6) return showErr('Password must be at least 6 characters');
+  if (p1 !== p2) return showErr('Passwords do not match');
+  const btn = document.getElementById('prBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; btn.style.opacity = '0.7'; }
+  try {
+    const { error: vErr } = await sb.auth.verifyOtp({ email: _recoveryEmail, token: code, type: 'recovery' });
+    if (vErr) throw vErr;
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) throw error;
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    showToast('Password updated — signed in!', 'success');
+    try { await loadFromCloud(); } catch {}
+    if (typeof window._bootApp === 'function') window._bootApp();
+  } catch (e) {
+    showErr(e.message || 'Invalid or expired code. Request a new one.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; btn.style.opacity = '1'; }
   }
 }
 
@@ -608,6 +675,9 @@ if (typeof window !== 'undefined') {
   window._rbacForgotPassword = forgotPassword;
   window._rbacShowPasswordReset = showPasswordResetScreen;
   window._rbacSubmitNewPassword = submitNewPassword;
+  window._rbacResetWithCode = resetWithCode;
+  window._rbacShowPasswordResetCode = showPasswordResetCodeScreen;
+  window._rbacShowLogin = showLoginPage;
 }
 
 export async function handleLogin() {
