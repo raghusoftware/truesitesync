@@ -2535,10 +2535,12 @@ window._issuePPE = function() {
   const workerOpts = labours.map(l => `<option value="${l.id}">${l.name} (${l.trade || '—'})</option>`).join('');
   const itemRows = PPE_ITEMS.map((it, i) => `
     <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
-      <input type="checkbox" class="ppe-chk" data-name="${it.name}" data-value="${it.value}" style="width:16px;height:16px;">
+      <input type="checkbox" class="ppe-chk" data-name="${it.name}" style="width:16px;height:16px;">
       <span style="flex:1;">${it.name}</span>
-      <span style="color:#94a3b8;font-size:11px;">${cur}${it.value}</span>
-      <input type="number" class="ppe-qty" value="1" min="1" style="width:48px;padding:3px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;">
+      <span style="color:#94a3b8;font-size:11px;">${cur}</span>
+      <input type="number" class="ppe-rate" value="${it.value}" min="0" step="0.01" title="Rate per item (editable)" style="width:64px;padding:3px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right;">
+      <span style="color:#cbd5e1;font-size:11px;">×</span>
+      <input type="number" class="ppe-qty" value="1" min="1" title="Quantity" style="width:48px;padding:3px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;">
     </label>`).join('');
 
   _payrollModal('Issue PPE / Safety Gear', `
@@ -2552,8 +2554,10 @@ window._issuePPE = function() {
     const date = document.getElementById('ppeDate').value;
     const items = [];
     document.querySelectorAll('.ppe-chk:checked').forEach(chk => {
-      const qty = parseInt(chk.closest('label').querySelector('.ppe-qty').value) || 1;
-      items.push({ name: chk.dataset.name, value: parseFloat(chk.dataset.value) * qty, qty });
+      const label = chk.closest('label');
+      const qty = parseInt(label.querySelector('.ppe-qty').value) || 1;
+      const rate = parseFloat(label.querySelector('.ppe-rate').value) || 0;
+      items.push({ name: chk.dataset.name, value: rate * qty, rate, qty });
     });
     if (!items.length) { showToast('Select at least one item', 'error'); return false; }
     const totalValue = items.reduce((s, x) => s + x.value, 0);
@@ -2572,6 +2576,41 @@ window._togglePPEReturn = function(ppeId) {
   rec.returnedDate = rec.returned ? new Date().toISOString().split('T')[0] : null;
   saveAllData(); renderLabourMasterList();
   showToast(rec.returned ? 'Marked returned' : 'Marked NOT returned', 'info');
+};
+
+/** Manage an issued PPE record — mark returned and edit the issue rate/value. */
+window._ppeManage = function(ppeId) {
+  const rec = (state.labourPPE || []).find(p => p.id === ppeId);
+  if (!rec) return;
+  const cur = getCurrencySymbol();
+  const names = (rec.items || []).map(i => `${i.name}${i.qty > 1 ? ' ×' + i.qty : ''}`).join(', ');
+  _payrollModal('Manage PPE', `
+    <p style="font-size:12px;color:#64748b;margin-bottom:2px;">Issued: ${rec.date || '—'}</p>
+    <p style="font-size:13px;color:#334155;margin-bottom:6px;"><b>Items:</b> ${names || '—'}</p>
+    <label class="pm-l">Issue Rate / Value (${cur})</label>
+    <input type="number" id="ppeEditValue" class="pm-i" value="${rec.totalValue || 0}" min="0" step="0.01">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;font-weight:600;color:#334155;cursor:pointer;">
+      <input type="checkbox" id="ppeEditReturned" ${rec.returned ? 'checked' : ''} style="width:17px;height:17px;"> Mark as Returned
+    </label>
+    <button onclick="window._ppeDelete('${rec.id}')" style="margin-top:14px;width:100%;padding:9px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">🗑 Delete PPE Record</button>
+  `, () => {
+    rec.totalValue = parseFloat(document.getElementById('ppeEditValue').value) || 0;
+    const ret = document.getElementById('ppeEditReturned').checked;
+    rec.returned = ret;
+    rec.returnedDate = ret ? new Date().toISOString().split('T')[0] : null;
+    saveAllData(); renderLabourMasterList();
+    showToast('PPE updated', 'success');
+    return true;
+  }, 'Save', 380);
+};
+
+/** Delete a PPE record (from the manage modal). */
+window._ppeDelete = function(ppeId) {
+  if (!confirm('Delete this PPE record?')) return;
+  state.labourPPE = (state.labourPPE || []).filter(p => p.id !== ppeId);
+  saveAllData(); renderLabourMasterList();
+  const m = document.getElementById('payrollModal'); if (m) m.remove();
+  showToast('PPE record deleted', 'warning');
 };
 
 // ══════════════════════════════════════════
@@ -2808,7 +2847,7 @@ function _ppeChipsForWorker(labourId) {
   const cur = getCurrencySymbol();
   const chips = recs.map(p => {
     const names = (p.items || []).map(i => i.name).join(', ');
-    return `<span onclick="_togglePPEReturn('${p.id}')" title="Click to toggle returned" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px;${p.returned ? 'background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;' : 'background:#fffbeb;color:#d97706;border:1px solid #fde68a;'}">${p.returned ? '✓' : '🦺'} ${names} (${cur}${p.totalValue})${p.returned ? ' returned' : ''}</span>`;
+    return `<span onclick="_ppeManage('${p.id}')" title="Click to return / edit rate" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px;${p.returned ? 'background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;' : 'background:#fffbeb;color:#d97706;border:1px solid #fde68a;'}">${p.returned ? '✓' : '🦺'} ${names} (${cur}${p.totalValue})${p.returned ? ' returned' : ''}</span>`;
   }).join('');
   return `<div style="padding:4px 8px 8px 50px;margin-top:-6px;">${chips}</div>`;
 }
@@ -3078,16 +3117,15 @@ window._musterCardChooser = function() {
     <div style="background:#fff;border-radius:16px;width:90%;max-width:400px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
       <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;">Generate Muster Card</h3>
       <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Tracks present, half-days & OT hours</p>
-      <button onclick="document.getElementById('musterChooser').remove();downloadMusterCard(null,'${mStart}','${mEnd}')" style="width:100%;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 All Labour Muster Roll (${selMonth})</button>
-      <div style="border-top:1px solid #e2e8f0;padding-top:14px;">
-        <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:6px;">Individual worker timesheet</label>
-        <select id="musterIndivSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:10px;">${opts}</select>
-        <div style="display:flex;gap:8px;margin-bottom:10px;">
-          <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">From</label><input type="date" id="musterStart" value="${mStart}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
-          <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">To</label><input type="date" id="musterEnd" value="${mEnd}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
-        </div>
-        <button onclick="const id=document.getElementById('musterIndivSelect').value;const s=document.getElementById('musterStart').value;const e=document.getElementById('musterEnd').value;document.getElementById('musterChooser').remove();downloadMusterCard(id,s,e)" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">👤 Individual Timesheet</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">From</label><input type="date" id="musterStart" value="${mStart}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
+        <div style="flex:1;"><label style="font-size:10px;color:#94a3b8;font-weight:600;">To</label><input type="date" id="musterEnd" value="${mEnd}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;"></div>
       </div>
+      <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:6px;">Worker (for individual timesheet)</label>
+      <select id="musterIndivSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:16px;">${opts}</select>
+      <!-- Two actions, stacked below each other -->
+      <button onclick="const s=document.getElementById('musterStart').value;const e=document.getElementById('musterEnd').value;document.getElementById('musterChooser').remove();downloadMusterCard(null,s,e)" style="width:100%;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;">📋 All Labour Muster PDF</button>
+      <button onclick="const id=document.getElementById('musterIndivSelect').value;const s=document.getElementById('musterStart').value;const e=document.getElementById('musterEnd').value;document.getElementById('musterChooser').remove();downloadMusterCard(id,s,e)" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">👤 Individual Timesheet</button>
       <button onclick="document.getElementById('musterChooser').remove()" style="width:100%;padding:10px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-top:10px;">Cancel</button>
     </div>
   </div>`;
