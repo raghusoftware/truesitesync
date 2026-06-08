@@ -2860,19 +2860,22 @@ window._payContractor = function(id) {
 };
 
 export function loadAttendanceSheet() {
-  const date = document.getElementById('attDate').value;
-  const siteId = document.getElementById('attSite').value;
-  // Auto-load: stay quiet until both date and WO/site are chosen
-  if (!date || !siteId) return;
+  const dEl = document.getElementById('attDate');
+  let date = dEl ? dEl.value : '';
+  if (!date) { date = new Date().toISOString().split('T')[0]; if (dEl) dEl.value = date; }
+  // Labour is already scoped to the open project — no WO/site selection needed.
+  const siteId = state.currentProjectId || 'site';
   const labours = _projectLabour();
   if (labours.length === 0) {
     const ct = document.getElementById('attSheetContainer');
     if (ct) ct.innerHTML = '<p class="text-slate-400 text-center py-8 font-medium">No labour for this project yet — add workers via 👤 Add.</p>';
     return;
   }
-  const site = _siteLabel(siteId);
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const site = proj ? proj.name : 'Attendance';
+  const projLabourIds = new Set(labours.map(l => l.id));
   const existing = {};
-  state.attendanceLogs.filter(a => a.date === date && a.siteId === siteId).forEach(a => existing[a.labourId] = a);
+  state.attendanceLogs.filter(a => a.date === date && projLabourIds.has(a.labourId)).forEach(a => existing[a.labourId] = a);
 
   const container = document.getElementById('attSheetContainer');
   if (!container) return;
@@ -2939,10 +2942,13 @@ function _siteLabel(siteId) {
 
 export function saveAttendance() {
   const date = document.getElementById('attDate').value;
-  const siteId = document.getElementById('attSite').value;
-  if (!date || !siteId) return showToast('Load attendance sheet first', 'error');
-  state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && a.siteId === siteId));
-  _projectLabour().forEach(l => {
+  if (!date) return showToast('Load attendance sheet first', 'error');
+  // Attendance is scoped to the open project (no per-WO/site split anymore).
+  const siteId = state.currentProjectId || 'site';
+  const labours = _projectLabour();
+  const projLabourIds = new Set(labours.map(l => l.id));
+  state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
+  labours.forEach(l => {
     const radios = document.querySelectorAll(`input[name="att_${l.id}"]`);
     let status = 'A';
     radios.forEach(r => { if (r.checked) status = r.value; });
