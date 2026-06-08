@@ -13,10 +13,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Run unit tests
         run: npm test
       - name: Syntax-check all app JS (excluding vendor libs)
+        # App js/ uses native ES modules (import/export) without "type":"module"
+        # in package.json (kept CommonJS so electron/main.js works). Node 22+
+        # auto-detects module syntax for --check; Node 20 would mis-parse it as
+        # CommonJS and fail on every import statement.
         run: |
           for f in $(find js -name '*.js' -not -path 'js/vendor/*'); do
             node --check "$f" || exit 1
