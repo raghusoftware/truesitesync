@@ -100,6 +100,21 @@ export async function startRealtime(applyFn) {
     return;
   }
 
+  // ── CRITICAL: push the user's JWT to the realtime socket BEFORE subscribing.
+  // Without this, the websocket connects as 'anon', RLS (user_org_ids()) returns
+  // nothing, and Supabase SILENTLY DROPS every payload. supabase-js usually does
+  // this on sign-in, but on a restored session the socket can subscribe before
+  // the token is set — the #1 reason realtime "works in a test but not live".
+  try {
+    const token = _accessToken();
+    if (token && sb.realtime && typeof sb.realtime.setAuth === 'function') {
+      sb.realtime.setAuth(token);
+      console.log('[rt] realtime auth token set');
+    } else {
+      console.warn('[rt] no access token for realtime — RLS will drop payloads');
+    }
+  } catch (e) { console.warn('[rt] setAuth failed:', e); }
+
   // ── POINT 3: confirm the org_id right before subscribing ──
   console.log('[rt] subscribing to realtime for org_id =', orgId);
 

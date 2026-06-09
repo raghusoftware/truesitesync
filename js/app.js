@@ -348,6 +348,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     sb.auth.onAuthStateChange(async (event, session) => {
       console.log('[auth] event:', event, 'booted:', _appBooted);
+      // Keep the realtime websocket authenticated with the latest JWT so RLS
+      // doesn't silently drop postgres_changes payloads (kept fresh on refresh).
+      try { if (session?.access_token && sb.realtime?.setAuth) sb.realtime.setAuth(session.access_token); } catch {}
       if (event === 'SIGNED_OUT') {
         _appBooted = false;
         return;
