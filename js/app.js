@@ -60,7 +60,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.12';
+} from './modules/ui.js?v=1.4.17';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
@@ -72,6 +72,7 @@ import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.36';
 import './modules/mobileShell.js?v=1.4.0';
 import './modules/orgTeam.js?v=1.4.9';
+import './modules/cashFlow.js?v=1.4.17';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.24';

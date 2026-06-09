@@ -1174,6 +1174,7 @@ export function switchView(viewId) {
   if (viewId === 'microPlanView') { if (typeof window.renderMicroPlanningView === 'function') window.renderMicroPlanningView(); }
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
   if (viewId === 'analyticsView') renderAnalyticsDashboard();
+  if (viewId === 'cashFlowView') { if (typeof window.renderCashFlow === 'function') window.renderCashFlow(); }
   if (viewId === 'salesLedgerView') { window.renderSalesLedger?.(); window.renderSaleInvoices?.(); }
   if (viewId === 'proformaInvoiceView') window.renderProformaInvoices?.();
   if (viewId === 'paymentInView') window.renderPaymentInList?.();

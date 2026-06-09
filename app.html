@@ -19,7 +19,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.4.3">
-    <script type="module" src="js/app.js?v=1.4.16"></script>
+    <script type="module" src="js/app.js?v=1.4.17"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -173,6 +173,7 @@
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1.5">Finance</p>
         <button onclick="switchView('partiesLedgerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="partiesLedgerView"><span style="font-size:13px">&#129309;</span> Parties Ledger</button>
         <button onclick="switchView('accountsManagerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="accountsManagerView"><span style="font-size:13px">&#127974;</span> Bank & Cash</button>
+        <button onclick="switchView('cashFlowView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="cashFlowView"><span style="font-size:13px">&#128200;</span> Cash Flow</button>
 
         <!-- ── System ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
@@ -1063,6 +1064,11 @@
         </div>
 
         <!-- Payments hub removed -->
+
+        <!-- ═══════ CASH FLOW ═══════ -->
+        <div id="cashFlowView" class="view-section hide">
+          <div id="cashFlowRoot"></div>
+        </div>
 
         <!-- ═══════ ACCOUNTING / PNL ═══════ -->
         <div id="accountingView" class="view-section hide"><h2 class="text-3xl font-extrabold text-slate-800 mb-6">Record Transactions</h2><div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-green-500"><h3 class="font-bold text-lg mb-4 text-green-700">⬇️ Client Payment Received</h3><select id="accInClient" class="w-full mb-3 p-2.5 bg-slate-50 border rounded font-medium"></select><div class="flex gap-2 mb-3"><input type="date" id="accInDate" class="w-1/2 p-2.5 bg-slate-50 border rounded"><select id="accInAccount" class="w-1/2 p-2.5 bg-slate-50 border rounded font-bold text-blue-800 outline-none"></select></div><input type="number" id="accInAmount" placeholder="Amount (₹)" class="w-full mb-3 p-2.5 bg-slate-50 border rounded font-bold text-lg text-green-700"><input type="text" id="accInRef" placeholder="Reference / UTR / Cheque No" class="w-full mb-4 p-2.5 bg-slate-50 border rounded text-sm"><button onclick="savePaymentIn()" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 shadow-sm">Save Received Payment</button></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-red-500"><h3 class="font-bold text-lg mb-4 text-red-700">🔥 General Expense</h3><div class="flex gap-2 mb-3"><select id="accExpClient" class="w-2/3 p-2.5 bg-slate-50 border rounded font-medium"><option value="">-- No Project (Overhead) --</option></select><select id="accExpCat" class="w-1/3 p-2.5 bg-slate-50 border rounded text-sm"><option value="Labour">Labour</option><option value="Fuel">Fuel</option><option value="Misc">Misc</option></select></div><div class="flex gap-2 mb-3"><input type="date" id="accExpDate" class="w-1/2 p-2.5 bg-slate-50 border rounded"><select id="accExpAccount" class="w-1/2 p-2.5 bg-slate-50 border rounded font-bold text-red-800 outline-none"></select></div><input type="number" id="accExpAmount" placeholder="Amount (₹)" class="w-full mb-3 p-2.5 bg-slate-50 border rounded font-bold text-lg text-red-700"><input type="text" id="accExpRemarks" placeholder="Remarks / Reason" class="w-full mb-4 p-2.5 bg-slate-50 border rounded text-sm"><button onclick="saveExpense()" class="w-full bg-red-600 text-white p-3 rounded-lg font-bold hover:bg-red-700 shadow-sm">Save Expense</button></div></div></div>
