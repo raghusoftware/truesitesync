@@ -4,8 +4,8 @@
  * Phase 2: Client A/B/C Scorecard + 3-Leak Detector
  * Intelligence layer — reads live from every money module, no new storage.
  * ==========================================================================*/
-import { state } from './state.js';
-import { getCurrencySymbol } from './utils.js';
+import { state, saveAllData } from './state.js';
+import { getCurrencySymbol, showToast } from './utils.js';
 
 const N = (v) => parseFloat(v) || 0;
 const _days = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; };
@@ -217,6 +217,53 @@ window._cfSimulate = function () {
   set('simTotalOut', money(profitGain + cashFreed));
 };
 
+// ── SURVIVAL COCKPIT + SAVED SETTINGS (Runway / Reserve / Break-even) ───────
+const _DEFAULT_POLICY = { maxDays: 30, maxLimitMult: 1, docs: 'PO + signed Work Order + GST', consequence: '1.5%/mo interest + hold new work' };
+function _settings() {
+  const s = state.cashFlowSettings || (state.cashFlowSettings = {});
+  if (s.reserveMonths == null) s.reserveMonths = 3;
+  if (!s.creditPolicy) s.creditPolicy = { ..._DEFAULT_POLICY };
+  return s;
+}
+
+/** Monthly fixed burn = the costs you MUST pay even if income stops. */
+function monthlyFixedBurn() {
+  const fixedExp = (state.expenses || []).filter(e => _inLast(e.date, 90) && _FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3;
+  const labour = _labourPaid(90) / 3;
+  return fixedExp + labour;
+}
+function survival() {
+  const cash = cashPosition();
+  const burn = monthlyFixedBurn();
+  const runwayMonths = burn > 0 ? cash / burn : (cash > 0 ? 99 : 0);
+  const reserveMonths = N(_settings().reserveMonths);
+  const targetReserve = burn * reserveMonths;
+  const ps = profitScorecard(90);
+  const marginRatio = ps.revenue > 0 ? ps.gross / ps.revenue : 0;          // gross margin %
+  const monthlyFixedTotal = burn + ((state.expenses || []).filter(e => _inLast(e.date, 90) && !_FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3) * 0; // fixed only
+  const breakEvenRev = marginRatio > 0 ? burn / marginRatio : 0;           // revenue needed to cover fixed costs
+  const monthlyRev = ps.revenue / 3;
+  return { cash, burn, runwayMonths, reserveMonths, targetReserve, reserveGap: targetReserve - cash, marginRatio, breakEvenRev, monthlyRev, beAchieved: breakEvenRev > 0 ? monthlyRev / breakEvenRev * 100 : 0 };
+}
+
+window._cfSaveReserve = function () {
+  const v = parseFloat(document.getElementById('cfReserveMonths')?.value);
+  if (!(v >= 0)) { showToast('Enter a valid number of months', 'error'); return; }
+  _settings().reserveMonths = v;
+  saveAllData();
+  showToast('Reserve target saved (' + v + ' months)', 'success');
+  renderCashFlow();
+};
+window._cfSaveCreditPolicy = function () {
+  const p = _settings().creditPolicy;
+  p.maxDays = parseFloat(document.getElementById('cpMaxDays')?.value) || 0;
+  p.maxLimitMult = parseFloat(document.getElementById('cpMaxLimit')?.value) || 0;
+  p.docs = (document.getElementById('cpDocs')?.value || '').trim();
+  p.consequence = (document.getElementById('cpConseq')?.value || '').trim();
+  saveAllData();
+  showToast('Credit policy saved', 'success');
+};
+
 // ── UI HELPERS ──────────────────────────────────────────────────────────────
 const _tile = (label, value, sub, color, icon) => `
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
@@ -424,6 +471,7 @@ function _renderTools() {
   const cur = getCurrencySymbol();
   const vrows = vendorScores();
   const dso = arDays();
+  const p = _settings().creditPolicy;
   // simulator base figures (annualised)
   const revAnnual = _billed(365) || _billed(90) * 4;
   const cogsAnnual = (_purchased(365) + _labourBilled(365)) || (_purchased(90) + _labourBilled(90)) * 4;
@@ -444,15 +492,18 @@ function _renderTools() {
         <div style="padding:12px 18px;background:#fff7ed;border-top:1px solid #fed7aa;font-size:12px;color:#9a3412;"><b>A-vendors:</b> set a fixed weekly payment day & keep them happy. <b>C-vendors:</b> push for 30–45 day terms or partial payments.</div>
       </div>
 
-      <!-- Credit Policy -->
+      <!-- Credit Policy (editable) -->
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
-        <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">📋 Credit Policy (recommended)</h3>
-        <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Your clients currently take <b>${dso} days</b> on average. Tighten it.</p>
-        ${_scoreRow('Max credit days', '30 days', true, '#2563eb')}
-        ${_scoreRow('Max credit limit / client', '1× monthly order value', false, '#334155')}
-        ${_scoreRow('Required documents', 'PO + signed Work Order + GST', false, '#334155')}
-        ${_scoreRow('Consequence of delay', '1.5%/mo + hold new work', false, '#dc2626')}
-        <div style="margin-top:10px;padding:10px;border-radius:10px;background:#eff6ff;font-size:11px;color:#1e40af;">Apply the <b>3-strike rule</b>: friendly reminder → confirm release date → escalate & pause supply.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 style="font-size:14px;font-weight:800;color:#0f172a;">📋 Credit Policy</h3>
+          <button onclick="window._cfSaveCreditPolicy()" style="padding:6px 14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
+        </div>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Clients currently take <b>${dso} days</b> on average — set your rules and enforce them.</p>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;"><span style="flex:1;font-size:12px;color:#334155;font-weight:600;">Max credit days</span><input id="cpMaxDays" type="number" min="0" value="${N(p.maxDays)}" style="width:70px;padding:6px;border:1px solid #e2e8f0;border-radius:7px;text-align:center;font-size:13px;font-weight:700;"><span style="font-size:11px;color:#94a3b8;">days</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;"><span style="flex:1;font-size:12px;color:#334155;font-weight:600;">Max limit (× monthly order)</span><input id="cpMaxLimit" type="number" min="0" step="0.5" value="${N(p.maxLimitMult)}" style="width:70px;padding:6px;border:1px solid #e2e8f0;border-radius:7px;text-align:center;font-size:13px;font-weight:700;"><span style="font-size:11px;color:#94a3b8;">×</span></div>
+        <div style="padding:7px 0;border-bottom:1px solid #f1f5f9;"><div style="font-size:12px;color:#334155;font-weight:600;margin-bottom:4px;">Required documents</div><input id="cpDocs" type="text" value="${(p.docs || '').replace(/"/g, '&quot;')}" style="width:100%;padding:7px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;"></div>
+        <div style="padding:7px 0;"><div style="font-size:12px;color:#334155;font-weight:600;margin-bottom:4px;">Consequence of delay</div><input id="cpConseq" type="text" value="${(p.consequence || '').replace(/"/g, '&quot;')}" style="width:100%;padding:7px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;"></div>
+        <div style="margin-top:10px;padding:10px;border-radius:10px;background:#eff6ff;font-size:11px;color:#1e40af;">Then apply the <b>3-strike rule</b>: friendly reminder → confirm release date → escalate & pause supply.</div>
       </div>
     </div>
 
@@ -477,6 +528,64 @@ function _renderTools() {
     </div>`;
 }
 
+function _renderSurvival() {
+  const s = survival();
+  const cur = getCurrencySymbol();
+  const rw = s.runwayMonths;
+  const rwColor = rw >= 6 ? '#059669' : rw >= 3 ? '#d97706' : '#dc2626';
+  const rwLabel = rw >= 99 ? '∞' : fmt1(rw);
+  const resPct = s.targetReserve > 0 ? Math.min(100, Math.max(0, s.cash / s.targetReserve * 100)) : 0;
+  const beColor = s.beAchieved >= 100 ? '#059669' : s.beAchieved >= 70 ? '#d97706' : '#dc2626';
+  return `
+    <!-- RUNWAY hero -->
+    <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:18px;padding:22px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <div style="text-align:center;flex-shrink:0;">
+        <div style="font-size:48px;font-weight:800;color:${rwColor};line-height:1;">${rwLabel}</div>
+        <div style="font-size:12px;color:#94a3b8;font-weight:700;margin-top:2px;">MONTHS RUNWAY</div>
+      </div>
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:16px;font-weight:800;margin-bottom:4px;">If income stopped today, you survive ${rwLabel === '∞' ? 'indefinitely' : rwLabel + ' months'}.</div>
+        <div style="font-size:12px;color:#cbd5e1;">Net cash ${fmt(s.cash)} ÷ fixed monthly burn ${fmt(s.burn)} (rent, salaries, EMI, wages). ${rw < 3 ? '🚨 Below 3 months — build reserves before growth.' : rw < 6 ? '🟡 Okay — aim for 6 months.' : '🟢 Strong buffer.'}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;">
+      <!-- Reserve target (editable) -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">🛡️ Cash Reserve Target</h3>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Decide how many months of fixed costs you want safely in the bank (Pt 29).</p>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <span style="font-size:13px;color:#334155;font-weight:600;">Target reserve:</span>
+          <input id="cfReserveMonths" type="number" min="0" step="0.5" value="${s.reserveMonths}" style="width:64px;padding:7px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;font-size:14px;font-weight:700;">
+          <span style="font-size:13px;color:#64748b;">months</span>
+          <button onclick="window._cfSaveReserve()" style="margin-left:auto;padding:7px 14px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
+        </div>
+        ${_scoreRow('Target reserve amount', fmt(s.targetReserve), true)}
+        ${_scoreRow('Currently in bank', fmt(s.cash), false, s.cash >= s.targetReserve ? '#059669' : '#334155')}
+        ${_scoreRow(s.reserveGap > 0 ? 'Still to set aside' : 'Reserve fully funded', s.reserveGap > 0 ? fmt(s.reserveGap) : '✓', true, s.reserveGap > 0 ? '#dc2626' : '#059669')}
+        <div style="height:8px;background:#e2e8f0;border-radius:5px;margin-top:10px;overflow:hidden;"><div style="width:${resPct}%;height:100%;background:${resPct >= 100 ? '#059669' : '#f59e0b'};"></div></div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right;">${fmt1(resPct)}% funded</div>
+      </div>
+
+      <!-- Break-even -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">⚖️ Break-even Point</h3>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">The revenue you need each month just to cover fixed costs.</p>
+        <div style="text-align:center;padding:8px 0;">
+          <div style="font-size:30px;font-weight:800;color:#0f172a;">${fmt(s.breakEvenRev)}<span style="font-size:13px;color:#94a3b8;font-weight:600;"> / month</span></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">at your ${fmt1(s.marginRatio * 100)}% gross margin</div>
+        </div>
+        ${_scoreRow('Your current monthly revenue', fmt(s.monthlyRev))}
+        <div style="margin-top:8px;padding:10px;border-radius:10px;background:${s.beAchieved >= 100 ? '#ecfdf5' : '#fffbeb'};display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;font-weight:700;color:#334155;">Break-even achieved</span>
+          <span style="font-size:18px;font-weight:800;color:${beColor};">${fmt1(s.beAchieved)}%</span>
+        </div>
+        <div style="height:8px;background:#e2e8f0;border-radius:5px;margin-top:8px;overflow:hidden;"><div style="width:${Math.min(100, s.beAchieved)}%;height:100%;background:${beColor};"></div></div>
+        <p style="font-size:11px;color:#64748b;margin-top:8px;">${s.beAchieved >= 100 ? '🟢 Every rupee above this is profit.' : '🟡 You are below break-even — raise prices, cut fixed cost, or sell more.'}</p>
+      </div>
+    </div>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -484,7 +593,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -494,7 +603,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;

@@ -82,7 +82,8 @@ const STORAGE_KEYS = {
   savedPlans: 'mes_saved_plans',
   pettyCashCustodians: 'mes_petty_cash_custodians',
   pettyCashTxns: 'mes_petty_cash_txns',
-  issues: 'mes_issues'
+  issues: 'mes_issues',
+  cashFlowSettings: 'mes_cashflow_settings'
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -98,6 +99,7 @@ function load(key, fallback) {
 }
 
 export const state = {
+  cashFlowSettings: load(STORAGE_KEYS.cashFlowSettings, {}),
   clients: load(STORAGE_KEYS.clients, []),
   items: load(STORAGE_KEYS.items, {}),
   accounts: load(STORAGE_KEYS.accounts, [{ id: 'acc_cash', name: 'Main Cash Book', type: 'Cash' }]),
