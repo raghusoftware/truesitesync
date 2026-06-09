@@ -542,74 +542,87 @@ export async function verifySignupOtp(email) {
 // Email of the account currently going through a code-based password reset.
 let _recoveryEmail = '';
 
-export async function forgotPassword() {
-  const sb = getSupabase();
-  if (!sb) return;
-  const email = (document.getElementById('loginEmail')?.value || '').trim();
-  const errEl = document.getElementById('loginError');
-  const okEl = document.getElementById('loginSuccess');
-  if (errEl) errEl.style.display = 'none';
-  if (okEl) okEl.style.display = 'none';
-  if (!email) { if (errEl) { errEl.textContent = 'Enter your email above first, then click "Forgot password?"'; errEl.style.display = 'block'; } return; }
-  const link = document.getElementById('forgotPwRow');
-  try {
-    if (link) link.style.opacity = '0.5';
-    // Sends the recovery email. If the Supabase "Reset Password" template uses
-    // {{ .Token }}, the user receives a 6-digit code they type in below — this
-    // works in the desktop app, web, and mobile (no redirect/link required).
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-    if (error) throw error;
-    _recoveryEmail = email;
-    showPasswordResetCodeScreen(email);
-  } catch (e) {
-    if (errEl) { errEl.textContent = e.message || 'Could not send reset email. Check your connection and try again.'; errEl.style.display = 'block'; }
-  } finally {
-    if (link) link.style.opacity = '1';
-  }
+export function forgotPassword() {
+  // Open the self-contained reset screen (prefill the email if already typed).
+  const prefill = (document.getElementById('loginEmail')?.value || '').trim();
+  showPasswordResetCodeScreen(prefill);
 }
 
-/** Screen shown after a reset code is emailed: enter code + new password. */
-export function showPasswordResetCodeScreen(email) {
+/** Self-contained reset screen: enter email → send code → enter code + new password. */
+export function showPasswordResetCodeScreen(prefillEmail) {
   const loginEl = document.getElementById('loginPage');
   const app = document.getElementById('appContainer');
   if (app) app.style.display = 'none';
   if (!loginEl) return;
   loginEl.dataset.upgraded = '';
   loginEl.style.display = 'flex';
+  const inp = 'width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;';
   loginEl.innerHTML = `
     <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
-      <div style="text-align:center;margin-bottom:22px;">
+      <div style="text-align:center;margin-bottom:20px;">
         <img src="assets/logo.png" alt="True Site Sync" style="display:block;width:72px;height:72px;object-fit:contain;border-radius:14px;margin:0 auto 12px;">
         <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 6px;">Reset Your Password</h2>
-        <p style="font-size:13px;color:#64748b;margin:0;">We emailed a 6-digit code to <b>${email}</b>. Enter it below with your new password.</p>
+        <p style="font-size:13px;color:#64748b;margin:0;">Enter your email to get a 6-digit reset code.</p>
       </div>
-      <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
-      <input id="prCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter code" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:12px;">
-      <input id="prPass" type="password" placeholder="New password (min 6)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;">
-      <input id="prPass2" type="password" placeholder="Confirm new password" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacResetWithCode()">
-      <button id="prBtn" onclick="window._rbacResetWithCode()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+      <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;text-align:center;"></div>
+      <div id="prHint" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;text-align:center;"></div>
+      <input id="prEmail" type="email" placeholder="your@email.com" value="${(prefillEmail || '').replace(/"/g, '&quot;')}" style="${inp}" onkeydown="if(event.key==='Enter')window._rbacSendResetCode()">
+      <button id="prSendBtn" onclick="window._rbacSendResetCode()" style="width:100%;padding:13px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:18px;">Send Reset Code</button>
+      <div style="border-top:1px solid #f1f5f9;padding-top:16px;">
+        <input id="prCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code from email" style="${inp}text-align:center;letter-spacing:4px;font-size:18px;font-weight:700;">
+        <input id="prPass" type="password" placeholder="New password (min 6)" style="${inp}">
+        <input id="prPass2" type="password" placeholder="Confirm new password" style="${inp}margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacResetWithCode()">
+        <button id="prBtn" onclick="window._rbacResetWithCode()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+      </div>
       <p style="text-align:center;margin:16px 0 0;"><a href="#" onclick="window._rbacShowLogin&&window._rbacShowLogin();return false;" style="font-size:12px;color:#64748b;font-weight:600;text-decoration:none;">Back to sign in</a></p>
     </div>`;
-  setTimeout(() => document.getElementById('prCode')?.focus(), 50);
+  setTimeout(() => document.getElementById('prEmail')?.focus(), 50);
+}
+
+/** Send the recovery code email to the address in the reset screen. */
+export async function sendResetCode() {
+  const sb = getSupabase();
+  if (!sb) return;
+  const email = (document.getElementById('prEmail')?.value || '').trim();
+  const err = document.getElementById('prError');
+  const hint = document.getElementById('prHint');
+  const showErr = m => { if (err) { err.textContent = m; err.style.display = 'block'; } if (hint) hint.style.display = 'none'; };
+  if (err) err.style.display = 'none';
+  if (!/^.+@.+\..+$/.test(email)) return showErr('Enter a valid email address');
+  const btn = document.getElementById('prSendBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; btn.style.opacity = '0.7'; }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    if (error) throw error;
+    _recoveryEmail = email;
+    if (hint) { hint.textContent = '✅ Code sent to ' + email + '. Enter it below with your new password.'; hint.style.display = 'block'; }
+    if (btn) { btn.textContent = 'Resend Code'; btn.disabled = false; btn.style.opacity = '1'; }
+    document.getElementById('prCode')?.focus();
+  } catch (e) {
+    showErr(e.message || 'Could not send reset email. Please try again.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Code'; btn.style.opacity = '1'; }
+  }
 }
 
 /** Verify the emailed recovery code, then set the new password and sign in. */
 export async function resetWithCode() {
   const sb = getSupabase();
   if (!sb) return;
+  const email = (document.getElementById('prEmail')?.value || '').trim() || _recoveryEmail;
   const code = (document.getElementById('prCode')?.value || '').trim();
   const p1 = document.getElementById('prPass')?.value || '';
   const p2 = document.getElementById('prPass2')?.value || '';
   const err = document.getElementById('prError');
   const showErr = m => { if (err) { err.textContent = m; err.style.display = 'block'; } };
   if (err) err.style.display = 'none';
+  if (!email) return showErr('Enter your email and tap "Send Reset Code" first');
   if (code.length < 6) return showErr('Enter the 6-digit code from your email');
   if (p1.length < 6) return showErr('Password must be at least 6 characters');
   if (p1 !== p2) return showErr('Passwords do not match');
   const btn = document.getElementById('prBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; btn.style.opacity = '0.7'; }
   try {
-    const { error: vErr } = await sb.auth.verifyOtp({ email: _recoveryEmail, token: code, type: 'recovery' });
+    const { error: vErr } = await sb.auth.verifyOtp({ email, token: code, type: 'recovery' });
     if (vErr) throw vErr;
     const { error } = await sb.auth.updateUser({ password: p1 });
     if (error) throw error;
@@ -676,6 +689,7 @@ if (typeof window !== 'undefined') {
   window._rbacShowPasswordReset = showPasswordResetScreen;
   window._rbacSubmitNewPassword = submitNewPassword;
   window._rbacResetWithCode = resetWithCode;
+  window._rbacSendResetCode = sendResetCode;
   window._rbacShowPasswordResetCode = showPasswordResetCodeScreen;
   window._rbacShowLogin = showLoginPage;
 }
@@ -722,7 +736,8 @@ export async function handleLogin() {
       const syncText = document.getElementById('syncStatusText');
       if (syncText) syncText.textContent = 'Setting up your workspace...';
 
-      await pushAllToCloud();
+      // Never let cloud setup hang the signup — cap it, then enter the app.
+      try { await Promise.race([pushAllToCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] initial push failed:', e); }
 
       if (typeof window._bootApp === 'function') window._bootApp();
       showToast(`Welcome, ${result.user.name}! Your account is ready.`, 'success');
@@ -737,8 +752,9 @@ export async function handleLogin() {
       // Show sync status
       if (syncEl) syncEl.style.display = '';
 
-      // Pull cloud data
-      const hadCloud = await loadFromCloud();
+      // Pull cloud data — but never hang the login if org resolution stalls.
+      let hadCloud = false;
+      try { hadCloud = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
       if (hadCloud) {
         const syncText = document.getElementById('syncStatusText');
         if (syncText) syncText.textContent = 'Data loaded from cloud!';
