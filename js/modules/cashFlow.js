@@ -223,8 +223,34 @@ function _settings() {
   const s = state.cashFlowSettings || (state.cashFlowSettings = {});
   if (s.reserveMonths == null) s.reserveMonths = 3;
   if (!s.creditPolicy) s.creditPolicy = { ..._DEFAULT_POLICY };
+  if (!s.targets) s.targets = { revenue: 0, margin: 15, arDays: 30, netProfit: 0 };
   return s;
 }
+
+/** Plan vs actual — the monthly board snapshot. Actuals = 90-day monthly average. */
+function targetsScorecard() {
+  const t = _settings().targets;
+  const ps = profitScorecard(90);
+  const mRev = ps.revenue / 3, mNet = ps.net / 3;
+  const rag = (ok, warn) => ok ? 'green' : warn ? 'amber' : 'red';
+  return [
+    { metric: 'Monthly Revenue', target: N(t.revenue), actual: mRev, fmt: 'money', pct: N(t.revenue) > 0 ? mRev / N(t.revenue) * 100 : null, status: rag(mRev >= N(t.revenue) && N(t.revenue) > 0, mRev >= N(t.revenue) * 0.8) },
+    { metric: 'Net Margin', target: N(t.margin), actual: ps.margin, fmt: 'pct', status: rag(ps.margin >= N(t.margin), ps.margin >= N(t.margin) - 5) },
+    { metric: 'Monthly Net Profit', target: N(t.netProfit), actual: mNet, fmt: 'money', pct: N(t.netProfit) > 0 ? mNet / N(t.netProfit) * 100 : null, status: rag(mNet >= N(t.netProfit) && N(t.netProfit) > 0, mNet >= N(t.netProfit) * 0.8) },
+    { metric: 'AR Days (collection)', target: N(t.arDays), actual: arDays(), fmt: 'days', lowerBetter: true, status: rag(arDays() <= N(t.arDays), arDays() <= N(t.arDays) + 10) },
+  ];
+}
+
+window._cfSaveTargets = function () {
+  const t = _settings().targets;
+  t.revenue = parseFloat(document.getElementById('tgtRevenue')?.value) || 0;
+  t.margin = parseFloat(document.getElementById('tgtMargin')?.value) || 0;
+  t.netProfit = parseFloat(document.getElementById('tgtNetProfit')?.value) || 0;
+  t.arDays = parseFloat(document.getElementById('tgtArDays')?.value) || 0;
+  saveAllData();
+  showToast('Monthly targets saved', 'success');
+  renderCashFlow();
+};
 
 /** Monthly fixed burn = the costs you MUST pay even if income stops. */
 function monthlyFixedBurn() {
@@ -586,6 +612,54 @@ function _renderSurvival() {
     </div>`;
 }
 
+function _renderTargets() {
+  const t = _settings().targets;
+  const rows = targetsScorecard();
+  const cur = getCurrencySymbol();
+  const dot = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
+  const dotLabel = { green: 'On track', amber: 'Watch', red: 'Off track' };
+  const onTrack = rows.filter(r => r.status === 'green').length;
+  const fmtV = (r, v) => r.fmt === 'money' ? fmt(v) : r.fmt === 'pct' ? fmt1(v) + '%' : Math.round(v) + 'd';
+  const now = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  return `
+    <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Board snapshot · ${now}</div><div style="font-size:20px;font-weight:800;">Plan vs Actual</div></div>
+      <div style="text-align:right;"><div style="font-size:26px;font-weight:800;color:${onTrack >= 3 ? '#10b981' : onTrack >= 2 ? '#f59e0b' : '#ef4444'};">${onTrack}/4</div><div style="font-size:11px;color:#94a3b8;">targets on track</div></div>
+    </div>
+
+    <!-- Variance table -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px;">
+        <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;font-weight:800;"><th style="padding:11px 16px;text-align:left;">Metric</th><th style="padding:11px 16px;text-align:right;">Target</th><th style="padding:11px 16px;text-align:right;">Actual (monthly)</th><th style="padding:11px 16px;text-align:right;">Variance</th><th style="padding:11px 16px;text-align:center;">Status</th></tr></thead>
+        <tbody>${rows.map(r => {
+          const variance = r.lowerBetter ? r.target - r.actual : r.actual - r.target;
+          const vColor = (r.lowerBetter ? variance >= 0 : variance >= 0) ? '#059669' : '#dc2626';
+          return `<tr style="border-top:1px solid #f1f5f9;">
+            <td style="padding:11px 16px;font-weight:700;color:#0f172a;">${r.metric}</td>
+            <td style="padding:11px 16px;text-align:right;color:#64748b;">${r.target ? fmtV(r, r.target) : '—'}</td>
+            <td style="padding:11px 16px;text-align:right;font-weight:800;color:#0f172a;">${fmtV(r, r.actual)}</td>
+            <td style="padding:11px 16px;text-align:right;font-weight:700;color:${r.target ? vColor : '#cbd5e1'};">${r.target ? (variance >= 0 ? '+' : '') + fmtV(r, Math.abs(variance)).replace(/^/, variance < 0 ? '-' : '') : '—'}</td>
+            <td style="padding:11px 16px;text-align:center;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:${dot[r.status]};"><span style="width:9px;height:9px;border-radius:50%;background:${dot[r.status]};"></span>${dotLabel[r.status]}</span></td>
+          </tr>`; }).join('')}</tbody>
+      </table></div>
+    </div>
+
+    <!-- Set targets -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <h3 style="font-size:14px;font-weight:800;color:#0f172a;">🎯 Set Your Monthly Targets</h3>
+        <button onclick="window._cfSaveTargets()" style="padding:7px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save Targets</button>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;margin-bottom:14px;">Decide what "winning" looks like — the system tracks you against it every day.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Monthly Revenue (${cur})</label><input id="tgtRevenue" type="number" min="0" value="${N(t.revenue)}" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Net Margin (%)</label><input id="tgtMargin" type="number" min="0" step="0.5" value="${N(t.margin)}" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Monthly Net Profit (${cur})</label><input id="tgtNetProfit" type="number" min="0" value="${N(t.netProfit)}" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Max AR Days</label><input id="tgtArDays" type="number" min="0" value="${N(t.arDays)}" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"></div>
+      </div>
+    </div>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -593,7 +667,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -603,7 +677,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
