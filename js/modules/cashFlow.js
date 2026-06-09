@@ -118,6 +118,59 @@ function detectLeaks() {
   };
 }
 
+// ── FORECAST / PLANNER / CALENDAR (Phase 3) ─────────────────────────────────
+const _FIXED_CATS = ['rent', 'salary', 'salaries', 'utility', 'utilities', 'emi', 'insurance', 'loan', 'electricity'];
+
+/** 30-day forecast with inflows tiered by client grade and outflows by type. */
+function tieredForecast() {
+  const scores = clientScores();
+  const confirmed = scores.filter(c => c.grade === 'A').reduce((s, c) => s + c.outstanding, 0);
+  const likely = scores.filter(c => c.grade === 'B').reduce((s, c) => s + c.outstanding, 0);
+  const possible = scores.filter(c => c.grade === 'C').reduce((s, c) => s + c.outstanding, 0);
+  const exp90 = (state.expenses || []).filter(e => _inLast(e.date, 90));
+  const fixed = exp90.filter(e => _FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3;
+  const variable = exp90.filter(e => !_FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3;
+  const vendor = apOutstanding();
+  const labour = labourDue() || (_labourPaid(90) / 3);
+  const inflow = confirmed + likely + possible, outflow = fixed + variable + vendor + labour, opening = cashPosition();
+  return { confirmed, likely, possible, inflow, fixed, variable, vendor, labour, outflow, opening, gap: inflow - outflow, projected: opening + inflow - outflow };
+}
+
+/** 4-week rolling cash planner. */
+function weeklyPlanner() {
+  const tf = tieredForecast();
+  const scores = clientScores().filter(c => c.outstanding > 1);
+  const inW = [0, 0, 0, 0];
+  scores.forEach(c => { const w = c.grade === 'A' ? 0 : c.grade === 'B' ? 1 : (c.avgDays > 60 ? 3 : 2); inW[w] += c.outstanding; });
+  const monthlyOut = tf.fixed + tf.variable + tf.labour;
+  const outW = [tf.vendor + monthlyOut / 4, monthlyOut / 4, monthlyOut / 4, monthlyOut / 4];
+  let running = tf.opening;
+  return inW.map((inflow, i) => {
+    const outflow = outW[i]; running += inflow - outflow;
+    const gap = inflow - outflow;
+    let strat;
+    if (running < 0) strat = '🚨 Cash gap — pull collections forward / arrange short funds';
+    else if (gap < 0) strat = 'Collect from A-clients early; delay non-critical vendor';
+    else strat = 'Surplus — pre-pay A-vendor or set aside profit';
+    return { week: i + 1, inflow, outflow, gap, running, strat };
+  });
+}
+
+/** This month's compliance & payment calendar (amounts auto-filled where derivable). */
+function financeCalendar() {
+  const now = new Date(), y = now.getFullYear(), mo = now.getMonth(), todayD = now.getDate();
+  const day = (d) => new Date(y, mo, d).toISOString().split('T')[0];
+  const gstOut = (state.saleInvoices || []).filter(i => _inLast(i.date, 30) && i.status !== 'Cancelled').reduce((s, i) => s + N(i.gstAmount), 0);
+  const items = [
+    { d: 1, label: 'Founder profit transfer', amount: null, type: 'Discipline', icon: '💰' },
+    { d: 7, label: 'TDS deposit', amount: null, type: 'Statutory', icon: '🏛️' },
+    { d: 11, label: 'GSTR-1 filing', amount: null, type: 'Statutory', icon: '📄' },
+    { d: 15, label: 'PF / ESI payment', amount: null, type: 'Statutory', icon: '👷' },
+    { d: 20, label: 'GST payment (est. output)', amount: gstOut || null, type: 'Statutory', icon: '🧾' },
+  ];
+  return items.map(it => ({ ...it, date: day(it.d), status: it.d < todayD ? 'past' : it.d === todayD ? 'today' : 'upcoming' }));
+}
+
 // ── UI HELPERS ──────────────────────────────────────────────────────────────
 const _tile = (label, value, sub, color, icon) => `
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
@@ -236,6 +289,73 @@ function _renderLeaks() {
     </div>`;
 }
 
+function _renderForecast() {
+  const tf = tieredForecast(), wk = weeklyPlanner(), cal = financeCalendar();
+  const cur = getCurrencySymbol();
+  const inTier = (label, amt, color, note) => `
+    <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-top:4px solid ${color};border-radius:14px;padding:14px;">
+      <div style="font-size:11px;font-weight:700;color:#64748b;">${label}</div>
+      <div style="font-size:20px;font-weight:800;color:${color};margin-top:4px;">${fmt(amt)}</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${note}</div>
+    </div>`;
+  const projColor = tf.projected >= 0 ? '#059669' : '#dc2626';
+  return `
+    <!-- Tiered 30-day forecast -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;">
+        <h3 style="font-size:13px;font-weight:800;color:#059669;margin-bottom:10px;">📥 Expected Inflows · 30 days</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          ${inTier('Confirmed (A)', tf.confirmed, '#059669', 'Reliable payers')}
+          ${inTier('Likely (B)', tf.likely, '#d97706', 'Usually pay')}
+          ${inTier('Possible (C)', tf.possible, '#dc2626', 'Chase hard')}
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;">
+        <h3 style="font-size:13px;font-weight:800;color:#dc2626;margin-bottom:10px;">📤 Committed Outflows · 30 days</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          ${inTier('Fixed', tf.fixed, '#1e3a8a', 'Rent, salary, EMI')}
+          ${inTier('Vendors', tf.vendor, '#ea580c', 'Payables due')}
+          ${inTier('Labour', tf.labour, '#7c3aed', 'Wages due')}
+          ${inTier('Variable', tf.variable, '#0891b2'.slice(0, 7), 'Fuel, transport…')}
+        </div>
+      </div>
+    </div>
+    <div style="background:${tf.gap >= 0 ? 'linear-gradient(135deg,#065f46,#059669)' : 'linear-gradient(135deg,#7f1d1d,#dc2626)'};border-radius:16px;padding:16px 18px;margin-bottom:18px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">30-day projected cash (opening ${fmt(tf.opening)})</div><div style="font-size:26px;font-weight:800;">${fmt(tf.projected)}</div></div>
+      <div style="font-size:13px;opacity:.95;max-width:300px;">${tf.gap >= 0 ? '✅ Surplus — deploy it: pre-pay A-vendors or set aside profit.' : '⚠️ Gap — accelerate A/B collections before committing new spend.'}</div>
+    </div>
+
+    <!-- Weekly cash planner -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
+      <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;"><h3 style="font-size:14px;font-weight:800;color:#0f172a;">📅 Weekly Cash Planner (next 4 weeks)</h3></div>
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px;">
+        <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;font-weight:800;">
+          <th style="padding:9px 14px;text-align:left;">Week</th><th style="padding:9px 14px;text-align:right;">Expected In</th><th style="padding:9px 14px;text-align:right;">Committed Out</th><th style="padding:9px 14px;text-align:right;">Gap</th><th style="padding:9px 14px;text-align:right;">Running Cash</th><th style="padding:9px 14px;text-align:left;">Strategy</th>
+        </tr></thead>
+        <tbody>${wk.map(r => `<tr style="border-top:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;font-weight:700;">Week ${r.week}</td>
+          <td style="padding:9px 14px;text-align:right;color:#059669;font-weight:700;">${cur}${Math.round(r.inflow).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;text-align:right;color:#dc2626;font-weight:700;">${cur}${Math.round(r.outflow).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:700;color:${r.gap >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.round(r.gap).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:800;color:${r.running >= 0 ? '#0f172a' : '#dc2626'};">${cur}${Math.round(r.running).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;color:#475569;font-size:11px;">${r.strat}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+
+    <!-- Finance calendar -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+      <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">🗓️ Finance Calendar — this month</h3>
+      <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">"Planned expense creates power." Fixed obligations never miss a date.</p>
+      ${cal.map(it => { const c = it.status === 'past' ? '#94a3b8' : it.status === 'today' ? '#dc2626' : '#0f172a'; const tag = it.status === 'past' ? 'done/passed' : it.status === 'today' ? 'TODAY' : 'upcoming';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
+          <div style="width:42px;text-align:center;"><div style="font-size:16px;font-weight:800;color:${c};">${it.d}</div></div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:${c};">${it.icon} ${it.label}</div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;">${it.type} · ${tag}</div></div>
+          <div style="font-size:13px;font-weight:800;color:${c};">${it.amount != null ? fmt(it.amount) : '—'}</div>
+        </div>`; }).join('')}
+    </div>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -243,7 +363,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _renderOverview();
+  const body = _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -253,10 +373,10 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}
+      ${tab('overview', 'Overview', '🎯')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}
     </div>
     ${body}
-    <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">Coming next: 30-day tiered forecast · weekly cash planner · finance calendar · vendor &amp; credit policy.</p>`;
+    <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">Coming next: vendor management · credit policy · 1% impact simulator · cash-health score &amp; alerts.</p>`;
 }
 
 if (typeof window !== 'undefined') window.renderCashFlow = renderCashFlow;
