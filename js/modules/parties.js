@@ -18,7 +18,9 @@ export function renderPartiesList() {
   container.innerHTML = '';
   let allParties = [];
   state.clients.forEach(c => {
-    let billed = state.abstracts.filter(a => a.clientId === c.id).reduce((s, a) => s + a.totalAmount, 0) + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
+    let billed = state.abstracts.filter(a => a.clientId === c.id && a.status !== 'invoiced').reduce((s, a) => s + a.totalAmount, 0)
+      + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0)
+      + (state.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
     let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
     allParties.push({ id: c.id, name: c.name, type: 'Client', balance: billed - paid });
   });
@@ -59,8 +61,11 @@ export function renderPartyTransactions() {
     document.getElementById('selectedPartyName').textContent = c.name;
     document.getElementById('selectedPartyType').textContent = 'CLIENT';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="window.switchView('billingView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Sale</button><button onclick="window.switchView('accountingView')" class="bg-green-50 text-green-600 px-4 py-2 rounded-full font-bold text-xs border border-green-200 hover:bg-green-100 shadow-sm">+ Add Receipt</button>`;
-    state.abstracts.filter(a => a.clientId === id).forEach(a => txs.push({ date: a.date, number: a.abstractNum, type: 'Sale (Abstract)', total: a.totalAmount, isDebit: true, _src: 'abstracts', _id: a.id }));
+    state.abstracts.filter(a => a.clientId === id && a.status !== 'invoiced').forEach(a => txs.push({ date: a.date, number: a.abstractNum, type: 'Sale (Abstract)', total: a.totalAmount, isDebit: true, _src: 'abstracts', _id: a.id }));
     state.invoices.filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNum, type: 'Sale (GST Applied)', total: i.taxAmount, isDebit: true, _src: 'invoices', _id: i.id }));
+    // Sales module invoices (saleInvoices) — the main Sales module. These now
+    // flow straight into the client ledger as debits (what the client owes).
+    (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNo || 'Invoice', type: 'Sale Invoice', total: parseFloat(i.total) || 0, isDebit: true, _src: 'saleInvoices', _id: i.id }));
     state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: parseFloat(p.amount), isDebit: false, _src: 'paymentsIn', _id: p.id, _editable: true }));
   } else if (type === 'Vendor') {
     const v = state.vendors.find(x => x.id === id);

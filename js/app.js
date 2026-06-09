@@ -360,7 +360,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
-        try { await loadFromCloud(); } catch (e) { console.warn('[auth] cloud load failed:', e); }
+        // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
+        // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
+        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
@@ -376,7 +378,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
-        try { await loadFromCloud(); } catch (e) { console.warn('[boot] cloud load failed:', e); }
+        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[boot] cloud load failed:', e); }
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         return;
