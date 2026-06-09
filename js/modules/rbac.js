@@ -364,7 +364,7 @@ function _upgradeLoginForm() {
   loginEl.innerHTML = `
     <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
       <div style="text-align:center;margin-bottom:28px;">
-        <img src="assets/logo.png" alt="True Site Sync" style="width:84px;height:84px;object-fit:contain;border-radius:16px;margin-bottom:12px;">
+        <img src="assets/logo.png" alt="True Site Sync" style="display:block;width:84px;height:84px;object-fit:contain;border-radius:16px;margin:0 auto 12px;">
         <h2 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 4px;">Welcome to True Site Sync</h2>
         <p style="font-size:13px;color:#64748b;margin:0;" id="loginSubtitle">Sign in to your account</p>
       </div>
@@ -579,7 +579,7 @@ export function showPasswordResetCodeScreen(email) {
   loginEl.innerHTML = `
     <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);">
       <div style="text-align:center;margin-bottom:22px;">
-        <img src="assets/logo.png" alt="True Site Sync" style="width:72px;height:72px;object-fit:contain;border-radius:14px;margin-bottom:12px;">
+        <img src="assets/logo.png" alt="True Site Sync" style="display:block;width:72px;height:72px;object-fit:contain;border-radius:14px;margin:0 auto 12px;">
         <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 6px;">Reset Your Password</h2>
         <p style="font-size:13px;color:#64748b;margin:0;">We emailed a 6-digit code to <b>${email}</b>. Enter it below with your new password.</p>
       </div>
