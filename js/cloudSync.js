@@ -130,11 +130,13 @@
   // ── Realtime: every device in the org gets INSERT/UPDATE/DELETE instantly ────
   function startRealtime() {
     if (channel || !ORG_ID) return;
+    console.log('[TSCloud] subscribing to realtime for org_id =', ORG_ID);
     channel = sb
       .channel('org_module_data_' + ORG_ID)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'module_data', filter: 'organization_id=eq.' + ORG_ID },
         (msg) => {
+          console.log('REALTIME PAYLOAD RECEIVED:', msg.eventType, msg.new && msg.new.module_name);
           const row = msg.new && msg.new.id ? msg.new : msg.old;
           if (!row) return;
           // Ignore the echo of our own just-saved change (best-effort).

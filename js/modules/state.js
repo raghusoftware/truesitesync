@@ -352,17 +352,58 @@ if (typeof window !== 'undefined') window.migrateClientsProjects = migrateClient
 
 /** Apply a change pushed from another device/tab (realtime) into local state. */
 let _rtRefreshTimer = null;
+let _rtChangedKeys = new Set();
 export function applyRemoteChange(key, data) {
   const storageKey = STORAGE_KEYS[key];
-  if (!storageKey) return;
+  if (!storageKey) { console.warn('[rt] unknown module key:', key); return; }
+  console.log('[rt] applying remote change → state.' + key, Array.isArray(data) ? data.length + ' rows' : typeof data);
   state[key] = data;
   try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
+  _rtChangedKeys.add(key);
   // Debounce a single UI refresh after a burst of remote changes.
   if (_rtRefreshTimer) clearTimeout(_rtRefreshTimer);
   _rtRefreshTimer = setTimeout(() => {
+    const keys = [..._rtChangedKeys]; _rtChangedKeys.clear();
+    try { _renderForKeys(keys); } catch (e) { console.warn('[rt] render error:', e); }
     if (typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
-    if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast('Updated from another device', 'info');
-  }, 500);
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast('🔄 Updated from another device', 'info');
+  }, 400);
+}
+
+/**
+ * Route changed module keys to their renderers so the live screen updates even
+ * if it isn't the "current view" switchView would refresh. Renderers are on
+ * window (set by their modules); guarded so a missing one never throws.
+ */
+function _renderForKeys(keys) {
+  if (typeof window === 'undefined') return;
+  const call = (fn) => { try { if (typeof window[fn] === 'function') window[fn](); } catch (e) { console.warn('[rt] ' + fn, e); } };
+  const map = {
+    clients: ['renderPartiesList', 'renderProjectsHome', 'renderClientHub'],
+    projects: ['renderProjectsHome', 'renderProjectDashboard'],
+    saleInvoices: ['renderSaleInvoices', 'renderSalesLedger', 'renderPartiesList'],
+    invoices: ['renderInvoiceHistory', 'renderPartiesList'],
+    abstracts: ['renderAbstractsList', 'renderPartiesList'],
+    paymentsIn: ['renderPaymentInList', 'renderPartiesList'],
+    vendors: ['renderVendorLedger', 'renderPartiesList'],
+    vendorMaterials: ['renderVendorLedger', 'renderPartiesList'],
+    vendorPayments: ['renderVendorLedger', 'renderPartiesList'],
+    labourMaster: ['renderLabourMasterList', 'renderMonthlyMuster', 'renderPartiesList'],
+    attendanceLogs: ['renderMonthlyMuster'],
+    labourPayments: ['renderPartiesList'],
+    accounts: ['renderAccounts'],
+    expenses: ['renderExpenseCategories'],
+    issues: ['renderIssues'],
+    rawMaterials: ['renderLiveInventory'],
+    inventoryTx: ['renderLiveInventory'],
+    equipmentList: ['renderEquipmentView'],
+  };
+  const seen = new Set();
+  keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));
+  // Parties list + closing balance always reflect the latest if it's open.
+  if (document.getElementById('partyTransactionsBody') && typeof window.renderPartyTransactions === 'function') {
+    try { window.renderPartyTransactions(); } catch {}
+  }
 }
 /** Start live cloud sync (other devices' changes appear instantly). */
 export function startCloudRealtime() {

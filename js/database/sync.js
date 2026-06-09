@@ -73,33 +73,74 @@ setTimeout(() => markSyncReady(), 15000);
 
 // ── Realtime: apply changes made by other devices/tabs the instant they land ──
 let _rtChannel = null;
+let _rtApplyFn = null;
+let _rtTries = 0;
+
+/**
+ * Subscribe to org-wide realtime changes. Subscribes STRICTLY only after the
+ * organization_id is resolved (point 3). If the org isn't ready yet at boot, it
+ * retries instead of silently giving up — the #1 cause of "no realtime until
+ * reload". Also re-subscribes automatically if the socket errors/closes.
+ */
 export async function startRealtime(applyFn) {
+  if (typeof applyFn === 'function') _rtApplyFn = applyFn;
+  const sb = getSupabase();
+  if (!sb) { console.warn('[rt] no supabase client'); return; }
+  if (_rtChannel) return;                       // already subscribed
+
+  const orgId = await _resolveOrg();
+  if (!orgId) {
+    // Org not resolved yet (session still settling) → retry, don't give up.
+    if (_rtTries++ < 15) {
+      console.log('[rt] org_id not ready, retrying realtime subscribe… try', _rtTries);
+      setTimeout(() => startRealtime(_rtApplyFn), 1000);
+    } else {
+      console.warn('[rt] gave up resolving org_id for realtime');
+    }
+    return;
+  }
+
+  // ── POINT 3: confirm the org_id right before subscribing ──
+  console.log('[rt] subscribing to realtime for org_id =', orgId);
+
   try {
-    const sb = getSupabase();
-    if (!sb || _rtChannel) return;
-    const orgId = await _resolveOrg();
-    if (!orgId) return;
-    // Org-wide channel: every teammate's change on any module lands instantly.
     _rtChannel = sb.channel('rt_module_data_' + orgId)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'module_data', filter: `organization_id=eq.${orgId}` },
         (payload) => {
           try {
-            const row = payload.new && payload.new.module_name ? payload.new : null;
+            // ── POINT 4: prove data is arriving ──
+            console.log('REALTIME PAYLOAD RECEIVED:', payload.eventType, payload.new && payload.new.module_name);
+            const row = (payload.new && payload.new.module_name) ? payload.new : null;
             if (!row) return;
             const key = row.module_name;
             let incomingJson;
             try { incomingJson = JSON.stringify(row.payload); } catch { return; }
-            if (_lastJson[key] === incomingJson) return;           // our own echo
-            const incomingTs = Date.parse(row.updated_at) || Date.now();
-            if (incomingTs <= _getLocalTs(key)) return;            // not newer than local
+            if (_lastJson[key] === incomingJson) return;     // identical / our own echo
+            // Keep our copy only if we have a genuine un-synced local edit for
+            // this key; otherwise ALWAYS apply the realtime row (it is the latest
+            // committed value). No fragile timestamp gate that could drop it.
+            if (hasPendingPush(key)) return;
             _lastJson[key] = incomingJson;
-            _setLocalTs(key, incomingTs);
-            if (typeof applyFn === 'function') applyFn(key, row.payload);
+            _setLocalTs(key, Date.parse(row.updated_at) || Date.now());
+            if (typeof _rtApplyFn === 'function') _rtApplyFn(key, row.payload);
           } catch (e) { console.warn('[rt] apply error:', e); }
         })
-      .subscribe((status) => { if (status === 'SUBSCRIBED') console.log('[rt] org realtime sync active'); });
-  } catch (e) { console.warn('[rt] start failed:', e); }
+      .subscribe((status) => {
+        console.log('[rt] channel status:', status);
+        if (status === 'SUBSCRIBED') { _rtTries = 0; }
+        // Auto-recover from a dropped/errored socket.
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          try { sb.removeChannel(_rtChannel); } catch {}
+          _rtChannel = null;
+          setTimeout(() => startRealtime(_rtApplyFn), 2000);
+        }
+      });
+  } catch (e) {
+    console.warn('[rt] start failed:', e);
+    _rtChannel = null;
+    setTimeout(() => startRealtime(_rtApplyFn), 2000);
+  }
 }
 export function stopRealtime() {
   try { if (_rtChannel) { getSupabase()?.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
