@@ -171,6 +171,52 @@ function financeCalendar() {
   return items.map(it => ({ ...it, date: day(it.d), status: it.d < todayD ? 'past' : it.d === todayD ? 'today' : 'upcoming' }));
 }
 
+// ── CASH HEALTH SCORE + VENDORS + SIMULATOR (Phase 4) ───────────────────────
+/** Cash Flow = Profitability × Speed × Consistency − Leakages → 0–100. */
+function cashHealth() {
+  const ps = profitScorecard(90);
+  const ccc = arDays() + inventoryDays() - apDays();
+  const scores = clientScores();
+  const repeatRatio = scores.length ? scores.filter(c => c.orders > 1).length / scores.length : 0;
+  const L = detectLeaks(); const leakTotal = L.late.amount + L.slowInv.amount + L.waste.amount;
+  const rev90 = ps.revenue || 1;
+  const profit01 = Math.max(0, Math.min(1, ps.margin / 20));     // 20%+ margin = full marks
+  const speed01 = Math.max(0, Math.min(1, 1 - ccc / 90));        // CCC 0 = fast, 90+ = slow
+  const cons01 = Math.max(0, Math.min(1, repeatRatio));          // repeat business
+  const leakPenalty = Math.max(0, Math.min(0.5, leakTotal / rev90));
+  const base = 0.35 * profit01 + 0.35 * speed01 + 0.30 * cons01;
+  const score = Math.round(Math.max(0, Math.min(1, base - leakPenalty)) * 100);
+  return { score, grade: score >= 75 ? 'A' : score >= 50 ? 'B' : 'C', profit01, speed01, cons01, leakPenalty, margin: ps.margin, ccc, leakTotal };
+}
+
+/** Vendor ABC (Pareto on spend) + payables. */
+function vendorScores() {
+  const rows = (state.vendors || []).map(v => {
+    const purchased = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).reduce((s, m) => s + (N(m.totalAmount) || N(m.amount)), 0);
+    const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + N(p.amount), 0);
+    const bills = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).length;
+    return { id: v.id, name: v.name, purchased, paid, outstanding: Math.max(0, purchased - paid), bills };
+  }).filter(v => v.purchased > 0).sort((a, b) => b.purchased - a.purchased);
+  const total = rows.reduce((s, v) => s + v.purchased, 0) || 1;
+  let cum = 0;
+  rows.forEach(v => { cum += v.purchased; const pct = cum / total; v.cls = pct <= 0.7 ? 'A' : pct <= 0.9 ? 'B' : 'C'; });
+  return rows;
+}
+
+// Live 1% Impact Simulator — recomputes as the founder moves the levers.
+window._cfSimulate = function () {
+  const b = window._cfSimBase; if (!b) return;
+  const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+  const cur = getCurrencySymbol();
+  const money = (v) => cur + Math.round(v).toLocaleString('en-IN');
+  const profitGain = b.revAnnual * g('simPrice') / 100 + b.cogsAnnual * g('simCost') / 100 + b.opexAnnual * g('simOverhead') / 100;
+  const cashFreed = (b.revAnnual / 365) * g('simArDays') + b.inv * g('simInv') / 100;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('simProfitOut', '+' + money(profitGain));
+  set('simCashOut', '+' + money(cashFreed));
+  set('simTotalOut', money(profitGain + cashFreed));
+};
+
 // ── UI HELPERS ──────────────────────────────────────────────────────────────
 const _tile = (label, value, sub, color, icon) => `
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
@@ -198,7 +244,25 @@ function _renderOverview() {
   const projColor = f.projected >= 0 ? '#059669' : '#dc2626';
   const cccColor = ccc <= 30 ? '#059669' : ccc <= 60 ? '#d97706' : '#dc2626';
   const recv = clientScores().filter(c => c.outstanding > 1).slice(0, 5);
+  const h = cashHealth();
+  const hColor = h.grade === 'A' ? '#10b981' : h.grade === 'B' ? '#f59e0b' : '#ef4444';
+  const meter = (label, v) => `<div style="flex:1;min-width:90px;"><div style="font-size:10px;color:#cbd5e1;font-weight:700;text-transform:uppercase;">${label}</div><div style="height:6px;background:rgba(255,255,255,.15);border-radius:4px;margin-top:4px;overflow:hidden;"><div style="width:${Math.round(v * 100)}%;height:100%;background:${hColor};"></div></div></div>`;
   return `
+    <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:18px;padding:20px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:22px;flex-wrap:wrap;">
+      <div style="text-align:center;flex-shrink:0;">
+        <div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(${hColor} ${h.score * 3.6}deg, rgba(255,255,255,.12) 0deg);display:flex;align-items:center;justify-content:center;">
+          <div style="width:74px;height:74px;border-radius:50%;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:26px;font-weight:800;color:${hColor};line-height:1;">${h.score}</span><span style="font-size:9px;color:#94a3b8;">/ 100</span></div>
+        </div>
+        <div style="margin-top:6px;font-size:12px;font-weight:800;color:${hColor};">Grade ${h.grade}</div>
+      </div>
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:15px;font-weight:800;margin-bottom:2px;">Cash Health Score</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Profitability × Speed × Consistency − Leakages</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          ${meter('Profitability', h.profit01)}${meter('Speed', h.speed01)}${meter('Consistency', h.cons01)}
+        </div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px;">
       ${_tile('Net Cash Position', fmt(cash), 'Money in − money out', cash >= 0 ? '#0f172a' : '#dc2626', '🏦')}
       ${_tile('Expected Inflow · 30d', fmt(f.inflow), 'Outstanding receivables', '#059669', '📥')}
@@ -356,6 +420,63 @@ function _renderForecast() {
     </div>`;
 }
 
+function _renderTools() {
+  const cur = getCurrencySymbol();
+  const vrows = vendorScores();
+  const dso = arDays();
+  // simulator base figures (annualised)
+  const revAnnual = _billed(365) || _billed(90) * 4;
+  const cogsAnnual = (_purchased(365) + _labourBilled(365)) || (_purchased(90) + _labourBilled(90)) * 4;
+  const opexAnnual = _expenses(365) || _expenses(90) * 4;
+  window._cfSimBase = { revAnnual, cogsAnnual, opexAnnual, ar: arOutstanding(), inv: inventoryValue() };
+  const clsBadge = (c) => { const col = c === 'A' ? '#dc2626' : c === 'B' ? '#d97706' : '#64748b'; return `<span style="font-size:10px;font-weight:800;color:${col};background:${col}15;border:1px solid ${col}30;border-radius:6px;padding:2px 7px;">${c}</span>`; };
+  const sl = (id, label, unit, def) => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;"><span style="flex:1;font-size:12px;color:#334155;font-weight:600;">${label}</span><input id="${id}" type="number" min="0" step="0.5" value="${def}" oninput="window._cfSimulate()" style="width:60px;padding:5px;border:1px solid #e2e8f0;border-radius:7px;text-align:center;font-size:13px;font-weight:700;"><span style="font-size:11px;color:#94a3b8;width:34px;">${unit}</span></div>`;
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;">
+      <!-- Vendor ABC -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;"><h3 style="font-size:14px;font-weight:800;color:#0f172a;">🏭 Vendor Management (A / B / C)</h3><p style="font-size:11px;color:#94a3b8;">A = critical (pay on time) · C = replaceable (negotiate terms)</p></div>
+        <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px;">
+          <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;font-weight:800;"><th style="padding:8px 12px;text-align:left;">Vendor</th><th style="padding:8px 12px;text-align:center;">Bills</th><th style="padding:8px 12px;text-align:right;">Purchased</th><th style="padding:8px 12px;text-align:right;">Outstanding</th><th style="padding:8px 12px;text-align:center;">Class</th></tr></thead>
+          <tbody>${vrows.length ? vrows.map(v => `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:8px 12px;font-weight:700;color:#0f172a;">${v.name}</td><td style="padding:8px 12px;text-align:center;color:#475569;">${v.bills}</td><td style="padding:8px 12px;text-align:right;">${cur}${Math.round(v.purchased).toLocaleString('en-IN')}</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:${v.outstanding > 1 ? '#ea580c' : '#94a3b8'};">${cur}${Math.round(v.outstanding).toLocaleString('en-IN')}</td><td style="padding:8px 12px;text-align:center;">${clsBadge(v.cls)}</td></tr>`).join('') : '<tr><td colspan="5" style="padding:18px;text-align:center;color:#94a3b8;">No vendor purchases yet.</td></tr>'}</tbody>
+        </table></div>
+        <div style="padding:12px 18px;background:#fff7ed;border-top:1px solid #fed7aa;font-size:12px;color:#9a3412;"><b>A-vendors:</b> set a fixed weekly payment day & keep them happy. <b>C-vendors:</b> push for 30–45 day terms or partial payments.</div>
+      </div>
+
+      <!-- Credit Policy -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">📋 Credit Policy (recommended)</h3>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Your clients currently take <b>${dso} days</b> on average. Tighten it.</p>
+        ${_scoreRow('Max credit days', '30 days', true, '#2563eb')}
+        ${_scoreRow('Max credit limit / client', '1× monthly order value', false, '#334155')}
+        ${_scoreRow('Required documents', 'PO + signed Work Order + GST', false, '#334155')}
+        ${_scoreRow('Consequence of delay', '1.5%/mo + hold new work', false, '#dc2626')}
+        <div style="margin-top:10px;padding:10px;border-radius:10px;background:#eff6ff;font-size:11px;color:#1e40af;">Apply the <b>3-strike rule</b>: friendly reminder → confirm release date → escalate & pause supply.</div>
+      </div>
+    </div>
+
+    <!-- 1% Impact Simulator -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-top:14px;">
+      <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px;">🧪 The 1% Impact Simulator</h3>
+      <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Tiny moves, huge cash. Adjust the levers and watch the annual impact.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+        <div>
+          ${sl('simPrice', 'Increase price', '%', 1)}
+          ${sl('simCost', 'Reduce direct cost', '%', 1)}
+          ${sl('simOverhead', 'Reduce overhead', '%', 1)}
+          ${sl('simArDays', 'Collect faster', 'days', 1)}
+          ${sl('simInv', 'Reduce inventory', '%', 1)}
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#166534;font-weight:600;">Extra annual profit</span><span id="simProfitOut" style="font-size:15px;font-weight:800;color:#059669;">+₹0</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#166534;font-weight:600;">Cash freed up</span><span id="simCashOut" style="font-size:15px;font-weight:800;color:#059669;">+₹0</span></div>
+          <div style="border-top:1px dashed #86efac;padding-top:10px;display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#14532d;font-weight:800;">Total cash impact</span><span id="simTotalOut" style="font-size:20px;font-weight:800;color:#047857;">₹0</span></div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -363,7 +484,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _renderOverview();
+  const body = _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -373,10 +494,11 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}
+      ${tab('overview', 'Overview', '🎯')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
-    <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">Coming next: vendor management · credit policy · 1% impact simulator · cash-health score &amp; alerts.</p>`;
+    <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
+  if (_cfTab === 'tools' && typeof window._cfSimulate === 'function') window._cfSimulate();
 }
 
 if (typeof window !== 'undefined') window.renderCashFlow = renderCashFlow;
