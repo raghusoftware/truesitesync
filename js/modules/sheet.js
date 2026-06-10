@@ -1238,7 +1238,12 @@ function _gLineQty(tr) {
   const read = sel => { const raw = tr.querySelector(sel)?.value ?? ''; if (raw === '') return { v: 1, has: false }; const n = parseFloat(raw); return { v: isNaN(n) ? 1 : n, has: true }; };
   const nos = read('.g-nos'), l = read('.g-l'), b = read('.g-b'), h = read('.g-h');
   const any = nos.has || l.has || b.has || h.has;
-  return any ? (nos.v * l.v * b.v * h.v) : 0;
+  if (any) return nos.v * l.v * b.v * h.v;
+  // No L×B×H dimensions — weight/count units (kg, MT, nos, bags, lump-sum):
+  // use the quantity typed directly in the Qty cell.
+  const qel = tr.querySelector('.g-qty');
+  if (qel) { const qn = parseFloat(qel.value); if (!isNaN(qn)) return qn; }
+  return 0;
 }
 
 export function calcGroupedLine(input) {
@@ -1269,7 +1274,7 @@ function _gLineHTML(d) {
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)" onkeydown="window._gLineKey(event,this)"></td>
-    <td class="px-1.5 py-1"><input type="text" style="height:34px;" class="g-qty w-full px-2 border border-blue-100 rounded-md text-sm text-center font-extrabold text-blue-700 bg-blue-50" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" readonly></td>
+    <td class="px-1.5 py-1"><input type="number" step="any" style="height:34px;" class="g-qty w-full px-2 border border-blue-200 rounded-md text-sm text-center font-extrabold text-blue-700 bg-blue-50/70 focus:bg-white focus:border-blue-400" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" oninput="window._gQtyEdit(this)" title="Auto from L×B×H — or type directly for kg / MT / nos / bags"></td>
     <td class="px-1 py-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="text-emerald-600 hover:bg-emerald-100 rounded-md inline-flex items-center justify-center" style="width:28px;height:28px;font-size:16px;">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="text-slate-400 hover:bg-red-100 hover:text-red-600 rounded-md inline-flex items-center justify-center" style="width:26px;height:28px;font-size:14px;">🗑</button></td>
   </tr>`;
 }
@@ -1487,6 +1492,8 @@ function _renumberGroupedItems() {
 }
 
 window._gItemUomChanged = function (inp) { _groupedItemTotal(inp.closest('.g-item')); };
+// Direct quantity typed in the Qty cell (for kg / MT / nos / lump-sum items).
+window._gQtyEdit = function (el) { _groupedItemTotal(el.closest('.g-item')); };
 
 /** Render grouped cards from a flat entries[] */
 export function renderGroupedEntry(entries) {
@@ -1519,8 +1526,11 @@ function _groupedCollectEntries() {
       const b = tr.querySelector('.g-b')?.value || '';
       const h = tr.querySelector('.g-h')?.value || '';
       const label = tr.querySelector('.g-label')?.value || '';
+      const qtyField = tr.querySelector('.g-qty')?.value || '';
       const qty = _gLineQty(tr);
-      if (nos || l || b || h || label) {
+      // Keep the line if it has dimensions, a label, OR a directly-typed quantity
+      // (weight/count units like kg, MT, nos, bags) — previously these were dropped.
+      if (nos || l || b || h || label || qtyField) {
         out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, qty: qty || 0, remarks: label });
       }
     });
