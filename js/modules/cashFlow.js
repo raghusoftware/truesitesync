@@ -224,8 +224,37 @@ function _settings() {
   if (s.reserveMonths == null) s.reserveMonths = 3;
   if (!s.creditPolicy) s.creditPolicy = { ..._DEFAULT_POLICY };
   if (!s.targets) s.targets = { revenue: 0, margin: 15, arDays: 30, netProfit: 0 };
+  if (!s.profitFirst) s.profitFirst = { profit: 5, ownerPay: 50, tax: 15, opex: 30 };
   return s;
 }
+
+/** Profit-First: split real revenue (collections) into Profit/Owner-Pay/Tax/OpEx. */
+function profitFirst() {
+  const pf = _settings().profitFirst;
+  const income = _received(90) / 3;                                   // avg monthly collections (real revenue)
+  const alloc = (k) => income * N(pf[k]) / 100;
+  const actualMonthlyCost = (_purchased(90) + _labourBilled(90) + _expenses(90)) / 3;
+  const targetOpex = alloc('opex');
+  return {
+    income,
+    profit: alloc('profit'), ownerPay: alloc('ownerPay'), tax: alloc('tax'), opex: targetOpex,
+    pct: { profit: N(pf.profit), ownerPay: N(pf.ownerPay), tax: N(pf.tax), opex: N(pf.opex) },
+    sum: N(pf.profit) + N(pf.ownerPay) + N(pf.tax) + N(pf.opex),
+    actualMonthlyCost, overspend: actualMonthlyCost - targetOpex,
+  };
+}
+
+window._cfSaveProfitFirst = function () {
+  const pf = _settings().profitFirst;
+  pf.profit = parseFloat(document.getElementById('pfProfit')?.value) || 0;
+  pf.ownerPay = parseFloat(document.getElementById('pfOwnerPay')?.value) || 0;
+  pf.tax = parseFloat(document.getElementById('pfTax')?.value) || 0;
+  pf.opex = parseFloat(document.getElementById('pfOpex')?.value) || 0;
+  const sum = pf.profit + pf.ownerPay + pf.tax + pf.opex;
+  saveAllData();
+  showToast(sum === 100 ? 'Allocation saved' : `Saved — but your % adds to ${sum}%, not 100%`, sum === 100 ? 'success' : 'warning');
+  renderCashFlow();
+};
 
 /** Plan vs actual — the monthly board snapshot. Actuals = 90-day monthly average. */
 function targetsScorecard() {
@@ -660,6 +689,61 @@ function _renderTargets() {
     </div>`;
 }
 
+function _renderProfitFirst() {
+  const f = profitFirst();
+  const cur = getCurrencySymbol();
+  const buckets = [
+    { k: 'profit', id: 'pfProfit', label: 'Profit', icon: '🏆', color: '#059669', note: 'Set aside — never touch. Your reward.', amt: f.profit },
+    { k: 'ownerPay', id: 'pfOwnerPay', label: 'Owner Pay', icon: '👤', color: '#2563eb', note: 'Pay yourself a real salary, first.', amt: f.ownerPay },
+    { k: 'tax', id: 'pfTax', label: 'Tax Reserve', icon: '🏛️', color: '#d97706', note: 'GST + income tax — kept ready, no shocks.', amt: f.tax },
+    { k: 'opex', id: 'pfOpex', label: 'Operating Expenses', icon: '⚙️', color: '#64748b', note: 'Runs the business — what is left.', amt: f.opex },
+  ];
+  const sumOk = f.sum === 100;
+  return `
+    <div style="background:linear-gradient(135deg,#064e3b,#059669);border-radius:16px;padding:20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">Allocate first, spend what's left</div><div style="font-size:20px;font-weight:800;">Profit-First on ${fmt(f.income)}/mo income</div><div style="font-size:11px;opacity:.85;margin-top:2px;">Based on your average monthly collections.</div></div>
+      <div style="font-size:12px;opacity:.95;max-width:280px;">Transfer each bucket to a <b>separate bank account</b> on a fixed day. Profit you can't see, you won't spend.</div>
+    </div>
+
+    <!-- Allocation cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px;">
+      ${buckets.map(b => `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-top:4px solid ${b.color};border-radius:16px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:20px;">${b.icon}</span><div style="display:flex;align-items:center;gap:6px;"><input id="${b.id}" type="number" min="0" max="100" value="${f.pct[b.k]}" oninput="window._cfPfPreview&&window._cfPfPreview()" style="width:56px;padding:5px;border:1px solid #e2e8f0;border-radius:7px;text-align:center;font-size:14px;font-weight:800;color:${b.color};"><span style="font-size:13px;color:#94a3b8;font-weight:700;">%</span></div></div>
+          <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:8px;">${b.label}</div>
+          <div style="font-size:22px;font-weight:800;color:${b.color};margin-top:2px;" data-pf-amt="${b.k}">${fmt(b.amt)}<span style="font-size:11px;color:#94a3b8;font-weight:600;">/mo</span></div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${b.note}</div>
+        </div>`).join('')}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:${sumOk ? '#059669' : '#dc2626'};">Total allocation: <span data-pf-sum>${f.sum}</span>% ${sumOk ? '✓' : '— must equal 100%'}</div>
+      <button onclick="window._cfSaveProfitFirst()" style="padding:9px 18px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">Save Allocation</button>
+    </div>
+
+    <!-- Reality check -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+      <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">🔍 Reality Check — are you living within OpEx?</h3>
+      ${_scoreRow('Your target OpEx budget', fmt(f.opex) + '/mo', true)}
+      ${_scoreRow('Your actual operating spend', fmt(f.actualMonthlyCost) + '/mo', false, f.overspend > 0 ? '#dc2626' : '#059669')}
+      <div style="margin-top:10px;padding:12px;border-radius:10px;background:${f.overspend > 0 ? '#fef2f2' : '#ecfdf5'};font-size:12px;color:${f.overspend > 0 ? '#991b1b' : '#166534'};font-weight:600;">
+        ${f.overspend > 0
+          ? `⚠️ You're overspending by <b>${fmt(f.overspend)}/mo</b>. Trim this to fund Profit + Owner Pay + Tax. Small, steady cuts beat one big purge.`
+          : `🟢 You're within budget — your Profit, Owner Pay and Tax buckets are fully fundable. Keep the discipline.`}
+      </div>
+    </div>`;
+}
+
+// Live preview of allocation amounts as the owner edits the % (no save needed).
+window._cfPfPreview = function () {
+  const f = profitFirst();
+  const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+  const pct = { profit: g('pfProfit'), ownerPay: g('pfOwnerPay'), tax: g('pfTax'), opex: g('pfOpex') };
+  const sum = pct.profit + pct.ownerPay + pct.tax + pct.opex;
+  ['profit', 'ownerPay', 'tax', 'opex'].forEach(k => { const el = document.querySelector(`[data-pf-amt="${k}"]`); if (el) el.innerHTML = fmt(f.income * pct[k] / 100) + '<span style="font-size:11px;color:#94a3b8;font-weight:600;">/mo</span>'; });
+  const sEl = document.querySelector('[data-pf-sum]'); if (sEl) { sEl.textContent = sum; sEl.parentElement.style.color = sum === 100 ? '#059669' : '#dc2626'; }
+};
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -667,7 +751,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -677,7 +761,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
