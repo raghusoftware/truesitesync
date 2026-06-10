@@ -115,7 +115,7 @@ export const state = {
   rawMaterials: load(STORAGE_KEYS.rawMaterials, []),
   recipes: load(STORAGE_KEYS.recipes, {}),
   inventoryTx: load(STORAGE_KEYS.inventoryTx, []),
-  locations: load(STORAGE_KEYS.locations, [{ id: 'loc_store_1', name: 'Main HQ Store', type: 'Warehouse' }]),
+  locations: load(STORAGE_KEYS.locations, []),
   itemTransfers: load(STORAGE_KEYS.itemTransfers, []),
   maintenanceLogs: load(STORAGE_KEYS.maintenanceLogs, []),
   labourMaster: load(STORAGE_KEYS.labourMaster, []),
@@ -295,7 +295,11 @@ export function seedDemoData() { /* no demo data — fresh start for all users *
  * named similarly are never touched. Returns true if anything was removed.
  */
 export function purgeDemoData() {
-  const n0 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length;
+  const n0 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length + (state.locations || []).length;
+
+  // Default seeded "Main HQ Store" location — remove it (inventory/tools/assets/purchase)
+  state.locations = (state.locations || []).filter(l =>
+    !((l.id === 'loc_store_1') || (l.name === 'Main HQ Store' && l.type === 'Warehouse')));
 
   // Demo client: name 'DEMO' tied to the demo project name
   const demoClientIds = (state.clients || [])
@@ -316,7 +320,7 @@ export function purgeDemoData() {
   state.rawMaterials = (state.rawMaterials || []).filter(r =>
     !((r.id === 'rm_1' && r.name === 'Cement') || (r.id === 'rm_2' && r.name === 'Drill Machine')));
 
-  const n1 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length;
+  const n1 = state.clients.length + state.projects.length + state.vendors.length + state.rawMaterials.length + (state.locations || []).length;
   return n1 !== n0;
 }
 if (typeof window !== 'undefined') window.purgeDemoData = purgeDemoData;
