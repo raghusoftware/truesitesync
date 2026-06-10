@@ -1576,44 +1576,118 @@ window._openInvSection = function(section) {
 };
 
 // ─── 1. Goods Receipt Note (GRN) ───
+// Captured photos (Base64, compressed) held until the GRN is saved.
+let _grnChallanPhoto = null, _grnCondPhoto = null;
+
+/** Compress an image file to a small Base64 JPEG (offline-first storage). */
+function _grnCompressImage(file) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 1000, scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(cv.toDataURL('image/jpeg', 0.55)); } catch { resolve(null); }
+      };
+      img.onerror = () => resolve(null); img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null); reader.readAsDataURL(file);
+  });
+}
+window._grnCapturePhoto = async function (input, which) {
+  const file = input.files && input.files[0]; if (!file) return;
+  const data = await _grnCompressImage(file);
+  if (which === 'challan') _grnChallanPhoto = data; else _grnCondPhoto = data;
+  const pv = document.getElementById(which === 'challan' ? 'grnChallanPrev' : 'grnCondPrev');
+  if (pv) pv.innerHTML = data ? `<img src="${data}" style="max-height:90px;border-radius:8px;margin-top:6px;">` : '';
+};
+/** Auto sequential GRN no — GRN-<PROJCODE>-<YYYYMMDD>-### */
+function _grnNextNumber(date) {
+  const ymd = (date || '').replace(/-/g, '');
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const code = ((proj && proj.code) || 'GEN').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN';
+  const seq = (state.grnRecords || []).filter(g => g.date === date && g.projectId === state.currentProjectId).length + 1;
+  return `GRN-${code}-${ymd}-${String(seq).padStart(3, '0')}`;
+}
+function _grnIsTestable(text) { return /steel|cement|tmt|concrete|aggregate|admixture/i.test(text || ''); }
+
 function _renderGRN() {
   const c = document.getElementById('grnContent'); if (!c) return;
+  _grnChallanPhoto = null; _grnCondPhoto = null;
   const supplierOpts = (state.vendors||[]).map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
   const recent = (state.grnRecords||[]).filter(g=>g.projectId===state.currentProjectId).slice(-15).reverse();
+  const cur = getCurrencySymbol();
   c.innerHTML = `
     <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">🚚 Goods Receipt Note</h4>
+      <h4 class="font-bold text-slate-700 text-sm mb-3">🚚 Goods Receipt Note <span class="text-[10px] font-medium text-slate-400">${_grnNextNumber(new Date().toISOString().split('T')[0])}</span></h4>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
         <select id="grnSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <select id="grnSupplier" class="p-2 border rounded-lg text-sm bg-white"><option value="">-- Supplier --</option>${supplierOpts}</select>
-        <input id="grnChallan" placeholder="Challan / DC No" class="p-2 border rounded-lg text-sm outline-none">
+        <select id="grnSupplier" class="p-2 border rounded-lg text-sm bg-white"><option value="">-- Supplier * --</option>${supplierOpts}</select>
+        <input id="grnChallan" placeholder="Challan / Invoice No" class="p-2 border rounded-lg text-sm outline-none">
         <input id="grnVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnDriver" placeholder="Driver contact (opt)" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnCat" placeholder="Category (Steel/Cement…)" class="p-2 border rounded-lg text-sm outline-none">
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
         <select id="grnMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
-        <input id="grnQty" type="number" placeholder="Qty received" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="grnRate" type="number" placeholder="Rate ₹ (opt)" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnQty" type="number" placeholder="Qty received *" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnExpected" type="number" placeholder="Expected (PO)" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="grnRate" type="number" placeholder="Rate ${cur} (opt)" class="p-2 border rounded-lg text-sm outline-none">
         <button onclick="_saveGRN()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Receive Stock</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="border border-dashed border-slate-300 rounded-lg p-2"><label class="text-[11px] font-bold text-slate-500">📄 Challan / Receipt Photo *</label><input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'challan')" class="text-xs block mt-1"><div id="grnChallanPrev"></div></div>
+        <div class="border border-dashed border-slate-300 rounded-lg p-2"><label class="text-[11px] font-bold text-slate-500">📦 Material Condition Photo</label><input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'cond')" class="text-xs block mt-1"><div id="grnCondPrev"></div></div>
       </div>
     </div>
     <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent GRNs</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Challan</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Vehicle</th></tr></thead><tbody>
-      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2 font-mono">${g.challanNo||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}</td><td class="px-3 py-2">${g.vehicleNo||'—'}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
-      </tbody></table></div>`;
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th></tr></thead><tbody>
+      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
+      </tbody></table></div></div>`;
 }
+window._grnViewPhoto = function (id) {
+  const g = (state.grnRecords || []).find(x => x.id === id); if (!g) return;
+  const lb = document.createElement('div');
+  lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;cursor:zoom-out;';
+  lb.onclick = () => lb.remove();
+  lb.innerHTML = `${g.challanPhoto ? `<div style="text-align:center;"><div style="color:#cbd5e1;font-size:11px;margin-bottom:4px;">Challan</div><img src="${g.challanPhoto}" style="max-height:42vh;max-width:90vw;border-radius:10px;"></div>` : ''}${g.condPhoto ? `<div style="text-align:center;"><div style="color:#cbd5e1;font-size:11px;margin-bottom:4px;">Material condition</div><img src="${g.condPhoto}" style="max-height:42vh;max-width:90vw;border-radius:10px;"></div>` : ''}`;
+  document.body.appendChild(lb);
+};
 window._saveGRN = function() {
   const siteId=document.getElementById('grnSite').value, matId=document.getElementById('grnMat').value;
   const qty=parseFloat(document.getElementById('grnQty').value)||0;
   const rate=parseFloat(document.getElementById('grnRate').value)||0;
-  if(!matId||qty<=0){showToast('Select material and quantity','error');return;}
-  const date=new Date().toISOString().split('T')[0];
-  const challanNo=document.getElementById('grnChallan').value.trim();
   const supplierId=document.getElementById('grnSupplier').value;
+  const challanNo=document.getElementById('grnChallan').value.trim();
+  // ── Validation: vendor, quantity, and challan photo are mandatory ──
+  if(!supplierId){showToast('Select a vendor/supplier','error');return;}
+  if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
+  if(!_grnChallanPhoto){showToast('Attach the challan/receipt photo','error');return;}
+  const date=new Date().toISOString().split('T')[0];
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
-  state.grnRecords.push({id:'grn_'+Date.now(),date,siteId,matId,qty,rate,challanNo,supplierId,vehicleNo,projectId:state.currentProjectId});
-  state.inventoryTx.push({id:'tx_grn_'+Date.now(),date,siteId,rawMaterialId:matId,type:'IN',qty,rate,ref:`GRN ${challanNo||''}`.trim()});
+  const driver=document.getElementById('grnDriver').value.trim();
+  const category=document.getElementById('grnCat').value.trim();
+  const expectedQty=parseFloat(document.getElementById('grnExpected').value)||0;
+  const mat=state.rawMaterials.find(r=>r.id===matId);
+  const grnNo=_grnNextNumber(date);
+  const testable=_grnIsTestable(category+' '+(mat?.name||''));
+  const qcStatus=testable?'Pending Inspection':'Accepted';
+  const amount=qty*rate;
+  // GRN record (with cross-module flags: billed=false for accounts, qcStatus for QC)
+  state.grnRecords.push({id:'grn_'+Date.now(),grnNo,date,receivedAt:new Date().toISOString(),siteId,matId,category,qty,expectedQty,rate,amount,challanNo,supplierId,vehicleNo,driver,projectId:state.currentProjectId,challanPhoto:_grnChallanPhoto,condPhoto:_grnCondPhoto,billed:false,qcStatus});
+  // Inventory: increment stock on hand for this site/material
+  state.inventoryTx.push({id:'tx_grn_'+Date.now(),date,siteId,rawMaterialId:matId,type:'IN',qty,rate,ref:`${grnNo} ${challanNo||''}`.trim()});
+  // Quality Control: testable materials (cement/steel…) → Pending Inspection alert
+  if(testable){
+    if(!state.qualityChecks)state.qualityChecks=[];
+    state.qualityChecks.push({id:'qc_grn_'+Date.now(),projectId:state.currentProjectId,createdAt:Date.now(),date,element:mat?.name||category,type:'Material Inspection',grade:category,status:'Pending',result:`Awaiting test — ${grnNo} (${qty} ${mat?.unit||''})`});
+  }
   saveAllData(); _renderGRN();
-  showToast(`Stock received: ${qty} units`,'success');
+  showToast(`${grnNo} received${testable?' · QC inspection pending':''}`,'success');
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───
