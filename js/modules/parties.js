@@ -18,10 +18,10 @@ export function renderPartiesList() {
   container.innerHTML = '';
   let allParties = [];
   state.clients.forEach(c => {
-    let billed = state.abstracts.filter(a => a.clientId === c.id && a.status !== 'invoiced').reduce((s, a) => s + a.totalAmount, 0)
-      + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0)
+    let billed = state.abstracts.filter(a => a.clientId === c.id && a.status !== 'invoiced').reduce((s, a) => s + (parseFloat(a.totalAmount) || 0), 0)
+      + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + (parseFloat(i.taxAmount) || 0), 0)
       + (state.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-    let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+    let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     allParties.push({ id: c.id, name: c.name, type: 'Client', balance: billed - paid });
   });
   state.vendors.forEach(v => {
@@ -87,15 +87,18 @@ export function renderPartyTransactions() {
   tbody.innerHTML = '';
   let runningBal = 0;
   txs.forEach((t, idx) => {
-    if (type === 'Client') runningBal += t.isDebit ? t.total : -t.total;
-    else if (type === 'Vendor' || type === 'Labour') runningBal += t.isDebit ? -t.total : t.total;
-    const isPayment = t.type.includes('Payment') || t.type.includes('Receipt');
+    // Guard against dirty/missing amounts so a single bad row can't throw and
+    // abort the whole render (which made deletes/edits appear to do nothing).
+    const tot = Number(t.total) || 0;
+    if (type === 'Client') runningBal += t.isDebit ? tot : -tot;
+    else if (type === 'Vendor' || type === 'Labour') runningBal += t.isDebit ? -tot : tot;
+    const isPayment = (t.type || '').includes('Payment') || (t.type || '').includes('Receipt');
     let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
     // Per-row actions
     const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
     const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>` : '';
     const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${t.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${tot.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
   });
   if (txs.length === 0) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No transactions found.</td></tr>`;
   const ft = document.getElementById('partyClosingBalance');
