@@ -124,16 +124,23 @@ const _FIXED_CATS = ['rent', 'salary', 'salaries', 'utility', 'utilities', 'emi'
 /** 30-day forecast with inflows tiered by client grade and outflows by type. */
 function tieredForecast() {
   const scores = clientScores();
-  const confirmed = scores.filter(c => c.grade === 'A').reduce((s, c) => s + c.outstanding, 0);
-  const likely = scores.filter(c => c.grade === 'B').reduce((s, c) => s + c.outstanding, 0);
-  const possible = scores.filter(c => c.grade === 'C').reduce((s, c) => s + c.outstanding, 0);
+  let confirmed = scores.filter(c => c.grade === 'A').reduce((s, c) => s + c.outstanding, 0);
+  let likely = scores.filter(c => c.grade === 'B').reduce((s, c) => s + c.outstanding, 0);
+  let possible = scores.filter(c => c.grade === 'C').reduce((s, c) => s + c.outstanding, 0);
   const exp90 = (state.expenses || []).filter(e => _inLast(e.date, 90));
   const fixed = exp90.filter(e => _FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3;
   const variable = exp90.filter(e => !_FIXED_CATS.some(f => (e.category || '').toLowerCase().includes(f))).reduce((s, e) => s + N(e.amount), 0) / 3;
   const vendor = apOutstanding();
   const labour = labourDue() || (_labourPaid(90) / 3);
-  const inflow = confirmed + likely + possible, outflow = fixed + variable + vendor + labour, opening = cashPosition();
-  return { confirmed, likely, possible, inflow, fixed, variable, vendor, labour, outflow, opening, gap: inflow - outflow, projected: opening + inflow - outflow };
+  // Add the owner's known commitments (next 30 days) — pipeline the data can't see.
+  const com = _commitments().filter(c => _futureWindow(c.date, 30));
+  const cIn = com.filter(c => c.type === 'in');
+  confirmed += cIn.filter(c => (c.confidence || 'confirmed') === 'confirmed').reduce((s, c) => s + N(c.amount), 0);
+  likely += cIn.filter(c => c.confidence === 'likely').reduce((s, c) => s + N(c.amount), 0);
+  possible += cIn.filter(c => c.confidence === 'possible').reduce((s, c) => s + N(c.amount), 0);
+  const commitOut = com.filter(c => c.type === 'out').reduce((s, c) => s + N(c.amount), 0);
+  const inflow = confirmed + likely + possible, outflow = fixed + variable + vendor + labour + commitOut, opening = cashPosition();
+  return { confirmed, likely, possible, inflow, fixed, variable, vendor, labour, commitOut, outflow, opening, gap: inflow - outflow, projected: opening + inflow - outflow };
 }
 
 /** 4-week rolling cash planner. */
@@ -144,6 +151,12 @@ function weeklyPlanner() {
   scores.forEach(c => { const w = c.grade === 'A' ? 0 : c.grade === 'B' ? 1 : (c.avgDays > 60 ? 3 : 2); inW[w] += c.outstanding; });
   const monthlyOut = tf.fixed + tf.variable + tf.labour;
   const outW = [tf.vendor + monthlyOut / 4, monthlyOut / 4, monthlyOut / 4, monthlyOut / 4];
+  // Drop each known commitment into its actual week.
+  _commitments().filter(c => _futureWindow(c.date, 28)).forEach(c => {
+    const dd = Math.max(0, Math.round((new Date(c.date).getTime() - Date.now()) / 86400000));
+    const w = Math.min(3, Math.floor(dd / 7));
+    if (c.type === 'in') inW[w] += N(c.amount); else outW[w] += N(c.amount);
+  });
   let running = tf.opening;
   return inW.map((inflow, i) => {
     const outflow = outW[i]; running += inflow - outflow;
@@ -225,8 +238,35 @@ function _settings() {
   if (!s.creditPolicy) s.creditPolicy = { ..._DEFAULT_POLICY };
   if (!s.targets) s.targets = { revenue: 0, margin: 15, arDays: 30, netProfit: 0 };
   if (!s.profitFirst) s.profitFirst = { profit: 5, ownerPay: 50, tax: 15, opex: 30 };
+  if (!s.commitments) s.commitments = [];
   return s;
 }
+
+// ── CASH COMMITMENTS — the owner's pipeline knowledge (not yet invoiced) ─────
+function _commitments() { return _settings().commitments || []; }
+function _futureWindow(dateStr, days) {
+  const today = new Date().toISOString().split('T')[0];
+  const end = (() => { const x = new Date(); x.setDate(x.getDate() + days); return x.toISOString().split('T')[0]; })();
+  return dateStr && dateStr >= today && dateStr <= end;
+}
+window._cfAddCommitment = function () {
+  const type = document.getElementById('comType')?.value || 'in';
+  const label = (document.getElementById('comLabel')?.value || '').trim();
+  const amount = parseFloat(document.getElementById('comAmount')?.value) || 0;
+  const date = document.getElementById('comDate')?.value || '';
+  const confidence = document.getElementById('comConf')?.value || 'confirmed';
+  if (!label) { showToast('Enter a description', 'error'); return; }
+  if (amount <= 0) { showToast('Enter an amount', 'error'); return; }
+  if (!date) { showToast('Pick an expected date', 'error'); return; }
+  _settings().commitments.push({ id: 'com_' + Date.now(), type, label, amount, date, confidence });
+  saveAllData();
+  showToast('Commitment added to forecast', 'success');
+  renderCashFlow();
+};
+window._cfDelCommitment = function (id) {
+  _settings().commitments = _commitments().filter(c => c.id !== id);
+  saveAllData(); showToast('Removed', 'info'); renderCashFlow();
+};
 
 /** Profit-First: split real revenue (collections) into Profit/Owner-Pay/Tax/OpEx. */
 function profitFirst() {
@@ -482,7 +522,8 @@ function _renderForecast() {
           ${inTier('Fixed', tf.fixed, '#1e3a8a', 'Rent, salary, EMI')}
           ${inTier('Vendors', tf.vendor, '#ea580c', 'Payables due')}
           ${inTier('Labour', tf.labour, '#7c3aed', 'Wages due')}
-          ${inTier('Variable', tf.variable, '#0891b2'.slice(0, 7), 'Fuel, transport…')}
+          ${inTier('Variable', tf.variable, '#0891b2', 'Fuel, transport…')}
+          ${tf.commitOut > 0 ? inTier('Committed', tf.commitOut, '#be123c', 'Your planned spends') : ''}
         </div>
       </div>
     </div>
@@ -744,6 +785,49 @@ window._cfPfPreview = function () {
   const sEl = document.querySelector('[data-pf-sum]'); if (sEl) { sEl.textContent = sum; sEl.parentElement.style.color = sum === 100 ? '#059669' : '#dc2626'; }
 };
 
+function _renderCommitments() {
+  const cur = getCurrencySymbol();
+  const list = [..._commitments()].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const today = new Date().toISOString().split('T')[0];
+  const inNext30 = list.filter(c => _futureWindow(c.date, 30));
+  const totIn = inNext30.filter(c => c.type === 'in').reduce((s, c) => s + N(c.amount), 0);
+  const totOut = inNext30.filter(c => c.type === 'out').reduce((s, c) => s + N(c.amount), 0);
+  const inp = 'padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;';
+  const confColor = { confirmed: '#059669', likely: '#d97706', possible: '#dc2626' };
+  return `
+    <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">What only you know · next 30 days</div><div style="font-size:18px;font-weight:800;">Add the cash events that aren't invoiced yet</div></div>
+      <div style="display:flex;gap:18px;"><div><div style="font-size:10px;color:#94a3b8;">Committed in</div><div style="font-size:18px;font-weight:800;color:#10b981;">${fmt(totIn)}</div></div><div><div style="font-size:10px;color:#94a3b8;">Committed out</div><div style="font-size:18px;font-weight:800;color:#f87171;">${fmt(totOut)}</div></div></div>
+    </div>
+
+    <!-- Add form -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-bottom:16px;">
+      <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:12px;">➕ Add a known cash event</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Type</label><select id="comType" onchange="document.getElementById('comConfWrap').style.display=this.value==='in'?'':'none'" style="${inp}width:100%;"><option value="in">💰 Money In</option><option value="out">📤 Money Out</option></select></div>
+        <div style="grid-column:span 2;"><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Description</label><input id="comLabel" type="text" placeholder="e.g. New order from Metro / Excavator EMI" style="${inp}width:100%;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Amount (${cur})</label><input id="comAmount" type="number" min="0" style="${inp}width:100%;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Expected date</label><input id="comDate" type="date" value="${today}" style="${inp}width:100%;"></div>
+        <div id="comConfWrap"><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Confidence</label><select id="comConf" style="${inp}width:100%;"><option value="confirmed">Confirmed</option><option value="likely">Likely</option><option value="possible">Possible</option></select></div>
+        <button onclick="window._cfAddCommitment()" style="padding:9px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;height:38px;">Add</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;"><h3 style="font-size:14px;font-weight:800;color:#0f172a;">📌 Upcoming Commitments</h3></div>
+      ${list.length ? list.map(c => {
+        const past = c.date < today;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f1f5f9;${past ? 'opacity:.5;' : ''}">
+          <div style="font-size:18px;">${c.type === 'in' ? '💰' : '📤'}</div>
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div><div style="font-size:10px;color:#94a3b8;">${c.date}${c.type === 'in' ? ` · <span style="color:${confColor[c.confidence] || '#64748b'};font-weight:700;text-transform:capitalize;">${c.confidence || 'confirmed'}</span>` : ''}${past ? ' · past' : ''}</div></div>
+          <div style="font-size:14px;font-weight:800;color:${c.type === 'in' ? '#059669' : '#dc2626'};">${c.type === 'in' ? '+' : '−'}${fmt(c.amount)}</div>
+          <button onclick="window._cfDelCommitment('${c.id}')" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;" title="Delete">🗑️</button>
+        </div>`; }).join('') : '<p style="padding:22px;text-align:center;color:#94a3b8;font-size:13px;">No commitments yet. Add a confirmed order, an EMI, a tax bill, or a planned purchase — your forecast becomes real.</p>'}
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin-top:12px;text-align:center;">These flow straight into your 🔮 Forecast & Weekly Planner — "never decide on bank balance; confidence comes from preparation."</p>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -751,7 +835,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -761,7 +845,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
