@@ -120,7 +120,7 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 /* ── Pricing Preview ── */
 .pricing-preview{position:relative;z-index:2;padding:80px 24px}
 .pricing-inner{max-width:1200px;margin:0 auto;text-align:center}
-.pricing-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:48px}
+.pricing-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:48px}
 .p-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;padding:28px 22px;text-align:left;transition:all .3s}
 .p-card:hover{border-color:rgba(16,185,129,.2);transform:translateY(-3px)}
 .p-card.pop{border-color:rgba(16,185,129,.25);background:rgba(16,40,28,0.6);position:relative}
@@ -237,7 +237,7 @@ footer{position:relative;z-index:2;padding:60px 24px 30px;border-top:1px solid v
   <div class="stats-inner">
     <div><div class="stat-num">15+</div><div class="stat-label">Built-in Modules</div></div>
     <div><div class="stat-num">100%</div><div class="stat-label">Offline Capable</div></div>
-    <div><div class="stat-num">₹5,000</div><div class="stat-label">Starting Price / Year</div></div>
+    <div><div class="stat-num">₹2,500</div><div class="stat-label">Starting Price / Year</div></div>
     <div><div class="stat-num">0</div><div class="stat-label">Setup Required</div></div>
   </div>
 </section>
@@ -335,6 +335,12 @@ footer{position:relative;z-index:2;padding:60px 24px 30px;border-top:1px solid v
     <h2 class="section-title">Simple, Transparent Pricing</h2>
     <p class="section-desc" style="margin:0 auto 0">Annual plans that scale with your team. Every plan includes the full platform.</p>
     <div class="pricing-cards">
+      <div class="p-card">
+        <div class="p-tier">Solo</div>
+        <div class="p-price">₹2,500 <span>/ year</span></div>
+        <div class="p-users">1 User · 3 Projects</div>
+        <a href="payment.html?plan=solo" class="p-cta sec">Buy Now</a>
+      </div>
       <div class="p-card">
         <div class="p-tier">Starter</div>
         <div class="p-price">₹5,000 <span>/ year</span></div>

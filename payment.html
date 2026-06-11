@@ -88,6 +88,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
 
 const PLANS = {
+  solo:       { name:'Solo',       price:'₹2,500',  seats:1,  projects:3 },
   starter:    { name:'Starter',    price:'₹5,000',  seats:5,  projects:5 },
   business:   { name:'Business',   price:'₹12,000', seats:12, projects:20 },
   pro:        { name:'Pro',        price:'₹25,000', seats:25, projects:50 },

@@ -111,10 +111,11 @@ body{
 /* ── Grid ── */
 .pricing-grid{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:20px;
+  grid-template-columns:repeat(5,1fr);
+  gap:16px;
   align-items:stretch;
 }
+@media(max-width:1280px){.pricing-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1080px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.pricing-grid{grid-template-columns:1fr;max-width:420px;margin:0 auto}}
 
@@ -320,6 +321,29 @@ body{
   <!-- Pricing Grid -->
   <div class="pricing-grid">
 
+    <!-- 0 · Solo -->
+    <div class="price-card" data-tier="solo">
+      <div class="card-icon"><i class="fa-solid fa-user"></i></div>
+      <div class="card-tier">Solo</div>
+      <div class="card-price">
+        <span class="currency">₹</span><span class="amount">2,500</span><span class="period">/ 12 months</span>
+      </div>
+      <div class="per-user"><i class="fa-solid fa-user"></i> 1 User · 3 Projects</div>
+      <p class="card-target">Solo engineers & freelancers running a handful of projects on their own.</p>
+      <div class="card-divider"></div>
+      <ul class="card-features">
+        <li class="highlight-feat"><i class="fa-solid fa-check"></i>Full platform access</li>
+        <li><i class="fa-solid fa-check"></i>Measurement sheets & billing</li>
+        <li><i class="fa-solid fa-check"></i>Material & inventory tracking</li>
+        <li><i class="fa-solid fa-check"></i>Daily micro-planning</li>
+        <li><i class="fa-solid fa-check"></i>Cloud sync & offline mode</li>
+        <li><i class="fa-solid fa-check"></i>PDF report generation</li>
+      </ul>
+      <button class="cta-btn secondary" onclick="startTrial('solo','Solo')">
+        Buy Now <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
     <!-- 1 · Starter -->
     <div class="price-card" data-tier="small">
       <div class="card-icon"><i class="fa-solid fa-cubes"></i></div>
@@ -431,7 +455,7 @@ body{
 /* ── Trial Initiation ── */
 function startTrial(tierKey, tierName) {
   // Map pricing-page tier keys to billing plan ids
-  const PLAN_MAP = { small: 'starter', mid: 'business', large: 'pro', unlimited: 'enterprise' };
+  const PLAN_MAP = { solo: 'solo', small: 'starter', mid: 'business', large: 'pro', unlimited: 'enterprise' };
   const planId = PLAN_MAP[tierKey] || 'starter';
 
   const btn = document.querySelector(`.price-card[data-tier="${tierKey}"] .cta-btn`);
