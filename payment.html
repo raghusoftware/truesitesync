@@ -105,7 +105,7 @@ document.getElementById('planName').textContent = plan.name;
 document.getElementById('planPrice').innerHTML = plan.price + '<span> / year</span>';
 document.getElementById('planFeatures').innerHTML =
   `<div class="feat"><i class="fa-solid fa-check"></i> Up to ${plan.seats} team members</div>` +
-  `<div class="feat"><i class="fa-solid fa-check"></i> Up to ${plan.projects} active projects</div>` +
+  (planId === 'solo' ? '' : `<div class="feat"><i class="fa-solid fa-check"></i> Up to ${plan.projects} active projects</div>`) +
   `<div class="feat"><i class="fa-solid fa-check"></i> Full platform — measurement, billing, inventory, planning</div>` +
   `<div class="feat"><i class="fa-solid fa-check"></i> Cloud sync, PDF/Excel exports & GST invoices</div>`;
 

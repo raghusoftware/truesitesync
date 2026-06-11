@@ -718,8 +718,8 @@ export function renderPlanBilling() {
       ${popular ? '<div style="font-size:9px;font-weight:800;color:#2563eb;letter-spacing:1px;margin-bottom:6px;">MOST POPULAR</div>' : ''}
       <h4 style="font-size:17px;font-weight:800;color:#1e293b;margin:0 0 6px;">${plan.name}</h4>
       <div style="font-size:26px;font-weight:900;color:#2563eb;">₹${plan.price.toLocaleString('en-IN')}<span style="font-size:12px;color:#94a3b8;font-weight:600;">/yr</span></div>
-      <div style="font-size:12px;color:#64748b;margin:14px 0 4px;">✓ ${plan.seats} team seats</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:18px;">✓ ${plan.projects} projects</div>
+      <div style="font-size:12px;color:#64748b;margin:14px 0 4px;">✓ ${plan.seats} team seat${plan.seats === 1 ? '' : 's'}</div>
+      ${id === 'solo' ? '' : `<div style="font-size:12px;color:#64748b;margin-bottom:18px;">✓ ${plan.projects} projects</div>`}
       ${isCurrent
         ? '<div style="font-size:12px;font-weight:700;color:#10b981;padding:10px;">✓ Current Plan</div>'
         : `<button onclick="_orgUpgrade('${id}')" style="width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">${currentPlan === 'free' ? 'Buy Now' : 'Switch to ' + plan.name}</button>`}
@@ -771,8 +771,8 @@ function _showTrialPaywall(s) {
       ${popular ? '<div style="font-size:9px;font-weight:800;color:#2563eb;letter-spacing:1px;margin-bottom:4px;">MOST POPULAR</div>' : ''}
       <h4 style="font-size:15px;font-weight:800;color:#1e293b;margin:0 0 4px;">${p.name}</h4>
       <div style="font-size:20px;font-weight:900;color:#2563eb;">₹${p.price.toLocaleString('en-IN')}<span style="font-size:11px;color:#94a3b8;font-weight:600;">/yr</span></div>
-      <div style="font-size:11px;color:#64748b;margin:8px 0 2px;">✓ ${p.seats} seats</div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${p.projects} projects</div>
+      <div style="font-size:11px;color:#64748b;margin:8px 0 2px;">✓ ${p.seats} seat${p.seats === 1 ? '' : 's'}</div>
+      ${id === 'solo' ? '' : `<div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${p.projects} projects</div>`}
       <button onclick="window._orgUpgrade && window._orgUpgrade('${id}')" style="width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Buy Now</button>
     </div>`;
   }).join('') : '';
