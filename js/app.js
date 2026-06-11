@@ -657,7 +657,11 @@ window._manualSync = async function () {
 // ══════════════════════════════════════
 // IN-APP UPDATE CHECKER
 // ══════════════════════════════════════
-const APP_VERSION = '1.4.1';
+// MUST match the release tag (package.json version). The installed APK compares
+// this against the latest GitHub release tag to decide whether to show the
+// "update available" banner — if it lags behind the tag, every fresh APK falsely
+// shows an update prompt. Bump this together with package.json on every release.
+const APP_VERSION = '1.5.17';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
