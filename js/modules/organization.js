@@ -13,6 +13,7 @@ import { showToast } from './utils.js';
 
 const PLANS = {
   free:       { name: 'Free',       seats: 3,  projects: 2,   price: 0,     label: 'Free Trial' },
+  solo:       { name: 'Solo',       seats: 1,  projects: 3,   price: 2500,  label: '₹2,500/yr' },
   starter:    { name: 'Starter',    seats: 5,  projects: 5,   price: 5000,  label: '₹5,000/yr' },
   business:   { name: 'Business',   seats: 12, projects: 20,  price: 12000, label: '₹12,000/yr' },
   pro:        { name: 'Pro',        seats: 25, projects: 50,  price: 25000, label: '₹25,000/yr' },
@@ -708,7 +709,7 @@ export function renderPlanBilling() {
     banner = `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#1e40af;text-transform:capitalize;">Current Plan: ${currentPlan}</div><p style="font-size:12px;color:#1d4ed8;margin:4px 0 0;">Active subscription · ${org.max_seats} seats · ${org.max_projects} projects.</p></div>`;
   }
 
-  const order = ['starter', 'business', 'pro', 'enterprise'];
+  const order = ['solo', 'starter', 'business', 'pro', 'enterprise'];
   const cards = order.map(id => {
     const plan = PLANS[id];
     const isCurrent = currentPlan === id;
@@ -763,7 +764,7 @@ function _hideTrialPaywall() {
 function _showTrialPaywall(s) {
   if (document.getElementById('trialPaywallOverlay')) return; // already shown
   const admin = s.admin;
-  const order = ['starter', 'business', 'pro', 'enterprise'];
+  const order = ['solo', 'starter', 'business', 'pro', 'enterprise'];
   const cards = admin ? order.map(id => {
     const p = PLANS[id]; const popular = id === 'business';
     return `<div style="background:#fff;border:${popular ? '2px solid #2563eb' : '1px solid #e5e7eb'};border-radius:12px;padding:16px;text-align:center;">
