@@ -191,6 +191,16 @@ export const state = {
   activeAutocompleteInput: null
 };
 
+/** True for "no data" values: null/undefined, [], or {}. Used by the anti-clobber
+ *  guard so an EMPTY cloud value can never silently wipe populated local data
+ *  (the root cause of the invite-join data-loss bug). Primitives count as data. */
+function _isEmptyVal(v) {
+  if (v === null || v === undefined) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.keys(v).length === 0;
+  return false;
+}
+
 let _quotaWarned = false;
 
 /** Persist all data to localStorage + async push to Supabase.
@@ -255,6 +265,14 @@ export async function loadFromCloud() {
       // edits from this device). Otherwise the cloud copy wins so every device —
       // and every module — converges to the same data.
       if (newJson !== null && curJson === newJson) { setLocalKeyTs(key, cloudTs); seedSyncBaseline(key, c.data); continue; }
+      // ANTI-CLOBBER / RECOVERY: never let an EMPTY cloud value overwrite populated
+      // local data. If a buggy/empty client wiped the shared cloud copy, the device
+      // that still holds the real data restores it by re-pushing instead of adopting.
+      if (_isEmptyVal(c.data) && !_isEmptyVal(state[key])) {
+        syncPush(key, state[key]);
+        kept++;
+        continue;
+      }
       if (localTs && localTs > cloudTs + 1000 && curJson !== null) {
         syncPush(key, state[key]); // local newer & different → re-push (queued until ready)
         kept++;
@@ -362,6 +380,13 @@ let _rtChangedKeys = new Set();
 export function applyRemoteChange(key, data) {
   const storageKey = STORAGE_KEYS[key];
   if (!storageKey) { console.warn('[rt] unknown module key:', key); return; }
+  // ANTI-CLOBBER: ignore a realtime event that would replace our populated local
+  // data with an empty value (another device wiped it) — and re-push to heal it.
+  if (_isEmptyVal(data) && !_isEmptyVal(state[key])) {
+    console.warn('[rt] ignoring empty remote value for "' + key + '" — keeping local data');
+    try { syncPush(key, state[key]); } catch {}
+    return;
+  }
   console.log('[rt] applying remote change → state.' + key, Array.isArray(data) ? data.length + ' rows' : typeof data);
   state[key] = data;
   try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
@@ -440,6 +465,9 @@ export async function pullRemoteUpdates() {
       let curJson; try { curJson = JSON.stringify(state[key]); } catch { curJson = null; }
       const cloudTs = Date.parse(c.updatedAt) || 0;
       if (curJson === newJson) { setLocalKeyTs(key, cloudTs); seedSyncBaseline(key, c.data); continue; } // already in sync
+      // ANTI-CLOBBER / RECOVERY: an empty cloud value must never wipe populated
+      // local data — re-push our copy to restore the shared cloud instead.
+      if (_isEmptyVal(c.data) && !_isEmptyVal(state[key])) { syncPush(key, state[key]); continue; }
       // Cloud differs from local. Keep local ONLY if we have a genuine un-synced
       // local edit for this key (it will be pushed). Otherwise adopt cloud so
       // every device converges — this is what makes ALL modules sync, not just

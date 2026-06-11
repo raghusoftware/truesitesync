@@ -477,6 +477,30 @@ export async function syncPushAll(stateObj, storageKeys) {
   const userId = await _uidAsync();
   if (!orgId || !userId) return false;
 
+  // ── SAFETY GUARD — never let a fresh member wipe a shared org ──
+  // A bulk upload before the initial cloud pull has completed (_syncReady) means
+  // this device has NOT loaded the org's data yet. If the org ALREADY has rows
+  // (e.g. the user just joined an existing company via an invite), uploading our
+  // local/default/empty state here would overwrite the entire company dataset.
+  // Refuse it — the boot/login flow will pull the org's data instead.
+  if (!_syncReady) {
+    try {
+      const { count } = await sb
+        .from('module_data')
+        .select('record_id', { count: 'exact', head: true })
+        .eq('organization_id', orgId);
+      if (count && count > 0) {
+        console.warn('[sync] pushAllToCloud BLOCKED — org already has ' + count +
+          ' rows and this device has not loaded them yet (invite-join guard). Skipping bulk upload to avoid data loss.');
+        return false;
+      }
+    } catch (e) {
+      // Can't confirm the org is empty → be conservative and DO NOT bulk-overwrite.
+      console.warn('[sync] seed guard could not verify org is empty — skipping bulk upload:', e?.message || e);
+      return false;
+    }
+  }
+
   const rows = [];
   for (const [key, storageKey] of Object.entries(storageKeys)) {
     if (stateObj[key] !== undefined) {

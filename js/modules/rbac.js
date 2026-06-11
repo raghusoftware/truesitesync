@@ -204,7 +204,10 @@ export async function signupUserSupabase(email, password, displayName) {
   if (data.session) {
     _cachedUser = _mapSupabaseUser(data.user);
     _ensureRbacUser(data.user);
-    setTimeout(() => pushAllToCloud(), 1000);
+    // NOTE: do NOT bulk-push here. If this account was invited into an existing
+    // organization, _resolveOrg() joins that org and a blind pushAllToCloud would
+    // overwrite the whole company's shared data with this new user's empty state.
+    // handleLogin() seeds the cloud ONLY when the org is brand-new (see below).
     return { user: _cachedUser };
   }
 
@@ -736,8 +739,20 @@ export async function handleLogin() {
       const syncText = document.getElementById('syncStatusText');
       if (syncText) syncText.textContent = 'Setting up your workspace...';
 
-      // Never let cloud setup hang the signup — cap it, then enter the app.
-      try { await Promise.race([pushAllToCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] initial push failed:', e); }
+      // CRITICAL — pull the company's data FIRST. If this account was invited into
+      // an existing organization, that org already has data we must ADOPT, never
+      // overwrite with this new user's empty local state. Only seed the cloud
+      // (bulk push) when nothing came back, i.e. this is a brand-new org.
+      let joinedExisting = false;
+      try {
+        joinedExisting = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 6000))]);
+      } catch (e) { console.warn('[auth] cloud load failed:', e); }
+      if (!joinedExisting) {
+        if (syncText) syncText.textContent = 'Creating your workspace...';
+        try { await Promise.race([pushAllToCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] initial push failed:', e); }
+      } else if (syncText) {
+        syncText.textContent = 'Joined your team — loading company data...';
+      }
 
       if (typeof window._bootApp === 'function') window._bootApp();
       showToast(`Welcome, ${result.user.name}! Your account is ready.`, 'success');
