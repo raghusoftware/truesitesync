@@ -153,6 +153,54 @@ export function isLoggedIn() {
   return !!getCurrentUser();
 }
 
+// ═══════════════════════════════════════════════
+//  PROJECT-SCOPED ACCESS (team members see only their assigned projects)
+// ═══════════════════════════════════════════════
+
+/** The current user's rbacUsers entry (stable id source for project.teamMembers). */
+export function getMyRbacUser() {
+  const u = getCurrentUser();
+  if (!u) return null;
+  const users = state.rbacUsers || [];
+  return users.find(r => (u.supabaseId && r.supabaseId === u.supabaseId))
+      || users.find(r => r.id === u.id)
+      || (u.email ? users.find(r => (r.email || r.username || '').trim().toLowerCase() === u.email.trim().toLowerCase()) : null)
+      || null;
+}
+
+/** True if the current user is an Admin (sees ALL projects/data). Reads the live
+ *  rbacUsers role (not the possibly-stale cached session role). Defaults to true
+ *  when we can't resolve a user, so single-user/local mode is never locked out. */
+export function isCurrentUserAdmin() {
+  const me = getMyRbacUser();
+  if (!me) { const u = getCurrentUser(); return !u || u.role === 'Admin'; }
+  return me.role === 'Admin';
+}
+
+/** Projects the current user may access: all for admins, else only those whose
+ *  teamMembers include this user's rbac id. */
+export function getVisibleProjects() {
+  const all = state.projects || [];
+  if (isCurrentUserAdmin()) return all;
+  const me = getMyRbacUser();
+  const myId = me?.id;
+  if (!myId) return all; // can't resolve identity → don't hide everything
+  return all.filter(p => Array.isArray(p.teamMembers) && p.teamMembers.includes(myId));
+}
+
+/** True if the current user may open/see the given project. */
+export function userCanAccessProject(projId) {
+  if (isCurrentUserAdmin()) return true;
+  return getVisibleProjects().some(p => p.id === projId);
+}
+
+if (typeof window !== 'undefined') {
+  window.getMyRbacUser = getMyRbacUser;
+  window.isCurrentUserAdmin = isCurrentUserAdmin;
+  window.getVisibleProjects = getVisibleProjects;
+  window.userCanAccessProject = userCanAccessProject;
+}
+
 /**
  * Supabase email/password sign in
  */
@@ -228,18 +276,38 @@ export function _ensureRbacUser(supaUser) {
 
   const existing = state.rbacUsers.find(u => u.supabaseId === supaUser.id);
   if (!existing) {
-    state.rbacUsers.push({
-      id: 'usr_supa_' + supaUser.id.substring(0, 8),
-      supabaseId: supaUser.id,
-      name: supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0],
-      username: supaUser.email,
-      email: supaUser.email,
-      phone: supaUser.user_metadata?.phone || supaUser.phone || '',
-      role: 'Admin',
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
-    changed = true;
+    // RECONCILE BY EMAIL: if an admin pre-created this teammate via "Add User"
+    // (no supabaseId yet), link THIS login to that same entry — keeping the
+    // admin-assigned role + project assignments. Its id is stable, so any
+    // project.teamMembers references to it stay valid. Only when there's no
+    // matching entry at all is this a genuinely new self-signup (the org
+    // owner / first user) → create a fresh Admin entry.
+    const email = (supaUser.email || '').trim().toLowerCase();
+    const byEmail = email ? state.rbacUsers.find(u =>
+      !u.supabaseId && ((u.email || '').trim().toLowerCase() === email || (u.username || '').trim().toLowerCase() === email)
+    ) : null;
+    if (byEmail) {
+      byEmail.supabaseId = supaUser.id;
+      if (!byEmail.name) byEmail.name = supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0];
+      byEmail.email = supaUser.email;
+      byEmail.username = supaUser.email;
+      byEmail.active = byEmail.active !== false;
+      // role + assignments intentionally preserved (admin assigned them)
+      changed = true;
+    } else {
+      state.rbacUsers.push({
+        id: 'usr_supa_' + supaUser.id.substring(0, 8),
+        supabaseId: supaUser.id,
+        name: supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0],
+        username: supaUser.email,
+        email: supaUser.email,
+        phone: supaUser.user_metadata?.phone || supaUser.phone || '',
+        role: 'Admin',
+        active: true,
+        createdAt: new Date().toISOString(),
+      });
+      changed = true;
+    }
   }
   if (changed) saveAllData();
 }
@@ -935,6 +1003,22 @@ export function openUserForm(userId) {
                 <option value="0" ${(existing && existing.active === false) ? 'selected' : ''}>Inactive</option>
               </select>
             </div>
+            <div class="ef-field ef-field-full">
+              <label class="ef-label">Projects this user can access</label>
+              <p style="font-size:11px;color:#94a3b8;margin:-2px 0 6px;">Non-admin users see only the projects checked here. Admins always see every project.</p>
+              <div id="rbacUserProjects" style="max-height:160px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
+                ${(state.projects || []).length
+                  ? (state.projects || []).map(p => {
+                      const checked = existing && Array.isArray(p.teamMembers) && p.teamMembers.includes(existing.id);
+                      return `<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:13px;color:#475569;cursor:pointer;">
+                        <input type="checkbox" class="rbac-proj-chk" value="${p.id}" ${checked ? 'checked' : ''} style="accent-color:#2563eb;width:15px;height:15px;">
+                        <span style="font-weight:600;">${(p.name || p.code || p.id)}</span>
+                        ${p.code ? `<span style="color:#94a3b8;font-size:11px;">${p.code}</span>` : ''}
+                      </label>`;
+                    }).join('')
+                  : '<p style="font-size:12px;color:#94a3b8;padding:6px;">No projects yet — create a project first, then assign it here.</p>'}
+              </div>
+            </div>
           </div>
         </div>
         <div class="ef-footer">
@@ -960,6 +1044,8 @@ export function saveUser(userId) {
 
   if (!state.rbacUsers) state.rbacUsers = [];
 
+  let isNew = false;
+  let savedId = userId;
   if (userId) {
     const idx = state.rbacUsers.findIndex(u => u.id === userId);
     if (idx >= 0) {
@@ -970,17 +1056,51 @@ export function saveUser(userId) {
       state.rbacUsers[idx].active = active;
     }
   } else {
+    isNew = true;
+    savedId = 'usr_' + Date.now();
     state.rbacUsers.push({
-      id: 'usr_' + Date.now(),
+      id: savedId,
       name, username, email: username, role, active,
       createdAt: new Date().toISOString(),
     });
   }
 
+  // ── Reconcile this user's project access (project.teamMembers is canonical) ──
+  const checkedProjectIds = Array.from(document.querySelectorAll('#rbacUserProjects .rbac-proj-chk:checked')).map(el => el.value);
+  (state.projects || []).forEach(p => {
+    if (!Array.isArray(p.teamMembers)) p.teamMembers = [];
+    const has = p.teamMembers.includes(savedId);
+    const want = checkedProjectIds.includes(p.id);
+    if (want && !has) p.teamMembers.push(savedId);
+    else if (!want && has) p.teamMembers = p.teamMembers.filter(id => id !== savedId);
+  });
+
   saveAllData();
   closeUserForm();
   showToast(userId ? 'User updated' : 'User added', 'success');
   renderUsersRolesPanel();
+  if (typeof window.renderProjectsHome === 'function') { try { window.renderProjectsHome(); } catch {} }
+
+  // ── Give a brand-new teammate real cloud access: create an org invite so that
+  //    when they sign in with this email they auto-join this org (accept_pending_invites). ──
+  if (isNew && /^.+@.+\..+$/.test(username)) {
+    _inviteUserToOrg(username.trim().toLowerCase(), role === 'Admin' ? 'admin' : 'member');
+  }
+}
+
+/** Create/refresh an org_invites row so an added email auto-joins this org on
+ *  sign-in. Mirrors orgTeam.js window._orgInvite. Best-effort + non-blocking. */
+async function _inviteUserToOrg(email, role) {
+  try {
+    const sb = getSupabase();
+    const orgId = (typeof window.getSyncOrgId === 'function') ? window.getSyncOrgId() : null;
+    if (!sb || !orgId) return;
+    let me = null; try { me = (await sb.auth.getUser()).data?.user?.id; } catch {}
+    const { error } = await sb.from('org_invites')
+      .upsert({ org_id: orgId, email, role, invited_by: me, status: 'pending', accepted_at: null }, { onConflict: 'org_id,email' });
+    if (error) { showToast('Saved locally, but cloud invite failed: ' + error.message, 'warning'); return; }
+    showToast('Cloud invite sent to ' + email + ' — they join when they sign in with this email', 'success');
+  } catch (e) { console.warn('[rbac] org invite failed:', e); }
 }
 
 export function deleteUser(userId) {

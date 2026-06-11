@@ -19,7 +19,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.4.3">
-    <script type="module" src="js/app.js?v=1.4.29"></script>
+    <script type="module" src="js/app.js?v=1.4.30"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -338,6 +338,11 @@
                 <div class="col-span-3">
                   <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Description / Notes</label>
                   <textarea id="projFormDesc" rows="2" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-blue-400 resize-none" placeholder="Project details..."></textarea>
+                </div>
+                <div class="col-span-3">
+                  <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Team Members (project access)</label>
+                  <p class="text-[10px] text-slate-400 mb-1">Only the team members checked here can open this project. Admins always have access to every project.</p>
+                  <div id="projFormTeamMembers" class="border rounded-xl p-2 max-h-40 overflow-auto bg-white"></div>
                 </div>
               </div>
             </div>
@@ -1081,7 +1086,8 @@
             <h2 class="text-3xl font-extrabold text-slate-800 mb-2">Users & Roles</h2>
             <p class="text-sm text-slate-400 mb-5">Invite your team and manage access — everyone in your company shares one live dataset.</p>
             <!-- Company team & invites (org-shared cloud sync) -->
-            <div id="orgTeamSection" class="mb-6"></div>
+            <!-- Company Team section removed — team members are now added via the Users panel (Add User) with per-project access. -->
+            <div id="orgTeamSection" class="mb-6" style="display:none;"></div>
             <!-- Users & Roles Panel (RBAC) -->
             <div class="bg-white rounded-xl shadow-sm border p-6" id="usersRolesSection">
               <div id="usersRolesContent"></div>

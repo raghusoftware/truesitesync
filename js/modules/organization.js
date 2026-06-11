@@ -422,23 +422,14 @@ export function renderTeamPanel() {
 
   let html = '';
 
-  // Invite form (admin only)
+  // Adding teammates now happens in Master Data → Users (Add User), where the
+  // admin also picks which projects each member can access. Point there instead
+  // of the old invite box (which wrote to a separate table not wired to auto-join).
   if (admin) {
     html += `
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;margin-bottom:16px;">
-        <h4 style="font-size:13px;font-weight:700;color:#166534;margin:0 0 10px;">Invite Team Member</h4>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <input type="email" id="inviteEmail" placeholder="email@company.com" style="flex:1;min-width:200px;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none;">
-          <select id="inviteRole" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
-            <option value="member">Member</option>
-            <option value="admin">Admin</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="viewer">Viewer</option>
-          </select>
-          <button onclick="_orgInviteMember()" ${seatsFull ? 'disabled style="opacity:.5;cursor:not-allowed;padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;"' : 'style="padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;"'}>
-            ${seatsFull ? 'Seats Full' : 'Send Invite'}
-          </button>
-        </div>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+        <h4 style="font-size:13px;font-weight:700;color:#1e3a8a;margin:0 0 4px;">Add team members in Users</h4>
+        <p style="font-size:12px;color:#475569;margin:0;">Go to <b>Master Data → Users → + Add User</b> to invite a teammate and choose which projects they can access. They join automatically when they sign in with that email.</p>
         ${seatsFull ? `<p style="color:#dc2626;font-size:11px;margin-top:8px;font-weight:600;">All ${_currentOrg.max_seats} seats used. <a href="#" onclick="switchOrgTab('billing');return false" style="color:#2563eb;text-decoration:underline;">Upgrade plan</a> or <a href="#" onclick="_orgBuySeats();return false" style="color:#2563eb;text-decoration:underline;">buy extra seats</a>.</p>` : ''}
       </div>`;
   }

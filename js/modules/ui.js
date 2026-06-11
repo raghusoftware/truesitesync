@@ -80,7 +80,11 @@ export function renderProjectsHome() {
   const subEl = document.getElementById('projHomeSub');
   const actLabel = document.getElementById('projHomeActionLabel');
   const clients = state.clients || [];
-  const projects = state.projects || [];
+  // Project-scoped access: admins see all projects; members see only the
+  // projects they're assigned to (project.teamMembers). Everything downstream
+  // (client list, project grid) is filtered through this.
+  const isAdmin = (typeof window.isCurrentUserAdmin === 'function') ? window.isCurrentUserAdmin() : true;
+  const projects = (typeof window.getVisibleProjects === 'function') ? window.getVisibleProjects() : (state.projects || []);
   const statusColors = { Planning: '#f59e0b', Active: '#10b981', 'On Hold': '#f97316', Completed: '#6366f1' };
 
   // If the drilled-in client no longer exists, reset
@@ -92,9 +96,11 @@ export function renderProjectsHome() {
     if (titleEl) titleEl.textContent = 'My Clients';
     if (subEl) subEl.textContent = 'Create a client, then add projects under it.';
     if (actLabel) actLabel.textContent = 'New Client';
-    if (!clients.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+    // Members only see clients that own at least one project they can access.
+    const visibleClients = isAdmin ? clients : clients.filter(c => projects.some(p => p.clientId === c.id));
+    if (!visibleClients.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
     if (empty) empty.classList.add('hidden');
-    grid.innerHTML = clients.map(c => {
+    grid.innerHTML = visibleClients.map(c => {
       const projCount = projects.filter(p => p.clientId === c.id).length;
       const initial = (c.name || '?').charAt(0).toUpperCase();
       return `<div onclick="openClientProjects('${c.id}')" class="bg-white rounded-2xl border border-slate-200 overflow-hidden cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 hover:border-blue-200 group" style="box-shadow:0 1px 4px rgba(0,0,0,.04);">
@@ -172,6 +178,11 @@ export function renderProjectsHome() {
 export function openProject(projId) {
   const proj = (state.projects || []).find(p => p.id === projId);
   if (!proj) { showToast('Project not found', 'error'); return; }
+  // Project-scoped access: a non-admin member can only open assigned projects.
+  if (typeof window.userCanAccessProject === 'function' && !window.userCanAccessProject(projId)) {
+    showToast("You don't have access to this project", 'error');
+    return;
+  }
   state.currentProjectId = projId;
   // Show sidebar context nav
   const ctxNav = document.getElementById('projectContextNav');
@@ -559,6 +570,25 @@ function _populateProjFormClients(selectedClientId) {
   _projFormClientChanged();
 }
 
+/** Render the project form's "Team Members" checkboxes (non-admin rbac users),
+ *  pre-checking those already in this project's teamMembers. */
+function _populateProjFormTeam(selectedIds) {
+  const box = document.getElementById('projFormTeamMembers');
+  if (!box) return;
+  const sel = new Set(selectedIds || []);
+  const members = (state.rbacUsers || []).filter(u => u.role !== 'Admin' && u.active !== false);
+  if (!members.length) {
+    box.innerHTML = '<p class="text-[11px] text-slate-400 p-1">No team members yet — add users from Master Data → Users.</p>';
+    return;
+  }
+  box.innerHTML = members.map(u => `
+    <label class="flex items-center gap-2 py-1 px-1 text-sm text-slate-600 cursor-pointer">
+      <input type="checkbox" class="proj-team-chk" value="${u.id}" ${sel.has(u.id) ? 'checked' : ''} style="accent-color:#2563eb;width:15px;height:15px;">
+      <span class="font-semibold">${(u.name || u.email || u.username || u.id).replace(/</g, '&lt;')}</span>
+      ${u.role ? `<span class="text-[10px] text-slate-400">${u.role}</span>` : ''}
+    </label>`).join('');
+}
+
 /** Mirror the selected client id into the hidden field. */
 export function _projFormClientChanged() {
   const sel = document.getElementById('projFormClientSelect');
@@ -597,6 +627,7 @@ export function openProjectForm(editId, presetClientId) {
     setVal('projFormClientPan', p.clientPan);
     setVal('projFormClientAddr', p.clientAddress);
     _populateProjFormClients(p.clientId);
+    _populateProjFormTeam(p.teamMembers || []);
     // BOQ — multiple groups (WO/PO details stored per group)
     if (p.boqs && p.boqs.length) {
       _boqGroups = JSON.parse(JSON.stringify(p.boqs));
@@ -641,6 +672,7 @@ export function openProjectForm(editId, presetClientId) {
     ['projFormClient','projFormClientContact','projFormClientPhone','projFormClientEmail','projFormClientGst','projFormClientPan','projFormClientAddr'].forEach(id => setVal(id, ''));
     setVal('projFormClientId', '');
     _populateProjFormClients(presetClientId || '');
+    _populateProjFormTeam([]);
     // BOQ — empty (WO/PO details stored per group)
     _boqGroups = [];
     _activeBoqGroupIdx = 0;
@@ -692,7 +724,9 @@ export function saveProject() {
     boqs: (() => { _saveActiveBoqGroupData(); return JSON.parse(JSON.stringify(_boqGroups)); })(),
     // Computed totals from BOQ groups for backward compatibility
     budget: (() => { _saveActiveBoqGroupData(); return _boqGroups.reduce((s, g) => s + (g.poValue || 0), 0); })(),
-    woNumber: (() => { _saveActiveBoqGroupData(); return _boqGroups.map(g => g.woNumber).filter(Boolean).join(', '); })()
+    woNumber: (() => { _saveActiveBoqGroupData(); return _boqGroups.map(g => g.woNumber).filter(Boolean).join(', '); })(),
+    // Team members allowed to access this project (rbac user ids; admins always have access)
+    teamMembers: Array.from(document.querySelectorAll('#projFormTeamMembers .proj-team-chk:checked')).map(el => el.value)
   };
   if (!state.projects) state.projects = [];
   if (editId) {
@@ -1148,7 +1182,7 @@ export function switchView(viewId) {
     document.getElementById('billingAbstractsContainer').classList.add('hide');
     renderInvoiceHistory();
   }
-  if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); if (typeof window.renderOrgTeam === 'function') window.renderOrgTeam(); }
+  if (viewId === 'masterData') { if (typeof window.renderUsersRolesPanel === 'function') window.renderUsersRolesPanel(); }
   if (viewId === 'planBillingView') { if (typeof window.renderPlanBilling === 'function') window.renderPlanBilling(); }
   if (viewId === 'clientDashboardView') window.renderClientHub?.();
   if (viewId === 'partiesLedgerView') window.renderPartiesList?.();
