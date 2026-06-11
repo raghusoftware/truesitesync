@@ -2,7 +2,7 @@ import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, mi
 import { getSupabase } from './database/supabase.js';
 import { installErrorMonitor } from './database/errorMonitor.js';
 import { getSyncStatus } from './database/sync.js';
-import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.3.8';
+import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.3.9';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js';
 import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js';
 import { subscribe, publish, EVENTS } from './modules/events.js';
@@ -60,7 +60,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.28';
+} from './modules/ui.js?v=1.4.31';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
@@ -454,6 +454,12 @@ function _bootApp() {
   bindOrgWindowFunctions();
   bindSuperAdminFunctions();
 
+  // Trial gate — block instantly from cache if the free trial already expired
+  // (the authoritative re-check runs again after loadUserOrg below). Re-check
+  // whenever the app regains focus so a fresh expiry/payment is reflected.
+  try { window.hydrateOrgFromCache?.(); window.enforceTrialGate?.(); } catch {}
+  try { window.addEventListener('focus', () => { try { window.enforceTrialGate?.(); } catch {} }); } catch {}
+
   // Show super admin nav if user is admin (retry after 2s if session not ready)
   const _checkSuperAdmin = () => {
     isSuperAdmin().then(isAdmin => {
@@ -478,6 +484,9 @@ function _bootApp() {
         }
       }
     }
+    // Authoritative trial check once the live org is loaded (lifts the gate for
+    // paid users / fresh trials, or enforces it if the free trial has ended).
+    try { window.enforceTrialGate?.(); } catch {}
     // Pre-load members and invites
     await loadOrgMembers();
     await loadOrgInvites();

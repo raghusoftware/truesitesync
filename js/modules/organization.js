@@ -23,6 +23,31 @@ let _currentOrg = null;
 let _orgMembers = [];
 let _orgInvites = [];
 
+// ── Org cache: lets Plan/Billing + the trial gate render INSTANTLY from local
+//    storage, before the network refresh completes (perf). ──
+const ORG_CACHE_KEY = 'mes_org_cache';
+function _cacheOrg(org) {
+  try {
+    if (!org || !org.id) return;
+    localStorage.setItem(ORG_CACHE_KEY, JSON.stringify({
+      id: org.id, name: org.name, plan: org.plan, trial_ends_at: org.trial_ends_at,
+      max_seats: org.max_seats, max_projects: org.max_projects, _userRole: org._userRole,
+    }));
+  } catch {}
+}
+function _cachedOrg() {
+  try { const s = localStorage.getItem(ORG_CACHE_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+/** Synchronously seed _currentOrg from the local cache so the Plan/Billing page
+ *  and the trial gate are instant on load. The background loadUserOrg() refresh
+ *  then replaces it with the authoritative copy. */
+export function hydrateOrgFromCache() {
+  if (_currentOrg) return _currentOrg;
+  const c = _cachedOrg();
+  if (c) { c._fromCache = true; _currentOrg = c; }
+  return _currentOrg;
+}
+
 // ══════════════════════════════════════════
 // ORG LIFECYCLE
 // ══════════════════════════════════════════
@@ -44,7 +69,7 @@ export async function createOrganization(name, userId, userEmail) {
   if (error || !orgId) { console.error('[org] create failed:', error); return null; }
 
   const { data: org } = await sb.from('organizations').select('*').eq('id', orgId).single();
-  if (org) { _currentOrg = org; _currentOrg._userRole = 'owner'; }
+  if (org) { _currentOrg = org; _currentOrg._userRole = 'owner'; _cacheOrg(_currentOrg); }
   return org || null;
 }
 
@@ -53,7 +78,11 @@ export async function loadUserOrg() {
   const sb = getSupabase();
   if (!sb) return null;
 
-  const { data: { user } } = await sb.auth.getUser();
+  // Fast path: read the user from the LOCAL session (no network round-trip like
+  // getUser(), which validates against the auth server on every call).
+  let user = null;
+  try { const { data } = await sb.auth.getSession(); user = data?.session?.user || null; } catch {}
+  if (!user) { try { const { data } = await sb.auth.getUser(); user = data?.user || null; } catch {} }
   if (!user) return null;
 
   // Get user's org membership
@@ -66,6 +95,7 @@ export async function loadUserOrg() {
   if (memberships?.length) {
     _currentOrg = memberships[0].organizations;
     _currentOrg._userRole = memberships[0].role;
+    _cacheOrg(_currentOrg);
     return _currentOrg;
   }
 
@@ -321,11 +351,13 @@ function _openRazorpayCheckout(order) {
     order_id: order.order_id,
     handler: async function (response) {
       showToast('Payment successful! Upgrading your plan...', 'success');
-      // Reload org to get updated seats
+      // Reload org to get updated seats/plan, then lift the trial paywall.
       setTimeout(async () => {
         await loadUserOrg();
+        try { enforceTrialGate(); } catch {}
         renderTeamPanel();
         renderBillingPanel();
+        if (typeof window.renderPlanBilling === 'function') window.renderPlanBilling();
       }, 2000);
     },
     prefill: {
@@ -627,10 +659,16 @@ async function _createNewOrg() {
 // ══════════════════════════════════════════
 /** Dedicated "Plan & Billing" page — trial status + plans + pay buttons */
 let _planBillingRetried = false;
+let _planBillingRefreshed = false;
 export function renderPlanBilling() {
   const container = document.getElementById('planBillingContent');
   if (!container) return;
-  let org = _currentOrg;
+  let org = _currentOrg || hydrateOrgFromCache();
+  // Rendered instantly from cache → refresh once in the background for fresh plan/trial.
+  if (org && org._fromCache && !_planBillingRefreshed) {
+    _planBillingRefreshed = true;
+    loadUserOrg().then(o => { if (o) renderPlanBilling(); }).catch(() => {});
+  }
   if (!org) {
     container.innerHTML = '<p style="color:#64748b;font-size:13px;">Loading your workspace…</p>';
     // Org not loaded yet — fetch it once, then re-render.
@@ -692,8 +730,92 @@ export function renderPlanBilling() {
     `<p style="font-size:11px;color:#94a3b8;margin-top:18px;text-align:center;">Secure payment via Razorpay · Annual billing · GST invoice provided.</p>`;
 }
 
+// ══════════════════════════════════════════
+// TRIAL ENFORCEMENT — block the app once the 7-day free trial ends
+// ══════════════════════════════════════════
+
+/** Resolve the current trial/subscription status (uses cache when the live org
+ *  isn't loaded yet so the gate can act instantly). Only a FREE plan whose
+ *  trial_ends_at has passed is "blocked" — paid plans are always allowed. */
+export function getTrialStatus() {
+  const org = _currentOrg || _cachedOrg();
+  if (!org || !org.plan) return { known: false, blocked: false };
+  const paid = org.plan !== 'free';
+  const ends = org.trial_ends_at ? new Date(org.trial_ends_at).getTime() : 0;
+  const daysLeft = ends ? Math.max(0, Math.ceil((ends - Date.now()) / 86400000)) : 0;
+  const expired = !paid && (!ends || ends <= Date.now());
+  return { known: true, plan: org.plan, paid, daysLeft, expired, blocked: expired, admin: isOrgAdmin() };
+}
+
+/** Show the paywall when (and only when) we KNOW the free trial has expired,
+ *  otherwise make sure it's hidden. Safe to call repeatedly. */
+export function enforceTrialGate() {
+  const s = getTrialStatus();
+  if (s.known && s.blocked) _showTrialPaywall(s); else _hideTrialPaywall();
+  return s;
+}
+
+function _hideTrialPaywall() {
+  const el = document.getElementById('trialPaywallOverlay');
+  if (el) { el.remove(); document.body.style.overflow = ''; }
+}
+
+function _showTrialPaywall(s) {
+  if (document.getElementById('trialPaywallOverlay')) return; // already shown
+  const admin = s.admin;
+  const order = ['starter', 'business', 'pro', 'enterprise'];
+  const cards = admin ? order.map(id => {
+    const p = PLANS[id]; const popular = id === 'business';
+    return `<div style="background:#fff;border:${popular ? '2px solid #2563eb' : '1px solid #e5e7eb'};border-radius:12px;padding:16px;text-align:center;">
+      ${popular ? '<div style="font-size:9px;font-weight:800;color:#2563eb;letter-spacing:1px;margin-bottom:4px;">MOST POPULAR</div>' : ''}
+      <h4 style="font-size:15px;font-weight:800;color:#1e293b;margin:0 0 4px;">${p.name}</h4>
+      <div style="font-size:20px;font-weight:900;color:#2563eb;">₹${p.price.toLocaleString('en-IN')}<span style="font-size:11px;color:#94a3b8;font-weight:600;">/yr</span></div>
+      <div style="font-size:11px;color:#64748b;margin:8px 0 2px;">✓ ${p.seats} seats</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${p.projects} projects</div>
+      <button onclick="window._orgUpgrade && window._orgUpgrade('${id}')" style="width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Buy Now</button>
+    </div>`;
+  }).join('') : '';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'trialPaywallOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;max-width:780px;width:100%;margin:auto;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.35);">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:42px;">🔒</div>
+        <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:8px 0 6px;">Your 7-day free trial has ended</h2>
+        <p style="font-size:13px;color:#64748b;margin:0;max-width:520px;margin:0 auto;">
+          ${admin
+            ? 'Choose a plan to continue using True Site Sync. Your data is safe and waiting — you’ll get full access the moment your payment completes.'
+            : 'Your team’s free trial has ended. Please ask your account owner/admin to upgrade so your team can continue.'}
+        </p>
+      </div>
+      ${admin ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:18px;">${cards}</div>` : ''}
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="window.__trialRefresh && window.__trialRefresh(this)" style="padding:10px 18px;background:#10b981;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">I’ve already paid — Refresh</button>
+        <button onclick="window._rbacLogout && window._rbacLogout()" style="padding:10px 18px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Logout</button>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:14px;">Secure payment via Razorpay · Annual billing · GST invoice provided.</p>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+}
+
+/** Re-check the trial after a payment / "already paid" click. */
+async function _trialRefresh(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try { await loadUserOrg(); } catch {}
+  const s = enforceTrialGate();
+  if (s.blocked) { try { showToast('No active plan found yet. If you just paid, give it a moment and try again.', 'warning'); } catch {} }
+  if (btn) { btn.disabled = false; btn.textContent = 'I’ve already paid — Refresh'; }
+}
+
 export function bindOrgWindowFunctions() {
   window.renderPlanBilling = renderPlanBilling;
+  window.hydrateOrgFromCache = hydrateOrgFromCache;
+  window.enforceTrialGate = enforceTrialGate;
+  window.getTrialStatus = getTrialStatus;
+  window.__trialRefresh = _trialRefresh;
   window._orgCreateNew = _createNewOrg;
   window._orgSaveSettings = _saveOrgSettings;
   window._orgInviteMember = async () => {
