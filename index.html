@@ -513,14 +513,25 @@ async function submitDownloadGate(e) {
   btn.style.opacity = '0.7';
   btn.disabled = true;
 
+  // Capture the lead via a direct REST insert (return=minimal). This avoids the
+  // supabase-js builder quirk where `.insert(...).catch()` throws synchronously
+  // (the builder is a thenable without `.catch`), which previously swallowed the
+  // call so NO lead was ever recorded. Non-blocking: a failure never stops the
+  // download.
   try {
-    const sb = getSB();
-    if (sb) {
-      await sb.from('download_leads').insert([{
+    await fetch(SB_URL + '/rest/v1/download_leads', {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
         name, phone: '+91' + phone, email: email || null, platform,
         downloaded_at: new Date().toISOString()
-      }]).catch(() => {});
-    }
+      })
+    });
   } catch (_) {}
 
   triggerFileDownload(platform);
