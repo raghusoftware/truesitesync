@@ -10,22 +10,23 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg-deep:#080c0a;
-  --bg-card:rgba(16,26,20,0.55);
-  --bg-card-hover:rgba(20,34,26,0.7);
+  /* Premium light theme — matches the landing page */
+  --bg-deep:#ffffff;
+  --bg-card:#ffffff;
+  --bg-card-hover:#f7faf8;
   --emerald:#10b981;
-  --emerald-dim:rgba(16,185,129,0.15);
-  --emerald-glow:rgba(16,185,129,0.35);
-  --emerald-bright:#34d399;
+  --emerald-dim:rgba(16,185,129,0.10);
+  --emerald-glow:rgba(16,185,129,0.18);
+  --emerald-bright:#047857;
   --emerald-dark:#064e3b;
-  --gold:#fbbf24;
-  --gold-dim:rgba(251,191,36,0.12);
-  --gold-glow:rgba(251,191,36,0.3);
-  --border:rgba(255,255,255,0.06);
-  --border-hover:rgba(16,185,129,0.25);
-  --text-primary:#f0fdf4;
-  --text-secondary:#94a3b8;
-  --text-muted:#64748b;
+  --gold:#b8860b;
+  --gold-dim:rgba(184,134,11,0.12);
+  --gold-glow:rgba(184,134,11,0.25);
+  --border:#e6ece8;
+  --border-hover:rgba(16,185,129,0.35);
+  --text-primary:#0e1a13;
+  --text-secondary:#475569;
+  --text-muted:#7c8a99;
   --radius:20px;
   --radius-sm:12px;
   --transition:0.4s cubic-bezier(0.22,1,0.36,1);
@@ -292,6 +293,13 @@ body{
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(16,185,129,.2);border-radius:3px}
+
+/* ════ Premium light theme — soften dark-era orbs & shadows ════ */
+.ambient .orb{opacity:.08;filter:blur(150px)}
+.ambient .orb-2{background:radial-gradient(circle,rgba(184,134,11,.18),transparent 70%)}
+.price-card{box-shadow:0 1px 3px rgba(13,40,28,.05)}
+.price-card:hover{box-shadow:0 22px 55px -22px rgba(13,40,28,.18)}
+.price-card.featured{box-shadow:0 26px 70px -24px rgba(13,40,28,.20)}
 </style>
 </head>
 <body>
