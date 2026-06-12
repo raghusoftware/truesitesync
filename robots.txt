@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app.html
+Disallow: /superadmin.html
+Disallow: /payment.html
+
+Sitemap: https://truesitesync.com/sitemap.xml
