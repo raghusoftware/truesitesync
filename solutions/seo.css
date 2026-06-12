@@ -1,8 +1,9 @@
 /* Shared styles for True Site Sync SEO solution pages — matches the landing brand */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#050a08; --surface:rgba(16,26,20,0.5); --emerald:#10b981; --emerald-bright:#34d399;
-  --orange:#f97316; --text:#f0fdf4; --text-sec:#94a3b8; --text-muted:#64748b; --border:rgba(255,255,255,0.07);
+  /* Premium light theme — matches the landing page */
+  --bg:#ffffff; --surface:#ffffff; --emerald:#10b981; --emerald-bright:#047857;
+  --gold:#b8860b; --text:#0e1a13; --text-sec:#475569; --text-muted:#7c8a99; --border:#e6ece8;
 }
 html{scroll-behavior:smooth}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;line-height:1.6}
@@ -11,7 +12,7 @@ a:hover{text-decoration:underline}
 .wrap{max-width:880px;margin:0 auto;padding:0 24px}
 
 /* Nav */
-nav{position:sticky;top:0;z-index:50;background:rgba(5,10,8,.85);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
 .nav-inner{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
 .nav-logo{display:flex;align-items:center;gap:10px}
 .nav-logo img{width:34px;height:34px;object-fit:contain;border-radius:8px}
@@ -30,7 +31,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(5,10,8,.85);backdrop-filter
 .btn-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:11px;font-weight:700;font-size:15px}
 .btn-pri{background:linear-gradient(135deg,var(--emerald),#059669);color:#fff}
-.btn-sec{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border)}
+.btn-sec{background:#ffffff;color:var(--text);border:1px solid var(--border)}
 .btn:hover{text-decoration:none;transform:translateY(-1px)}
 
 /* Sections */
@@ -42,7 +43,7 @@ section.block ul{list-style:none;margin:10px 0 16px}
 section.block li{color:var(--text-sec);padding:7px 0 7px 28px;position:relative}
 section.block li::before{content:"\2713";position:absolute;left:0;color:var(--emerald-bright);font-weight:800}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:18px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(13,40,28,.05)}
 .card .ic{font-size:22px;margin-bottom:10px}
 .card h3{margin:0 0 6px}
 .card p{font-size:14px;margin:0}
@@ -60,7 +61,7 @@ section.block li::before{content:"\2713";position:absolute;left:0;color:var(--em
 .cta h2{font-size:28px;font-weight:800;margin-bottom:10px}
 .cta p{color:var(--text-sec);margin-bottom:22px}
 .related{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
-.related a{font-size:13px;background:rgba(255,255,255,.04);border:1px solid var(--border);padding:8px 14px;border-radius:100px;color:var(--text-sec)}
+.related a{font-size:13px;background:#f4f8f5;border:1px solid var(--border);padding:8px 14px;border-radius:100px;color:var(--text-sec)}
 .related a:hover{color:var(--text);text-decoration:none;border-color:rgba(16,185,129,.3)}
 
 /* Footer */
