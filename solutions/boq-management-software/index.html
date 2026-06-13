@@ -25,7 +25,9 @@
 {"@type":"Question","name":"What is BOQ management software?","acceptedAnswer":{"@type":"Answer","text":"BOQ management software stores your Bill of Quantities — every item, unit and rate — and tracks how much of each item has been executed and billed versus the balance remaining, so quantities never get over- or under-billed."}},
 {"@type":"Question","name":"Can I import a BOQ from Excel?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can upload a BOQ from an Excel/spreadsheet template into a project, and the items and rates become available for measurement and billing."}},
 {"@type":"Question","name":"Can one project have multiple BOQs or work orders?","acceptedAnswer":{"@type":"Answer","text":"Yes. A project can hold multiple BOQ groups / work orders, each with its own rates, GST, retention and WO details, and billing is tracked separately per group."}},
-{"@type":"Question","name":"How is a BOQ different from a work order?","acceptedAnswer":{"@type":"Answer","text":"A BOQ is the priced list of items and quantities; a work order is the contractual instruction to execute them. True Site Sync links each BOQ group to its work-order details so billing stays tied to the contract."}}]}
+{"@type":"Question","name":"How is a BOQ different from a work order?","acceptedAnswer":{"@type":"Answer","text":"A BOQ is the priced list of items and quantities; a work order is the contractual instruction to execute them. True Site Sync links each BOQ group to its work-order details so billing stays tied to the contract."}},
+{"@type":"Question","name":"Does it flag extra or deviation items?","acceptedAnswer":{"@type":"Answer","text":"Yes. Work executed beyond the BOQ quantity, or items not in the original BOQ, can be tracked as extra/deviation items against the contract."}},
+{"@type":"Question","name":"Does the BOQ connect to billing?","acceptedAnswer":{"@type":"Answer","text":"Yes. Measurements draw down executed quantity from the BOQ and feed abstracts and RA bills, so the balance quantity and billed value always reconcile."}}]}
 </script>
 </head>
 <body>
@@ -39,13 +41,62 @@
   <h1>BOQ Management Software that <span class="hl">tracks every quantity</span></h1>
   <p class="lead">Hold your full Bill of Quantities in one place, link it to work orders and rates, and always know how much of each item is executed, billed and still in balance.</p>
   <div class="btn-row"><a href="/app.html" class="btn btn-pri">Start free 7-day trial</a><a href="/#download" class="btn btn-sec">Download app</a></div>
+  <div class="lead-meta"><span>✓ Import from Excel</span><span>✓ Billed-vs-balance live</span><span>From <b>₹2,500/yr</b></span></div>
 </div></header>
 
 <main class="wrap">
-  <section class="block">
+
+  <section class="block" style="border-top:none">
     <h2>The BOQ is the heart of the project — treat it like one</h2>
-    <p>When the BOQ lives in a stack of spreadsheets, nobody is sure how much of an item is left to bill, deviations slip through, and over-billing gets caught only at reconciliation. True Site Sync keeps the BOQ live: every measurement and bill draws down against it, so the balance quantity is always correct.</p>
+    <p>The <strong>Bill of Quantities (BOQ)</strong> is the priced spine of a construction contract: every item of work, its unit, the contract quantity and the agreed rate. Almost every commercial question on a project — how much can I bill, how much is left, are we deviating, will the order value hold — is really a question about the BOQ. Yet on most sites the BOQ lives in a stack of spreadsheets that nobody fully trusts.</p>
+    <p>When the BOQ is static and disconnected, three things go wrong. You lose visibility of how much of an item is left to bill, so you either under-claim or over-claim. Deviations and extra items slip through unrecorded until reconciliation. And the work-order value drifts out of sight, so you discover you've exhausted an order only when a bill bounces. <strong>BOQ management software</strong> keeps the BOQ live: every measurement and bill draws down against it, so the balance quantity and remaining order value are always correct.</p>
+    <div class="callout"><p><strong>One living BOQ:</strong> items, units, rates, executed quantity, billed quantity and balance — all in sync, all the way to the RA bill.</p></div>
   </section>
+
+  <section class="block">
+    <h2>See it in action</h2>
+    <p>A BOQ tracking view in True Site Sync — contract quantity, executed, billed and balance for every line.</p>
+    <div class="mock">
+      <div class="mock-bar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="t">True Site Sync — BOQ · WO-12 · Riverside Tower</span></div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="l">Order value</div><div class="v">₹1.85 Cr</div></div>
+          <div class="mock-stat"><div class="l">Billed to date</div><div class="v g">₹42.80L</div></div>
+          <div class="mock-stat"><div class="l">Balance value</div><div class="v gold">₹1.42 Cr</div></div>
+        </div>
+        <table class="mock-table">
+          <thead><tr><th>Item</th><th>Unit</th><th>BOQ qty</th><th>Executed</th><th>Billed</th><th>Balance</th></tr></thead>
+          <tbody>
+            <tr><td><b>PCC 1:4:8</b></td><td>m³</td><td>220</td><td>184</td><td>184</td><td><b>36</b></td></tr>
+            <tr><td><b>RCC M25</b></td><td>m³</td><td>160</td><td>96.5</td><td>96.5</td><td><b>63.5</b></td></tr>
+            <tr><td><b>TMT steel</b></td><td>MT</td><td>64</td><td>38.2</td><td>38.2</td><td><b>25.8</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="mock-cap">Illustrative BOQ tracker — executed, billed and balance quantity per item, live.</p>
+
+    <div class="video">
+      <!-- To embed a demo: replace this .video block's inner with:
+           <iframe src="https://www.youtube.com/embed/YOUR_VIDEO_ID" title="BOQ management software demo" allowfullscreen></iframe> -->
+      <div class="ph" onclick="window.location.href='/app.html'">
+        <div class="play">▶</div>
+        <span>Product walkthrough — importing &amp; tracking a BOQ (demo video coming soon)</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>How BOQ management works here</h2>
+    <div class="steps">
+      <div class="step"><h3>Import or build the BOQ</h3><p>Upload your BOQ template from Excel, or add items, units and rates directly to the project.</p></div>
+      <div class="step"><h3>Attach the work order</h3><p>Each BOQ group carries its WO number, date, value, GST, retention and validity.</p></div>
+      <div class="step"><h3>Measure against items</h3><p>Site measurements record executed quantity against BOQ lines, drawing down the balance.</p></div>
+      <div class="step"><h3>Bill from the BOQ</h3><p>Executed quantity flows into abstracts and RA bills at the BOQ rate — no re-keying.</p></div>
+      <div class="step"><h3>Watch the balance</h3><p>Executed, billed and balance quantity update live, so over-billing is caught before it happens.</p></div>
+    </div>
+  </section>
+
   <section class="block">
     <h2>What it does</h2>
     <div class="cards">
@@ -53,31 +104,86 @@
       <div class="card"><div class="ic">🗂️</div><h3>Multiple BOQ groups</h3><p>Several work orders per project, each with its own rates, GST and retention.</p></div>
       <div class="card"><div class="ic">📉</div><h3>Billed vs balance</h3><p>See executed, billed and remaining quantity for every BOQ line in real time.</p></div>
       <div class="card"><div class="ic">🔗</div><h3>Linked to work orders</h3><p>Each BOQ group carries WO number, date, value and expiry — billing stays on-contract.</p></div>
+      <div class="card"><div class="ic">➕</div><h3>Extra / deviation items</h3><p>Flag work beyond the BOQ so nothing executed goes unbilled or unapproved.</p></div>
+      <div class="card"><div class="ic">📑</div><h3>Feeds the bills</h3><p>Drawn-down quantities flow straight into abstracts and RA bills.</p></div>
     </div>
   </section>
+
   <section class="block">
-    <h2>Built for control</h2>
-    <ul>
-      <li>One source of truth for <strong>items, units and rates</strong></li>
-      <li>Stops <strong>over-billing</strong> by drawing down measured quantities</li>
-      <li>Surfaces <strong>extra / deviation items</strong> against the contract</li>
-      <li>Feeds straight into <strong>abstracts and RA bills</strong></li>
-      <li>Shared live with your team, on site or in the office</li>
-    </ul>
+    <h2>Who uses it — real-world scenarios</h2>
+    <div class="usecases">
+      <div class="usecase"><div class="who">Billing engineer</div><h3>No more over-billing</h3><p>Sees exactly how much of each item is left before raising the next RA bill, so claims never exceed the BOQ and the QS approves first time.</p></div>
+      <div class="usecase"><div class="who">Project manager</div><h3>Order value at a glance</h3><p>Tracks how much of the work-order value is consumed across items, and flags when an order is nearly exhausted.</p></div>
+      <div class="usecase"><div class="who">Contracts / commercial</div><h3>Deviations under control</h3><p>Captures extra and deviation items against the contract as they happen, instead of discovering them at final reconciliation.</p></div>
+    </div>
   </section>
+
+  <section class="block">
+    <h2>BOQ in software vs. BOQ in spreadsheets</h2>
+    <table class="compare">
+      <thead><tr><th>Task</th><th>Spreadsheets</th><th>True Site Sync</th></tr></thead>
+      <tbody>
+        <tr><td>Know balance quantity per item</td><td class="no">Manual tally</td><td class="yes">Live</td></tr>
+        <tr><td>Prevent over-billing</td><td class="no">Caught at reconciliation</td><td class="yes">Caught up front</td></tr>
+        <tr><td>Multiple work orders</td><td class="no">Separate files</td><td class="yes">Tracked separately</td></tr>
+        <tr><td>Link rates to billing</td><td class="no">Copy-paste rates</td><td class="yes">Automatic</td></tr>
+        <tr><td>Track deviation items</td><td class="no">Easily missed</td><td class="yes">Flagged</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block">
+    <h2>BOQ vs work order — and why the link matters</h2>
+    <p>A BOQ and a work order are not the same thing, and conflating them is where commercial control slips. The BOQ is the priced item-and-quantity list — the <em>what</em> and <em>how much</em>. The work order is the contractual instruction that authorises it, carrying the WO number, total value, GST treatment, retention and validity — the <em>terms</em>. A single project often runs several work orders, each with its own BOQ group and its own rates.</p>
+    <p>True Site Sync links each BOQ group to its work order, so billing always happens under the right contract at the right rates, and the consumed-versus-remaining order value is visible per work order. If you want the full breakdown, see our guide on <a href="/solutions/work-order-vs-boq/">work order vs BOQ</a>.</p>
+  </section>
+
+  <section class="block">
+    <h2>Common BOQ problems this solves</h2>
+    <p>Almost every billing dispute and margin surprise on a project can be traced to a BOQ that wasn't kept live. The most common failures are predictable — and each disappears when the BOQ draws down automatically.</p>
+    <h3>Over-billing an item</h3>
+    <p>Without a running balance it's easy to claim more of an item than the contract allows, which the client's QS catches and disallows — sometimes after you've already spent the money. A live balance quantity makes that impossible.</p>
+    <h3>Unbilled executed work</h3>
+    <p>The opposite leak: work that was done but never made it onto a bill because it was lost between the measurement book and the spreadsheet. When measurements draw down the BOQ directly, executed work is visible and billable.</p>
+    <h3>Untracked deviations</h3>
+    <p>Extra items and quantity deviations are where margin is won or lost, yet in spreadsheets they're discovered at final reconciliation. Flagging them against the contract as they happen keeps the commercial position honest.</p>
+    <h3>Exhausted work orders</h3>
+    <p>Billing past a work-order's value, or letting an order expire mid-work, creates painful conversations. Tracking consumed-vs-remaining value per work order warns you in time.</p>
+  </section>
+
+  <section class="block">
+    <h2>From tender BOQ to final bill — one continuous record</h2>
+    <p>A BOQ doesn't just matter during billing; it threads through the entire life of a project, and keeping it in one place pays off at every stage. At tender, the same item list and rates can be priced into an <a href="/solutions/construction-estimation-software-india/">estimate</a> to win the work. Once the work order is issued, that BOQ becomes the live contract spine. Through execution, <a href="/solutions/measurement-sheet-software/">site measurements</a> draw down quantities against it, and those same figures surface as <a href="/solutions/site-progress-tracking-software/">site progress</a> for the office. Each billing cycle, executed quantity flows into <a href="/solutions/ra-bill-software/">RA bills</a> at the BOQ rate. And at closeout, because every measurement and bill is linked to the BOQ line that produced it, final reconciliation is a review rather than a reconstruction.</p>
+    <p>That continuity is the real value. When the BOQ is a living record instead of a static spreadsheet, the numbers you tendered, executed, billed and reconciled are all the same numbers — so disputes shrink, margin is visible, and nobody spends a week rebuilding the account at the end of the job.</p>
+  </section>
+
+  <section class="block">
+    <h2>One BOQ, on site and in the office</h2>
+    <p>The person executing the work and the person tracking the contract are rarely sitting together — and that gap is where spreadsheets fall apart, because each keeps their own copy. True Site Sync holds a single BOQ that both sides share live: the site engineer measures against it on a phone, even offline, while the commercial team in the office watches executed and balance quantities update on the same items. There's no merging of versions and no "which file is latest" — just one record everyone trusts. Because access is project-scoped, each person sees the projects they're assigned to, so the data stays both shared and controlled.</p>
+  </section>
+
+  <section class="block">
+    <h2>Getting started takes under ten minutes</h2>
+    <p>Create a project, import your BOQ from Excel (or add items directly), attach the work-order details, and your team can start measuring against it immediately. The Solo plan is <strong>₹2,500/year</strong> and every plan includes a <strong>free 7-day trial</strong> of the full platform, with no card required, on Windows, Android and the web. Your BOQ, measurements and bills stay connected, and everything exports to PDF and Excel whenever you need it.</p>
+  </section>
+
   <section class="block faq">
-    <h2>BOQ management software — FAQs</h2>
+    <h2>BOQ management software — frequently asked questions</h2>
     <details open><summary>What is BOQ management software?</summary><p>It stores your Bill of Quantities and tracks executed-vs-billed-vs-balance for every item, so quantities are never over- or under-billed.</p></details>
     <details><summary>Can I import a BOQ from Excel?</summary><p>Yes — upload a BOQ template into a project and its items and rates become available for measurement and billing.</p></details>
     <details><summary>Multiple BOQs per project?</summary><p>Yes — multiple BOQ groups / work orders, each with its own rates, GST, retention and WO details.</p></details>
     <details><summary>BOQ vs work order?</summary><p>A BOQ is the priced item list; a work order is the instruction to execute it. We link each BOQ group to its WO so billing stays tied to the contract.</p></details>
+    <details><summary>Does it flag deviation items?</summary><p>Yes — work beyond the BOQ quantity, or items not in the original BOQ, can be tracked as extra/deviation.</p></details>
+    <details><summary>Does it connect to billing?</summary><p>Yes — measurements draw down executed quantity from the BOQ and feed abstracts and RA bills.</p></details>
   </section>
+
   <div class="cta">
     <h2>Keep your BOQ under control</h2>
     <p>Start free — import a BOQ and watch the balances update as you bill.</p>
     <a href="/app.html" class="btn btn-pri">Start free 7-day trial</a>
-    <div class="related"><a href="/solutions/ra-bill-software/">RA bill software</a><a href="/solutions/construction-billing-software-india/">Construction billing software</a><a href="/solutions/">All solutions</a></div>
+    <div class="related"><a href="/solutions/ra-bill-software/">RA bill software</a><a href="/solutions/work-order-vs-boq/">Work order vs BOQ</a><a href="/solutions/construction-billing-software-india/">Construction billing software</a><a href="/solutions/">All solutions</a></div>
   </div>
+
 </main>
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
