@@ -68,4 +68,60 @@ section.block li::before{content:"\2713";position:absolute;left:0;color:var(--em
 footer{border-top:1px solid var(--border);padding:34px 0;margin-top:30px;text-align:center;color:var(--text-muted);font-size:13px}
 footer a{color:var(--text-sec)}
 
-@media(max-width:680px){.nav-links a:not(.nav-cta){display:none}.cards{grid-template-columns:1fr}}
+/* ── Deep-page components ── */
+.lead-meta{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-top:18px;color:var(--text-muted);font-size:13px}
+.lead-meta b{color:var(--emerald-bright)}
+section.block h2{scroll-margin-top:80px}
+.callout{background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(184,134,11,.05));border:1px solid rgba(16,185,129,.18);border-radius:14px;padding:18px 20px;margin:18px 0}
+.callout p{margin:0;color:var(--text-sec)}
+.callout strong{color:var(--text)}
+
+/* CSS product mockup (stand-in for screenshots) */
+.mock{border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -24px rgba(13,40,28,.20);background:#fff;margin:22px 0}
+.mock-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:#f5f8f6;border-bottom:1px solid var(--border)}
+.mock-bar .d{width:10px;height:10px;border-radius:50%}
+.mock-bar .d.r{background:#f87171}.mock-bar .d.y{background:#fbbf24}.mock-bar .d.g{background:#34d399}
+.mock-bar .t{margin-left:8px;font-size:11px;color:var(--text-muted);font-weight:600}
+.mock-body{padding:18px}
+.mock-row{display:flex;gap:12px;flex-wrap:wrap}
+.mock-stat{flex:1;min-width:120px;background:#f8faf9;border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.mock-stat .l{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:5px;font-weight:700}
+.mock-stat .v{font-size:19px;font-weight:800;color:var(--text)}
+.mock-stat .v.g{color:var(--emerald-bright)} .mock-stat .v.gold{color:var(--gold)}
+.mock-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}
+.mock-table th{text-align:left;padding:8px 10px;background:#f5f8f6;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border)}
+.mock-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-sec)}
+.mock-table td b{color:var(--text)}
+.mock-cap{text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px;font-style:italic}
+
+/* Video embed slot (drop a YouTube ID into data-yt or replace with an iframe) */
+.video{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:#0e1a13;margin:22px 0;aspect-ratio:16/9}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.video .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:linear-gradient(135deg,#0e1a13,#064e3b);color:#eafaf1;cursor:pointer}
+.video .ph .play{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:22px}
+.video .ph span{font-size:13px;opacity:.85}
+
+/* Numbered steps */
+.steps{counter-reset:s;margin:18px 0}
+.step{position:relative;padding:14px 0 14px 52px;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:14px;width:34px;height:34px;border-radius:10px;background:rgba(16,185,129,.1);color:var(--emerald-bright);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
+.step h3{margin:0 0 4px;font-size:16px}
+.step p{margin:0;color:var(--text-sec);font-size:14px}
+
+/* Use-case cards */
+.usecases{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:18px}
+.usecase{background:#f8faf9;border:1px solid var(--border);border-radius:14px;padding:20px}
+.usecase .who{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--emerald-bright);margin-bottom:8px}
+.usecase h3{font-size:15px;margin:0 0 8px}
+.usecase p{font-size:13.5px;color:var(--text-sec);margin:0}
+
+/* Comparison table */
+.compare{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+.compare th,.compare td{padding:11px 14px;border-bottom:1px solid var(--border);text-align:left}
+.compare th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.compare td:first-child{color:var(--text-sec)}
+.compare .yes{color:var(--emerald-bright);font-weight:700}
+.compare .no{color:#b94a48}
+
+@media(max-width:680px){.nav-links a:not(.nav-cta){display:none}.cards{grid-template-columns:1fr}.usecases{grid-template-columns:1fr}.mock-stat{min-width:100px}}
