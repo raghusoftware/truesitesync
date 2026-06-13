@@ -24,7 +24,9 @@
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
 {"@type":"Question","name":"What is the difference between a work order and a BOQ?","acceptedAnswer":{"@type":"Answer","text":"A BOQ (Bill of Quantities) is the priced list of items, units, quantities and rates to be executed. A work order (WO) is the contractual instruction authorising that work — it carries the WO number, date, value and conditions. The BOQ says what and how much; the work order says go ahead and on what terms."}},
 {"@type":"Question","name":"Can one work order have multiple BOQs?","acceptedAnswer":{"@type":"Answer","text":"In practice a project often has several work orders, each with its own BOQ or BOQ group and its own rates, GST and retention. Tracking each separately keeps billing tied to the right contract."}},
-{"@type":"Question","name":"How do you track billing against a work order and BOQ?","acceptedAnswer":{"@type":"Answer","text":"You record site measurements against BOQ items, draw down the executed quantity from the BOQ, and bill it under the relevant work order — so the balance quantity and the contract value always reconcile. Software like True Site Sync links the two automatically."}}]}
+{"@type":"Question","name":"How do you track billing against a work order and BOQ?","acceptedAnswer":{"@type":"Answer","text":"You record site measurements against BOQ items, draw down the executed quantity from the BOQ, and bill it under the relevant work order — so the balance quantity and the contract value always reconcile. Software like True Site Sync links the two automatically."}},
+{"@type":"Question","name":"Does the work order or the BOQ carry the rates?","acceptedAnswer":{"@type":"Answer","text":"The BOQ carries the item rates. The work order carries the commercial terms — total value, GST treatment, retention and validity — under which those rated items are executed and billed."}},
+{"@type":"Question","name":"What is a deviation or extra item?","acceptedAnswer":{"@type":"Answer","text":"A deviation is executing more or less of a BOQ item than planned; an extra item is work not in the original BOQ at all. Both are tracked against the work order so the contract value and approvals stay correct."}}]}
 </script>
 </head>
 <body>
@@ -37,19 +39,46 @@
   <div class="seo-eyebrow">📚 Guide</div>
   <h1>Work Order vs BOQ: <span class="hl">the difference, explained</span></h1>
   <p class="lead">Two terms that get mixed up on every site. Here's what each one actually means, how they relate, and how to keep billing tied to both.</p>
+  <div class="btn-row"><a href="/solutions/boq-management-software/" class="btn btn-pri">BOQ management software</a><a href="/app.html" class="btn btn-sec">Try free</a></div>
 </div></header>
 
 <main class="wrap">
+
+  <section class="block" style="border-top:none">
+    <h2>Why the confusion costs money</h2>
+    <p>On a busy site, "BOQ" and "work order" get used almost interchangeably — and most of the time it doesn't matter. But when it comes to billing and contract control, treating them as the same thing is where money quietly leaks. Bill against the wrong rates, exhaust a work-order value without noticing, or lose track of deviations, and you end up with disallowed claims, delayed payments and a painful reconciliation at closeout. Understanding the distinction — and keeping the two linked — is one of the simplest ways a contractor can protect margin.</p>
+  </section>
+
   <section class="block">
     <h2>BOQ — the priced "what and how much"</h2>
-    <p>A <strong>Bill of Quantities (BOQ)</strong> is the itemised, priced schedule of work: each item of work, its unit, the estimated quantity, and the agreed rate. It's the basis for measuring and valuing work as it's executed. The BOQ answers <em>what</em> is to be done and <em>how much</em> it's worth per unit.</p>
+    <p>A <strong>Bill of Quantities (BOQ)</strong> is the itemised, priced schedule of work: each item of work, its unit of measurement, the estimated quantity, and the agreed rate per unit. It is the basis on which work is measured and valued as it's executed. If you want to know how much a slab is worth, or how much excavation remains to be billed, you're asking a BOQ question.</p>
+    <p>The BOQ answers two things: <em>what</em> work is to be done, and <em>how much</em> each unit of it is worth. It does not, by itself, say who authorised the work or on what commercial terms — that's the job of the work order. A BOQ can exist at tender stage (to price a bid) and then become the live basis for billing once work begins.</p>
   </section>
+
   <section class="block">
     <h2>Work order — the "go ahead, on these terms"</h2>
-    <p>A <strong>work order (WO)</strong> is the contractual instruction that authorises the work. It carries the WO number and date, the total order value, GST treatment, retention, validity/expiry and conditions. The work order answers <em>who authorised it</em> and <em>on what commercial terms</em>. The BOQ usually sits under a work order.</p>
+    <p>A <strong>work order (WO)</strong> is the contractual instruction that authorises the work to proceed. It carries the commercial frame: the WO number and date, the total order value, the GST treatment, the retention percentage, and the validity or expiry. Where the BOQ is a schedule of priced items, the work order is the agreement under which those items are executed and paid for.</p>
+    <p>The work order answers a different pair of questions: <em>who authorised this</em>, and <em>on what terms</em>. A BOQ usually sits underneath a work order — the order says "execute this scope, up to this value, on these conditions," and the BOQ is the detailed, priced breakdown of that scope.</p>
   </section>
+
+  <section class="block">
+    <h2>BOQ vs work order — at a glance</h2>
+    <table class="compare">
+      <thead><tr><th>Aspect</th><th>BOQ (Bill of Quantities)</th><th>Work Order</th></tr></thead>
+      <tbody>
+        <tr><td>Answers</td><td>What &amp; how much</td><td>Who authorised &amp; on what terms</td></tr>
+        <tr><td>Carries rates</td><td class="yes">Yes — item rates</td><td>No (carries value)</td></tr>
+        <tr><td>Carries GST &amp; retention</td><td>No</td><td class="yes">Yes</td></tr>
+        <tr><td>Has a number &amp; validity</td><td>Item-level</td><td class="yes">WO number, date, expiry</td></tr>
+        <tr><td>Basis for measurement</td><td class="yes">Yes</td><td>No</td></tr>
+        <tr><td>Basis for the contract value</td><td>Detail</td><td class="yes">Yes — order value</td></tr>
+      </tbody>
+    </table>
+  </section>
+
   <section class="block">
     <h2>How they work together</h2>
+    <p>The two aren't rivals — they're layers of the same contract, and billing only stays clean when they're linked:</p>
     <ul>
       <li>The <strong>work order</strong> sets the commercial frame (value, GST, retention, validity)</li>
       <li>The <strong>BOQ</strong> lists the priced items executed under that order</li>
@@ -57,20 +86,96 @@
       <li><strong>RA bills</strong> value that quantity and bill it under the work order</li>
       <li>The <strong>balance quantity</strong> and remaining order value always reconcile</li>
     </ul>
-    <p>A project commonly has several work orders, each with its own BOQ group, rates, GST and retention — so they must be tracked separately to avoid over-billing or mixing contracts.</p>
+    <p>A single project commonly has several work orders, each with its own BOQ group, rates, GST and retention — additional work, a separate package, or a different client entity. They must be tracked separately, or you risk billing one order's work at another's rates, or running an order past its value.</p>
+    <div class="callout"><p><strong>The rule of thumb:</strong> measure against the BOQ, bill under the work order, and keep the two linked so the contract value and the billed value never drift apart.</p></div>
   </section>
+
+  <section class="block">
+    <h2>See it in action</h2>
+    <p>In True Site Sync, each BOQ group is attached to its work order, so executed quantity and consumed order value are visible together.</p>
+    <div class="mock">
+      <div class="mock-bar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="t">True Site Sync — WO-12 &amp; its BOQ · Riverside Tower</span></div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="l">WO value</div><div class="v">₹1.85 Cr</div></div>
+          <div class="mock-stat"><div class="l">GST</div><div class="v gold">CGST+SGST 18%</div></div>
+          <div class="mock-stat"><div class="l">Retention</div><div class="v gold">5%</div></div>
+          <div class="mock-stat"><div class="l">Consumed</div><div class="v g">23%</div></div>
+        </div>
+        <table class="mock-table">
+          <thead><tr><th>BOQ item (under WO-12)</th><th>Unit</th><th>BOQ qty</th><th>Executed</th><th>Balance</th></tr></thead>
+          <tbody>
+            <tr><td><b>RCC M25</b></td><td>m³</td><td>160</td><td>96.5</td><td>63.5</td></tr>
+            <tr><td><b>TMT steel</b></td><td>MT</td><td>64</td><td>38.2</td><td>25.8</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="mock-cap">Illustrative — a BOQ group linked to its work order, with terms and balance shown together.</p>
+
+    <div class="video">
+      <!-- To embed a demo: replace this .video block's inner with:
+           <iframe src="https://www.youtube.com/embed/YOUR_VIDEO_ID" title="Work order and BOQ tracking demo" allowfullscreen></iframe> -->
+      <div class="ph" onclick="window.location.href='/app.html'">
+        <div class="play">▶</div>
+        <span>Product walkthrough — linking work orders &amp; BOQs (demo video coming soon)</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>Deviations and extra items — where the link matters most</h2>
+    <p>The cleanest theory meets reality the moment work deviates from the BOQ — and it always does. A <strong>deviation</strong> is executing more or less of a BOQ item than the contract quantity. An <strong>extra item</strong> is work that wasn't in the original BOQ at all. Both are completely normal, and both are where margin is won or lost.</p>
+    <p>The danger is that deviations and extras are easy to execute and easy to forget to record — until the client's QS disallows an over-run, or you realise at closeout that extra work was never billed because it had no BOQ line. When the BOQ is linked to its work order, you can flag deviations and extras against the right contract as they happen, get them approved, and keep the order value honest. That's the difference between a controlled contract and a scramble at the end of the job.</p>
+  </section>
+
+  <section class="block">
+    <h2>How to track both, in practice</h2>
+    <div class="steps">
+      <div class="step"><h3>Set up the work order</h3><p>Record the WO number, value, GST, retention and validity once.</p></div>
+      <div class="step"><h3>Attach its BOQ</h3><p>Import or build the priced item list under that work order.</p></div>
+      <div class="step"><h3>Measure against items</h3><p>Site measurements draw down executed quantity from the BOQ.</p></div>
+      <div class="step"><h3>Bill under the order</h3><p>RA bills value the work at BOQ rates and apply the order's GST and retention.</p></div>
+      <div class="step"><h3>Watch value &amp; balance</h3><p>Consumed-vs-remaining order value and balance quantity stay reconciled.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>A worked example</h2>
+    <p>Say a builder issues you <strong>Work Order WO-12</strong> for ₹1.85 crore, with 18% GST (CGST+SGST) and 5% retention, valid for nine months. That's the work order — the commercial frame. Under it sits a <strong>BOQ</strong> listing the priced items: RCC M25 at ₹20,000/m³ for 160 m³, TMT steel at ₹60,000/MT for 64 MT, and so on. The work order doesn't carry those rates; the BOQ does. The BOQ doesn't carry the retention or validity; the work order does.</p>
+    <p>As work proceeds, your team measures executed quantity against the BOQ items — say 96.5 m³ of RCC and 38.2 MT of steel to date. Those measurements draw down the BOQ (leaving 63.5 m³ and 25.8 MT in balance) and are valued at the BOQ rates. The resulting RA bill is raised <em>under WO-12</em>, so it applies that order's 18% GST and 5% retention, and the cumulative billed value is checked against the ₹1.85 crore order value — currently about 23% consumed. If the builder later issues WO-18 for additional work, it gets its own BOQ, its own rates and its own terms, tracked entirely separately. Mix them up and you'd bill the wrong rates or breach an order; keep them linked and everything reconciles by itself.</p>
+  </section>
+
+  <section class="block">
+    <h2>Who needs to get this right</h2>
+    <div class="usecases">
+      <div class="usecase"><div class="who">Billing engineer</div><h3>Bill under the right contract</h3><p>Raises each RA bill under its work order at that order's rates, so claims are never mixed across contracts.</p></div>
+      <div class="usecase"><div class="who">Commercial / contracts</div><h3>Order value control</h3><p>Tracks how much of each work order's value is consumed and flags deviations before they breach the order.</p></div>
+      <div class="usecase"><div class="who">Project manager</div><h3>No closeout surprises</h3><p>Keeps executed work, extras and the order value reconciled throughout, so final accounts are a review, not a rebuild.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>What goes wrong when they're not linked</h2>
+    <p>When the BOQ and the work order live in separate, disconnected places, four failures recur. You <strong>bill at the wrong rates</strong> because the BOQ used doesn't belong to the order being billed. You <strong>overrun the order value</strong> without realising, then can't get the excess paid. You <strong>let an order expire</strong> mid-work and lose the commercial cover for what you've executed. And you <strong>miss extras and deviations</strong>, so genuine work goes unbilled or unapproved. Each is avoidable with one discipline — keep every BOQ group attached to its work order, and let the software reconcile executed quantity against order value automatically.</p>
+  </section>
+
   <section class="block faq">
-    <h2>FAQs</h2>
+    <h2>Work order vs BOQ — frequently asked questions</h2>
     <details open><summary>What is the difference between a work order and a BOQ?</summary><p>The BOQ is the priced item-and-quantity list; the work order is the instruction authorising it, with the WO number, value, GST, retention and terms.</p></details>
     <details><summary>Can one work order have multiple BOQs?</summary><p>A project often has several work orders, each with its own BOQ/BOQ group and its own rates, GST and retention — track each separately.</p></details>
     <details><summary>How do you track billing against both?</summary><p>Measure against BOQ items, draw down executed quantity, and bill under the relevant work order so balances reconcile. True Site Sync links the two automatically.</p></details>
+    <details><summary>Which one carries the rates?</summary><p>The BOQ carries item rates; the work order carries the commercial terms — value, GST, retention and validity.</p></details>
+    <details><summary>What is a deviation or extra item?</summary><p>A deviation is executing more/less of a BOQ item; an extra item is work not in the original BOQ. Both are tracked against the work order.</p></details>
   </section>
+
   <div class="cta">
     <h2>Track work orders and BOQs in one place</h2>
     <p>True Site Sync links every BOQ group to its work order and keeps billing reconciled. Start free.</p>
     <a href="/app.html" class="btn btn-pri">Start free 7-day trial</a>
-    <div class="related"><a href="/solutions/boq-management-software/">BOQ management software</a><a href="/solutions/ra-bill-software/">RA bill software</a><a href="/solutions/">All solutions</a></div>
+    <div class="related"><a href="/solutions/boq-management-software/">BOQ management software</a><a href="/solutions/ra-bill-software/">RA bill software</a><a href="/solutions/construction-billing-software-india/">Construction billing software</a><a href="/solutions/">All solutions</a></div>
   </div>
+
 </main>
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
