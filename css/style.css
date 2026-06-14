@@ -110,13 +110,13 @@
   --gold-soft:    #c8a23a;
   --gold-50:      #faf6ea;
 
-  /* Sidebar — deep brand-charcoal for a premium dashboard feel */
-  --sb-bg: #0d1713;
-  --sb-border: rgba(255,255,255,0.06);
-  --sb-text: rgba(255,255,255,0.58);
-  --sb-text-active: #ffffff;
-  --sb-hover: rgba(255,255,255,0.05);
-  --sb-active-bg: rgba(16,185,129,0.14);
+  /* Sidebar — LIGHT neutral, Linear/Vercel/Notion style */
+  --sb-bg: #fafbfc;
+  --sb-border: rgba(13,40,28,0.06);
+  --sb-text: #6b7280;
+  --sb-text-active: #0f172a;
+  --sb-hover: rgba(13,40,28,0.04);
+  --sb-active-bg: #ffffff;
 
   /* Shadows — subtle */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
@@ -1779,3 +1779,177 @@ a.text-blue-600, a.text-blue-500 { text-decoration: none !important; }
 
 /* ── Active tab under(border) accents that used blue ── */
 .border-blue-500, .border-b-blue-500 { border-color: var(--brand) !important; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM POLISH LAYER (v1.5.1) — Linear / Vercel / Stripe feel
+   - Light, near-white sidebar (replaces dark navy)
+   - More breathing room everywhere
+   - Borders → subtle background tints
+   - Smaller, tighter typography
+   - Razor-thin shadows
+   - Visual-only. No markup or JS touched.
+═══════════════════════════════════════════════════════════ */
+
+/* ── Sidebar: force LIGHT — override Tailwind's bg-[#0f172a] on <aside> ── */
+aside, aside.bg-\[\#0f172a\] {
+  background: var(--sb-bg) !important;
+  color: var(--sb-text) !important;
+  border-right: 1px solid var(--sb-border) !important;
+  box-shadow: none !important;
+}
+/* Logo zone — neutralise the inline dark gradient */
+aside > div:first-child,
+aside > div:first-child[style] {
+  background: var(--sb-bg) !important;
+  border-bottom: 1px solid var(--sb-border) !important;
+  padding: 18px 18px 14px !important;
+}
+aside > div:first-child h1 { color: #0f172a !important; font-weight: 700 !important; }
+aside > div:first-child p { color: #94a3b8 !important; }
+
+/* Nav section labels — quieter */
+aside nav > p {
+  color: #9ca3af !important;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.6px !important;
+  padding: 0 12px !important;
+  margin: 18px 0 6px !important;
+}
+
+/* Nav buttons — Linear-style */
+.nav-btn {
+  color: #4b5563 !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-left: none !important;          /* drop the colored rail */
+  padding: 7px 12px !important;
+  border-radius: 8px !important;
+  margin: 1px 6px !important;
+  letter-spacing: 0 !important;
+}
+.nav-btn:hover {
+  color: #0f172a !important;
+  background: var(--sb-hover) !important;
+}
+.nav-btn.active {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border-left: none !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(13,40,28,.04), 0 1px 1px rgba(13,40,28,.03) !important;
+}
+.nav-btn.active::after { display: none !important; }  /* drop the gold dot — too busy */
+
+/* Project context badge in sidebar (inline blue tint → neutral white card) */
+#projectContextNav > div:first-child,
+#projectContextNav > div:first-child[style] {
+  background: #ffffff !important;
+  border: 1px solid var(--sb-border) !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 1px 2px rgba(13,40,28,.04) !important;
+}
+#sidebarProjName { color: #0f172a !important; font-weight: 600 !important; }
+
+/* ── Main body: more breathing room ── */
+main { background: #ffffff !important; }
+main > .p-4, main > div.p-4 { padding: 32px 40px !important; }
+#breadcrumbBar { border-bottom: 1px solid var(--sb-border) !important; padding: 12px 24px !important; }
+
+/* ── Cards: borders → soft tints, almost-invisible shadow ── */
+.bg-white {
+  background: #ffffff !important;
+}
+.bg-white.rounded-lg, .bg-white.rounded-xl, .bg-white.rounded-2xl,
+.bg-white.shadow, .bg-white.shadow-sm, .bg-white.shadow-md, .bg-white.shadow-lg {
+  border-color: transparent !important;
+  box-shadow: 0 1px 2px rgba(13,40,28,.04), 0 0 0 1px rgba(13,40,28,.04) !important;
+}
+/* Tinted "no-border" cards — when a card needs separation, use a soft fill instead */
+.bg-slate-50, .bg-slate-100 { background: #f7f9f8 !important; border-color: transparent !important; }
+.bg-gray-50,  .bg-gray-100  { background: #f7f9f8 !important; border-color: transparent !important; }
+
+/* ── Borders: globally softer (almost invisible by default) ── */
+.border, .border-slate-100, .border-slate-200, .border-slate-300,
+.border-gray-100, .border-gray-200, .border-gray-300 {
+  border-color: rgba(13,40,28,0.06) !important;
+}
+
+/* ── Typography: smaller, tighter, more confident hierarchy ── */
+html { font-size: 13.5px !important; }     /* ~7% tighter base */
+.view-section h2 {
+  font-size: 1.45rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.5px !important;
+  line-height: 1.2 !important;
+  color: #0f172a !important;
+}
+.view-section h3 { font-size: 0.95rem !important; font-weight: 600 !important; letter-spacing: -0.2px !important; color:#0f172a !important; }
+.view-section > p, .view-section > div > p { font-size: 12.5px !important; }
+.text-xs { font-size: 11px !important; letter-spacing: 0.1px !important; }
+label.block { font-size: 10.5px !important; letter-spacing: 0.4px !important; }
+
+/* ── Shadows: razor-thin throughout ── */
+.shadow-sm,
+.shadow,
+.shadow-md  { box-shadow: 0 1px 2px rgba(13,40,28,.04), 0 0 0 1px rgba(13,40,28,.04) !important; }
+.shadow-lg  { box-shadow: 0 6px 22px -10px rgba(13,40,28,.10), 0 0 0 1px rgba(13,40,28,.04) !important; }
+.shadow-xl, .shadow-2xl { box-shadow: 0 14px 36px -18px rgba(13,40,28,.14), 0 0 0 1px rgba(13,40,28,.04) !important; }
+
+/* ── Buttons: tighter, no shadow ── */
+button:not(.nav-btn) {
+  border-radius: 9px !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  box-shadow: none !important;
+}
+.bg-blue-600, button.bg-blue-600 {
+  box-shadow: 0 1px 1px rgba(5,95,70,.10) !important;
+}
+
+/* ── Inputs: borders → soft inset look ── */
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not(.table-input),
+select, textarea {
+  background: #f7f9f8 !important;
+  border-color: transparent !important;
+  font-size: 12.5px !important;
+  padding: 8px 11px !important;
+  transition: background 120ms ease, box-shadow 120ms ease !important;
+}
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not(.table-input):hover,
+select:hover, textarea:hover {
+  background: #f1f5f3 !important;
+  border-color: transparent !important;
+}
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not(.table-input):focus,
+select:focus, textarea:focus {
+  background: #ffffff !important;
+  border-color: var(--brand-mid) !important;
+  box-shadow: 0 0 0 3px var(--brand-ring) !important;
+}
+
+/* ── Tables: no heavy borders, hairline rows ── */
+thead th {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(13,40,28,.08) !important;
+  color: #94a3b8 !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.5px !important;
+}
+td { border-bottom: 1px solid rgba(13,40,28,.05) !important; }
+tbody tr:hover td { background: #f7f9f8 !important; }
+
+/* ── Modals: thinner shadow, generous padding ── */
+.fixed.inset-0 > div {
+  box-shadow: 0 24px 60px -22px rgba(13,40,28,.22), 0 0 0 1px rgba(13,40,28,.05) !important;
+  border-color: transparent !important;
+}
+
+/* ── Top header & badges: quieter ── */
+#headerProjBadge, #headerUserBadge { box-shadow: none !important; border-color: rgba(13,40,28,.06) !important; }
+
+/* ── Scrollbar — even quieter on light sidebar ── */
+aside ::-webkit-scrollbar-thumb { background: rgba(13,40,28,.08) !important; }
+aside ::-webkit-scrollbar-thumb:hover { background: rgba(13,40,28,.16) !important; }
