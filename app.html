@@ -18,8 +18,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.4.3">
-    <script type="module" src="js/app.js?v=1.4.34"></script>
+    <link rel="stylesheet" href="css/style.css?v=1.5.0">
+    <script type="module" src="js/app.js?v=1.4.35"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -49,12 +49,30 @@
       window._hideSplash = function() {
         const splash = document.getElementById('splashScreen');
         if (splash) {
-          splash.style.transition = 'opacity .4s ease';
+          // Stop the running progress-bar animation immediately, then fade out.
+          const bar = splash.querySelector('#splashProgress div');
+          if (bar) bar.style.animation = 'none';
+          splash.style.transition = 'opacity .25s ease';
           splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 400);
+          splash.style.pointerEvents = 'none';
+          setTimeout(() => splash.remove(), 250);
         }
       };
-      // Failsafe — remove splash after 12s no matter what
+      // ── Splash visibility: on web the page is interactive in ms, so the
+      // running loading animation isn't needed. Hide as soon as the DOM is
+      // ready (login page or app container covers the gap). Keep the splash
+      // a little longer for installed builds (Electron/Capacitor) where
+      // bundled assets take a moment to load.
+      const _isPackaged = !!(window.process && window.process.versions && window.process.versions.electron)
+        || /TrueSiteSync-Android/i.test(navigator.userAgent)
+        || window.location.protocol === 'file:'
+        || window.location.protocol === 'capacitor:';
+      const _splashHideDelay = _isPackaged ? 1500 : 250;
+      const _hideOnceReady = () => setTimeout(() => window._hideSplash(), _splashHideDelay);
+      if (document.readyState === 'complete' || document.readyState === 'interactive') _hideOnceReady();
+      else document.addEventListener('DOMContentLoaded', _hideOnceReady, { once: true });
+
+      // Failsafe — guarantee the splash is gone after 4s no matter what.
       setTimeout(() => {
         window._hideSplash();
         // If app still hasn't booted, show login page
@@ -63,7 +81,7 @@
           const lp = document.getElementById('loginPage');
           if (lp) lp.style.display = 'flex';
         }
-      }, 12000);
+      }, 4000);
 
       // Global error handler — shows errors on screen for debugging
       window.onerror = function(msg, src, line, col, err) {

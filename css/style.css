@@ -98,13 +98,25 @@
   --orange-500:#f97316;
   --orange-600:#ea580c;
 
-  /* Sidebar */
-  --sb-bg: #111827;
+  /* ── Premium brand (white / deep-green / gold) — matches the landing site ── */
+  --brand:        #059669;   /* primary green (buttons, accents) */
+  --brand-dark:   #047857;   /* hover / pressed */
+  --brand-mid:    #10b981;   /* bright accent */
+  --brand-50:     #ecfdf5;   /* light tint bg */
+  --brand-100:    #d1fae5;   /* light tint border */
+  --brand-ink:    #065f46;   /* green text on light */
+  --brand-ring:   rgba(5,150,105,0.16);
+  --gold:         #b8860b;   /* refined gold accent (sparing) */
+  --gold-soft:    #c8a23a;
+  --gold-50:      #faf6ea;
+
+  /* Sidebar — deep brand-charcoal for a premium dashboard feel */
+  --sb-bg: #0d1713;
   --sb-border: rgba(255,255,255,0.06);
-  --sb-text: rgba(255,255,255,0.55);
+  --sb-text: rgba(255,255,255,0.58);
   --sb-text-active: #ffffff;
-  --sb-hover: rgba(255,255,255,0.04);
-  --sb-active-bg: rgba(255,255,255,0.08);
+  --sb-hover: rgba(255,255,255,0.05);
+  --sb-active-bg: rgba(16,185,129,0.14);
 
   /* Shadows — subtle */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
@@ -1679,3 +1691,91 @@ div[id$="FormPanel"]:not(.hidden) {
   #masterData .overflow-x-auto, #masterFinancialView .overflow-x-auto,
   #clientDashboardView .overflow-x-auto { -webkit-overflow-scrolling: touch; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM THEME LAYER (v1.5.0)
+   Visual-only: recolors the blue accent → brand green + gold,
+   and polishes shared primitives. No markup/JS changes.
+   Appended last so it wins by source order.
+═══════════════════════════════════════════════════════════ */
+
+/* ── Primary buttons: blue → brand green ── */
+.bg-blue-600, button.bg-blue-600, a.bg-blue-600,
+.bg-blue-500, button.bg-blue-500 {
+  background: var(--brand) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(5,95,70,.18) !important;
+}
+.bg-blue-600:hover, button.bg-blue-600:hover, a.bg-blue-600:hover,
+.bg-blue-500:hover, button.bg-blue-500:hover,
+.hover\:bg-blue-700:hover, .hover\:bg-blue-600:hover { background: var(--brand-dark) !important; }
+.bg-blue-700, button.bg-blue-700 { background: var(--brand-dark) !important; color:#fff !important; }
+
+/* ── Light/ghost blue → brand tint ── */
+.bg-blue-50  { background: var(--brand-50) !important; }
+.bg-blue-100 { background: var(--brand-50) !important; border-color: var(--brand-100) !important; }
+.bg-blue-100:hover { background: var(--brand-100) !important; }
+
+/* ── Blue text & icons → brand green ── */
+.text-blue-400, .text-blue-500, .text-blue-600, .text-blue-700,
+a.text-blue-600, a.text-blue-500 { color: var(--brand-ink) !important; }
+.text-blue-600:hover, .text-blue-500:hover, a.text-blue-600:hover { color: var(--brand-dark) !important; }
+
+/* ── Blue borders / rings → brand ── */
+.border-blue-100 { border-color: var(--brand-100) !important; }
+.border-blue-200, .border-blue-300 { border-color: var(--brand-100) !important; }
+.ring-blue-500, .ring-blue-400, .focus\:ring-blue-500:focus { --tw-ring-color: var(--brand) !important; box-shadow: 0 0 0 3px var(--brand-ring) !important; }
+
+/* ── Form focus: blue → brand green ── */
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not(.table-input):focus,
+select:focus, textarea:focus {
+  border-color: var(--brand-mid) !important;
+  box-shadow: 0 0 0 3px var(--brand-ring) !important;
+}
+.table-input:focus { box-shadow: inset 0 0 0 2px var(--brand) !important; background: var(--brand-50) !important; }
+input[type=checkbox], input[type=radio] { accent-color: var(--brand) !important; }
+
+/* ── Sidebar: brand-green active state + gold accent rail ── */
+.nav-btn.active {
+  background-color: var(--sb-active-bg) !important;
+  border-left-color: var(--brand-mid) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.nav-btn.active::after{ content:""; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  width:5px; height:5px; border-radius:50%; background: var(--gold-soft); opacity:.9; }
+.nav-btn{ position:relative; }
+aside > div:first-child h1 { letter-spacing:-.4px !important; }
+
+/* ── Buttons: a touch more premium (radius + weight) ── */
+button:not(.nav-btn){ border-radius: var(--radius-lg) !important; font-weight: 600 !important; }
+
+/* ── Cards / white panels: softer, deeper, more "expensive" ── */
+.shadow-sm{ box-shadow: 0 1px 2px rgba(13,40,28,.05) !important; }
+.shadow, .shadow-md{ box-shadow: 0 4px 16px -6px rgba(13,40,28,.12) !important; }
+.shadow-lg, .shadow-xl{ box-shadow: 0 18px 40px -18px rgba(13,40,28,.20) !important; }
+.rounded-lg{ border-radius: 12px !important; }
+.rounded-xl{ border-radius: 14px !important; }
+.rounded-2xl{ border-radius: 18px !important; }
+
+/* ── Module cards on the home/dashboard: lift on hover with brand edge ── */
+#moduleCardsGrid .bg-white{ transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important; }
+#moduleCardsGrid .bg-white:hover{
+  transform: translateY(-2px) !important;
+  border-color: var(--brand-100) !important;
+  box-shadow: 0 16px 34px -16px rgba(13,40,28,.22) !important;
+}
+
+/* ── Table headers: faint brand tint for a crisp, premium grid ── */
+thead th{ background: #f6faf8 !important; color: var(--gray-600) !important; }
+tbody tr:hover td{ background: #f6faf8 !important; }
+
+/* ── Headings: tighter, more confident ── */
+.view-section h2{ letter-spacing:-.3px !important; color: var(--gray-900) !important; }
+
+/* ── Primary text-links (text-blue used as links) keep underline-free hover ── */
+a.text-blue-600, a.text-blue-500 { text-decoration: none !important; }
+
+/* ── Active tab under(border) accents that used blue ── */
+.border-blue-500, .border-b-blue-500 { border-color: var(--brand) !important; }
