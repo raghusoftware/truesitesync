@@ -447,8 +447,8 @@ export function openTaskForm(taskId) {
               </select>
             </div>
             <div class="ef-field">
-              <label class="ef-label">Assigned To</label>
-              <input type="text" id="pt_assigned" class="ef-input" value="${existing?.assignedTo || ''}" placeholder="Engineer / Supervisor">
+              <label class="ef-label">Assigned Engineer</label>
+              <select id="pt_assigned" class="ef-input">${_engineerOptions(existing?.assignedTo)}</select>
             </div>
             <div class="ef-field">
               <label class="ef-label">Progress %</label>
@@ -498,7 +498,12 @@ export function openTaskForm(taskId) {
             <!-- Equipment required -->
             <label class="ef-label">🚜 Equipment Required</label>
             <div id="pt_equipRows" style="margin-bottom:6px;"></div>
-            <button type="button" onclick="window._ptAddEquipRow()" style="font-size:11px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;padding:4px 10px;cursor:pointer;">+ Add Equipment</button>
+            <button type="button" onclick="window._ptAddEquipRow()" style="font-size:11px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;padding:4px 10px;cursor:pointer;margin-bottom:12px;">+ Add Equipment</button>
+
+            <!-- Tools required -->
+            <label class="ef-label">🔧 Tools Required</label>
+            <div id="pt_toolRows" style="margin-bottom:6px;"></div>
+            <button type="button" onclick="window._ptAddToolRow()" style="font-size:11px;font-weight:700;color:#b8860b;background:#faf6ea;border:1px solid #ecd9a3;border-radius:6px;padding:4px 10px;cursor:pointer;">+ Add Tool</button>
           </div>
         </div>
         <div class="ef-footer">
@@ -516,6 +521,7 @@ export function openTaskForm(taskId) {
   if (existing) {
     (state.taskMaterials || []).filter(m => m.taskId === existing.id && !m.fromRecipe).forEach(m => window._ptAddMatRow(m.materialId, m.qtyRequired));
     (state.taskEquipment || []).filter(e => e.taskId === existing.id).forEach(e => window._ptAddEquipRow(e.equipmentId));
+    (existing.toolsReq || []).forEach(t => window._ptAddToolRow(t.toolId, t.qty));
   }
   setTimeout(() => document.getElementById('pt_name')?.focus(), 100);
 }
@@ -552,6 +558,14 @@ export function saveTask(taskId) {
     if (trade && count > 0) data.labourReq.push({ trade, count });
   });
   data.recipeRef = document.getElementById('pt_recipe')?.value || '';
+
+  // Capture tools requirement (stored inline on the task, like labour)
+  data.toolsReq = [];
+  document.querySelectorAll('#pt_toolRows > div').forEach(row => {
+    const toolId = row.querySelector('.pt-tool-id')?.value;
+    const qty = parseInt(row.querySelector('.pt-tool-qty')?.value) || 1;
+    if (toolId) data.toolsReq.push({ toolId, qty });
+  });
 
   // Pre-flight check if moving to "Ready to Start"
   if (data.status === 'Ready to Start') {
@@ -1247,7 +1261,25 @@ function _getRecipeOptions(projectId) {
 // ── Task-form resource requirement row builders ──
 const _RM_OPTS = () => (state.rawMaterials || []).map(m => `<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
 const _EQ_OPTS = () => (state.equipmentList || []).map(e => `<option value="${e.id}">${e.name} (${e.regNo || 'No Reg'})</option>`).join('');
+const _TOOL_OPTS = () => (state.rawMaterials || []).filter(m => m.type === 'Tools').map(m => `<option value="${m.id}">${m.name}${m.unit ? ' (' + m.unit + ')' : ''}</option>`).join('');
 const _TRADES = ['Mason','Bar Bender','Shuttering Carpenter','Steel Fixer','Plumber','Electrician','Painter','Welder','Operator','Skilled Helper','Unskilled Helper','Mistri'];
+
+/** Engineer dropdown options sourced from team members (rbacUsers). Keeps any
+ *  existing free-text value so older tasks aren't lost. */
+function _engineerOptions(sel) {
+  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+  const users = (state.rbacUsers || []).filter(u => u.active !== false);
+  let opts = '<option value="">— Select Engineer —</option>';
+  let found = false;
+  users.forEach(u => {
+    const nm = u.name || u.email || u.username || '';
+    if (!nm) return;
+    const isSel = nm === sel; if (isSel) found = true;
+    opts += `<option value="${esc(nm)}" ${isSel ? 'selected' : ''}>${nm}</option>`;
+  });
+  if (sel && !found) opts += `<option value="${esc(sel)}" selected>${sel}</option>`;
+  return opts;
+}
 
 window._ptAddLabourRow = function(trade, count) {
   const box = document.getElementById('pt_labourRows'); if (!box) return;
@@ -1270,5 +1302,13 @@ window._ptAddEquipRow = function(eqId) {
   div.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;';
   div.innerHTML = `<select class="ef-input pt-eq-id" style="flex:1;">${_EQ_OPTS()}</select><button type="button" onclick="this.parentElement.remove()" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>`;
   if (eqId) div.querySelector('.pt-eq-id').value = eqId;
+  box.appendChild(div);
+};
+window._ptAddToolRow = function(toolId, qty) {
+  const box = document.getElementById('pt_toolRows'); if (!box) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;';
+  div.innerHTML = `<select class="ef-input pt-tool-id" style="flex:1;"><option value="">— Select Tool —</option>${_TOOL_OPTS()}</select><input type="number" class="ef-input pt-tool-qty" style="width:80px;" placeholder="Qty" value="${qty || ''}"><button type="button" onclick="this.parentElement.remove()" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>`;
+  if (toolId) div.querySelector('.pt-tool-id').value = toolId;
   box.appendChild(div);
 };
