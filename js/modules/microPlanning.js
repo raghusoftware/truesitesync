@@ -58,11 +58,17 @@ function _getAllTasks() {
 // ─────────────────────────────────────────────────────
 //  MICRO TASK CRUD
 // ─────────────────────────────────────────────────────
+// Canonical trade list — MUST mirror planning.js _TRADES so both modules show
+// the same dropdown. Any extra trades found on actual workers are appended.
+const _PLAN_TRADES = ['Mason','Bar Bender','Shuttering Carpenter','Steel Fixer','Plumber','Electrician','Painter','Welder','Operator','Skilled Helper','Unskilled Helper','Mistri'];
 function _getUniqueTrades() {
-  const all = _getProjectWorkers();
-  const trades = new Set(all.map(w => (w.trade || 'General').toLowerCase()));
-  trades.add('helper'); trades.add('mason'); trades.add('general');
-  return [...trades].sort();
+  const byKey = new Map();           // lowercase key -> display value (order preserved)
+  _PLAN_TRADES.forEach(t => byKey.set(t.toLowerCase(), t));
+  _getProjectWorkers().forEach(w => {
+    const t = (w.trade || '').trim();
+    if (t && !byKey.has(t.toLowerCase())) byKey.set(t.toLowerCase(), t);
+  });
+  return [...byKey.values()];
 }
 
 export function mpOpenTaskForm(editId) {
@@ -72,8 +78,15 @@ export function mpOpenTaskForm(editId) {
   const trades = _getUniqueTrades();
   const allTasks = _getAllTasks().filter(t => t.id !== editId);
 
-  // Parse existing labour requirements
-  const existingLabour = existing?.labourReqs || [];
+  // Parse existing labour requirements.
+  // Carry over from the Planning module: planning tasks store labour as
+  // `labourReq` ([{trade,count}]); micro tasks use `labourReqs`
+  // ([{trade,count,hoursPerDay}]). If a planning task hasn't been micro-edited
+  // yet, map its planned labour in so "2 masons required" shows up pre-filled.
+  let existingLabour = existing?.labourReqs || [];
+  if ((!existingLabour || !existingLabour.length) && existing?.labourReq?.length) {
+    existingLabour = existing.labourReq.map(l => ({ trade: l.trade, count: l.count, hoursPerDay: 8 }));
+  }
 
   const html = `
     <div id="mpTaskFormModal" class="ef-overlay" style="z-index:199999" onclick="if(event.target===this)_mpCloseTaskForm()">
@@ -138,6 +151,9 @@ export function mpOpenTaskForm(editId) {
             </div>
           </div>
 
+          <!-- PLANNED RESOURCES (carried over from the Planning module) -->
+          ${existing ? _plannedResourcesSummary(existing) : ''}
+
           <!-- REMARKS -->
           <div class="mt-4">
             <label class="ef-label">Remarks</label>
@@ -154,15 +170,45 @@ export function mpOpenTaskForm(editId) {
   setTimeout(() => document.getElementById('mpt_name')?.focus(), 100);
 }
 
+// Read-only summary of material / equipment / tools planned for a task in the
+// Planning module — shown in the micro-plan form so the carried-over
+// requirements are visible.
+function _plannedResourcesSummary(task) {
+  if (!task) return '';
+  const rm = id => (state.rawMaterials || []).find(r => r.id === id);
+  const mats = (state.taskMaterials || []).filter(m => m.taskId === task.id);
+  const eqs  = (state.taskEquipment || []).filter(e => e.taskId === task.id);
+  const tools = task.toolsReq || [];
+  if (!mats.length && !eqs.length && !tools.length) return '';
+  const chip = (txt, bg, col) => `<span style="display:inline-block;background:${bg};color:${col};font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;margin:2px 4px 2px 0;">${_esc(txt)}</span>`;
+  let h = '<div class="mt-4 p-3 rounded-lg" style="background:#f6faf8;border:1px solid #e6ece8;">';
+  h += '<div class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">📋 Carried over from Planning</div>';
+  if (mats.length) h += '<div class="mb-1"><span class="text-[10px] text-slate-400">Material:</span> ' + mats.map(m => chip(((rm(m.materialId)?.name) || m.materialName || '—') + ' · ' + (m.qtyRequired || 0) + (m.fromRecipe ? ' (recipe)' : ''), '#ecfdf5', '#047857')).join('') + '</div>';
+  if (eqs.length) h += '<div class="mb-1"><span class="text-[10px] text-slate-400">Equipment:</span> ' + eqs.map(e => chip((state.equipmentList || []).find(x => x.id === e.equipmentId)?.name || '—', '#f5f3ff', '#6d28d9')).join('') + '</div>';
+  if (tools.length) h += '<div><span class="text-[10px] text-slate-400">Tools:</span> ' + tools.map(t => chip(((rm(t.toolId)?.name) || '—') + (t.qty ? ' · ' + t.qty : ''), '#faf6ea', '#92700a')).join('') + '</div>';
+  h += '</div>';
+  return h;
+}
+
 function _labourReqRowHtml(idx, trades, selTrade, count, hrs) {
-  return `<div class="flex gap-2 items-center mb-2" id="mptLR_${idx}">
-    <select class="mptLR_trade border rounded px-2 py-1.5 text-xs flex-1">
-      <option value="">Select Trade</option>
-      ${trades.map(t => `<option value="${t}" ${t === selTrade ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}
-    </select>
-    <input type="number" class="mptLR_count border rounded px-2 py-1.5 text-xs w-16" min="1" value="${count || 1}" placeholder="Qty" title="Number of workers">
-    <input type="number" class="mptLR_hrs border rounded px-2 py-1.5 text-xs w-16" min="1" max="12" value="${hrs || 8}" placeholder="Hrs" title="Hours per day">
-    <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-sm font-bold px-1" title="Remove">&times;</button>
+  const sel = (selTrade || '').toLowerCase();
+  return `<div class="flex gap-2 items-end mb-2" id="mptLR_${idx}">
+    <div style="flex:1;">
+      <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Trade</div>
+      <select class="mptLR_trade border rounded px-2 py-1.5 text-xs w-full">
+        <option value="">Select Trade</option>
+        ${trades.map(t => `<option value="${t}" ${t.toLowerCase() === sel ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div style="width:74px;">
+      <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Workers</div>
+      <input type="number" class="mptLR_count border rounded px-2 py-1.5 text-xs w-full" min="1" value="${count || 1}" placeholder="No." title="Number of workers required">
+    </div>
+    <div style="width:80px;">
+      <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Hours/day</div>
+      <input type="number" class="mptLR_hrs border rounded px-2 py-1.5 text-xs w-full" min="1" max="12" value="${hrs || 8}" placeholder="Hrs" title="Hours each worker works per day">
+    </div>
+    <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-base font-bold px-1 pb-1.5" title="Remove">&times;</button>
   </div>`;
 }
 
