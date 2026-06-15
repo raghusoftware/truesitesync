@@ -212,6 +212,22 @@ function _renderPartyInfoCard(id, type) {
     </div>`;
 }
 
+/** Prompt to edit a party's payment terms (credit days) and log any change. */
+function _editPartyTerms(party, kind) {
+  const cur = party.paymentTermsDays != null ? party.paymentTermsDays : '';
+  const label = kind === 'vendor' ? 'Payment terms — days they give YOU to pay:' : 'Payment terms — days you give this client to pay:';
+  const s = prompt(label, cur);
+  if (s === null) return; // cancelled — leave unchanged
+  const nd = s.trim() === '' ? null : Math.max(0, parseInt(s) || 0);
+  const prev = party.paymentTermsDays != null ? party.paymentTermsDays : null;
+  if (nd === prev) return;
+  if (!Array.isArray(party.termsHistory)) party.termsHistory = [];
+  let reason = '';
+  if (prev != null && nd != null) reason = prompt(`Terms changing ${prev} → ${nd} days. Reason? (optional)`, '') || '';
+  party.termsHistory.push({ date: new Date().toISOString(), from: prev, to: nd, reason: reason || (prev == null ? 'Terms set' : 'Terms changed') });
+  party.paymentTermsDays = nd;
+}
+
 export function _editParty(id, type) {
   if (type === 'Client') {
     const c = state.clients.find(x => x.id === id);
@@ -227,6 +243,7 @@ export function _editParty(id, type) {
     if (addr !== null) c.address = addr;
     const email = prompt('Email:', c.email || '');
     if (email !== null) c.email = email;
+    _editPartyTerms(c, 'client');
     saveAllData();
     showToast('Client updated', 'success');
   } else if (type === 'Vendor') {
@@ -241,6 +258,7 @@ export function _editParty(id, type) {
     if (gst !== null) v.gst = gst;
     const addr = prompt('Address:', v.address || '');
     if (addr !== null) v.address = addr;
+    _editPartyTerms(v, 'vendor');
     saveAllData();
     showToast('Vendor updated', 'success');
   } else if (type === 'Labour') {

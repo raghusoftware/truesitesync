@@ -49,6 +49,8 @@ export function openClientModal(editId) {
   _setCf('modalClientEmail', c ? c.email : '');
   _setCf('modalClientGst', c ? c.gst : '');
   _setCf('modalClientPan', c ? c.pan : '');
+  _setCf('modalClientTerms', c && c.paymentTermsDays != null ? c.paymentTermsDays : '');
+  _setCf('modalClientCreditLimit', c && c.creditLimit ? c.creditLimit : '');
   _setCf('modalClientAddr', c ? c.address : '');
   const t = document.getElementById('clientModalTitle'); if (t) t.textContent = c ? 'Edit Client' : 'Add Client';
   document.getElementById('clientModal').classList.remove('hidden');
@@ -58,17 +60,34 @@ export function saveClient() {
   const name = _cf('modalClientName');
   if (!name) { showToast('Client name is required', 'error'); return; }
   const editId = _cf('modalClientId');
+  const termsRaw = (_cf('modalClientTerms') || '').toString().trim();
+  const paymentTermsDays = termsRaw === '' ? null : Math.max(0, parseInt(termsRaw) || 0);
+  const creditLimit = parseFloat(_cf('modalClientCreditLimit')) || 0;
   const data = {
     name,
     contact: _cf('modalClientContact'), phone: _cf('modalClientPhone'), email: _cf('modalClientEmail'),
     gst: _cf('modalClientGst').toUpperCase(), pan: _cf('modalClientPan').toUpperCase(), address: _cf('modalClientAddr'),
+    paymentTermsDays, creditLimit,
   };
   let createdRec = null;
   if (editId) {
     const c = state.clients.find(x => x.id === editId);
-    if (c) Object.assign(c, data);
+    if (c) {
+      // Record a change-of-terms entry if the credit days actually changed.
+      const prev = c.paymentTermsDays;
+      if (paymentTermsDays != null && prev != null && paymentTermsDays !== prev) {
+        const reason = (typeof window !== 'undefined' && window.prompt)
+          ? (window.prompt(`Payment terms changing from ${prev} to ${paymentTermsDays} days. Reason? (optional)`, '') || '')
+          : '';
+        if (!Array.isArray(c.termsHistory)) c.termsHistory = [];
+        c.termsHistory.push({ date: new Date().toISOString(), from: prev, to: paymentTermsDays, reason });
+        data.termsHistory = c.termsHistory;
+      }
+      Object.assign(c, data);
+    }
   } else {
     createdRec = { id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() };
+    if (paymentTermsDays != null) createdRec.termsHistory = [{ date: createdRec.createdAt, from: null, to: paymentTermsDays, reason: 'Initial terms at registration' }];
     state.clients.push(createdRec);
   }
   saveAllData();

@@ -1410,17 +1410,22 @@ export function openVendorModal() {
   document.getElementById('modalVenName').value = '';
   document.getElementById('modalVenContact').value = '';
   document.getElementById('modalVenGST').value = '';
+  const vt = document.getElementById('modalVenTerms'); if (vt) vt.value = '';
   document.getElementById('modalVenAddress').value = '';
 }
 
 export function saveVendor() {
   const name = document.getElementById('modalVenName').value;
   if (!name) return showToast('Name Required', 'error');
+  const _vtRaw = (document.getElementById('modalVenTerms')?.value || '').toString().trim();
+  const _vTerms = _vtRaw === '' ? null : Math.max(0, parseInt(_vtRaw) || 0);
   const rec = {
     id: 'v_' + Date.now(), name,
     contact: document.getElementById('modalVenContact').value,
     gst: document.getElementById('modalVenGST').value.toUpperCase(),
     address: document.getElementById('modalVenAddress').value,
+    paymentTermsDays: _vTerms,
+    termsHistory: _vTerms != null ? [{ date: new Date().toISOString(), from: null, to: _vTerms, reason: 'Initial terms at registration' }] : [],
     projectId: state.currentProjectId || undefined
   };
   state.vendors.push(rec);
