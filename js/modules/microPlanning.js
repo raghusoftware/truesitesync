@@ -154,6 +154,23 @@ export function mpOpenTaskForm(editId) {
           <!-- PLANNED RESOURCES (carried over from the Planning module) -->
           ${existing ? _plannedResourcesSummary(existing) : ''}
 
+          <!-- ADDITIONAL MATERIAL (beyond the plan) -->
+          <div class="mt-5 border-t pt-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="font-bold text-sm text-slate-800">Additional Material <span class="text-[10px] font-medium text-slate-400">(beyond the plan)</span></h4>
+              <button onclick="_mpAddMatRow()" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-200">+ Add Material</button>
+            </div>
+            <div id="mptMatRows">
+              ${(existing?.extraMaterials || []).map(m => _mpMatRowHtml(m.materialId, m.qty)).join('')}
+            </div>
+          </div>
+
+          <!-- REASON FOR CHANGES BEYOND PLAN -->
+          <div class="mt-4">
+            <label class="ef-label">Reason for extra labour / material (beyond the plan)</label>
+            <textarea id="mpt_changeReason" class="ef-input ef-textarea" rows="2" placeholder="e.g. 2 extra masons + 10 bags cement needed because slab area increased on site">${_esc(existing?.changeReason || '')}</textarea>
+          </div>
+
           <!-- REMARKS -->
           <div class="mt-4">
             <label class="ef-label">Remarks</label>
@@ -212,6 +229,21 @@ function _labourReqRowHtml(idx, trades, selTrade, count, hrs) {
   </div>`;
 }
 
+// Additional-material row (extra material added in micro-plan, beyond planning)
+function _mpMatRowHtml(matId, qty) {
+  const opts = (state.rawMaterials || []).filter(m => m.type !== 'Tools')
+    .map(m => `<option value="${m.id}" ${m.id === matId ? 'selected' : ''}>${_esc(m.name)}${m.unit ? ' (' + m.unit + ')' : ''}</option>`).join('');
+  return `<div class="flex gap-2 items-center mb-2">
+    <select class="mptMat_id border rounded px-2 py-1.5 text-xs flex-1"><option value="">Select Material</option>${opts}</select>
+    <input type="number" class="mptMat_qty border rounded px-2 py-1.5 text-xs w-20" min="0" step="any" value="${qty || ''}" placeholder="Qty">
+    <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-base font-bold px-1" title="Remove">&times;</button>
+  </div>`;
+}
+window._mpAddMatRow = function() {
+  const c = document.getElementById('mptMatRows');
+  if (c) c.insertAdjacentHTML('beforeend', _mpMatRowHtml('', ''));
+};
+
 let _labourRowIdx = 10;
 export function mpAddLabourRow() {
   const c = document.getElementById('mptLabourRows');
@@ -248,6 +280,14 @@ export function mpSaveTask(editId) {
   // Build requiredSkills from labour reqs
   const requiredSkills = labourReqs.map(lr => lr.trade);
 
+  // Additional material added in micro-plan (beyond what planning specified)
+  const extraMaterials = [];
+  document.querySelectorAll('#mptMatRows > div').forEach(row => {
+    const materialId = row.querySelector('.mptMat_id')?.value;
+    const qty = parseFloat(row.querySelector('.mptMat_qty')?.value) || 0;
+    if (materialId && qty > 0) extraMaterials.push({ materialId, qty });
+  });
+
   const pid = _pid();
   const data = {
     name,
@@ -258,6 +298,8 @@ export function mpSaveTask(editId) {
     dependsOn: document.getElementById('mpt_dep')?.value || '',
     quantity: parseFloat(document.getElementById('mpt_qty')?.value) || 0,
     remarks: document.getElementById('mpt_remarks')?.value.trim() || '',
+    changeReason: document.getElementById('mpt_changeReason')?.value.trim() || '',
+    extraMaterials,
     labourReqs,
     requiredSkills,
     projectId: pid,
