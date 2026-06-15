@@ -1071,9 +1071,9 @@ function _mpRenderSavedPlans() {
     <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Workers</th>
     <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Actions</th>
   </tr></thead><tbody>
-  ${plans.map(p => `<tr class="hover:bg-slate-50 cursor-pointer" onclick="_mpViewSavedPlan('${p.id}')">
+  ${plans.map(p => `<tr class="hover:bg-slate-50 cursor-pointer" data-planid="${p.id}" onclick="_mpViewSavedPlan('${p.id}')">
     <td class="px-3 py-2 font-bold text-slate-800">${new Date(p.generated).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</td>
-    <td class="px-3 py-2 text-slate-500">${p.horizon.start} → ${p.horizon.end}</td>
+    <td class="px-3 py-2 text-slate-500">${p.horizon.start} → ${p.horizon.end}${p.outsideLabour ? ` <span class="text-[8px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full" title="${_esc(p.outsideLabour)}">+ OUTSIDE LABOUR</span>` : ''}</td>
     <td class="px-3 py-2 text-center"><span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${p.mode === 'weekly' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}">${(p.mode || 'daily').toUpperCase()}</span></td>
     <td class="px-3 py-2 text-center font-bold">${p.days}</td>
     <td class="px-3 py-2 text-center">${p.workerCount || 0}</td>
@@ -1089,16 +1089,26 @@ function _mpRenderSavedPlans() {
 window._mpViewSavedPlan = function(planId) {
   const p = (state.savedPlans || []).find(x => x.id === planId);
   if (!p) return;
-  _mpDecomposed = p.decomposed; _mpAllocations = p.allocations; _mpMode = p.mode || 'daily';
+  // Ensure the Plan section is visible, then render ONLY this plan's sheets.
+  if (typeof window._openMpSection === 'function') window._openMpSection('plan');
+  // Highlight the selected row, clear the others.
+  document.querySelectorAll('#mpSavedPlansList tr[data-planid]').forEach(tr => {
+    tr.style.background = tr.getAttribute('data-planid') === planId ? '#ecfdf5' : '';
+  });
+  _mpDecomposed = p.decomposed || {}; _mpAllocations = p.allocations || {}; _mpMode = p.mode || 'daily';
   const allWorkers = _getProjectWorkers();
   const sheets = document.getElementById('mpDailySheets');
   if (!sheets) return;
+  sheets.innerHTML = '';   // clear any previously-open plan first — show one plan only
   const workDays = Object.keys(_mpDecomposed).filter(d => (_mpDecomposed[d] || []).length).sort();
-  const banner = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-[11px] text-blue-700 font-medium">📋 Plan generated ${new Date(p.generated).toLocaleString('en-IN')} · ${p.horizon.start} → ${p.horizon.end}</div>`;
+  const header = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="font-size:12px;font-weight:700;color:#1e40af;">📋 Viewing plan · ${new Date(p.generated).toLocaleString('en-IN')} · ${p.horizon.start} → ${p.horizon.end} · ${workDays.length} day${workDays.length === 1 ? '' : 's'}</div>
+      <button onclick="document.getElementById('mpDailySheets').innerHTML=''; document.querySelectorAll('#mpSavedPlansList tr[data-planid]').forEach(t=>t.style.background='');" style="font-size:11px;font-weight:700;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:7px;padding:4px 12px;cursor:pointer;">✕ Close</button>
+    </div>`;
   if (_mpMode === 'weekly') {
-    sheets.innerHTML = banner + _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, p.horizon.start, p.horizon.end);
+    sheets.innerHTML = header + _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, p.horizon.start, p.horizon.end);
   } else {
-    let h = banner;
+    let h = header;
     workDays.forEach(day => {
       const chunks = _mpDecomposed[day];
       const conflicts = detectConflicts(chunks, _mpAllocations[day], allWorkers.filter(w => _isWorkerAvailable(w, day)));
@@ -1132,6 +1142,41 @@ window._openMpSection = function(section) {
 // ─────────────────────────────────────────────────────
 //  GENERATE PLAN (Daily or Weekly)
 // ─────────────────────────────────────────────────────
+let _mpOutsideLabour = null; // {confirmed:true, note} once the user arranges outside labour
+
+/** Labour shortage gate — shown when required labour exceeds availability. */
+function _showLabourGate(messages) {
+  document.getElementById('mpLabourGate')?.remove();
+  const list = messages.slice(0, 12).map(m => `<li style="margin:3px 0;">${_esc(m)}</li>`).join('');
+  const more = messages.length > 12 ? `<li style="list-style:none;color:#92400e;">…and ${messages.length - 12} more</li>` : '';
+  const html = `<div id="mpLabourGate" class="ef-overlay" style="z-index:299999" onclick="if(event.target===this)this.remove()">
+      <div class="ef-modal" style="max-width:500px;">
+        <div class="ef-header" style="background:linear-gradient(135deg,#b45309,#d97706)">
+          <h3 class="ef-title" style="color:#fff">⚠ Not enough labour to execute</h3>
+          <button onclick="document.getElementById('mpLabourGate').remove()" class="ef-close" style="color:#fff">&times;</button>
+        </div>
+        <div class="ef-body">
+          <p style="font-size:13px;color:#475569;margin-bottom:8px;">This plan can't be generated as-is — the required labour exceeds the workers available in this project:</p>
+          <ul style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px 10px 28px;margin-bottom:14px;max-height:160px;overflow:auto;">${list}${more}</ul>
+          <label class="ef-label">Do you have another source of labour (outside / contract)?</label>
+          <textarea id="mpOutsideNote" class="ef-input ef-textarea" rows="2" placeholder="e.g. 6 masons from XYZ contractor arranged for these days"></textarea>
+          <p style="font-size:11px;color:#94a3b8;margin-top:6px;">Add labour in the <b>Labour</b> module for a permanent fix, or confirm outside labour to proceed.</p>
+        </div>
+        <div class="ef-footer">
+          <button onclick="document.getElementById('mpLabourGate').remove()" class="ef-btn-cancel">Cancel — don't generate</button>
+          <button onclick="window._mpConfirmOutsideLabour()" class="ef-btn-save">Arrange outside labour &amp; generate</button>
+        </div>
+      </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(() => document.getElementById('mpOutsideNote')?.focus(), 100);
+}
+window._mpConfirmOutsideLabour = function() {
+  const note = document.getElementById('mpOutsideNote')?.value.trim() || 'Outside/contract labour arranged';
+  _mpOutsideLabour = { confirmed: true, note };
+  document.getElementById('mpLabourGate')?.remove();
+  mpGenerate(); // re-run — gate is now bypassed and the note is recorded on the plan
+};
+
 export function mpGenerate() {
   _mpHorizonStart = document.getElementById('mpStartDate')?.value || _mpHorizonStart;
   _mpHorizonEnd = document.getElementById('mpEndDate')?.value || _mpHorizonEnd;
@@ -1182,6 +1227,22 @@ export function mpGenerate() {
     _mpAllocations[day] = allocateLabor(chunks, availWorkers, day);
   });
 
+  // ── LABOUR AVAILABILITY GATE ──
+  // If required labour exceeds the workers available on any day, the plan can't
+  // be executed. Block generation and ask whether outside/contract labour will
+  // be arranged. Only proceed once the user confirms an outside source.
+  const shortages = [];
+  workDays.forEach(day => {
+    const avail = allWorkers.filter(w => _isWorkerAvailable(w, day));
+    detectConflicts(_mpDecomposed[day], _mpAllocations[day], avail)
+      .filter(c => c.type === 'SHORTAGE')
+      .forEach(c => shortages.push(`${day}: ${c.message}`));
+  });
+  if (shortages.length && !(_mpOutsideLabour && _mpOutsideLabour.confirmed)) {
+    _showLabourGate([...new Set(shortages)]);
+    return; // do not render or save until resolved
+  }
+
   if (_mpMode === 'weekly') {
     sheetsContainer.innerHTML = _renderWeeklyView(_mpDecomposed, _mpAllocations, allWorkers, _mpHorizonStart, _mpHorizonEnd);
   } else {
@@ -1206,21 +1267,25 @@ export function mpGenerate() {
   const totalWorkers = new Set();
   Object.values(_mpAllocations).forEach(a => (a.assignments || []).forEach(x => totalWorkers.add(x.workerId)));
   state.savedPlans.push({
-    id: 'plan_' + Date.now(),
+    id: 'plan_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
     projectId: _pid(),
     generated: new Date().toISOString(),
     horizon: { start: _mpHorizonStart, end: _mpHorizonEnd },
     days: workDays.length, mode: _mpMode,
     workerCount: totalWorkers.size,
+    outsideLabour: (_mpOutsideLabour && _mpOutsideLabour.confirmed) ? (_mpOutsideLabour.note || 'Outside/contract labour arranged') : null,
     decomposed: JSON.parse(JSON.stringify(_mpDecomposed)),
     allocations: JSON.parse(JSON.stringify(_mpAllocations))
   });
+  _mpOutsideLabour = null; // reset so the next generation re-checks availability
   // cap history to last 50
   if (state.savedPlans.length > 50) state.savedPlans = state.savedPlans.slice(-50);
   saveAllData();
-  if (typeof window._openMpSection === 'function') window._openMpSection('plan');
   _mpRenderSavedPlans();
-  showToast(`Plan saved — ${workDays.length} day${workDays.length > 1 ? 's' : ''} (${_mpMode} view)`, 'success');
+  // Spec: after generating, return to the Micro Planning dashboard. The plan is
+  // saved — the user opens "Saved Plans" to view it (each row opens only itself).
+  if (typeof window._openMpSection === 'function') window._openMpSection(null);
+  showToast(`✅ Plan generated — ${workDays.length} day${workDays.length > 1 ? 's' : ''}. Open "Saved Plans" to view it.`, 'success');
 }
 
 /** Update task completion % from the daily sheet — saved to the task record */
