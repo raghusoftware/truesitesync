@@ -37,7 +37,10 @@ export function renderRecipeView() {
   const items = _recipeItemsMap(pid);
   const itemList = Object.values(items);
   const recipeCount = state.recipes[cId] ? Object.keys(state.recipes[cId]).length : 0;
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.projectId === pid);
+  // Match the editor's logic — every non-Tools raw material, regardless of
+  // projectId/type, since purchased materials often lack a projectId and types
+  // legitimately vary (Cement / Steel / Aggregate / Material).
+  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
 
   container.innerHTML = `
     ${!itemList.length ? `
@@ -209,8 +212,9 @@ function _buildIngredientRow(data, materials, idx) {
 }
 
 export function recipeAddRow() {
-  const pid = state.currentProjectId || state.projects?.[0]?.id;
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.projectId === pid && r.type === 'Raw Material');
+  // Same logic as recipeOpenEditor — every non-Tools raw material, so the
+  // "+ Add Material" button actually offers usable ingredients.
+  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
   const tbody = document.getElementById('recipeTableBody');
   if (tbody) tbody.insertAdjacentHTML('beforeend', _buildIngredientRow(null, projectMaterials, tbody.rows.length));
 }

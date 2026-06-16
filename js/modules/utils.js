@@ -16,8 +16,14 @@ export function showToast(msg, type = 'success') {
 
 /** @returns {Array<{id:string, name:string, type:string}>} */
 export function getAllLocations() {
-  const combined = state.locations.map(l => ({ id: l.id, name: l.name, type: l.type }));
-  state.clients.forEach(c => combined.push({ id: c.id, name: c.projectName + ' (' + c.name + ')', type: 'Site' }));
+  // Real warehouse/site locations (state.locations).
+  const combined = (state.locations || []).map(l => ({ id: l.id, name: l.name, type: l.type }));
+  // Legacy: clients used to double as sites. Only include those that still have
+  // a usable projectName label; everything else just produced 'undefined (...)'
+  // phantoms in inventory/transfer/purchase dropdowns. Filter them out.
+  (state.clients || []).forEach(c => {
+    if (c.projectName) combined.push({ id: c.id, name: c.projectName + ' (' + c.name + ')', type: 'Site' });
+  });
   return combined;
 }
 

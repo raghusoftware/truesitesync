@@ -1585,8 +1585,19 @@ function _materialSOH(matId, siteId) {
 function _invSiteOptions(selId) {
   const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
   let opts = '';
-  if (proj?.boqs?.length) proj.boqs.forEach(g => { opts += `<option value="${g.id}" ${selId===g.id?'selected':''}>${(g.woNumber?g.woNumber+' — ':'')+(g.name||g.type)}</option>`; });
-  getAllLocations().forEach(l => { opts += `<option value="${l.id}" ${selId===l.id?'selected':''}>${l.name}</option>`; });
+  if (proj?.boqs?.length) proj.boqs.forEach(g => {
+    // Guard against a literal "undefined" string stored in g.woNumber from old
+    // saves; fall back to a clean WO/BOQ label so the dropdown never shows
+    // "undefined — name".
+    const wo = (g.woNumber && g.woNumber !== 'undefined') ? g.woNumber : '';
+    const nm = g.name || g.type || 'BOQ';
+    const label = wo ? `${wo} — ${nm}` : nm;
+    opts += `<option value="${g.id}" ${selId===g.id?'selected':''}>${label}</option>`;
+  });
+  getAllLocations().forEach(l => {
+    if (!l.name) return; // never emit blank/undefined entries
+    opts += `<option value="${l.id}" ${selId===l.id?'selected':''}>${l.name}</option>`;
+  });
   return opts || '<option value="main">Main Site</option>';
 }
 function _invSiteName(id) {
