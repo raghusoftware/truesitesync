@@ -199,8 +199,9 @@ function _listShell(title, addLabel, addFn, rowsHtml, count) {
     <div style="display:flex;flex-direction:column;gap:10px;">${rowsHtml || '<div style="text-align:center;padding:40px;color:#94a3b8;">No records yet.</div>'}</div>`;
 }
 function _photoBtn(key, r) { return r.photo ? `<button onclick="event.stopPropagation();_exLightbox('${key}','${r.id}')" title="Photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : ''; }
+function _pdfBtn(key, r) { return key === 'dailyProgress' ? `<button onclick="event.stopPropagation();window._exDprPdf('${r.id}')" title="Download PDF" style="border:none;background:#eff6ff;color:#1d4ed8;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">PDF</button>` : ''; }
 function _rowActions(key, r) {
-  return `<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">${_photoBtn(key, r)}<button onclick="event.stopPropagation();_exDel('${key}','${r.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button></div>`;
+  return `<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">${_pdfBtn(key, r)}${_photoBtn(key, r)}<button onclick="event.stopPropagation();_exDel('${key}','${r.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button></div>`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -312,6 +313,84 @@ window._exPourForm = function (id) {
     <button onclick="_exPourSave('${id || ''}')" style="width:100%;padding:11px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${p ? 'Save Pour Card' : 'Create Pour Card'}</button>
   </div>`);
 };
+// ── Daily Progress Report PDF ──
+window._exDprPdf = function (id) {
+  try {
+    const d = (state.dailyProgress || []).find(x => x.id === id);
+    if (!d) return showToast('DPR not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const proj = (state.projects || []).find(x => x.id === d.projectId) || {};
+    const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
+    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+    const ml = 14, mr = 14;
+    const accent = [14, 165, 233]; // sky-500 — matches the on-screen DPR colour
+
+    let y = (typeof window.getSimpleHeaderForPDF === 'function') ? window.getSimpleHeaderForPDF(doc, { ml, mr }) : 16;
+    doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(ml, y, pw - ml - mr, 9, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('DAILY PROGRESS REPORT', pw / 2, y + 6.2, { align: 'center' });
+    y += 13; doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Project: ${proj.name || '—'}    |    Date: ${d.date || '—'}    |    Weather: ${d.weather || '—'}`, ml, y);
+    y += 3;
+
+    const fld = (l, v) => [l, (v === undefined || v === null || v === '') ? '—' : String(v)];
+    const skilled = _num(d.manpowerSkilled), unskilled = _num(d.manpowerUnskilled);
+    const pairs = [
+      fld('Area / Location', d.area),
+      fld('Equipment Deployed', d.equipment),
+      fld('Skilled Workers', skilled),
+      fld('Unskilled Workers', unskilled),
+      fld('Total Workers', skilled + unskilled),
+      fld('Related Task', _taskName(d.taskId)),
+      fld('BOQ Item', _boqLabel ? _boqLabel(d.boqRef) : (d.boqRef || '—')),
+      fld('Hindrances / Delays', d.hindrance),
+    ];
+    const rows = [];
+    for (let i = 0; i < pairs.length; i += 2) rows.push([pairs[i][0], pairs[i][1], pairs[i + 1] ? pairs[i + 1][0] : '', pairs[i + 1] ? pairs[i + 1][1] : '']);
+    doc.autoTable({
+      startY: y + 2, body: rows, theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2.2 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38, fillColor: [240, 249, 255] }, 1: { cellWidth: 58 }, 2: { fontStyle: 'bold', cellWidth: 38, fillColor: [240, 249, 255] }, 3: { cellWidth: 'auto' } },
+      margin: { left: ml, right: mr },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(3, 105, 161);
+    doc.text('Work Done Today', ml, y); doc.setTextColor(0); y += 4;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    const workLines = doc.splitTextToSize(d.workDone || '—', pw - ml - mr);
+    workLines.forEach((ln, i) => doc.text(ln, ml, y + i * 4.5));
+    y += workLines.length * 4.5 + 4;
+
+    // Embed the site photo if present (DPR stores it as a base64 data URL).
+    if (d.photo && typeof d.photo === 'string' && d.photo.startsWith('data:image')) {
+      try {
+        const imgW = 80, imgH = 60;
+        if (y + imgH > ph - 30) { doc.addPage(); y = 16; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Site Photo:', ml, y); y += 3;
+        doc.addImage(d.photo, 'JPEG', ml, y, imgW, imgH);
+        y += imgH + 6;
+      } catch (e) { console.warn('DPR PDF photo embed failed:', e); }
+    }
+
+    const sy = Math.max(y + 10, ph - 32);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    const sigW = (pw - ml - mr) / 3;
+    [['Prepared By', ''], ['Site Engineer', ''], ['Project Manager', '']].forEach(([lbl], i) => {
+      const x = ml + i * sigW;
+      doc.line(x, sy, x + sigW - 12, sy);
+      doc.text(lbl, x, sy + 5);
+    });
+
+    mobileSavePDF(doc, `DPR_${(d.date || 'date').replace(/[\\/]/g, '-')}.pdf`);
+    showToast('DPR PDF downloaded');
+  } catch (err) {
+    console.error('DPR PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+};
+
 // ── Printable Concrete Pour Card PDF ──
 window._exPourPDF = function (id) {
   try {

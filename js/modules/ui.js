@@ -1526,10 +1526,11 @@ export function renderLiveInventory() {
   tbody.innerHTML = '';
   const ledgerBody = document.getElementById('inventoryLedgerBody');
   ledgerBody.innerHTML = '';
-  if (!siteId) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">Select a location/site to view live inventory.</td></tr>'; return; }
   let stockMap = {};
   state.rawMaterials.forEach(rm => { stockMap[rm.id] = { rm, in: 0, out: 0, consume: 0 }; });
-  let siteTx = state.inventoryTx.filter(tx => tx.siteId === siteId);
+  // siteId empty → show everything across all sites (so purchases land in the view
+  // even before the user picks a site). The dropdown's first option is "All sites".
+  let siteTx = (state.inventoryTx || []).filter(tx => !siteId || tx.siteId === siteId);
   siteTx.forEach(tx => {
     if (!stockMap[tx.rawMaterialId]) return;
     if (tx.type === 'IN') stockMap[tx.rawMaterialId].in += tx.qty;

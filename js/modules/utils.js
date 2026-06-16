@@ -77,7 +77,12 @@ export function populateDropdowns() {
     const el = document.getElementById(id);
     if (el) {
       const val = el.value;
-      el.innerHTML = '<option value="">-- Select Site / Location --</option>';
+      // The inventory dropdown defaults to "All sites" so purchases land in the
+      // view without forcing the user to pick a site first; purSite keeps its
+      // "Select" prompt because picking a site is required to file a purchase.
+      el.innerHTML = id === 'invSiteSelect'
+        ? '<option value="">All sites</option>'
+        : '<option value="">-- Select Site / Location --</option>';
       allLocs.forEach(l => {
         el.innerHTML += `<option value="${l.id}">${l.name} (${l.type})</option>`;
       });

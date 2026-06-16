@@ -60,14 +60,14 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.33';
+} from './modules/ui.js?v=1.4.34';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
 import { renderIssues } from './modules/issues.js?v=1.3.21';
-import { renderExecution } from './modules/execution.js?v=1.4.4';
+import { renderExecution } from './modules/execution.js?v=1.4.5';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.36';
 import './modules/mobileShell.js?v=1.4.0';
@@ -80,7 +80,7 @@ import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompany
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
-import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.0.1';
+import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.0.2';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.0.2';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js';

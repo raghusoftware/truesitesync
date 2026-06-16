@@ -348,16 +348,43 @@ export function savePanelPurchaseBill() {
   if (existing) {
     const idx = state.vendorMaterials.findIndex(m => m.id === existing.id);
     if (idx >= 0) state.vendorMaterials[idx] = rec;
-    // Rebuild inventory entries tied to this bill (avoid duplicates on edit).
+    // Rebuild inventory entries + auto-GRN entries tied to this bill (avoid duplicates on edit).
     state.inventoryTx = (state.inventoryTx || []).filter(tx => tx.refBillId !== billId);
+    state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== billId);
   } else {
     state.vendorMaterials.push(rec);
   }
-  purItems.forEach(it => {
+  // Tag the bill as "Billed" so any existing matching unbilled GRNs flip too.
+  rec.billed = true;
+  // Cross-module wiring:
+  //  - One inventoryTx per line (visible in the Inventory view; stamped with projectId so the view's project scope doesn't hide it).
+  //  - One auto-GRN per line (so material received via Purchase shows up in the GRN list too — they're one truth, not two).
+  if (!state.grnRecords) state.grnRecords = [];
+  const projectId = state.currentProjectId || rec.projectId || '';
+  purItems.forEach((it, i) => {
+    const txId = 'tx_in_' + Date.now() + '_' + i + Math.random().toString(36).substr(2, 4);
     state.inventoryTx.push({
-      id: 'tx_in_' + Date.now() + Math.random().toString(36).substr(2, 5),
+      id: txId,
       date, siteId, type: 'IN', rawMaterialId: it.rawMatId,
-      qty: it.qty, rate: it.netRate != null ? it.netRate : it.rate, ref: `Purchase Bill: ${billNo}`, refBillId: billId
+      qty: it.qty, rate: it.netRate != null ? it.netRate : it.rate,
+      ref: `Purchase Bill: ${billNo}`, refBillId: billId,
+      projectId
+    });
+    // Auto-GRN — keeps GRN as the single physical-receipt record even when entry
+    // started in the Purchase module. refBillId links them so an edit/delete on
+    // the bill rebuilds both sides cleanly.
+    state.grnRecords.push({
+      id: 'grn_pb_' + Date.now() + '_' + i,
+      grnNo: `${billNo}-${i + 1}`,
+      date, receivedAt: new Date().toISOString(),
+      siteId, matId: it.rawMatId, category: '', qty: it.qty,
+      expectedQty: 0, rate: it.netRate != null ? it.netRate : it.rate, amount: it.amount,
+      challanNo: billNo, supplierId: vendorId, vehicleNo: '', driver: '',
+      projectId,
+      challanPhoto: null, condPhoto: null,
+      billed: true, // billed at source — it came from a purchase bill
+      qcStatus: 'Accepted',
+      refBillId: billId, source: 'purchase'
     });
   });
 

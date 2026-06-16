@@ -131,7 +131,10 @@ export function recipeOpenEditor(itemCode) {
   if (!item) { showToast('Item not found', 'error'); return; }
 
   const recipe = state.recipes[cId]?.[itemCode] || { ingredients: [] };
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.projectId === pid && r.type === 'Raw Material');
+  // Show every non-Tools raw material — project-scoping was too strict (materials
+  // added via Purchase/Master often have no projectId) and 'Raw Material' was
+  // narrower than what users actually create (Cement, Steel, Aggregate, etc.).
+  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
 
   // Build ingredient rows
   let ingredientRows = '';
