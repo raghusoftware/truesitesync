@@ -90,6 +90,11 @@ export function deleteInvoiceFromLedger(id) {
 }
 
 export function viewInvoiceFromLedger(id) {
+  // Open the full Sale Invoice form prefilled — matches the new ledger Open flow.
+  if (typeof window.openSaleInvoiceForm === 'function') {
+    try { window.openSaleInvoiceForm(id); return; } catch (e) { console.warn('[ledger view]', e); }
+  }
+  // Fallback to the old behaviour if the form isn't loaded.
   window.switchView('billingView');
   showToast('Switched to Billing view. See Invoice History below.', 'success');
 }

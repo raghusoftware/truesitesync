@@ -443,28 +443,79 @@ function _renumberSIRows() {
 // Expose to window for inline onclick
 window._renumberSIRows = _renumberSIRows;
 
-export function openSaleInvoiceForm() {
+export function openSaleInvoiceForm(editId) {
   _populateSIProjectSelect();
   _populateClientSelect('siFormClient');
   const woSel = document.getElementById('siFormWO');
   if (woSel) woSel.innerHTML = '<option value="">-- Select WO/PO --</option>';
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('siFormDate').value = today;
-  document.getElementById('siFormNo').value = 'SI-' + (Date.now() % 100000);
-  const dueEl = document.getElementById('siFormDueDate');
-  if (dueEl) { const d = new Date(); d.setDate(d.getDate() + 30); dueEl.value = d.toISOString().split('T')[0]; }
-  ['siFormPO','siFormPODate','siFormDelivery','siFormNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const projSel = document.getElementById('siFormProject'); if (projSel) projSel.value = '';
-  const idEl = document.getElementById('siFormPOId'); if (idEl) idEl.value = '';
-  const termsEl = document.getElementById('siFormTerms'); if (termsEl) termsEl.value = '';
-  const stateEl = document.getElementById('siFormState'); if (stateEl) stateEl.value = '';
-  const tcsEl = document.getElementById('siFormTCS'); if (tcsEl) tcsEl.value = '0';
-  const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = true;
-  const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = '18';
+
+  // Stash the editing id on the panel so saveSaleInvoiceForm can detect edit mode.
+  const panelEl = document.getElementById('saleInvoiceFormPanel');
+  if (panelEl) panelEl.dataset.editId = editId || '';
+
+  // If editing, prefill EVERY field from the existing invoice. Otherwise defaults.
+  const existing = editId ? (state.saleInvoices || []).find(i => i.id === editId) : null;
+
+  if (existing) {
+    document.getElementById('siFormDate').value = existing.date || today;
+    document.getElementById('siFormNo').value = existing.invoiceNo || ('SI-' + (Date.now() % 100000));
+    const dueEl = document.getElementById('siFormDueDate'); if (dueEl) dueEl.value = existing.dueDate || '';
+    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    setEl('siFormPO', existing.poNo);
+    setEl('siFormPODate', existing.poDate);
+    setEl('siFormDelivery', existing.delivery);
+    setEl('siFormNotes', existing.notes);
+    setEl('siFormProject', existing.projectId);
+    setEl('siFormPOId', '');
+    setEl('siFormTerms', existing.terms);
+    setEl('siFormState', existing.stateOfSupply);
+    setEl('siFormTCS', existing.tcsPct || 0);
+    const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = existing.roundOff !== false;
+    const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = existing.gstPct != null ? existing.gstPct : '18';
+    // Client + WO need the project to repopulate dependent dropdowns first.
+    const clEl = document.getElementById('siFormClient'); if (clEl) clEl.value = existing.clientId || '';
+    try { if (existing.projectId && typeof onSIProjectChange === 'function') onSIProjectChange(); } catch {}
+    const woEl = document.getElementById('siFormWO'); if (woEl && existing.boqGroupId) woEl.value = existing.boqGroupId;
+    setSIPayMode(existing.payType || 'Credit');
+  } else {
+    document.getElementById('siFormDate').value = today;
+    document.getElementById('siFormNo').value = 'SI-' + (Date.now() % 100000);
+    const dueEl = document.getElementById('siFormDueDate');
+    if (dueEl) { const d = new Date(); d.setDate(d.getDate() + 30); dueEl.value = d.toISOString().split('T')[0]; }
+    ['siFormPO','siFormPODate','siFormDelivery','siFormNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const projSel = document.getElementById('siFormProject'); if (projSel) projSel.value = '';
+    const idEl = document.getElementById('siFormPOId'); if (idEl) idEl.value = '';
+    const termsEl = document.getElementById('siFormTerms'); if (termsEl) termsEl.value = '';
+    const stateEl = document.getElementById('siFormState'); if (stateEl) stateEl.value = '';
+    const tcsEl = document.getElementById('siFormTCS'); if (tcsEl) tcsEl.value = '0';
+    const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = true;
+    const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = '18';
+    setSIPayMode('Credit');
+  }
+
   const pendingPanel = document.getElementById('siPendingItemsPanel'); if (pendingPanel) pendingPanel.classList.add('hidden');
-  setSIPayMode('Credit');
-  document.getElementById('siFormTableBody').innerHTML = '';
-  addSIFormRow(3);
+
+  // Build the line items table.
+  const tbody = document.getElementById('siFormTableBody');
+  tbody.innerHTML = '';
+  if (existing && Array.isArray(existing.items) && existing.items.length) {
+    addSIFormRow(existing.items.length);
+    Array.from(tbody.rows).forEach((r, i) => {
+      const it = existing.items[i]; if (!it) return;
+      const setF = (sel, v) => { const el = r.querySelector(sel); if (el) el.value = (v == null ? '' : v); };
+      setF('.si-item-name', it.desc);
+      setF('.si-item-hsn', it.hsn);
+      setF('.si-item-qty', it.qty);
+      setF('.si-item-unit', it.unit);
+      setF('.si-item-rate', it.rate);
+      setF('.si-item-disc', it.discPct);
+      setF('.si-item-tax', it.taxPct);
+      setF('.si-item-taxtype', it.taxType || 'CGST_SGST');
+    });
+  } else {
+    addSIFormRow(3);
+  }
   calcSIFormTotal();
   _openFullScreenForm('saleInvoiceFormPanel');
   // Close dropdowns on click outside
@@ -587,7 +638,11 @@ export function saveSaleInvoiceForm() {
     const cl = state.clients.find(c => c.id === clientId);
     clientName = cl ? cl.name : '';
   }
-  const invoiceId = 'si_' + Date.now();
+  // Edit mode if the panel carries an editId (set by openSaleInvoiceForm(editId)).
+  const panelEl = document.getElementById('saleInvoiceFormPanel');
+  const editId = panelEl?.dataset?.editId || '';
+  const existing = editId ? (state.saleInvoices || []).find(i => i.id === editId) : null;
+  const invoiceId = existing ? existing.id : ('si_' + Date.now());
   const rec = {
     id: invoiceId, invoiceNo: document.getElementById('siFormNo').value,
     date: document.getElementById('siFormDate').value, clientId: resolvedClientId || clientId,
@@ -605,12 +660,17 @@ export function saveSaleInvoiceForm() {
     notes: document.getElementById('siFormNotes')?.value || '',
     grossTotal, totalDiscount, taxableAmount, itemTax: totalLineTax,
     gstPct, gstAmount, tcsPct, tcsAmount, roundOff, roundAmt,
-    subtotal: taxableAmount, total: grand, status: 'Active',
-    linkedAbstractIds: [...linkedAbstracts]
+    subtotal: taxableAmount, total: grand, status: existing ? (existing.status || 'Active') : 'Active',
+    linkedAbstractIds: existing ? (existing.linkedAbstractIds || [...linkedAbstracts]) : [...linkedAbstracts]
   };
-  // Save invoice
+  // Save invoice — edit mode replaces the record in place; new mode pushes.
   if (!state.saleInvoices) state.saleInvoices = [];
-  state.saleInvoices.push(rec);
+  if (existing) {
+    const idx = state.saleInvoices.findIndex(i => i.id === existing.id);
+    if (idx >= 0) state.saleInvoices[idx] = rec;
+  } else {
+    state.saleInvoices.push(rec);
+  }
   // ── Business logic: upsert items master & track usage ──
   if (!state.itemsMaster) state.itemsMaster = [];
   items.forEach(item => {
@@ -634,13 +694,20 @@ export function saveSaleInvoiceForm() {
       state.savedPOs.push({ id: 'po_' + Date.now(), poNumber: poNo, date: rec.poDate || '', clientId, amount: grand, createdAt: new Date().toISOString() });
     }
   }
-  // ── Mark linked abstracts as invoiced ──
-  linkedAbstracts.forEach(aId => {
-    const abs = (state.abstracts || []).find(a => a.id === aId);
-    if (abs) { abs.status = 'invoiced'; abs.linkedInvoiceId = invoiceId; }
-  });
+  // ── Mark linked abstracts as invoiced (only on first save, not on edit) ──
+  if (!existing) {
+    linkedAbstracts.forEach(aId => {
+      const abs = (state.abstracts || []).find(a => a.id === aId);
+      if (abs) { abs.status = 'invoiced'; abs.linkedInvoiceId = invoiceId; }
+    });
+  }
+  // Clear edit-mode flag so the next "+ New" opens cleanly.
+  if (panelEl) panelEl.dataset.editId = '';
   saveAllData(); closeFullScreenForm('saleInvoiceFormPanel');
-  showToast('Sale Invoice saved!'); renderSaleInvoices();
+  showToast(existing ? 'Sale Invoice updated!' : 'Sale Invoice saved!');
+  renderSaleInvoices();
+  // Refresh the parties ledger if it's currently showing this client.
+  if (typeof window.renderPartyTransactions === 'function') { try { window.renderPartyTransactions(); } catch {} }
 }
 export function renderSaleInvoices() {
   // Populate filters

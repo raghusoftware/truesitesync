@@ -96,7 +96,16 @@ export function renderPartyTransactions() {
     let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
     // Per-row actions
     const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
-    const editBtn = t._editable ? `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>` : '';
+    // Edit button:
+    //  - Sale invoices open the full Sale Invoice form prefilled (Phase A).
+    //  - Other "editable" rows (paymentsIn / vendorPayments / labourPayments)
+    //    keep the existing prompt-based edit (will be upgraded in Phase B).
+    let editBtn = '';
+    if (t._src === 'saleInvoices') {
+      editBtn = `<button onclick="window.openSaleInvoiceForm && window.openSaleInvoiceForm('${t._id}')" title="Open Sale Invoice form" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Open</button>`;
+    } else if (t._editable) {
+      editBtn = `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>`;
+    }
     const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${tot.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
   });
