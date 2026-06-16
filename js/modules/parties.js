@@ -96,16 +96,18 @@ export function renderPartyTransactions() {
     let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
     // Per-row actions
     const recBtn = `<button onclick="_partyReceipt('${t._src}','${t._id}')" title="Preview / Download receipt" class="text-slate-500 hover:bg-slate-100 px-1.5 py-1 rounded">🧾</button>`;
-    // Edit button:
-    //  - Sale invoices open the full Sale Invoice form prefilled (Phase A).
-    //  - Other "editable" rows (paymentsIn / vendorPayments / labourPayments)
-    //    keep the existing prompt-based edit (will be upgraded in Phase B).
+    // Edit button — each transaction opens in its native form/editor:
+    //   sale invoice -> Sale Invoice form · purchase -> Purchase form ·
+    //   abstract -> Abstract editor · GST invoice -> Invoice view ·
+    //   receipts / vendor / labour payments -> their forms (via _editPartyTx) ·
+    //   salaries -> quick amount/date edit (they're generated from attendance).
+    const ob = (fn, label) => `<button onclick="window.${fn} && window.${fn}('${t._id}')" title="Open ${label}" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">${label}</button>`;
     let editBtn = '';
-    if (t._src === 'saleInvoices') {
-      editBtn = `<button onclick="window.openSaleInvoiceForm && window.openSaleInvoiceForm('${t._id}')" title="Open Sale Invoice form" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Open</button>`;
-    } else if (t._src === 'vendorMaterials') {
-      editBtn = `<button onclick="window.openPurchaseFormPanel && window.openPurchaseFormPanel('${t._id}')" title="Open Purchase Bill form" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Open</button>`;
-    } else if (t._editable) {
+    if (t._src === 'saleInvoices')        editBtn = ob('openSaleInvoiceForm', 'Open');
+    else if (t._src === 'vendorMaterials') editBtn = ob('openPurchaseFormPanel', 'Open');
+    else if (t._src === 'abstracts')       editBtn = ob('openAbstractEditor', 'Edit');
+    else if (t._src === 'invoices')        editBtn = ob('openInvoiceInfo', 'View');
+    else if (t._src === 'labourSalaries' || t._editable) {
       editBtn = `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>`;
     }
     const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
