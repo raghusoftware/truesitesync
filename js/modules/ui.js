@@ -3312,15 +3312,21 @@ export function downloadMusterCard(labourId, startDate, endDate) {
 // ==========================================
 // Parties Ledger moved to ./parties.js
 
-export function openLabourPaymentModal(labourId) {
-  document.getElementById('lpLabourId').value = labourId;
-  document.getElementById('lpDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('lpAmount').value = '';
-  document.getElementById('lpRef').value = '';
+export function openLabourPaymentModal(labourId, editId) {
+  const modal = document.getElementById('labourPaymentModal');
+  if (modal) modal.dataset.editId = editId || '';
+  const existing = editId ? (state.labourPayments || []).find(p => p.id === editId) : null;
+  // If editing, the labourId comes from the record (caller may pass null).
+  const lid = existing ? existing.labourId : (labourId || '');
+  document.getElementById('lpLabourId').value = lid;
+  document.getElementById('lpDate').value = existing?.date || new Date().toISOString().split('T')[0];
+  document.getElementById('lpAmount').value = existing?.amount ?? '';
+  document.getElementById('lpRef').value = existing?.ref || '';
   const accSelect = document.getElementById('lpAccount');
   accSelect.innerHTML = '<option value="">-- Select Payment Account --</option>';
   state.accounts.forEach(a => accSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
-  document.getElementById('labourPaymentModal').classList.remove('hidden');
+  if (existing) accSelect.value = existing.accountId || '';
+  modal.classList.remove('hidden');
 }
 
 export function saveLabourPayment() {
@@ -3330,11 +3336,21 @@ export function saveLabourPayment() {
   const amount = parseFloat(document.getElementById('lpAmount').value) || 0;
   const ref = document.getElementById('lpRef').value;
   if (amount <= 0 || !accountId) return showToast('Account and Valid Amount are required', 'error');
-  state.labourPayments.push({ id: 'lpay_' + Date.now(), labourId, date, accountId, amount, ref });
+  const modal = document.getElementById('labourPaymentModal');
+  const editId = modal?.dataset?.editId || '';
+  const existing = editId ? (state.labourPayments || []).find(p => p.id === editId) : null;
+  const rec = { id: existing ? existing.id : ('lpay_' + Date.now()), labourId, date, accountId, amount, ref };
+  if (!state.labourPayments) state.labourPayments = [];
+  if (existing) {
+    const idx = state.labourPayments.findIndex(p => p.id === existing.id);
+    if (idx >= 0) state.labourPayments[idx] = rec;
+  } else {
+    state.labourPayments.push(rec);
+  }
+  if (modal) { modal.dataset.editId = ''; modal.classList.add('hidden'); }
   saveLabourData();
-  document.getElementById('labourPaymentModal').classList.add('hidden');
   window.renderPartyTransactions?.(); window.renderPartiesList?.(); renderAccounts();
-  showToast('Labour Payment Recorded!', 'success');
+  showToast(existing ? 'Labour Payment updated!' : 'Labour Payment Recorded!', 'success');
 }
 
 // ── Bulk Labour Payment ──

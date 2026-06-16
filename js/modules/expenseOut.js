@@ -11,12 +11,24 @@ import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, closeFullScreenForm } from './formHelpers.js';
 
-export function openPaymentOutForm() {
+export function openPaymentOutForm(editId) {
   _populateVendorSelect('poFormVendor');
   _populateAccountSelect('poFormAccount');
-  document.getElementById('poFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('poFormAmount').value = '';
-  document.getElementById('poFormRef').value = '';
+  const panelEl = document.getElementById('paymentOutFormPanel');
+  if (panelEl) panelEl.dataset.editId = editId || '';
+  const existing = editId ? (state.vendorPayments || []).find(p => p.id === editId) : null;
+  const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  if (existing) {
+    setEl('poFormDate', existing.date);
+    setEl('poFormAmount', existing.amount);
+    setEl('poFormRef', existing.ref);
+    setEl('poFormVendor', existing.vendorId);
+    setEl('poFormAccount', existing.accountId);
+  } else {
+    setEl('poFormDate', new Date().toISOString().split('T')[0]);
+    setEl('poFormAmount', '');
+    setEl('poFormRef', '');
+  }
   _openFullScreenForm('paymentOutFormPanel');
 }
 
@@ -27,12 +39,25 @@ export function savePaymentOutForm() {
   const amount = parseFloat(document.getElementById('poFormAmount').value) || 0;
   const ref = document.getElementById('poFormRef').value.trim();
   if (!vendorId || !accountId || amount <= 0) return showToast('Vendor, Account, and valid Amount required!', 'error');
-  state.vendorPayments.push({ id: 'vp_' + Date.now(), vendorId, date, accountId, amount, ref });
+  const panelEl = document.getElementById('paymentOutFormPanel');
+  const editId = panelEl?.dataset?.editId || '';
+  const existing = editId ? (state.vendorPayments || []).find(p => p.id === editId) : null;
+  const rec = { id: existing ? existing.id : ('vp_' + Date.now()), vendorId, date, accountId, amount, ref };
+  if (!state.vendorPayments) state.vendorPayments = [];
+  if (existing) {
+    const idx = state.vendorPayments.findIndex(p => p.id === existing.id);
+    if (idx >= 0) state.vendorPayments[idx] = rec;
+  } else {
+    state.vendorPayments.push(rec);
+  }
+  if (panelEl) panelEl.dataset.editId = '';
   saveAllData();
   closeFullScreenForm('paymentOutFormPanel');
-  showToast('Payment-Out Recorded!', 'success');
+  showToast(existing ? 'Payment-Out updated!' : 'Payment-Out Recorded!', 'success');
   renderPaymentOut();
   if (!document.getElementById('vendorView').classList.contains('hide')) renderVendorLedger();
+  if (typeof window.renderPartyTransactions === 'function') { try { window.renderPartyTransactions(); } catch {} }
+  if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
 }
 
 export function renderPaymentOut() {

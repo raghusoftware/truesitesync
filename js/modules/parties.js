@@ -115,10 +115,26 @@ export function renderPartyTransactions() {
   ft.className = `text-xl font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-400' : 'text-red-400') : 'text-white'}`;
 }
 
-/** Edit an editable transaction (payment/receipt amount, date, ref) */
+/** Edit an editable transaction. Routes each src to its native form prefilled,
+ *  matching the new-entry experience. Falls back to a prompt-based edit only
+ *  if the corresponding form isn't loaded yet. */
 window._editPartyTx = function(src, id) {
   const rec = (state[src] || []).find(x => x.id === id);
   if (!rec) return;
+  // Route to native forms by source.
+  if (src === 'paymentsIn' && typeof window.openPaymentInForm === 'function') {
+    try { window.openPaymentInForm(id); return; } catch (e) { console.warn('[ledger edit pin]', e); }
+  }
+  if (src === 'vendorPayments' && typeof window.openPaymentOutForm === 'function') {
+    try { window.openPaymentOutForm(id); return; } catch (e) { console.warn('[ledger edit po]', e); }
+  }
+  if (src === 'labourPayments' && typeof window.openLabourPaymentModal === 'function') {
+    try { window.openLabourPaymentModal(null, id); return; } catch (e) { console.warn('[ledger edit lp]', e); }
+  }
+  if (src === 'saleInvoices' && typeof window.openSaleInvoiceForm === 'function') {
+    try { window.openSaleInvoiceForm(id); return; } catch (e) { console.warn('[ledger edit si]', e); }
+  }
+  // Fallback: legacy prompt-based edit (preserves existing behaviour for unknown sources).
   const amount = prompt('Amount (₹):', rec.amount);
   if (amount === null) return;
   if (isNaN(amount) || parseFloat(amount) <= 0) { showToast('Invalid amount', 'error'); return; }

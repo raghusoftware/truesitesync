@@ -85,31 +85,60 @@ export function deleteProformaInvoice(id) {
 // ══════════════════════════════════
 // PAYMENT-IN
 // ══════════════════════════════════
-export function openPaymentInForm() {
+export function openPaymentInForm(editId) {
   _populateClientSelect('pinFormClient');
   _populateAccountSelect('pinFormAccount');
-  document.getElementById('pinFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pinFormAmount').value = '';
-  document.getElementById('pinFormRef').value = '';
-  document.getElementById('pinFormInvRef').value = '';
+  const panelEl = document.getElementById('paymentInFormPanel');
+  if (panelEl) panelEl.dataset.editId = editId || '';
+  const existing = editId ? (state.paymentsIn || []).find(p => p.id === editId) : null;
+  const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  if (existing) {
+    setEl('pinFormDate', existing.date);
+    setEl('pinFormAmount', existing.amount);
+    setEl('pinFormRef', existing.ref);
+    setEl('pinFormInvRef', existing.invoiceRef);
+    setEl('pinFormClient', existing.clientId);
+    setEl('pinFormAccount', existing.accountId);
+    setEl('pinFormMode', existing.mode);
+  } else {
+    setEl('pinFormDate', new Date().toISOString().split('T')[0]);
+    setEl('pinFormAmount', '');
+    setEl('pinFormRef', '');
+    setEl('pinFormInvRef', '');
+  }
   _openFullScreenForm('paymentInFormPanel');
 }
 export function savePaymentInForm() {
   const clientId = document.getElementById('pinFormClient').value;
   const amount = parseFloat(document.getElementById('pinFormAmount').value);
   if (!clientId || !amount) { showToast('Client and Amount required', 'error'); return; }
+  const panelEl = document.getElementById('paymentInFormPanel');
+  const editId = panelEl?.dataset?.editId || '';
+  const existing = editId ? (state.paymentsIn || []).find(p => p.id === editId) : null;
   const rec = {
-    id: 'pin_' + Date.now(), clientId, date: document.getElementById('pinFormDate').value,
+    id: existing ? existing.id : ('pin_' + Date.now()),
+    clientId,
+    date: document.getElementById('pinFormDate').value,
     accountId: document.getElementById('pinFormAccount')?.value || '',
-    amount, mode: document.getElementById('pinFormMode')?.value || 'Cash',
+    amount,
+    mode: document.getElementById('pinFormMode')?.value || 'Cash',
     ref: document.getElementById('pinFormRef')?.value || '',
     invoiceRef: document.getElementById('pinFormInvRef')?.value || '',
-    receiptNo: 'RCP-' + (Date.now() % 100000)
+    receiptNo: existing ? (existing.receiptNo || ('RCP-' + (Date.now() % 100000))) : ('RCP-' + (Date.now() % 100000))
   };
-  // Also push to paymentsIn for the accounting integration
-  state.paymentsIn.push(rec);
+  if (!state.paymentsIn) state.paymentsIn = [];
+  if (existing) {
+    const idx = state.paymentsIn.findIndex(p => p.id === existing.id);
+    if (idx >= 0) state.paymentsIn[idx] = rec;
+  } else {
+    state.paymentsIn.push(rec);
+  }
+  if (panelEl) panelEl.dataset.editId = '';
   saveAllData(); closeFullScreenForm('paymentInFormPanel');
-  showToast('Payment-In recorded!'); renderPaymentInList();
+  showToast(existing ? 'Payment-In updated!' : 'Payment-In recorded!');
+  renderPaymentInList();
+  if (typeof window.renderPartyTransactions === 'function') { try { window.renderPartyTransactions(); } catch {} }
+  if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
 }
 export function renderPaymentInList() {
   const cfEl = document.getElementById('pinFilterClient');
