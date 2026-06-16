@@ -103,6 +103,8 @@ export function renderPartyTransactions() {
     let editBtn = '';
     if (t._src === 'saleInvoices') {
       editBtn = `<button onclick="window.openSaleInvoiceForm && window.openSaleInvoiceForm('${t._id}')" title="Open Sale Invoice form" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Open</button>`;
+    } else if (t._src === 'vendorMaterials') {
+      editBtn = `<button onclick="window.openPurchaseFormPanel && window.openPurchaseFormPanel('${t._id}')" title="Open Purchase Bill form" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Open</button>`;
     } else if (t._editable) {
       editBtn = `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>`;
     }
