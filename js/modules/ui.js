@@ -2546,7 +2546,12 @@ export function deleteLabour(id) {
 
 /** Labour belonging to the current project (untagged legacy ones excluded once project scoping is active) */
 function _projectLabour() {
-  return (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId);
+  // Include workers tagged to this project AND legacy workers with no projectId
+  // (the strict equality silently hid attendance-marked workers whose record was
+  // created before project-scoping was applied — which manifested as "No
+  // attendance records" in the muster even when logs existed).
+  const pid = state.currentProjectId;
+  return (state.labourMaster || []).filter(l => !l.projectId || l.projectId === pid);
 }
 
 // ══════════════════════════════════════════
@@ -3181,12 +3186,16 @@ window._dailyMusterRoll = function() {
 
 export function renderMonthlyMuster() {
   const monthFilter = document.getElementById('attMonthFilter');
-  if (monthFilter && monthFilter.options.length <= 1) {
-    const months = [...new Set(state.attendanceLogs.map(a => a.date.substring(0, 7)))].sort().reverse();
-    monthFilter.innerHTML = '';
+  if (monthFilter) {
+    // Always recompute the month list so newly-saved attendance months appear
+    // immediately (the previous cache-on-first-render skipped freshly-marked
+    // dates, leaving the user stuck on a month with no logs visible).
+    const months = [...new Set((state.attendanceLogs || []).map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
     const thisMonth = new Date().toISOString().substring(0, 7);
     if (!months.includes(thisMonth)) months.unshift(thisMonth);
-    months.forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
+    const keep = monthFilter.value;
+    monthFilter.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+    if (keep && months.includes(keep)) monthFilter.value = keep;
   }
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
   const selSite = document.getElementById('attSiteFilter')?.value || '';
@@ -3194,7 +3203,19 @@ export function renderMonthlyMuster() {
   const tbody = document.getElementById('musterBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  _projectLabour().forEach(l => {
+  // Build the worker set the muster iterates: project labour + every worker that
+  // actually has attendance logs in the selected month (so legacy or
+  // unprojected workers still show up if the user marked them present).
+  const projWorkers = _projectLabour();
+  const projIds = new Set(projWorkers.map(l => l.id));
+  const extras = [];
+  monthly.forEach(a => {
+    if (projIds.has(a.labourId)) return;
+    if (extras.find(x => x.id === a.labourId)) return;
+    const w = (state.labourMaster || []).find(l => l.id === a.labourId);
+    if (w) extras.push(w);
+  });
+  [...projWorkers, ...extras].forEach(l => {
     const myLogs = monthly.filter(a => a.labourId === l.id);
     const present = myLogs.filter(a => a.status === 'P').length;
     const half = myLogs.filter(a => a.status === 'H').length;
