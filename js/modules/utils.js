@@ -89,8 +89,28 @@ export function populateDropdowns() {
       el.innerHTML = id === 'invSiteSelect'
         ? '<option value="">All sites</option>'
         : '<option value="">-- Select Site / Location --</option>';
+      const seen = new Set();
       allLocs.forEach(l => {
+        if (!l.id || seen.has(l.id)) return; seen.add(l.id);
         el.innerHTML += `<option value="${l.id}">${l.name} (${l.type})</option>`;
+      });
+      // ── Also surface every BOQ group of the current project as a selectable
+      //    "site" — matches what _invSiteOptions does elsewhere, so the user
+      //    isn't stranded if no warehouse locations have been created yet. ──
+      const curProj = (state.projects || []).find(p => p.id === state.currentProjectId);
+      (curProj?.boqs || []).forEach(g => {
+        if (!g.id || seen.has(g.id)) return; seen.add(g.id);
+        const wo = (g.woNumber && g.woNumber !== 'undefined') ? g.woNumber : '';
+        const nm = g.name || g.type || 'BOQ';
+        const label = wo ? `${wo} — ${nm}` : nm;
+        el.innerHTML += `<option value="${g.id}">${label} (BOQ)</option>`;
+      });
+      // ── Pick up any site referenced in existing inventoryTx that wasn't in
+      //    locations or BOQs (e.g. legacy IDs) so the user can still filter to
+      //    where their stock actually lives. ──
+      (state.inventoryTx || []).forEach(tx => {
+        if (!tx.siteId || seen.has(tx.siteId)) return; seen.add(tx.siteId);
+        el.innerHTML += `<option value="${tx.siteId}">${tx.siteId} (existing)</option>`;
       });
       el.value = val;
     }

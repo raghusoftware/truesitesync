@@ -640,22 +640,39 @@ export function saveEntries() {
   const grouped = {};
   entries.forEach(e => { if (e.code && e.qty > 0) { if (grouped[e.code]) grouped[e.code] += e.qty; else grouped[e.code] = e.qty; } });
 
+  // Recipes can be keyed by client.id OR project.id, depending on when/how the
+  // recipe was created (recipe.js uses _recipeKey: client-by-projectId, else
+  // falls back to project.id). Try all the likely keys so auto-consume actually
+  // fires regardless of how the project↔client linkage was set up.
+  const _candKeys = [];
+  if (cId) _candKeys.push(cId);
+  if (projId) _candKeys.push(projId);
+  // client linked to this project via c.projectId
+  const projClient = (state.clients || []).find(c => c.projectId === projId);
+  if (projClient && projClient.id && !_candKeys.includes(projClient.id)) _candKeys.push(projClient.id);
+  const _findRecipe = (itemCode) => {
+    for (const k of _candKeys) {
+      if (state.recipes?.[k]?.[itemCode]) return state.recipes[k][itemCode];
+    }
+    return null;
+  };
+
   for (const itemCode in grouped) {
     const totalQty = grouped[itemCode];
-    if (state.recipes[cId] && state.recipes[cId][itemCode]) {
-      state.recipes[cId][itemCode].ingredients.forEach(ing => {
-        const consumedQty = totalQty * ing.qty * (1 + (ing.wastage / 100));
-        const pTx = state.inventoryTx.filter(t => t.rawMaterialId === ing.rawMatId && t.type === 'IN' && t.rate > 0).sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-        const consumeSiteId = pTx ? pTx.siteId : cId;
-        state.inventoryTx.push({
-          id: 'tx_c_' + Date.now() + Math.random().toString(36).substr(2, 5),
-          date: document.getElementById('sheetDate').value, siteId: consumeSiteId, type: 'CONSUME',
-          rawMaterialId: ing.rawMatId, qty: consumedQty, rate: pTx ? pTx.rate : 0,
-          ref: `Auto-Consumed for ${itemCode} (Sheet: ${sNum})`, refSheetId: state.currentSheetId
-        });
-        autoConsumptionCount++;
+    const recipe = _findRecipe(itemCode);
+    if (!recipe) continue;
+    (recipe.ingredients || []).forEach(ing => {
+      const consumedQty = totalQty * ing.qty * (1 + ((ing.wastage || 0) / 100));
+      const pTx = state.inventoryTx.filter(t => t.rawMaterialId === ing.rawMatId && t.type === 'IN' && t.rate > 0).sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const consumeSiteId = pTx ? pTx.siteId : cId;
+      state.inventoryTx.push({
+        id: 'tx_c_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        date: document.getElementById('sheetDate').value, siteId: consumeSiteId, type: 'CONSUME',
+        rawMaterialId: ing.rawMatId, qty: consumedQty, rate: pTx ? pTx.rate : 0,
+        ref: `Auto-Consumed for ${itemCode} (Sheet: ${sNum})`, refSheetId: state.currentSheetId
       });
-    }
+      autoConsumptionCount++;
+    });
   }
   // Save BBS data if present
   const bbsRows = _readBBSData();
