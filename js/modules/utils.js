@@ -90,27 +90,28 @@ export function populateDropdowns() {
         ? '<option value="">All sites</option>'
         : '<option value="">-- Select Site / Location --</option>';
       const seen = new Set();
+      // Real warehouse / site locations — show only the name (no '(Warehouse)' suffix).
       allLocs.forEach(l => {
         if (!l.id || seen.has(l.id)) return; seen.add(l.id);
-        el.innerHTML += `<option value="${l.id}">${l.name} (${l.type})</option>`;
+        el.innerHTML += `<option value="${l.id}">${l.name}</option>`;
       });
-      // ── Also surface every BOQ group of the current project as a selectable
-      //    "site" — matches what _invSiteOptions does elsewhere, so the user
-      //    isn't stranded if no warehouse locations have been created yet. ──
+      // BOQ groups of the current project — usable as sites when no warehouses
+      // have been created yet. Plain label, no '(BOQ)' suffix.
       const curProj = (state.projects || []).find(p => p.id === state.currentProjectId);
       (curProj?.boqs || []).forEach(g => {
         if (!g.id || seen.has(g.id)) return; seen.add(g.id);
         const wo = (g.woNumber && g.woNumber !== 'undefined') ? g.woNumber : '';
         const nm = g.name || g.type || 'BOQ';
-        const label = wo ? `${wo} — ${nm}` : nm;
-        el.innerHTML += `<option value="${g.id}">${label} (BOQ)</option>`;
+        el.innerHTML += `<option value="${g.id}">${wo ? `${wo} — ${nm}` : nm}</option>`;
       });
-      // ── Pick up any site referenced in existing inventoryTx that wasn't in
-      //    locations or BOQs (e.g. legacy IDs) so the user can still filter to
-      //    where their stock actually lives. ──
+      // Legacy / orphan siteIds already referenced in inventoryTx — keep them
+      // reachable, but try to label sensibly: prefer the matching project name
+      // or fall back to a generic 'Site'.
       (state.inventoryTx || []).forEach(tx => {
         if (!tx.siteId || seen.has(tx.siteId)) return; seen.add(tx.siteId);
-        el.innerHTML += `<option value="${tx.siteId}">${tx.siteId} (existing)</option>`;
+        const p = (state.projects || []).find(x => x.id === tx.siteId);
+        const label = p ? p.name : 'Site';
+        el.innerHTML += `<option value="${tx.siteId}">${label}</option>`;
       });
       el.value = val;
     }
