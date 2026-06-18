@@ -3202,14 +3202,18 @@ window._dailyMusterRoll = function() {
 };
 
 export function renderMonthlyMuster() {
-  const _pid = state.currentProjectId;
+  // Scope by WORKER membership, not the log's siteId. New logs stamp
+  // siteId=projectId, but legacy logs stored a WO/location id (or 'site'), so a
+  // siteId match dropped them and the month dropdown collapsed to a single month.
+  // A log belongs to this project iff its worker is one of the project's workers.
+  const projWorkers = _projectLabour();
+  const projIds = new Set(projWorkers.map(l => l.id));
+  const projLogs = (state.attendanceLogs || []).filter(a => projIds.has(a.labourId));
+
   const monthFilter = document.getElementById('attMonthFilter');
   if (monthFilter) {
-    // Recompute the month list each render (so freshly-saved months appear), and
-    // scope it to THIS project's attendance so other projects' months don't show.
-    const months = [...new Set((state.attendanceLogs || [])
-      .filter(a => !_pid || a.siteId === _pid)
-      .map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
+    // Every month this project's workers have attendance for + the current month.
+    const months = [...new Set(projLogs.map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
     const thisMonth = new Date().toISOString().substring(0, 7);
     if (!months.includes(thisMonth)) months.unshift(thisMonth);
     const keep = monthFilter.value;
@@ -3217,32 +3221,11 @@ export function renderMonthlyMuster() {
     if (keep && months.includes(keep)) monthFilter.value = keep;
   }
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
-  // Scope to the current project — attendance siteId is the projectId stamped at
-  // marking time, the same signal the mark-attendance sheet uses. Without this
-  // the muster pulled in workers from every project that had logs that month.
-  const pid = state.currentProjectId;
-  const selSite = document.getElementById('attSiteFilter')?.value || '';
-  const monthly = state.attendanceLogs.filter(a =>
-    (a.date || '').startsWith(selMonth)
-    && (!pid || a.siteId === pid)
-    && (!selSite || a.siteId === selSite)
-  );
+  const monthly = projLogs.filter(a => (a.date || '').startsWith(selMonth));
   const tbody = document.getElementById('musterBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  // Worker set: this project's workers (strict), plus any worker that has logs in
-  // THIS project's monthly set (monthly is already project-scoped above, so this
-  // can never leak in another project's labour).
-  const projWorkers = _projectLabour();
-  const projIds = new Set(projWorkers.map(l => l.id));
-  const extras = [];
-  monthly.forEach(a => {
-    if (projIds.has(a.labourId)) return;
-    if (extras.find(x => x.id === a.labourId)) return;
-    const w = (state.labourMaster || []).find(l => l.id === a.labourId);
-    if (w) extras.push(w);
-  });
-  [...projWorkers, ...extras].forEach(l => {
+  projWorkers.forEach(l => {
     const myLogs = monthly.filter(a => a.labourId === l.id);
     const present = myLogs.filter(a => a.status === 'P').length;
     const half = myLogs.filter(a => a.status === 'H').length;
