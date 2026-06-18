@@ -105,6 +105,10 @@ export function deletePurchaseBill(id) {
   if (!confirm("Permanently delete this Purchase Bill?\n\nWARNING: The associated Inventory items will also be removed from stock!")) return;
   state.vendorMaterials = state.vendorMaterials.filter(m => m.id !== id);
   state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
+  // Remove auto-GRNs this bill created, and un-bill any manual GRNs it claimed
+  // so they reappear as "pending" in the purchase form.
+  state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== id);
+  state.grnRecords.forEach(g => { if (g.billedByBillId === id) { g.billed = false; delete g.billedByBillId; } });
   saveAllData();
   renderPurchaseLedger();
   if (!document.getElementById('vendorView').classList.contains('hide')) renderVendorLedger();
@@ -131,6 +135,8 @@ export function openPurchaseFormPanel(editId) {
   const vendorSel = document.getElementById('plFormVendor');
   vendorSel.innerHTML = '<option value="">-- Select Vendor --</option>';
   state.vendors.forEach(v => vendorSel.innerHTML += `<option value="${v.id}">${v.name}</option>`);
+  // Refresh the pending-GRN picker whenever the vendor changes.
+  vendorSel.onchange = () => window._purRefreshGrnPicker && window._purRefreshGrnPicker();
 
   // Populate site dropdown
   const siteSel = document.getElementById('plFormSite');
@@ -165,6 +171,8 @@ export function openPurchaseFormPanel(editId) {
     addPurchaseRowToPanel(3);
   }
   calcPanelPurchaseTotal();
+  // Show any GRNs already received from this vendor that haven't been billed yet.
+  if (window._purRefreshGrnPicker) window._purRefreshGrnPicker();
 }
 
 export function closePurchaseFormPanel() {
@@ -202,6 +210,9 @@ function _addPurRow(data) {
     + `<td class="p-1 border"><select class="table-input pur-taxtype" onchange="calcPanelPurchaseTotal()">${tOpt('CGST_SGST')}CGST+SGST</option>${tOpt('IGST')}IGST</option>${tOpt('NONE')}No Tax</option></select></td>`
     + `<td class="p-1 border bg-slate-50"><input type="text" class="table-input pur-amt font-bold text-blue-800 text-right" readonly></td>`
     + `<td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); updatePanelRowNums(); calcPanelPurchaseTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+  // Tag the row with the originating GRN id (if this line came from a received
+  // GRN) so save() links to that GRN instead of creating a duplicate.
+  if (data && data.grnId) tr.dataset.grnId = data.grnId;
   tbody.appendChild(tr);
   // Prefill the material select + unit if editing.
   if (data && data.rawMatId) {
@@ -222,6 +233,71 @@ window._purMatChanged = function(sel) {
   const unit = opt?.dataset?.unit || '';
   const unitEl = sel.closest('tr')?.querySelector('.pur-unit');
   if (unitEl && unit && !unitEl.value) unitEl.value = unit;
+};
+
+/** Unbilled GRNs for a vendor = physically received (manual GRN), not yet
+ *  invoiced, and not already pulled into THIS open bill as a line. */
+function _pendingGrnsForVendor(vendorId) {
+  const usedGrnIds = new Set(
+    [...document.querySelectorAll('#plFormTableBody tr')].map(tr => tr.dataset.grnId).filter(Boolean)
+  );
+  return (state.grnRecords || []).filter(g =>
+    g.supplierId === vendorId && !g.billed && g.source !== 'purchase' && !usedGrnIds.has(g.id)
+  );
+}
+
+/** Render the "Pending GRNs" picker for the currently selected vendor. */
+window._purRefreshGrnPicker = function() {
+  const section = document.getElementById('plFormGrnSection');
+  const list = document.getElementById('plFormGrnList');
+  const countEl = document.getElementById('plFormGrnCount');
+  if (!section || !list) return;
+  const vendorId = document.getElementById('plFormVendor')?.value || '';
+  const pending = vendorId ? _pendingGrnsForVendor(vendorId) : [];
+  if (!pending.length) { section.classList.add('hidden'); list.innerHTML = ''; if (countEl) countEl.textContent = ''; return; }
+  section.classList.remove('hidden');
+  if (countEl) countEl.textContent = `${pending.length} pending`;
+  const cur = getCurrencySymbol();
+  list.innerHTML = pending.map(g => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    const amt = g.amount || (g.qty * (g.rate || 0));
+    return `<label class="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-amber-50">
+      <input type="checkbox" class="pur-grn-chk" value="${g.id}" style="width:15px;height:15px;">
+      <span class="font-mono text-[11px] text-amber-700 font-bold">${g.grnNo || '—'}</span>
+      <span class="text-xs font-bold text-slate-700">${m ? m.name : (g.category || 'Material')}</span>
+      <span class="text-[11px] text-slate-500">${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}</span>
+      <span class="ml-auto text-[11px] text-slate-400">${g.date || ''}</span>
+      <span class="text-xs font-bold text-slate-800">${cur}${amt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+    </label>`;
+  }).join('');
+};
+
+window._purToggleAllGrns = function(on) {
+  document.querySelectorAll('#plFormGrnList .pur-grn-chk').forEach(c => { c.checked = !!on; });
+};
+
+/** Pull the checked GRNs into the bill as line items, then refresh the picker. */
+window._purAddSelectedGrns = function() {
+  const checked = [...document.querySelectorAll('#plFormGrnList .pur-grn-chk:checked')].map(c => c.value);
+  if (!checked.length) return showToast('Select at least one GRN to add', 'warning');
+  // If there are only blank starter rows, clear them so we don't leave empties.
+  const blankRows = [...document.querySelectorAll('#plFormTableBody tr')].filter(tr => !tr.querySelector('.pur-mat')?.value && !tr.querySelector('.pur-qty')?.value);
+  blankRows.forEach(tr => tr.remove());
+  let firstSite = '';
+  checked.forEach(gid => {
+    const g = (state.grnRecords || []).find(x => x.id === gid);
+    if (!g) return;
+    if (!firstSite && g.siteId) firstSite = g.siteId;
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    _addPurRow({ rawMatId: g.matId, qty: g.qty, rate: g.rate || 0, unit: m?.unit || '', grnId: g.id });
+  });
+  // Default the bill's site to the GRN's site if none chosen yet.
+  const siteSel = document.getElementById('plFormSite');
+  if (siteSel && !siteSel.value && firstSite) siteSel.value = firstSite;
+  updatePanelRowNums();
+  calcPanelPurchaseTotal();
+  window._purRefreshGrnPicker();
+  showToast(`${checked.length} GRN${checked.length > 1 ? 's' : ''} added to bill`, 'success');
 };
 
 /** Apply the default GST % / type to every line. */
@@ -313,7 +389,8 @@ export function savePanelPurchaseBill() {
         qty: c.qty, unit: tr.querySelector('.pur-unit')?.value?.trim() || '',
         rate: c.rate, netRate, discPct: c.disc, taxPct: c.taxPct, taxType: c.taxType,
         taxable: Math.round(c.taxable * 100) / 100, taxAmount: Math.round(c.lineTax * 100) / 100,
-        amount: Math.round(c.lineTotal * 100) / 100
+        amount: Math.round(c.lineTotal * 100) / 100,
+        grnId: tr.dataset.grnId || '' // links this line to an existing received GRN (no duplicate stock/GRN)
       });
       gross += c.gross; discount += c.lineDisc; taxable += c.taxable;
       if (c.taxType === 'CGST_SGST') { cgst += c.lineTax / 2; sgst += c.lineTax / 2; }
@@ -345,23 +422,34 @@ export function savePanelPurchaseBill() {
     totalAmount
   };
   if (!state.vendorMaterials) state.vendorMaterials = [];
+  if (!state.grnRecords) state.grnRecords = [];
   if (existing) {
     const idx = state.vendorMaterials.findIndex(m => m.id === existing.id);
     if (idx >= 0) state.vendorMaterials[idx] = rec;
     // Rebuild inventory entries + auto-GRN entries tied to this bill (avoid duplicates on edit).
     state.inventoryTx = (state.inventoryTx || []).filter(tx => tx.refBillId !== billId);
     state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== billId);
+    // Un-link any manual GRNs this bill previously claimed, so the linkage is
+    // recomputed cleanly from the current line items below.
+    state.grnRecords.forEach(g => { if (g.billedByBillId === billId) { g.billed = false; delete g.billedByBillId; } });
   } else {
     state.vendorMaterials.push(rec);
   }
   // Tag the bill as "Billed" so any existing matching unbilled GRNs flip too.
   rec.billed = true;
-  // Cross-module wiring:
-  //  - One inventoryTx per line (visible in the Inventory view; stamped with projectId so the view's project scope doesn't hide it).
-  //  - One auto-GRN per line (so material received via Purchase shows up in the GRN list too — they're one truth, not two).
-  if (!state.grnRecords) state.grnRecords = [];
+  // Cross-module wiring. Two kinds of lines:
+  //  A) Lines linked to an existing GRN (it.grnId) — the stock was already
+  //     received and posted to inventory by that GRN, so we DON'T create a new
+  //     inventoryTx or auto-GRN; we just mark the GRN billed and link it back.
+  //  B) Manually-typed lines — create one inventoryTx + one auto-GRN each so the
+  //     material shows in both the inventory ledger and the GRN list.
   const projectId = state.currentProjectId || rec.projectId || '';
   purItems.forEach((it, i) => {
+    if (it.grnId) {
+      const g = state.grnRecords.find(x => x.id === it.grnId);
+      if (g) { g.billed = true; g.billedByBillId = billId; }
+      return; // stock + GRN already exist — nothing more to create
+    }
     const txId = 'tx_in_' + Date.now() + '_' + i + Math.random().toString(36).substr(2, 4);
     state.inventoryTx.push({
       id: txId,

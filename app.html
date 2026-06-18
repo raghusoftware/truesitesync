@@ -19,7 +19,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.4.50"></script>
+    <script type="module" src="js/app.js?v=1.4.51"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2256,6 +2256,20 @@
                   <select id="plFormSite" class="w-full p-2.5 bg-white border border-slate-300 rounded font-bold text-orange-700 outline-none focus:border-orange-500"></select>
                 </div>
               </div>
+            </div>
+
+            <!-- Pending GRNs for the selected vendor (received but not yet billed) -->
+            <div id="plFormGrnSection" class="bg-amber-50 rounded-xl border border-amber-200 shadow-sm mb-5 hidden">
+              <div class="px-5 py-3 border-b border-amber-200 flex items-center gap-2 flex-wrap">
+                <span class="w-6 h-6 bg-amber-200 text-amber-700 rounded flex items-center justify-center text-xs">🚚</span>
+                <h3 class="font-bold text-sm text-amber-800 uppercase tracking-wider">Pending GRNs — received, not yet billed</h3>
+                <span id="plFormGrnCount" class="text-[11px] font-bold text-amber-600"></span>
+                <div class="ml-auto flex items-center gap-2">
+                  <button type="button" onclick="window._purToggleAllGrns && window._purToggleAllGrns(true)" class="text-[11px] font-bold text-amber-700 hover:underline">Select all</button>
+                  <button type="button" onclick="window._purAddSelectedGrns && window._purAddSelectedGrns()" class="bg-amber-600 text-white px-3 py-1.5 rounded font-bold text-xs hover:bg-amber-700">+ Add selected to bill</button>
+                </div>
+              </div>
+              <div id="plFormGrnList" class="p-3 max-h-52 overflow-y-auto space-y-1.5"></div>
             </div>
 
             <!-- Line items table -->
