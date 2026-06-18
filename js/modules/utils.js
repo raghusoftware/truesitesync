@@ -16,14 +16,23 @@ export function showToast(msg, type = 'success') {
 
 /** @returns {Array<{id:string, name:string, type:string}>} */
 export function getAllLocations() {
-  // Real warehouse/site locations (state.locations).
-  const combined = (state.locations || []).map(l => ({ id: l.id, name: l.name, type: l.type }));
-  // Legacy: clients used to double as sites. Only include those that still have
-  // a usable projectName label; everything else just produced 'undefined (...)'
-  // phantoms in inventory/transfer/purchase dropdowns. Filter them out.
-  (state.clients || []).forEach(c => {
-    if (c.projectName) combined.push({ id: c.id, name: c.projectName + ' (' + c.name + ')', type: 'Site' });
+  const combined = [];
+  
+  // 1. STRICTLY Active Projects, formatted as "Client Name — Project Name"
+  (state.projects || []).forEach(p => {
+    const client = (state.clients || []).find(c => c.id === p.clientId);
+    const cName = client ? client.name : (p.clientName || 'Unknown Client');
+    combined.push({ id: p.id, name: `${cName} — ${p.name}`, type: 'Project' });
   });
+
+  // 2. Real warehouse/site locations (if you have created any dedicated warehouses)
+  (state.locations || []).forEach(l => {
+    if (!combined.some(x => x.id === l.id)) {
+      combined.push({ id: l.id, name: `${l.name} (Warehouse)`, type: l.type });
+    }
+  });
+
+  // We have completely removed the legacy fallback logic here to prevent "ghost" sites.
   return combined;
 }
 
@@ -78,41 +87,22 @@ export function populateDropdowns() {
     }
   });
 
+  // 🔥 CLEANED UP SITE SELECTION 🔥
+  // No more digging through legacy transaction data. Only strict locations.
   const allLocs = getAllLocations();
   ['purSite', 'invSiteSelect'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const val = el.value;
-      // The inventory dropdown defaults to "All sites" so purchases land in the
-      // view without forcing the user to pick a site first; purSite keeps its
-      // "Select" prompt because picking a site is required to file a purchase.
+      
       el.innerHTML = id === 'invSiteSelect'
         ? '<option value="">All sites</option>'
         : '<option value="">-- Select Site / Location --</option>';
-      const seen = new Set();
-      // Real warehouse / site locations — show only the name (no '(Warehouse)' suffix).
+      
       allLocs.forEach(l => {
-        if (!l.id || seen.has(l.id)) return; seen.add(l.id);
         el.innerHTML += `<option value="${l.id}">${l.name}</option>`;
       });
-      // BOQ groups of the current project — usable as sites when no warehouses
-      // have been created yet. Plain label, no '(BOQ)' suffix.
-      const curProj = (state.projects || []).find(p => p.id === state.currentProjectId);
-      (curProj?.boqs || []).forEach(g => {
-        if (!g.id || seen.has(g.id)) return; seen.add(g.id);
-        const wo = (g.woNumber && g.woNumber !== 'undefined') ? g.woNumber : '';
-        const nm = g.name || g.type || 'BOQ';
-        el.innerHTML += `<option value="${g.id}">${wo ? `${wo} — ${nm}` : nm}</option>`;
-      });
-      // Legacy / orphan siteIds already referenced in inventoryTx — keep them
-      // reachable, but try to label sensibly: prefer the matching project name
-      // or fall back to a generic 'Site'.
-      (state.inventoryTx || []).forEach(tx => {
-        if (!tx.siteId || seen.has(tx.siteId)) return; seen.add(tx.siteId);
-        const p = (state.projects || []).find(x => x.id === tx.siteId);
-        const label = p ? p.name : 'Site';
-        el.innerHTML += `<option value="${tx.siteId}">${label}</option>`;
-      });
+      
       el.value = val;
     }
   });
@@ -189,7 +179,6 @@ export function getPdfCurrency() {
 export function pdfMoney(n) {
   return getPdfCurrency() + formatNumber2(n);
 }
-
 
 /** Get resolved header settings with defaults */
 export function getHeaderSettings() {
@@ -311,9 +300,8 @@ export function getSimpleHeaderForPDF(doc, opts = {}) {
   doc.setTextColor(0, 0, 0);
   return y + 4;
 }
-// Exposed on window so exporter modules can use it even if their (pinned)
-// build is paired with a still-cached older utils.js — they fall back to the
-// classic header instead of failing at module-link time.
+
+// Exposed on window so exporter modules can use it
 if (typeof window !== 'undefined') window.getSimpleHeaderForPDF = getSimpleHeaderForPDF;
 
 // ── Inline "add new client / vendor" from any sale/purchase form dropdown ──
@@ -323,8 +311,7 @@ if (typeof window !== 'undefined') {
     if (type === 'vendor') { if (window.openVendorModal) window.openVendorModal(); }
     else { if (window.openClientModal) window.openClientModal(); }
   };
-  // Called by saveClient / saveVendor after a new record is created — drops it
-  // into the dropdown that triggered the add and selects it (firing change).
+  
   window._applyPendingPartySelect = function (rec) {
     const selId = window._pendingPartySelect; window._pendingPartySelect = '';
     if (!selId || !rec) return;
@@ -340,7 +327,6 @@ if (typeof window !== 'undefined') {
     sel.dispatchEvent(new Event('change'));
   };
 
-  // "Add Party" chooser used by the Parties ledger — pick Client / Vendor / Labour.
   window._addPartyChooser = function () {
     let o = document.getElementById('addPartyChooser');
     if (!o) {
@@ -350,7 +336,7 @@ if (typeof window !== 'undefined') {
       o.addEventListener('click', e => { if (e.target === o) o.style.display = 'none'; });
       document.body.appendChild(o);
     }
-    window._pendingPartySelect = ''; // not from a dropdown
+    window._pendingPartySelect = ''; 
     const btn = (label, icon, fn) => `<button onclick="document.getElementById('addPartyChooser').style.display='none';${fn}" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;font-weight:700;color:#0f172a;font-size:14px;margin-bottom:8px;">${icon} ${label}</button>`;
     o.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h3 style="font-weight:800;font-size:17px;color:#0f172a;">Add Party</h3><button onclick="document.getElementById('addPartyChooser').style.display='none'" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:16px;">×</button></div>
@@ -469,13 +455,11 @@ function _blobToBase64(blob) {
 /** Save a file on device via Capacitor Filesystem, then open Share sheet */
 async function _capacitorSaveAndShare(base64, filename, mimeType) {
   const { Filesystem } = window.Capacitor.Plugins;
-  // Write to cache directory (no permission needed). Use string enum value.
   const result = await Filesystem.writeFile({
     path: filename,
     data: base64,
     directory: 'CACHE',
   });
-  // Open share/open sheet so user can save or open the file
   try {
     const { Share } = window.Capacitor.Plugins;
     if (Share) {
@@ -487,7 +471,6 @@ async function _capacitorSaveAndShare(base64, filename, mimeType) {
       return;
     }
   } catch (_) {}
-  // Fallback: try FileOpener
   try {
     const { FileOpener } = window.Capacitor.Plugins;
     if (FileOpener) { await FileOpener.open({ filePath: result.uri, contentType: mimeType }); return; }
@@ -514,7 +497,6 @@ export function mobileSavePDF(doc, filename) {
     })();
     return;
   }
-  // Web / Desktop
   const isMobileBrowser = /Android|iPhone|iPad/i.test(navigator.userAgent);
   if (isMobileBrowser) {
     try {
@@ -539,7 +521,6 @@ export function mobileSaveXLSX(wb, filename) {
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     mobileDownloadBlob(blob, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   } catch (e) {
-    // Fallback to native writeFile (desktop browsers)
     try { window.XLSX.writeFile(wb, filename); } catch(_) {}
   }
 }

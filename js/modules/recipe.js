@@ -2,10 +2,6 @@
  * ═══════════════════════════════════════════════════════════
  * True Site Sync — Recipe (BOQ item → raw-material consumption)
  * ═══════════════════════════════════════════════════════════
- * Defines the raw materials consumed per unit of a BOQ item.
- * Extracted from ui.js. Reads BOQ items from the project; stores
- * recipes per project-client key. Self-contained render group.
- * ═══════════════════════════════════════════════════════════
  */
 
 import { state, saveAllData } from './state.js';
@@ -15,56 +11,65 @@ function _recipeKey(pid) {
   const client = (state.clients || []).find(c => c.projectId === pid);
   return client?.id || pid;
 }
+
 /** BOQ items for a project as a map keyed by code (merges all BOQ groups + legacy item master) */
 function _recipeItemsMap(pid) {
   const map = {};
   const proj = (state.projects || []).find(p => p.id === pid);
+  
   (proj?.boqs || []).forEach(g => (g.items || []).forEach(it => {
     const code = it.code || it.itemNo;
-    if (code) map[code] = { code, description: it.description || it.name || code, uom: it.uom || it.unit || '', rate: it.rate || 0 };
+    if (code) {
+      map[code] = { 
+        code, 
+        description: it.description || it.name || code, 
+        uom: it.uom || it.unit || '', 
+        rate: it.rate || 0 
+      };
+    }
   }));
+
   // include legacy item master too
   const cId = (state.clients || []).find(c => c.projectId === pid)?.id;
-  if (cId && state.items[cId]) Object.values(state.items[cId]).forEach(it => { if (it.code && !map[it.code]) map[it.code] = it; });
+  if (cId && state.items[cId]) {
+    Object.values(state.items[cId]).forEach(it => { 
+      if (it.code && !map[it.code]) map[it.code] = it; 
+    });
+  }
   return map;
 }
 
 export function renderRecipeView() {
   const container = document.getElementById('recipeViewContent');
   if (!container) return;
+  
   const pid = state.currentProjectId || state.projects?.[0]?.id;
   const cId = _recipeKey(pid);
   const items = _recipeItemsMap(pid);
   const itemList = Object.values(items);
-  const recipeCount = state.recipes[cId] ? Object.keys(state.recipes[cId]).length : 0;
-  // Match the editor's logic — every non-Tools raw material, regardless of
-  // projectId/type, since purchased materials often lack a projectId and types
-  // legitimately vary (Cement / Steel / Aggregate / Material).
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
-
+  
   container.innerHTML = `
     ${!itemList.length ? `
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
         <p class="text-4xl mb-3">&#129516;</p>
         <p class="font-bold text-slate-600">No BOQ Items Found</p>
         <p class="text-xs text-slate-400 mt-1">Add BOQ items in your project to define recipes for them.</p>
-      </div>` : `
-    <!-- Search -->
-    <div class="flex items-center gap-3 mb-4">
-      <input type="text" id="recipeSearchInput" placeholder="Search BOQ items..." class="p-2 text-xs border border-slate-300 rounded-lg bg-white w-64 font-medium" oninput="window._recipeFilterList()">
-      <select id="recipeFilterStatus" class="p-2 text-xs border border-slate-300 rounded-lg bg-white font-medium" onchange="window._recipeFilterList()">
-        <option value="">All Items</option>
-        <option value="configured">With Recipe</option>
-        <option value="pending">Without Recipe</option>
-      </select>
-    </div>
+      </div>
+    ` : `
+      <div class="flex items-center gap-3 mb-4">
+        <input type="text" id="recipeSearchInput" placeholder="Search BOQ items..." class="p-2 text-xs border border-slate-300 rounded-lg bg-white w-64 font-medium" oninput="window._recipeFilterList()">
+        <select id="recipeFilterStatus" class="p-2 text-xs border border-slate-300 rounded-lg bg-white font-medium" onchange="window._recipeFilterList()">
+          <option value="">All Items</option>
+          <option value="configured">With Recipe</option>
+          <option value="pending">Without Recipe</option>
+        </select>
+      </div>
 
-    <!-- BOQ Items Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="recipeItemsGrid">
-      ${_renderRecipeItemCards(itemList, cId)}
-    </div>`}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="recipeItemsGrid">
+        ${_renderRecipeItemCards(itemList, cId)}
+      </div>
+    `}
 
-    <!-- Recipe Editor Overlay (hidden by default) -->
     <div id="recipeEditorPanel" class="hidden"></div>
   `;
 }
@@ -134,10 +139,13 @@ export function recipeOpenEditor(itemCode) {
   if (!item) { showToast('Item not found', 'error'); return; }
 
   const recipe = state.recipes[cId]?.[itemCode] || { ingredients: [] };
-  // Show every non-Tools raw material — project-scoping was too strict (materials
-  // added via Purchase/Master often have no projectId) and 'Raw Material' was
-  // narrower than what users actually create (Cement, Steel, Aggregate, etc.).
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
+  
+  // Try to filter out 'Tools', but if it results in an empty array, 
+  // fallback to showing ALL raw materials so the dropdown doesn't break.
+  let projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
+  if (projectMaterials.length === 0) {
+      projectMaterials = state.rawMaterials || []; 
+  }
 
   // Build ingredient rows
   let ingredientRows = '';
@@ -203,6 +211,7 @@ function _buildIngredientRow(data, materials, idx) {
   materials.forEach(rm => {
     rmOptions += `<option value="${rm.id}" ${data && data.rawMatId === rm.id ? 'selected' : ''}>${rm.name} (${rm.unit})</option>`;
   });
+  
   return `<tr class="border-t border-slate-100 hover:bg-slate-50">
     <td class="p-2"><select class="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium rm-select">${rmOptions}</select></td>
     <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg font-bold text-blue-700 ing-qty" value="${data ? data.qty : ''}" placeholder="0" step="0.01" min="0"></td>
@@ -212,11 +221,34 @@ function _buildIngredientRow(data, materials, idx) {
 }
 
 export function recipeAddRow() {
-  // Same logic as recipeOpenEditor — every non-Tools raw material, so the
-  // "+ Add Material" button actually offers usable ingredients.
-  const projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
   const tbody = document.getElementById('recipeTableBody');
-  if (tbody) tbody.insertAdjacentHTML('beforeend', _buildIngredientRow(null, projectMaterials, tbody.rows.length));
+  if (!tbody) return;
+
+  // 🔥 BULLETPROOF TRICK: Grab the exact options from the very first dropdown in the table.
+  // This completely bypasses state filtering and guarantees the new row gets the exact same list!
+  let optionsHtml = '<option value="">-- Select Material --</option>';
+  const firstSelect = tbody.querySelector('.rm-select');
+  
+  if (firstSelect && firstSelect.innerHTML) {
+    // Copy the HTML of the options, but remove the 'selected' attribute so the new row defaults to blank
+    optionsHtml = firstSelect.innerHTML.replace(/selected(="[^"]*")?/g, '');
+  } else {
+    // Fallback just in case
+    const projectMaterials = state.rawMaterials || [];
+    projectMaterials.forEach(rm => {
+      optionsHtml += `<option value="${rm.id}">${rm.name} (${rm.unit})</option>`;
+    });
+  }
+
+  const newRow = `
+    <tr class="border-t border-slate-100 hover:bg-slate-50">
+      <td class="p-2"><select class="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium rm-select">${optionsHtml}</select></td>
+      <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg font-bold text-blue-700 ing-qty" value="" placeholder="0" step="0.01" min="0"></td>
+      <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg ing-wastage" value="0" placeholder="0" min="0" max="100"></td>
+      <td class="p-2 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded-lg font-bold text-xs transition">&times;</button></td>
+    </tr>`;
+    
+  tbody.insertAdjacentHTML('beforeend', newRow);
 }
 
 export function recipeSave() {
@@ -247,6 +279,7 @@ export function recipeDelete() {
   if (!ctx) return;
   if (!confirm('Delete this recipe?')) return;
   const { cId, itemCode } = ctx;
+  
   if (state.recipes[cId]?.[itemCode]) {
     delete state.recipes[cId][itemCode];
     saveAllData();
@@ -268,3 +301,15 @@ export function loadRecipeEditor() {}
 export function addRecipeIngredientRow(data) { recipeAddRow(); }
 export function saveRecipe() { recipeSave(); }
 export function deleteRecipe() { recipeDelete(); }
+
+// ============================================================================
+// GLOBAL BINDINGS
+// Bind exported functions to the window object so inline HTML onclick handlers 
+// trigger the correct updated module functions.
+// ============================================================================
+window._recipeAddRow = recipeAddRow;
+window._recipeCloseEditor = recipeCloseEditor;
+window._recipeSave = recipeSave;
+window._recipeDelete = recipeDelete;
+window._recipeFilterList = recipeFilterList;
+window._recipeOpenEditor = recipeOpenEditor;
