@@ -3202,12 +3202,14 @@ window._dailyMusterRoll = function() {
 };
 
 export function renderMonthlyMuster() {
+  const _pid = state.currentProjectId;
   const monthFilter = document.getElementById('attMonthFilter');
   if (monthFilter) {
-    // Always recompute the month list so newly-saved attendance months appear
-    // immediately (the previous cache-on-first-render skipped freshly-marked
-    // dates, leaving the user stuck on a month with no logs visible).
-    const months = [...new Set((state.attendanceLogs || []).map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
+    // Recompute the month list each render (so freshly-saved months appear), and
+    // scope it to THIS project's attendance so other projects' months don't show.
+    const months = [...new Set((state.attendanceLogs || [])
+      .filter(a => !_pid || a.siteId === _pid)
+      .map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
     const thisMonth = new Date().toISOString().substring(0, 7);
     if (!months.includes(thisMonth)) months.unshift(thisMonth);
     const keep = monthFilter.value;
@@ -3215,14 +3217,22 @@ export function renderMonthlyMuster() {
     if (keep && months.includes(keep)) monthFilter.value = keep;
   }
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
+  // Scope to the current project — attendance siteId is the projectId stamped at
+  // marking time, the same signal the mark-attendance sheet uses. Without this
+  // the muster pulled in workers from every project that had logs that month.
+  const pid = state.currentProjectId;
   const selSite = document.getElementById('attSiteFilter')?.value || '';
-  const monthly = state.attendanceLogs.filter(a => a.date.startsWith(selMonth) && (!selSite || a.siteId === selSite));
+  const monthly = state.attendanceLogs.filter(a =>
+    (a.date || '').startsWith(selMonth)
+    && (!pid || a.siteId === pid)
+    && (!selSite || a.siteId === selSite)
+  );
   const tbody = document.getElementById('musterBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  // Build the worker set the muster iterates: project labour + every worker that
-  // actually has attendance logs in the selected month (so legacy or
-  // unprojected workers still show up if the user marked them present).
+  // Worker set: this project's workers (strict), plus any worker that has logs in
+  // THIS project's monthly set (monthly is already project-scoped above, so this
+  // can never leak in another project's labour).
   const projWorkers = _projectLabour();
   const projIds = new Set(projWorkers.map(l => l.id));
   const extras = [];
