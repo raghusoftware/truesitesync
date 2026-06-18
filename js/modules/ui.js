@@ -2545,13 +2545,30 @@ export function deleteLabour(id) {
 }
 
 /** Labour belonging to the current project (untagged legacy ones excluded once project scoping is active) */
+/**
+ * One-time backfill: stamp a projectId on any legacy worker that has none, using
+ * the project they were actually marked under (attendance siteId = projectId at
+ * marking time). This lets us scope strictly without stranding old workers who
+ * predate project-scoping. Workers with no projectId AND no attendance are left
+ * untagged (they'll show under whatever project they're next edited/marked in).
+ */
+function _backfillLabourProjects() {
+  let changed = false;
+  (state.labourMaster || []).forEach(l => {
+    if (l.projectId) return;
+    const log = (state.attendanceLogs || []).find(a => a.labourId === l.id && a.siteId);
+    if (log) { l.projectId = log.siteId; changed = true; }
+  });
+  if (changed && typeof saveLabourData === 'function') saveLabourData();
+}
+
 function _projectLabour() {
-  // Include workers tagged to this project AND legacy workers with no projectId
-  // (the strict equality silently hid attendance-marked workers whose record was
-  // created before project-scoping was applied — which manifested as "No
-  // attendance records" in the muster even when logs existed).
+  // Strictly this project's workers — same scoping the attendance sheet and the
+  // labour master both use, so the two views always match. Untagged legacy
+  // workers are first backfilled from their attendance history (above).
+  _backfillLabourProjects();
   const pid = state.currentProjectId;
-  return (state.labourMaster || []).filter(l => !l.projectId || l.projectId === pid);
+  return (state.labourMaster || []).filter(l => l.projectId === pid);
 }
 
 // ══════════════════════════════════════════
