@@ -3212,13 +3212,22 @@ export function renderMonthlyMuster() {
 
   const monthFilter = document.getElementById('attMonthFilter');
   if (monthFilter) {
-    // Every month this project's workers have attendance for + the current month.
-    const months = [...new Set(projLogs.map(a => (a.date || '').substring(0, 7)).filter(Boolean))].sort().reverse();
-    const thisMonth = new Date().toISOString().substring(0, 7);
-    if (!months.includes(thisMonth)) months.unshift(thisMonth);
-    const keep = monthFilter.value;
-    monthFilter.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
-    if (keep && months.includes(keep)) monthFilter.value = keep;
+    // Always offer a navigable range so the user can pick any month — not just
+    // months that already have data (which collapsed to a single option when all
+    // attendance was in the current month). Build the current month + 24 months
+    // back, then union in any older data months. Build YYYY-MM from LOCAL parts
+    // (toISOString shifts month boundaries in ahead-of-UTC zones like IST).
+    const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const monthSet = new Set();
+    const now = new Date();
+    for (let i = 0; i < 25; i++) monthSet.add(ym(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+    projLogs.forEach(a => { const m = (a.date || '').substring(0, 7); if (m) monthSet.add(m); });
+    const months = [...monthSet].sort().reverse();
+    // Label with a friendly "Mon YYYY" while keeping the YYYY-MM value.
+    const fmt = (m) => { const [y, mo] = m.split('-'); return new Date(y, mo - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }); };
+    const keep = monthFilter.value || ym(now);
+    monthFilter.innerHTML = months.map(m => `<option value="${m}">${fmt(m)}</option>`).join('');
+    if (months.includes(keep)) monthFilter.value = keep;
   }
   const selMonth = monthFilter?.value || new Date().toISOString().substring(0, 7);
   const monthly = projLogs.filter(a => (a.date || '').startsWith(selMonth));
