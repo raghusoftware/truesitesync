@@ -994,6 +994,10 @@ export function renderMicroPlanningView() {
         <div style="width:50px;height:50px;background:#7c3aed15;border:2px solid #7c3aed30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📑</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">RA Billing</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Running-account bill by location</div>
       </div>
+      <div onclick="_openMpSection('cost')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#ea580c15;border:2px solid #ea580c30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📊</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Cost &amp; Profit</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Owner P&amp;L · margin · leakage</div>
+      </div>
     </div>
     <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
 
@@ -1107,7 +1111,12 @@ export function renderMicroPlanningView() {
     <!-- SECTION: RA BILLING (running-account) -->
     <div id="mpSecRABill" class="mp-section hide">
       <div id="raBillingContent"></div>
-    </div><!-- /mpSecRABill -->`;
+    </div><!-- /mpSecRABill -->
+
+    <!-- SECTION: COST & PROFIT (owner P&L) -->
+    <div id="mpSecCost" class="mp-section hide">
+      <div id="costLedgerContent"></div>
+    </div><!-- /mpSecCost -->`;
 
   // Render the saved-plans list (transaction-style history)
   _mpRenderSavedPlans();
@@ -1196,10 +1205,11 @@ window._openMpSection = function(section) {
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
-  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations', rabill: 'mpSecRABill' };
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations', rabill: 'mpSecRABill', cost: 'mpSecCost' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'locations' && typeof window.renderSiteLocations === 'function') window.renderSiteLocations();
   if (section === 'rabill' && typeof window.renderRABilling === 'function') window.renderRABilling();
+  if (section === 'cost' && typeof window.renderCostLedger === 'function') window.renderCostLedger();
 };
 
 // ─────────────────────────────────────────────────────
@@ -1934,3 +1944,169 @@ window._mpGenerateRA = function(locIdsCsv) {
   renderRABilling();
   showToast(`${raNo} generated · ${getCurrencySymbol()}${Math.round(raBill.total).toLocaleString('en-IN')} — also added to Abstracts`, 'success');
 };
+
+// ═══════════════════════════════════════════════════════════
+//  PHASE 4 — OWNER COST & PROFIT LEDGER
+//  Value of work done (measured) vs what it cost to produce:
+//   • Material — recipe (mix design) × last purchase rate
+//   • Labour   — attendance wages (present + OT) for the project
+//   • Other    — project expenses (overhead)
+//  → per-BOQ-item margin + project P&L + non-BOQ leakage.
+// ═══════════════════════════════════════════════════════════
+
+/** Most-recent purchase (IN) rate for a raw material from inventory. */
+function _lastInRate(rawMatId) {
+  const ins = (state.inventoryTx || []).filter(t => t.rawMaterialId === rawMatId && t.type === 'IN' && (parseFloat(t.rate) || 0) > 0);
+  if (!ins.length) return 0;
+  ins.sort((a, b) => new Date(b.date) - new Date(a.date));
+  return parseFloat(ins[0].rate) || 0;
+}
+/** Resolve a recipe for a BOQ code (recipes are keyed by client.id-for-project or pid). */
+function _recipeFor(code) {
+  const pid = _pid();
+  const keys = [];
+  const cl = (state.clients || []).find(c => c.projectId === pid);
+  if (cl) keys.push(cl.id);
+  keys.push(pid);
+  for (const k of keys) { if (state.recipes?.[k]?.[code]?.ingredients?.length) return state.recipes[k][code]; }
+  return null;
+}
+/** Material cost to produce ONE unit of a BOQ item, from its recipe. */
+function _recipeUnitCost(code) {
+  const r = _recipeFor(code);
+  if (!r) return null; // null = no recipe defined (so we show "—" not 0)
+  let cost = 0;
+  (r.ingredients || []).forEach(ing => {
+    const rate = _lastInRate(ing.rawMatId);
+    cost += (parseFloat(ing.qty) || 0) * (1 + (parseFloat(ing.wastage) || 0) / 100) * rate;
+  });
+  return cost;
+}
+/** Measured qty + BOQ rate per code across the whole project (all locations). */
+function _measuredByCode() {
+  const pid = _pid();
+  const proj = _currentProject();
+  const boqRate = {};
+  (proj?.boqs || []).forEach(g => (g.items || []).forEach(it => {
+    const code = it.code || it.itemNo; if (code) boqRate[code] = { rate: parseFloat(it.rate) || 0, description: it.description || it.name || code, uom: it.uom || it.unit || '' };
+  }));
+  const map = {};
+  (state.sheets || []).filter(s => s.projectId === pid).forEach(s => {
+    (s.entries || []).forEach(e => {
+      if (!e.code) return;
+      if (!map[e.code]) map[e.code] = { code: e.code, description: boqRate[e.code]?.description || e.description || e.code, uom: boqRate[e.code]?.uom || e.uom || '', rate: boqRate[e.code]?.rate || parseFloat(e.rate) || 0, qty: 0 };
+      map[e.code].qty += parseFloat(e.qty) || 0;
+    });
+  });
+  return map;
+}
+/** Total attendance-accrued labour cost for the project's workers. */
+function _projectLabourCost() {
+  const workers = _getProjectWorkers();
+  const ids = new Set(workers.map(w => w.id));
+  const rateOf = {}; workers.forEach(w => rateOf[w.id] = parseFloat(w.dayRate) || 0);
+  let cost = 0;
+  (state.attendanceLogs || []).forEach(a => {
+    if (!ids.has(a.labourId)) return;
+    const dr = rateOf[a.labourId] || 0;
+    if (a.status === 'P') cost += dr;
+    else if (a.status === 'H') cost += dr * 0.5;
+    cost += (parseFloat(a.ot) || 0) * (dr / 8) * 1.5;
+  });
+  return Math.round(cost);
+}
+/** Billed value so far (from RA bills) — to split earned into billed vs WIP. */
+function _billedValue() {
+  return (state.raBills || []).filter(b => b.projectId === _pid()).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
+}
+
+export function renderCostLedger() {
+  const c = document.getElementById('costLedgerContent');
+  if (!c) return;
+  const proj = _currentProject();
+  if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
+  const cur = getCurrencySymbol();
+  const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
+
+  const meas = _measuredByCode();
+  const codes = Object.values(meas).filter(m => m.qty > 0);
+  let income = 0, materialTotal = 0, noRecipe = 0;
+  const rows = codes.map(m => {
+    const value = m.qty * m.rate; income += value;
+    const unitCost = _recipeUnitCost(m.code);
+    const matCost = unitCost == null ? null : unitCost * m.qty;
+    if (matCost == null) noRecipe++; else materialTotal += matCost;
+    const itemMargin = matCost == null ? null : value - matCost;
+    const marginPct = (matCost == null || value === 0) ? null : (itemMargin / value) * 100;
+    return { ...m, value, matCost, itemMargin, marginPct };
+  }).sort((a, b) => b.value - a.value);
+
+  const labourCost = _projectLabourCost();
+  const otherExpenses = (state.expenses || []).filter(e => e.projectId === proj.id).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  const billed = _billedValue();
+  const wip = Math.max(0, income - billed);
+  const totalCost = materialTotal + labourCost + otherExpenses;
+  const profit = income - totalCost;
+  const marginPct = income > 0 ? (profit / income) * 100 : 0;
+
+  // Non-BOQ overhead leakage (activities captured in Record Work)
+  const ohByCat = {};
+  (state.sheets || []).filter(s => s.projectId === proj.id).forEach(s => (s.overheadEntries || []).forEach(o => {
+    ohByCat[o.category] = (ohByCat[o.category] || 0) + 1;
+  }));
+  const ohTotal = Object.values(ohByCat).reduce((a, b) => a + b, 0);
+
+  const itemRows = rows.map(r => `<tr class="border-b hover:bg-slate-50">
+      <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(r.code)}</td>
+      <td class="px-2 py-1.5 text-slate-600">${_esc(r.description)}</td>
+      <td class="px-2 py-1.5 text-right">${r.qty.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${_esc(r.uom)}</td>
+      <td class="px-2 py-1.5 text-right text-slate-500">${fmt(r.value)}</td>
+      <td class="px-2 py-1.5 text-right text-slate-500">${r.matCost == null ? '<span class="text-amber-500" title="No recipe defined">—</span>' : fmt(r.matCost)}</td>
+      <td class="px-2 py-1.5 text-right font-bold ${r.itemMargin == null ? 'text-slate-300' : r.itemMargin >= 0 ? 'text-green-700' : 'text-red-600'}">${r.itemMargin == null ? '—' : fmt(r.itemMargin)}</td>
+      <td class="px-2 py-1.5 text-right font-bold ${r.marginPct == null ? 'text-slate-300' : r.marginPct >= 0 ? 'text-green-600' : 'text-red-500'}">${r.marginPct == null ? '—' : r.marginPct.toFixed(0) + '%'}</td>
+    </tr>`).join('');
+
+  const card = (label, val, sub, color) => `<div class="bg-white border rounded-xl p-3 text-center">
+      <p class="text-[10px] font-bold uppercase" style="color:${color}">${label}</p>
+      <p class="text-lg font-extrabold text-slate-800">${val}</p>${sub ? `<p class="text-[10px] text-slate-400">${sub}</p>` : ''}</div>`;
+
+  c.innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      ${card('Work done (earned)', fmt(income), `Billed ${fmt(billed)} · WIP ${fmt(wip)}`, '#0d9488')}
+      ${card('Material cost', fmt(materialTotal), 'recipe × purchase rate', '#ea580c')}
+      ${card('Labour cost', fmt(labourCost), 'attendance wages', '#7c3aed')}
+      ${card(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% margin', profit >= 0 ? '#16a34a' : '#dc2626')}
+    </div>
+
+    <div class="bg-white border rounded-xl overflow-hidden mb-4">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">Margin by BOQ item</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Code</th><th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Description</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Done</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Value</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Material</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Margin</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
+        <tbody>${itemRows || '<tr><td colspan="7" class="p-5 text-center text-slate-400">No measured work yet — use 📐 Record Work.</td></tr>'}</tbody></table></div>
+      ${noRecipe ? `<p class="text-[11px] text-amber-600 px-3 py-2 border-t bg-amber-50">${noRecipe} item(s) have no mix-design recipe — their material cost shows "—" and isn't in the totals. Add recipes for accurate margins.</p>` : ''}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white border rounded-xl p-4">
+        <h4 class="font-bold text-sm text-slate-800 mb-2">Project P&amp;L</h4>
+        <div class="space-y-1.5 text-sm">
+          <div class="flex justify-between"><span class="text-slate-500">Work done (earned)</span><span class="font-bold text-teal-700">${fmt(income)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">– Material (recipe)</span><span class="text-slate-700">${fmt(materialTotal)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">– Labour (attendance)</span><span class="text-slate-700">${fmt(labourCost)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">– Other expenses</span><span class="text-slate-700">${fmt(otherExpenses)}</span></div>
+          <div class="flex justify-between border-t pt-1.5 mt-1.5"><span class="font-bold text-slate-700">${profit >= 0 ? 'Gross profit' : 'Gross loss'}</span><span class="font-extrabold ${profit >= 0 ? 'text-green-700' : 'text-red-600'}">${fmt(profit)} <span class="text-[11px] font-bold">(${marginPct.toFixed(1)}%)</span></span></div>
+        </div>
+      </div>
+      <div class="bg-white border rounded-xl p-4">
+        <h4 class="font-bold text-sm text-slate-800 mb-2">Non-BOQ work (leakage) <span class="text-[10px] text-slate-400 font-medium">— labour spent outside the bill</span></h4>
+        ${ohTotal ? `<div class="space-y-1 text-xs">${Object.entries(ohByCat).sort((a, b) => b[1] - a[1]).map(([cat, n]) => `<div class="flex justify-between"><span class="text-slate-600">${_esc(cat)}</span><span class="font-bold text-slate-700">${n} log${n > 1 ? 's' : ''}</span></div>`).join('')}</div>
+          <p class="text-[11px] text-slate-400 mt-2">${ohTotal} non-BOQ activities recorded. These consume labour you can't bill — watch this to protect margin.</p>`
+          : '<p class="text-xs text-slate-400">No non-BOQ activities logged yet.</p>'}
+      </div>
+    </div>
+    <p class="text-[10px] text-slate-400 mt-3">Material cost = mix-design recipe × latest purchase rate of each ingredient. Labour = attendance wages (present + ½ half-day + 1.5× OT). Earned = measured value (billed + work-in-progress).</p>`;
+}
+window.renderCostLedger = renderCostLedger;
