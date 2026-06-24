@@ -635,6 +635,7 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
           <p class="text-blue-200 text-[10px] mt-0.5">${assignedWorkerIds.size} assigned | ${freeWorkers.length} free | ${totalHours}h | ${formatINR(totalCost)}</p>
         </div>
         <div class="flex gap-2">
+          <button onclick="window._mpRecordWork('${dateStr}')" title="Record work done & measure" class="bg-emerald-400/90 hover:bg-emerald-400 text-emerald-950 text-[10px] px-3 py-1.5 rounded font-extrabold">📐 Record Work</button>
           <button onclick="_mpExportDayPDF('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">PDF</button>
           <button onclick="_mpPrintDay('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">Print</button>
           <button onclick="document.getElementById('dailySheet_${dateStr}').remove()" title="Close this day" class="bg-white/20 hover:bg-white/30 text-white text-[12px] px-2.5 py-1.5 rounded font-bold leading-none">✕</button>
@@ -1549,4 +1550,181 @@ window._deleteSiteLocation = function(id) {
   saveAllData();
   renderSiteLocations();
   showToast('Location removed', 'info');
+};
+
+// ═══════════════════════════════════════════════════════════
+//  PHASE 2 — DAILY MEASUREMENT  ("Record Work Done")
+//  Captures executed quantity per LOCATION at day-close and
+//  appends it to an OPEN running measurement sheet for that
+//  (project, location). The sheet feeds the existing
+//  Measurement → Abstract → RA Bill pipeline. Stays open
+//  (accumulating) until an RA bill is cut, then it locks.
+// ═══════════════════════════════════════════════════════════
+
+/** Flatten a project's BOQ items → [{ code, description, uom, rate }]. */
+function _mpBoqItems() {
+  const proj = _currentProject();
+  const out = [];
+  (proj?.boqs || []).forEach(g => (g.items || []).forEach(it => {
+    const code = it.code || it.itemNo;
+    if (!code) return;
+    out.push({ code, description: it.description || it.name || code, uom: it.uom || it.unit || '', rate: parseFloat(it.rate) || 0 });
+  }));
+  return out;
+}
+
+/** Find the OPEN (un-billed) running measurement sheet for a location, or create it. */
+function _findOrCreateRunningSheet(locId, locLabel) {
+  const proj = _currentProject();
+  const pid = proj?.id;
+  let s = (state.sheets || []).find(x => x.projectId === pid && x.locationId === locId && !x.isBilled);
+  if (!s) {
+    const n = (state.sheets || []).filter(x => x.projectId === pid).length + 1;
+    s = {
+      id: 's_' + Date.now(), projectId: pid, clientId: proj?.clientId || '',
+      date: new Date().toISOString().split('T')[0], sheetNum: 'M-' + String(n).padStart(3, '0'),
+      area: locLabel, locationId: locId, entries: [], overheadEntries: [],
+      isBilled: false, linkedAbstract: null, _running: true, updatedAt: new Date().toISOString()
+    };
+    if (!state.sheets) state.sheets = [];
+    state.sheets.push(s);
+  }
+  return s;
+}
+
+function _mpBoqRowHtml() {
+  const opts = _mpBoqItems().map(b => `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom)}" data-rate="${b.rate}" data-desc="${_esc(b.description)}">${_esc(b.code)} — ${_esc(b.description)}</option>`).join('');
+  return `<tr>
+    <td class="p-1"><select class="rw-boq w-full p-1.5 border rounded text-xs" onchange="window._rwBoqPick(this)"><option value="">-- BOQ item --</option>${opts}</select></td>
+    <td class="p-1"><input class="rw-qty w-full p-1.5 border rounded text-xs text-right" type="number" min="0" step="0.01" placeholder="0" oninput="window._rwCalc(this)"></td>
+    <td class="p-1"><input class="rw-uom w-16 p-1.5 border rounded text-xs" readonly></td>
+    <td class="p-1 text-right"><span class="rw-rate text-xs text-slate-500">0</span></td>
+    <td class="p-1 text-right"><span class="rw-amt text-xs font-bold text-slate-800">0</span></td>
+    <td class="p-1 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 text-xs font-bold">✕</button></td>
+  </tr>`;
+}
+function _mpOverheadRowHtml() {
+  const cats = ['Material Handling', 'Housekeeping / Cleaning', 'Rework', 'Dewatering', 'Scaffolding', 'Curing', 'Idle / Standby', 'Safety', 'Mobilization', 'Other'];
+  return `<tr>
+    <td class="p-1"><input class="oh-act w-full p-1.5 border rounded text-xs" placeholder="e.g. Shift cement to 3rd floor"></td>
+    <td class="p-1"><select class="oh-cat w-full p-1.5 border rounded text-xs">${cats.map(c => `<option>${c}</option>`).join('')}</select></td>
+    <td class="p-1"><input class="oh-qty w-full p-1.5 border rounded text-xs text-right" type="number" min="0" step="0.01" placeholder="0"></td>
+    <td class="p-1"><input class="oh-uom w-16 p-1.5 border rounded text-xs" placeholder="unit"></td>
+    <td class="p-1 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 text-xs font-bold">✕</button></td>
+  </tr>`;
+}
+
+window._rwBoqPick = function(sel) {
+  const tr = sel.closest('tr'); const o = sel.selectedOptions?.[0];
+  tr.querySelector('.rw-uom').value = o?.dataset.uom || '';
+  tr.querySelector('.rw-rate').textContent = (parseFloat(o?.dataset.rate) || 0).toLocaleString('en-IN');
+  window._rwCalc(sel);
+};
+window._rwCalc = function(el) {
+  const tr = el.closest('tr');
+  const qty = parseFloat(tr.querySelector('.rw-qty')?.value) || 0;
+  const rate = parseFloat(tr.querySelector('.rw-boq')?.selectedOptions?.[0]?.dataset.rate) || 0;
+  tr.querySelector('.rw-amt').textContent = Math.round(qty * rate).toLocaleString('en-IN');
+};
+window._rwAddBoq = function() { document.getElementById('rwBoqBody')?.insertAdjacentHTML('beforeend', _mpBoqRowHtml()); };
+window._rwAddOverhead = function() { document.getElementById('rwOhBody')?.insertAdjacentHTML('beforeend', _mpOverheadRowHtml()); };
+
+/** Open the Record-Work-Done modal for a given date. */
+window._mpRecordWork = function(dateStr) {
+  const proj = _currentProject();
+  if (!proj) { showToast('Select a project first', 'error'); return; }
+  const date = dateStr || new Date().toISOString().split('T')[0];
+  const locs = _projectLocations();
+  const cur = getCurrencySymbol();
+  const locOpts = locs.map(l => `<option value="${l.id}">${_esc(siteLocationLabel(l))}</option>`).join('');
+  const boqCount = _mpBoqItems().length;
+  document.getElementById('mpRecordWorkModal')?.remove();
+  const html = `<div id="mpRecordWorkModal" class="ef-overlay" style="z-index:299999" onclick="if(event.target===this)this.remove()">
+    <div class="ef-modal" style="max-width:760px;">
+      <div class="ef-header" style="background:linear-gradient(135deg,#059669,#047857)">
+        <h3 class="ef-title" style="color:#fff">📐 Record Work Done</h3>
+        <button onclick="document.getElementById('mpRecordWorkModal').remove()" class="ef-close" style="color:#fff">&times;</button>
+      </div>
+      <div class="ef-body" style="max-height:70vh;overflow:auto;">
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div><label class="ef-label">Date</label><input id="rwDate" type="date" value="${date}" class="ef-input"></div>
+          <div><label class="ef-label">Location</label>${locs.length
+            ? `<select id="rwLocation" class="ef-input">${locOpts}</select>`
+            : `<div class="text-[11px] text-amber-600 font-bold p-2 bg-amber-50 border border-amber-200 rounded">No locations yet — add Block/Floor/Unit in the <b>Locations</b> tab first.</div>`}</div>
+        </div>
+
+        <div class="flex items-center justify-between mb-1">
+          <h4 class="text-xs font-bold text-slate-700 uppercase">Chargeable work (from BOQ)</h4>
+          <button onclick="window._rwAddBoq()" class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded font-bold">+ Add item</button>
+        </div>
+        ${boqCount === 0 ? '<p class="text-[11px] text-amber-600 mb-3">This project has no BOQ items yet — add them in the project BOQ to bill work.</p>' : ''}
+        <div class="overflow-x-auto border rounded-lg mb-4"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+          <th class="p-1.5 text-left font-bold text-slate-500">BOQ Item</th><th class="p-1.5 text-right font-bold text-slate-500">Qty done</th>
+          <th class="p-1.5 text-left font-bold text-slate-500">Unit</th><th class="p-1.5 text-right font-bold text-slate-500">Rate</th>
+          <th class="p-1.5 text-right font-bold text-slate-500">Amount</th><th class="p-1.5"></th></tr></thead>
+          <tbody id="rwBoqBody">${_mpBoqRowHtml()}${_mpBoqRowHtml()}</tbody></table></div>
+
+        <div class="flex items-center justify-between mb-1">
+          <h4 class="text-xs font-bold text-slate-700 uppercase">Non-BOQ / overhead work <span class="text-slate-400 font-medium normal-case">(owner record only, not billed)</span></h4>
+          <button onclick="window._rwAddOverhead()" class="text-[11px] bg-slate-100 text-slate-600 border px-2 py-1 rounded font-bold">+ Add activity</button>
+        </div>
+        <div class="overflow-x-auto border rounded-lg"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+          <th class="p-1.5 text-left font-bold text-slate-500">Activity</th><th class="p-1.5 text-left font-bold text-slate-500">Category</th>
+          <th class="p-1.5 text-right font-bold text-slate-500">Qty</th><th class="p-1.5 text-left font-bold text-slate-500">Unit</th><th class="p-1.5"></th></tr></thead>
+          <tbody id="rwOhBody">${_mpOverheadRowHtml()}</tbody></table></div>
+      </div>
+      <div class="ef-footer">
+        <button onclick="document.getElementById('mpRecordWorkModal').remove()" class="ef-btn-cancel">Cancel</button>
+        <button onclick="window._mpSaveRecordWork()" class="ef-btn-save" ${locs.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'}>Save to measurement</button>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._mpSaveRecordWork = function() {
+  const date = document.getElementById('rwDate')?.value || new Date().toISOString().split('T')[0];
+  const locId = document.getElementById('rwLocation')?.value || '';
+  if (!locId) { showToast('Pick a location', 'error'); return; }
+  const loc = _projectLocations().find(l => l.id === locId);
+  const locLabel = siteLocationLabel(loc);
+
+  // Collect chargeable BOQ rows
+  const boqRows = [];
+  document.querySelectorAll('#rwBoqBody tr').forEach(tr => {
+    const code = tr.querySelector('.rw-boq')?.value;
+    const qty = parseFloat(tr.querySelector('.rw-qty')?.value) || 0;
+    if (code && qty > 0) {
+      const o = tr.querySelector('.rw-boq').selectedOptions[0];
+      boqRows.push({ code, description: o?.dataset.desc || code, uom: o?.dataset.uom || '', rate: parseFloat(o?.dataset.rate) || 0, qty });
+    }
+  });
+  // Collect overhead rows
+  const ohRows = [];
+  document.querySelectorAll('#rwOhBody tr').forEach(tr => {
+    const act = (tr.querySelector('.oh-act')?.value || '').trim();
+    const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0;
+    if (act) ohRows.push({ activity: act, category: tr.querySelector('.oh-cat')?.value || 'Other', qty, uom: (tr.querySelector('.oh-uom')?.value || '').trim(), date });
+  });
+  if (!boqRows.length && !ohRows.length) { showToast('Enter at least one quantity', 'warning'); return; }
+
+  const sheet = _findOrCreateRunningSheet(locId, locLabel);
+  if (!sheet.entries) sheet.entries = [];
+  if (!sheet.overheadEntries) sheet.overheadEntries = [];
+
+  // Merge chargeable rows into the running sheet by code (accumulate qty).
+  boqRows.forEach(r => {
+    const ex = sheet.entries.find(e => e.code === r.code && !e._locked);
+    if (ex) { ex.qty = (parseFloat(ex.qty) || 0) + r.qty; ex._lastDate = date; }
+    else sheet.entries.push({ code: r.code, description: r.description, uom: r.uom, rate: r.rate, qty: r.qty, remarks: `Daily ${date}`, _src: 'daily', _firstDate: date, _lastDate: date });
+  });
+  // Overhead → owner-only record on the sheet.
+  ohRows.forEach(r => sheet.overheadEntries.push(r));
+  sheet.updatedAt = new Date().toISOString();
+
+  saveAllData();
+  document.getElementById('mpRecordWorkModal')?.remove();
+  // Refresh any open measurement views.
+  if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
+  const billable = sheet.entries.reduce((s, e) => s + (parseFloat(e.qty) || 0) * (parseFloat(e.rate) || 0), 0);
+  showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — running value ${getCurrencySymbol()}${Math.round(billable).toLocaleString('en-IN')}`, 'success');
 };
