@@ -789,10 +789,13 @@ export function renderMeasurementList() {
     const uniqueItems = [...new Set(s.entries.filter(e => e.code).map(e => e.code))];
     const dateStr = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const updatedStr = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-    const billedClass = s.isBilled ? 'border-l-green-500' : 'border-l-blue-400';
+    const _running = s._running || s.locationId;
+    const billedClass = s.isBilled ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
     const statusBadge = s.isBilled
       ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Billed</span>`
-      : `<span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>`;
+      : _running
+        ? `<span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" title="Running measurement — bill from Micro-Planning → RA Billing">Running · RA Billing</span>`
+        : `<span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>`;
 
     return `<div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4 ${billedClass}">
       <div class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">

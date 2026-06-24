@@ -2024,6 +2024,14 @@ export function generateAbstractFromSheet() {
   const sId = state.currentSheetId;
   if (!sId) return showToast('Please save first', 'error');
   const sheet = state.sheets.find(s => s.id === sId);
+  // Guard: sheets created by Micro-Planning "Record Work" are RUNNING (cumulative)
+  // measurement sheets. Billing them through the old per-sheet abstract would
+  // bypass the running-account engine (cumulative − previously billed) and
+  // wrongly mark the sheet fully billed. Route the user to RA Billing instead.
+  if (sheet._running || sheet.locationId) {
+    showToast('This is a running measurement sheet — bill it from Micro-Planning → RA Billing (running-account).', 'warning');
+    return;
+  }
   if (sheet.isBilled) return showToast('Abstract already generated', 'error');
   const cId = sheet.clientId;
   const proj = state.projects.find(p => p.id === sheet.projectId);
