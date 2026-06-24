@@ -990,6 +990,10 @@ export function renderMicroPlanningView() {
         <div style="width:50px;height:50px;background:#0d948815;border:2px solid #0d948830;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📍</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">Locations</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Block / Floor / Unit master</div>
       </div>
+      <div onclick="_openMpSection('rabill')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#7c3aed15;border:2px solid #7c3aed30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📑</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">RA Billing</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Running-account bill by location</div>
+      </div>
     </div>
     <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
 
@@ -1098,7 +1102,12 @@ export function renderMicroPlanningView() {
     <!-- SECTION: LOCATIONS (Block / Floor / Unit master) -->
     <div id="mpSecLocations" class="mp-section hide">
       <div id="siteLocationsContent"></div>
-    </div><!-- /mpSecLocations -->`;
+    </div><!-- /mpSecLocations -->
+
+    <!-- SECTION: RA BILLING (running-account) -->
+    <div id="mpSecRABill" class="mp-section hide">
+      <div id="raBillingContent"></div>
+    </div><!-- /mpSecRABill -->`;
 
   // Render the saved-plans list (transaction-style history)
   _mpRenderSavedPlans();
@@ -1187,9 +1196,10 @@ window._openMpSection = function(section) {
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
-  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations' };
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations', rabill: 'mpSecRABill' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'locations' && typeof window.renderSiteLocations === 'function') window.renderSiteLocations();
+  if (section === 'rabill' && typeof window.renderRABilling === 'function') window.renderRABilling();
 };
 
 // ─────────────────────────────────────────────────────
@@ -1727,4 +1737,200 @@ window._mpSaveRecordWork = function() {
   if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
   const billable = sheet.entries.reduce((s, e) => s + (parseFloat(e.qty) || 0) * (parseFloat(e.rate) || 0), 0);
   showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — running value ${getCurrencySymbol()}${Math.round(billable).toLocaleString('en-IN')}`, 'success');
+};
+
+// ═══════════════════════════════════════════════════════════
+//  PHASE 3 — RA BILLING ENGINE (running-account)
+//  Cumulative measured per (location, BOQ code) − previously
+//  billed = this RA. Bill one location or consolidate several.
+//  Emits an raBills ledger record AND a standard abstract so it
+//  flows into the existing RA-bill / tax-invoice pipeline.
+// ═══════════════════════════════════════════════════════════
+
+/** Cumulative measured qty per BOQ code for a location (summed across its sheets). */
+function _cumulativeMeasured(locId) {
+  const pid = _pid();
+  const map = {};
+  (state.sheets || []).filter(s => s.projectId === pid && s.locationId === locId).forEach(s => {
+    (s.entries || []).forEach(e => {
+      if (!e.code) return;
+      if (!map[e.code]) map[e.code] = { code: e.code, description: e.description || e.code, uom: e.uom || '', rate: parseFloat(e.rate) || 0, qty: 0 };
+      map[e.code].qty += parseFloat(e.qty) || 0;
+      if (!map[e.code].rate && e.rate) map[e.code].rate = parseFloat(e.rate) || 0;
+    });
+  });
+  return map;
+}
+/** Qty already billed for a (location, code) across all prior RA bills. */
+function _prevBilled(locId, code) {
+  let q = 0;
+  (state.raBills || []).filter(b => b.projectId === _pid()).forEach(b => {
+    (b.lines || []).forEach(l => { if (l.locId === locId && l.code === code) q += parseFloat(l.thisQty) || 0; });
+  });
+  return q;
+}
+/** Unbilled value sitting in a location (cumulative − billed). */
+function _locationBalance(locId) {
+  const meas = _cumulativeMeasured(locId);
+  let measuredVal = 0, balanceVal = 0;
+  Object.values(meas).forEach(m => {
+    measuredVal += m.qty * m.rate;
+    const bal = Math.max(0, m.qty - _prevBilled(locId, m.code));
+    balanceVal += bal * m.rate;
+  });
+  return { measuredVal, balanceVal };
+}
+
+export function renderRABilling() {
+  const c = document.getElementById('raBillingContent');
+  if (!c) return;
+  const proj = _currentProject();
+  if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
+  const cur = getCurrencySymbol();
+  const locs = _projectLocations().filter(l => Object.keys(_cumulativeMeasured(l.id)).length);
+  const raList = (state.raBills || []).filter(b => b.projectId === proj.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  const locCards = locs.map(l => {
+    const { measuredVal, balanceVal } = _locationBalance(l.id);
+    return `<label class="flex items-center gap-3 bg-white border rounded-xl px-4 py-3 cursor-pointer hover:bg-violet-50">
+      <input type="checkbox" class="ra-loc-chk" value="${l.id}" style="width:16px;height:16px;">
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-slate-800 text-sm truncate">${_esc(siteLocationLabel(l))}</p>
+        <p class="text-[11px] text-slate-400">Measured ${cur}${Math.round(measuredVal).toLocaleString('en-IN')}</p>
+      </div>
+      <div class="text-right"><p class="text-[10px] text-slate-400 uppercase font-bold">Unbilled</p><p class="font-extrabold ${balanceVal > 0 ? 'text-violet-700' : 'text-slate-300'}">${cur}${Math.round(balanceVal).toLocaleString('en-IN')}</p></div>
+    </label>`;
+  }).join('');
+
+  const raRows = raList.map(b => `<tr class="border-b hover:bg-slate-50">
+      <td class="px-3 py-2 font-mono font-bold text-violet-700">${b.raNo}</td>
+      <td class="px-3 py-2 text-slate-500">${b.date}</td>
+      <td class="px-3 py-2 text-slate-600 truncate">${_esc((b.locationLabels || []).join(', '))}</td>
+      <td class="px-3 py-2 text-right font-bold">${cur}${Math.round(b.total || 0).toLocaleString('en-IN')}</td>
+    </tr>`).join('');
+
+  c.innerHTML = `
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare RA Bill</h3>
+      <p class="text-[11px] text-slate-400 mb-3">Select one location (single RA) or several (consolidated RA). The bill auto-computes <b>cumulative measured − already billed</b> for each BOQ item.</p>
+      ${locs.length ? `<div class="space-y-2 mb-3">${locCards}</div>
+      <button onclick="window._mpPrepareRA()" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">Prepare RA Bill →</button>`
+      : '<p class="text-xs text-amber-600">No measured work yet. Use <b>📐 Record Work</b> on a daily sheet first.</p>'}
+    </div>
+    <div id="raBillDraft"></div>
+    <div class="bg-white border rounded-xl overflow-hidden mt-4">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">RA Bills (${raList.length})</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">RA No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Locations</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
+      </tr></thead><tbody>${raRows || '<tr><td colspan="4" class="p-5 text-center text-slate-400">No RA bills yet.</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+window.renderRABilling = renderRABilling;
+
+window._mpPrepareRA = function() {
+  const locIds = [...document.querySelectorAll('.ra-loc-chk:checked')].map(c => c.value);
+  if (!locIds.length) { showToast('Select at least one location', 'warning'); return; }
+  const cur = getCurrencySymbol();
+  let html = '', grand = 0, rowIdx = 0;
+  locIds.forEach(locId => {
+    const loc = _projectLocations().find(l => l.id === locId);
+    const meas = _cumulativeMeasured(locId);
+    const lines = Object.values(meas).map(m => {
+      const prev = _prevBilled(locId, m.code);
+      const balance = Math.max(0, m.qty - prev);
+      return { ...m, prev, balance };
+    }).filter(l => l.balance > 0.0001);
+    if (!lines.length) return;
+    const body = lines.map(l => {
+      const amt = l.balance * l.rate; grand += amt;
+      return `<tr class="border-b" data-loc="${locId}" data-code="${_esc(l.code)}" data-rate="${l.rate}" data-cum="${l.qty}" data-prev="${l.prev}" data-desc="${_esc(l.description)}" data-uom="${_esc(l.uom)}">
+        <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(l.code)}</td>
+        <td class="px-2 py-1.5 text-slate-600">${_esc(l.description)}</td>
+        <td class="px-2 py-1.5 text-right text-slate-500">${l.qty}</td>
+        <td class="px-2 py-1.5 text-right text-slate-400">${l.prev}</td>
+        <td class="px-2 py-1.5"><input type="number" min="0" max="${l.balance}" step="0.01" value="${l.balance}" class="ra-appr w-20 p-1 border rounded text-xs text-right" oninput="window._raRecalc()"></td>
+        <td class="px-2 py-1.5 text-right text-slate-500">${cur}${l.rate.toLocaleString('en-IN')}</td>
+        <td class="px-2 py-1.5 text-right font-bold ra-amt">${cur}${Math.round(amt).toLocaleString('en-IN')}</td>
+      </tr>`;
+    }).join('');
+    html += `<div class="mb-3"><p class="text-xs font-extrabold text-violet-700 mb-1">📍 ${_esc(siteLocationLabel(loc))}</p>
+      <div class="overflow-x-auto border rounded-lg"><table class="w-full text-xs"><thead class="bg-violet-50"><tr>
+        <th class="px-2 py-1.5 text-left font-bold text-slate-500">Code</th><th class="px-2 py-1.5 text-left font-bold text-slate-500">Description</th>
+        <th class="px-2 py-1.5 text-right font-bold text-slate-500">Cum. Measured</th><th class="px-2 py-1.5 text-right font-bold text-slate-500">Prev Billed</th>
+        <th class="px-2 py-1.5 text-left font-bold text-slate-500">Approved (this RA)</th><th class="px-2 py-1.5 text-right font-bold text-slate-500">Rate</th>
+        <th class="px-2 py-1.5 text-right font-bold text-slate-500">Amount</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+    rowIdx += lines.length;
+  });
+  if (!rowIdx) { showToast('Nothing left to bill for the selected location(s)', 'info'); return; }
+  document.getElementById('raBillDraft').innerHTML = `
+    <div class="bg-white border-2 border-violet-200 rounded-xl p-4 mb-4">
+      <h3 class="font-bold text-sm text-slate-800 mb-3">RA Bill draft — ${locIds.length > 1 ? 'consolidated, ' + locIds.length + ' locations' : 'single location'}</h3>
+      ${html}
+      <div class="flex items-center justify-between mt-3 pt-3 border-t">
+        <p class="text-[11px] text-slate-400">Approved defaults to the full unbilled balance. Reduce it to certify less — the rest stays measured and bills in the next RA.</p>
+        <div class="text-right"><span class="text-xs text-slate-500 mr-2">RA Total</span><span id="raGrand" class="text-xl font-extrabold text-violet-700">${cur}${Math.round(grand).toLocaleString('en-IN')}</span></div>
+      </div>
+      <div class="text-right mt-3"><button onclick="window._mpGenerateRA('${locIds.join(',')}')" class="bg-violet-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">✓ Generate RA Bill</button></div>
+    </div>`;
+  document.getElementById('raBillDraft').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+window._raRecalc = function() {
+  const cur = getCurrencySymbol(); let grand = 0;
+  document.querySelectorAll('#raBillDraft tr[data-code]').forEach(tr => {
+    const rate = parseFloat(tr.dataset.rate) || 0;
+    const appr = parseFloat(tr.querySelector('.ra-appr')?.value) || 0;
+    const amt = appr * rate; grand += amt;
+    tr.querySelector('.ra-amt').textContent = cur + Math.round(amt).toLocaleString('en-IN');
+  });
+  const g = document.getElementById('raGrand'); if (g) g.textContent = cur + Math.round(grand).toLocaleString('en-IN');
+};
+
+window._mpGenerateRA = function(locIdsCsv) {
+  const proj = _currentProject(); if (!proj) return;
+  const lines = [];
+  let total = 0;
+  document.querySelectorAll('#raBillDraft tr[data-code]').forEach(tr => {
+    const appr = parseFloat(tr.querySelector('.ra-appr')?.value) || 0;
+    if (appr <= 0) return;
+    const rate = parseFloat(tr.dataset.rate) || 0;
+    const amount = Math.round(appr * rate * 100) / 100;
+    total += amount;
+    lines.push({
+      locId: tr.dataset.loc, locLabel: siteLocationLabel(_projectLocations().find(l => l.id === tr.dataset.loc)),
+      code: tr.dataset.code, description: tr.dataset.desc, uom: tr.dataset.uom, rate,
+      cumulativeQty: parseFloat(tr.dataset.cum) || 0, prevBilledQty: parseFloat(tr.dataset.prev) || 0,
+      thisQty: appr, amount
+    });
+  });
+  if (!lines.length) { showToast('Nothing approved to bill', 'warning'); return; }
+  const raSeq = (state.raBills || []).filter(b => b.projectId === proj.id).length + 1;
+  const raNo = 'RA-' + raSeq;
+  const date = new Date().toISOString().split('T')[0];
+  const locLabels = [...new Set(lines.map(l => l.locLabel))];
+  const raBill = {
+    id: 'ra_' + Date.now(), raNo, projectId: proj.id, clientId: proj.clientId || '',
+    date, locationIds: locIdsCsv.split(','), locationLabels: locLabels, lines,
+    subtotal: Math.round(total * 100) / 100, total: Math.round(total * 100) / 100
+  };
+  // Mirror into a standard abstract so it appears in the Abstracts list, parties
+  // ledger, and can be converted to a tax invoice via the existing pipeline.
+  const abstract = {
+    id: 'A_' + Date.now(), abstractNum: raNo, clientId: proj.clientId || '', projectId: proj.id,
+    sheetId: null, sheetNum: raNo, date, area: locLabels.join(', '), totalAmount: raBill.total,
+    items: lines.map(l => ({ code: l.code, description: l.description, uom: l.uom, qty: l.thisQty, rate: l.rate, amount: l.amount })),
+    isInvoiced: false, linkedInvoice: null, _raBillId: raBill.id
+  };
+  if (!state.raBills) state.raBills = [];
+  if (!state.abstracts) state.abstracts = [];
+  state.raBills.push(raBill);
+  raBill.abstractId = abstract.id;
+  state.abstracts.push(abstract);
+  saveAllData();
+  if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
+  if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
+  document.getElementById('raBillDraft').innerHTML = '';
+  renderRABilling();
+  showToast(`${raNo} generated · ${getCurrencySymbol()}${Math.round(raBill.total).toLocaleString('en-IN')} — also added to Abstracts`, 'success');
 };
