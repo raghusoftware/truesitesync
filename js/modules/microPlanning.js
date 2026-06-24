@@ -985,6 +985,10 @@ export function renderMicroPlanningView() {
         <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">Generated Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">View saved daily sheets</div>
       </div>
+      <div onclick="_openMpSection('locations')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#0d948815;border:2px solid #0d948830;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📍</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Locations</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Block / Floor / Unit master</div>
+      </div>
     </div>
     <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
 
@@ -1088,7 +1092,12 @@ export function renderMicroPlanningView() {
         <div id="mpSavedPlansList"></div>
       </div>
       <div id="mpDailySheets"></div>
-    </div><!-- /mpSecPlan -->`;
+    </div><!-- /mpSecPlan -->
+
+    <!-- SECTION: LOCATIONS (Block / Floor / Unit master) -->
+    <div id="mpSecLocations" class="mp-section hide">
+      <div id="siteLocationsContent"></div>
+    </div><!-- /mpSecLocations -->`;
 
   // Render the saved-plans list (transaction-style history)
   _mpRenderSavedPlans();
@@ -1177,8 +1186,9 @@ window._openMpSection = function(section) {
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
-  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan' };
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
+  if (section === 'locations' && typeof window.renderSiteLocations === 'function') window.renderSiteLocations();
 };
 
 // ─────────────────────────────────────────────────────
@@ -1452,3 +1462,91 @@ export function mpPrintDay(dateStr) {
   w.document.close();
   setTimeout(() => { w.print(); }, 500);
 }
+
+// ═══════════════════════════════════════════════════════════
+//  LOCATION MASTER  (Block › Floor › Unit) — per project
+//  The accumulator key for daily measurement & RA billing.
+//  Stored on project.siteLocations = [{ id, block, floor, unit }]
+// ═══════════════════════════════════════════════════════════
+function _currentProject() {
+  return (state.projects || []).find(p => p.id === _pid());
+}
+function _projectLocations() {
+  const proj = _currentProject();
+  return (proj && Array.isArray(proj.siteLocations)) ? proj.siteLocations : [];
+}
+/** Human label: "Block A › 2nd Floor › Flat 203" — skips empty parts. */
+export function siteLocationLabel(loc) {
+  if (!loc) return '';
+  if (typeof loc === 'string') {
+    const found = _projectLocations().find(l => l.id === loc);
+    if (found) loc = found; else return loc; // raw label fallback
+  }
+  return [loc.block, loc.floor, loc.unit].map(s => (s || '').trim()).filter(Boolean).join(' › ') || 'Location';
+}
+window.siteLocationLabel = siteLocationLabel;
+
+export function renderSiteLocations() {
+  const c = document.getElementById('siteLocationsContent');
+  if (!c) return;
+  const proj = _currentProject();
+  if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
+  const locs = _projectLocations();
+  const rows = locs.map(l => `<tr class="hover:bg-slate-50 border-b">
+      <td class="px-3 py-2 font-semibold text-slate-800">${_esc(siteLocationLabel(l))}</td>
+      <td class="px-3 py-2 text-slate-500">${_esc(l.block || '-')}</td>
+      <td class="px-3 py-2 text-slate-500">${_esc(l.floor || '-')}</td>
+      <td class="px-3 py-2 text-slate-500">${_esc(l.unit || '-')}</td>
+      <td class="px-3 py-2 text-right"><button onclick="window._deleteSiteLocation('${l.id}')" class="text-red-400 hover:text-red-600 text-[11px] font-bold">Delete</button></td>
+    </tr>`).join('');
+  c.innerHTML = `
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <h3 class="font-bold text-sm text-slate-800 mb-1">📍 Site Locations</h3>
+      <p class="text-[11px] text-slate-400 mb-3">Define where work happens (Block / Floor / Unit). Daily measurements & RA bills are organised by location.</p>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Block / Tower</label><input id="locBlock" placeholder="e.g. Block A" class="w-full p-2 border rounded-lg text-sm"></div>
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Floor / Level</label><input id="locFloor" placeholder="e.g. 2nd Floor" class="w-full p-2 border rounded-lg text-sm"></div>
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Unit / Flat / Grid</label><input id="locUnit" placeholder="e.g. Flat 203" class="w-full p-2 border rounded-lg text-sm"></div>
+        <button onclick="window._addSiteLocation()" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700">+ Add Location</button>
+      </div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">${locs.length} location${locs.length === 1 ? '' : 's'}</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Location</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Block</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Floor</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Unit</th>
+        <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Action</th>
+      </tr></thead><tbody>${rows || '<tr><td colspan="5" class="p-5 text-center text-slate-400">No locations yet — add Block / Floor / Unit above.</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+window.renderSiteLocations = renderSiteLocations;
+
+window._addSiteLocation = function() {
+  const proj = _currentProject();
+  if (!proj) { showToast('Select a project first', 'error'); return; }
+  const block = (document.getElementById('locBlock')?.value || '').trim();
+  const floor = (document.getElementById('locFloor')?.value || '').trim();
+  const unit  = (document.getElementById('locUnit')?.value || '').trim();
+  if (!block && !floor && !unit) { showToast('Enter at least a Block, Floor or Unit', 'error'); return; }
+  if (!Array.isArray(proj.siteLocations)) proj.siteLocations = [];
+  const label = [block, floor, unit].filter(Boolean).join(' › ');
+  if (proj.siteLocations.some(l => siteLocationLabel(l).toLowerCase() === label.toLowerCase())) {
+    showToast('That location already exists', 'warning'); return;
+  }
+  proj.siteLocations.push({ id: 'loc_' + Date.now().toString(36), block, floor, unit });
+  saveAllData();
+  renderSiteLocations();
+  showToast('Location added', 'success');
+};
+
+window._deleteSiteLocation = function(id) {
+  const proj = _currentProject();
+  if (!proj || !Array.isArray(proj.siteLocations)) return;
+  if (!confirm('Delete this location? Existing measurements already saved against it are not affected.')) return;
+  proj.siteLocations = proj.siteLocations.filter(l => l.id !== id);
+  saveAllData();
+  renderSiteLocations();
+  showToast('Location removed', 'info');
+};
