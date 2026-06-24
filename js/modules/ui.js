@@ -3017,7 +3017,7 @@ window._payContractor = function(id) {
     const ot = logs.reduce((s, a) => s + (a.ot || 0), 0);
     const w = (p + h * 0.5) * (l.dayRate || 0) + ot * ((l.dayRate || 0) / 8) * 1.5;
     gangWages += w;
-    return { name: l.name, days: p + h * 0.5, wage: Math.round(w) };
+    return { id: l.id, name: l.name, days: p + h * 0.5, wage: Math.round(w) };
   });
   gangWages = Math.round(gangWages);
   if (gangWages <= 0) { showToast('No wages to pay — mark attendance first', 'warning'); return; }
@@ -3037,10 +3037,30 @@ window._payContractor = function(id) {
     const accountId = document.getElementById('pmAccount').value;
     const amount = parseFloat(document.getElementById('pmAmount').value) || gangWages;
     const date = new Date().toISOString().split('T')[0];
-    // Record one expense to the contractor (gang payout)
-    state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Contractor Payout', amount, remarks: `Gang payout to ${c.name} (${gang.length} workers, ${selMonth})`, projectId: state.currentProjectId });
-    saveAllData(); renderContractorsList();
-    showToast(`Paid ${cur}${amount.toLocaleString('en-IN')} to ${c.name}`, 'success');
+    // Distribute the gang payout to each worker as a real labour payment (and
+    // post their month's salary if not already posted) so the gang's connected
+    // labours show as PAID in the parties ledger — not an opaque lump expense.
+    const payable = breakdown.filter(b => b.wage > 0);
+    if (!state.labourPayments) state.labourPayments = [];
+    if (!state.labourSalaries) state.labourSalaries = [];
+    let allocated = 0;
+    const ref = `Gang payout — ${c.name} (${selMonth})`;
+    payable.forEach((b, idx) => {
+      // Proportional share of the actual amount paid; last worker absorbs rounding.
+      let share;
+      if (idx === payable.length - 1) share = Math.round((amount - allocated) * 100) / 100;
+      else { share = gangWages > 0 ? Math.round(amount * (b.wage / gangWages)) : Math.round(amount / payable.length); allocated += share; }
+      // Owed side: post this month's salary if the worker doesn't have one yet
+      // (also stops the muster offering a duplicate "Post Salary").
+      const hasSal = state.labourSalaries.some(s => s.labourId === b.id && s.month === selMonth);
+      if (!hasSal) state.labourSalaries.push({ id: 'lsal_' + Date.now() + '_' + b.id, labourId: b.id, month: selMonth, amount: b.wage, date });
+      // Paid side: a labour payment from the chosen account, tagged to the gang.
+      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + b.id, labourId: b.id, date, accountId, amount: share, ref, contractorId: id, viaGang: true });
+    });
+    saveLabourData(); saveAllData(); renderContractorsList();
+    if (typeof renderAccounts === 'function') renderAccounts();
+    window.renderPartiesList?.(); window.renderPartyTransactions?.();
+    showToast(`Paid ${cur}${amount.toLocaleString('en-IN')} to ${c.name} — split across ${payable.length} worker${payable.length > 1 ? 's' : ''}`, 'success');
     return true;
   }, 'Pay Contractor', 440);
 };
