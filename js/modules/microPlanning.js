@@ -1962,8 +1962,8 @@ function _lastInRate(rawMatId) {
   return parseFloat(ins[0].rate) || 0;
 }
 /** Resolve a recipe for a BOQ code (recipes are keyed by client.id-for-project or pid). */
-function _recipeFor(code) {
-  const pid = _pid();
+function _recipeFor(code, pid) {
+  pid = pid || _pid();
   const keys = [];
   const cl = (state.clients || []).find(c => c.projectId === pid);
   if (cl) keys.push(cl.id);
@@ -1972,8 +1972,8 @@ function _recipeFor(code) {
   return null;
 }
 /** Material cost to produce ONE unit of a BOQ item, from its recipe. */
-function _recipeUnitCost(code) {
-  const r = _recipeFor(code);
+function _recipeUnitCost(code, pid) {
+  const r = _recipeFor(code, pid);
   if (!r) return null; // null = no recipe defined (so we show "—" not 0)
   let cost = 0;
   (r.ingredients || []).forEach(ing => {
@@ -1983,9 +1983,9 @@ function _recipeUnitCost(code) {
   return cost;
 }
 /** Measured qty + BOQ rate per code across the whole project (all locations). */
-function _measuredByCode() {
-  const pid = _pid();
-  const proj = _currentProject();
+function _measuredByCode(pid) {
+  pid = pid || _pid();
+  const proj = (state.projects || []).find(p => p.id === pid);
   const boqRate = {};
   (proj?.boqs || []).forEach(g => (g.items || []).forEach(it => {
     const code = it.code || it.itemNo; if (code) boqRate[code] = { rate: parseFloat(it.rate) || 0, description: it.description || it.name || code, uom: it.uom || it.unit || '' };
@@ -2000,14 +2000,16 @@ function _measuredByCode() {
   });
   return map;
 }
-/** Total attendance-accrued labour cost for the project's workers. */
-function _projectLabourCost() {
-  const workers = _getProjectWorkers();
+/** Total attendance-accrued labour cost for a project's workers. */
+function _projectLabourCost(pid) {
+  pid = pid || _pid();
+  const workers = (state.labourMaster || []).filter(w => !w.projectId || w.projectId === pid);
   const ids = new Set(workers.map(w => w.id));
   const rateOf = {}; workers.forEach(w => rateOf[w.id] = parseFloat(w.dayRate) || 0);
   let cost = 0;
   (state.attendanceLogs || []).forEach(a => {
     if (!ids.has(a.labourId)) return;
+    if (a.siteId && a.siteId !== pid) return; // attendance marked under this project
     const dr = rateOf[a.labourId] || 0;
     if (a.status === 'P') cost += dr;
     else if (a.status === 'H') cost += dr * 0.5;
@@ -2016,9 +2018,46 @@ function _projectLabourCost() {
   return Math.round(cost);
 }
 /** Billed value so far (from RA bills) — to split earned into billed vs WIP. */
-function _billedValue() {
-  return (state.raBills || []).filter(b => b.projectId === _pid()).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
+function _billedValue(pid) {
+  pid = pid || _pid();
+  return (state.raBills || []).filter(b => b.projectId === pid).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
 }
+
+/**
+ * Single source of truth for project profitability. Used by both the
+ * per-project Cost & Profit ledger (Micro-Planning) and the cross-project
+ * Owner Cockpit (Cash Flow), so the two screens can never diverge.
+ * @returns {{projectId, projectName, earned, billed, wip, material, labour,
+ *   other, totalCost, profit, marginPct, noRecipe, byItem:[], leakage:{}}}
+ */
+export function computeProjectPnL(pid) {
+  const proj = (state.projects || []).find(p => p.id === pid);
+  const empty = { projectId: pid, projectName: proj?.name || '', earned: 0, billed: 0, wip: 0, material: 0, labour: 0, other: 0, totalCost: 0, profit: 0, marginPct: 0, noRecipe: 0, byItem: [], leakage: {} };
+  if (!proj) return empty;
+  const meas = _measuredByCode(pid);
+  const codes = Object.values(meas).filter(m => m.qty > 0);
+  let earned = 0, material = 0, noRecipe = 0;
+  const byItem = codes.map(m => {
+    const value = m.qty * m.rate; earned += value;
+    const unitCost = _recipeUnitCost(m.code, pid);
+    const matCost = unitCost == null ? null : unitCost * m.qty;
+    if (matCost == null) noRecipe++; else material += matCost;
+    const itemMargin = matCost == null ? null : value - matCost;
+    const marginPct = (matCost == null || value === 0) ? null : (itemMargin / value) * 100;
+    return { ...m, value, matCost, itemMargin, marginPct };
+  }).sort((a, b) => b.value - a.value);
+  const labour = _projectLabourCost(pid);
+  const other = (state.expenses || []).filter(e => e.projectId === pid).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  const billed = _billedValue(pid);
+  const wip = Math.max(0, earned - billed);
+  const totalCost = material + labour + other;
+  const profit = earned - totalCost;
+  const marginPct = earned > 0 ? (profit / earned) * 100 : 0;
+  const leakage = {};
+  (state.sheets || []).filter(s => s.projectId === pid).forEach(s => (s.overheadEntries || []).forEach(o => { leakage[o.category] = (leakage[o.category] || 0) + 1; }));
+  return { projectId: pid, projectName: proj.name, earned, billed, wip, material, labour, other, totalCost, profit, marginPct, noRecipe, byItem, leakage };
+}
+window.computeProjectPnL = computeProjectPnL;
 
 export function renderCostLedger() {
   const c = document.getElementById('costLedgerContent');
@@ -2028,32 +2067,13 @@ export function renderCostLedger() {
   const cur = getCurrencySymbol();
   const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
 
-  const meas = _measuredByCode();
-  const codes = Object.values(meas).filter(m => m.qty > 0);
-  let income = 0, materialTotal = 0, noRecipe = 0;
-  const rows = codes.map(m => {
-    const value = m.qty * m.rate; income += value;
-    const unitCost = _recipeUnitCost(m.code);
-    const matCost = unitCost == null ? null : unitCost * m.qty;
-    if (matCost == null) noRecipe++; else materialTotal += matCost;
-    const itemMargin = matCost == null ? null : value - matCost;
-    const marginPct = (matCost == null || value === 0) ? null : (itemMargin / value) * 100;
-    return { ...m, value, matCost, itemMargin, marginPct };
-  }).sort((a, b) => b.value - a.value);
-
-  const labourCost = _projectLabourCost();
-  const otherExpenses = (state.expenses || []).filter(e => e.projectId === proj.id).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-  const billed = _billedValue();
-  const wip = Math.max(0, income - billed);
-  const totalCost = materialTotal + labourCost + otherExpenses;
-  const profit = income - totalCost;
-  const marginPct = income > 0 ? (profit / income) * 100 : 0;
-
-  // Non-BOQ overhead leakage (activities captured in Record Work)
-  const ohByCat = {};
-  (state.sheets || []).filter(s => s.projectId === proj.id).forEach(s => (s.overheadEntries || []).forEach(o => {
-    ohByCat[o.category] = (ohByCat[o.category] || 0) + 1;
-  }));
+  // Single source of truth — same math the Owner Cockpit (Cash Flow) uses.
+  const pnl = computeProjectPnL(proj.id);
+  const rows = pnl.byItem;
+  const income = pnl.earned, materialTotal = pnl.material, noRecipe = pnl.noRecipe;
+  const labourCost = pnl.labour, otherExpenses = pnl.other, billed = pnl.billed, wip = pnl.wip;
+  const profit = pnl.profit, marginPct = pnl.marginPct;
+  const ohByCat = pnl.leakage;
   const ohTotal = Object.values(ohByCat).reduce((a, b) => a + b, 0);
 
   const itemRows = rows.map(r => `<tr class="border-b hover:bg-slate-50">
