@@ -1618,10 +1618,8 @@ function _mpBoqRowHtml() {
   return `<tr>
     <td class="p-1"><select class="rw-boq w-full p-1.5 border rounded text-xs" onchange="window._rwBoqPick(this)"><option value="">-- BOQ item --</option>${opts}</select></td>
     ${dim('rw-nos')}${dim('rw-l')}${dim('rw-b')}${dim('rw-h')}
-    <td class="p-1"><input class="rw-qty w-16 p-1.5 border rounded text-xs text-right font-bold text-blue-700 bg-slate-50" type="number" min="0" step="0.001" placeholder="0" oninput="window._rwCalc(this)" title="Auto = Nos×L×B×H; type directly if no dimensions"></td>
+    <td class="p-1"><input class="rw-qty w-16 p-1.5 border rounded text-xs text-right font-bold text-blue-700 bg-slate-50" type="number" min="0" step="0.001" placeholder="0" title="Auto = Nos×L×B×H; type directly if no dimensions"></td>
     <td class="p-1"><input class="rw-uom w-12 p-1.5 border rounded text-xs" readonly></td>
-    <td class="p-1 text-right"><span class="rw-rate text-xs text-slate-500">0</span></td>
-    <td class="p-1 text-right"><span class="rw-amt text-xs font-bold text-slate-800">0</span></td>
     <td class="p-1 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 text-xs font-bold">✕</button></td>
   </tr>`;
 }
@@ -1638,9 +1636,9 @@ function _mpOverheadRowHtml() {
 
 window._rwBoqPick = function(sel) {
   const tr = sel.closest('tr'); const o = sel.selectedOptions?.[0];
+  // Measurement records quantities only — the rate rides silently on the option
+  // (data-rate) and is captured on save for RA billing; it isn't shown here.
   tr.querySelector('.rw-uom').value = o?.dataset.uom || '';
-  tr.querySelector('.rw-rate').textContent = (parseFloat(o?.dataset.rate) || 0).toLocaleString('en-IN');
-  window._rwCalc(sel);
 };
 /** Qty = Nos × L × B × H (blank dims = 1). With no dims, the Qty cell is typed
  *  directly (weight/count units). Mirrors the measurement-sheet convention. */
@@ -1652,13 +1650,6 @@ window._rwDimCalc = function(el) {
   const qtyEl = tr.querySelector('.rw-qty');
   if (any) { qtyEl.value = (nos.v * l.v * b.v * h.v).toFixed(3); qtyEl.readOnly = true; qtyEl.classList.add('bg-slate-50'); }
   else { qtyEl.readOnly = false; qtyEl.classList.remove('bg-slate-50'); }
-  window._rwCalc(el);
-};
-window._rwCalc = function(el) {
-  const tr = el.closest('tr');
-  const qty = parseFloat(tr.querySelector('.rw-qty')?.value) || 0;
-  const rate = parseFloat(tr.querySelector('.rw-boq')?.selectedOptions?.[0]?.dataset.rate) || 0;
-  tr.querySelector('.rw-amt').textContent = Math.round(qty * rate).toLocaleString('en-IN');
 };
 window._rwAddBoq = function() { document.getElementById('rwBoqBody')?.insertAdjacentHTML('beforeend', _mpBoqRowHtml()); };
 window._rwAddOverhead = function() { document.getElementById('rwOhBody')?.insertAdjacentHTML('beforeend', _mpOverheadRowHtml()); };
@@ -1697,8 +1688,7 @@ window._mpRecordWork = function(dateStr) {
           <th class="p-1.5 text-left font-bold text-slate-500">BOQ Item</th>
           <th class="p-1.5 text-right font-bold text-slate-500">Nos</th><th class="p-1.5 text-right font-bold text-slate-500">L</th><th class="p-1.5 text-right font-bold text-slate-500">B</th><th class="p-1.5 text-right font-bold text-slate-500">H</th>
           <th class="p-1.5 text-right font-bold text-slate-500">Qty</th>
-          <th class="p-1.5 text-left font-bold text-slate-500">Unit</th><th class="p-1.5 text-right font-bold text-slate-500">Rate</th>
-          <th class="p-1.5 text-right font-bold text-slate-500">Amount</th><th class="p-1.5"></th></tr></thead>
+          <th class="p-1.5 text-left font-bold text-slate-500">Unit</th><th class="p-1.5"></th></tr></thead>
           <tbody id="rwBoqBody">${_mpBoqRowHtml()}${_mpBoqRowHtml()}</tbody></table></div>
 
         <div class="flex items-center justify-between mb-1">
@@ -1771,8 +1761,8 @@ window._mpSaveRecordWork = function() {
   document.getElementById('mpRecordWorkModal')?.remove();
   // Refresh any open measurement views.
   if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
-  const billable = sheet.entries.reduce((s, e) => s + (parseFloat(e.qty) || 0) * (parseFloat(e.rate) || 0), 0);
-  showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — running value ${getCurrencySymbol()}${Math.round(billable).toLocaleString('en-IN')}`, 'success');
+  const lineCount = boqRows.length + ohRows.length;
+  showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — ${lineCount} line${lineCount > 1 ? 's' : ''} recorded`, 'success');
 };
 
 // ═══════════════════════════════════════════════════════════
