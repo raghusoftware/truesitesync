@@ -1614,10 +1614,12 @@ function _findOrCreateRunningSheet(locId, locLabel) {
 
 function _mpBoqRowHtml() {
   const opts = _mpBoqItems().map(b => `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom)}" data-rate="${b.rate}" data-desc="${_esc(b.description)}">${_esc(b.code)} — ${_esc(b.description)}</option>`).join('');
+  const dim = (cls) => `<td class="p-1"><input class="${cls} w-14 p-1.5 border rounded text-xs text-right" type="number" min="0" step="0.001" placeholder="" oninput="window._rwDimCalc(this)"></td>`;
   return `<tr>
     <td class="p-1"><select class="rw-boq w-full p-1.5 border rounded text-xs" onchange="window._rwBoqPick(this)"><option value="">-- BOQ item --</option>${opts}</select></td>
-    <td class="p-1"><input class="rw-qty w-full p-1.5 border rounded text-xs text-right" type="number" min="0" step="0.01" placeholder="0" oninput="window._rwCalc(this)"></td>
-    <td class="p-1"><input class="rw-uom w-16 p-1.5 border rounded text-xs" readonly></td>
+    ${dim('rw-nos')}${dim('rw-l')}${dim('rw-b')}${dim('rw-h')}
+    <td class="p-1"><input class="rw-qty w-16 p-1.5 border rounded text-xs text-right font-bold text-blue-700 bg-slate-50" type="number" min="0" step="0.001" placeholder="0" oninput="window._rwCalc(this)" title="Auto = Nos×L×B×H; type directly if no dimensions"></td>
+    <td class="p-1"><input class="rw-uom w-12 p-1.5 border rounded text-xs" readonly></td>
     <td class="p-1 text-right"><span class="rw-rate text-xs text-slate-500">0</span></td>
     <td class="p-1 text-right"><span class="rw-amt text-xs font-bold text-slate-800">0</span></td>
     <td class="p-1 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 text-xs font-bold">✕</button></td>
@@ -1639,6 +1641,18 @@ window._rwBoqPick = function(sel) {
   tr.querySelector('.rw-uom').value = o?.dataset.uom || '';
   tr.querySelector('.rw-rate').textContent = (parseFloat(o?.dataset.rate) || 0).toLocaleString('en-IN');
   window._rwCalc(sel);
+};
+/** Qty = Nos × L × B × H (blank dims = 1). With no dims, the Qty cell is typed
+ *  directly (weight/count units). Mirrors the measurement-sheet convention. */
+window._rwDimCalc = function(el) {
+  const tr = el.closest('tr');
+  const read = sel => { const raw = tr.querySelector(sel)?.value ?? ''; if (raw === '') return { v: 1, has: false }; const n = parseFloat(raw); return { v: isNaN(n) ? 1 : n, has: true }; };
+  const nos = read('.rw-nos'), l = read('.rw-l'), b = read('.rw-b'), h = read('.rw-h');
+  const any = nos.has || l.has || b.has || h.has;
+  const qtyEl = tr.querySelector('.rw-qty');
+  if (any) { qtyEl.value = (nos.v * l.v * b.v * h.v).toFixed(3); qtyEl.readOnly = true; qtyEl.classList.add('bg-slate-50'); }
+  else { qtyEl.readOnly = false; qtyEl.classList.remove('bg-slate-50'); }
+  window._rwCalc(el);
 };
 window._rwCalc = function(el) {
   const tr = el.closest('tr');
@@ -1678,8 +1692,11 @@ window._mpRecordWork = function(dateStr) {
           <button onclick="window._rwAddBoq()" class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded font-bold">+ Add item</button>
         </div>
         ${boqCount === 0 ? '<p class="text-[11px] text-amber-600 mb-3">This project has no BOQ items yet — add them in the project BOQ to bill work.</p>' : ''}
+        <p class="text-[10px] text-slate-400 mb-1">Enter Nos × L × B × H for measured items (Qty auto-calculates) — or leave dimensions blank and type Qty directly for weight/count units.</p>
         <div class="overflow-x-auto border rounded-lg mb-4"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-          <th class="p-1.5 text-left font-bold text-slate-500">BOQ Item</th><th class="p-1.5 text-right font-bold text-slate-500">Qty done</th>
+          <th class="p-1.5 text-left font-bold text-slate-500">BOQ Item</th>
+          <th class="p-1.5 text-right font-bold text-slate-500">Nos</th><th class="p-1.5 text-right font-bold text-slate-500">L</th><th class="p-1.5 text-right font-bold text-slate-500">B</th><th class="p-1.5 text-right font-bold text-slate-500">H</th>
+          <th class="p-1.5 text-right font-bold text-slate-500">Qty</th>
           <th class="p-1.5 text-left font-bold text-slate-500">Unit</th><th class="p-1.5 text-right font-bold text-slate-500">Rate</th>
           <th class="p-1.5 text-right font-bold text-slate-500">Amount</th><th class="p-1.5"></th></tr></thead>
           <tbody id="rwBoqBody">${_mpBoqRowHtml()}${_mpBoqRowHtml()}</tbody></table></div>
@@ -1708,14 +1725,18 @@ window._mpSaveRecordWork = function() {
   const loc = _projectLocations().find(l => l.id === locId);
   const locLabel = siteLocationLabel(loc);
 
-  // Collect chargeable BOQ rows
+  // Collect chargeable BOQ rows (with measurement dimensions Nos/L/B/H).
   const boqRows = [];
   document.querySelectorAll('#rwBoqBody tr').forEach(tr => {
     const code = tr.querySelector('.rw-boq')?.value;
     const qty = parseFloat(tr.querySelector('.rw-qty')?.value) || 0;
     if (code && qty > 0) {
       const o = tr.querySelector('.rw-boq').selectedOptions[0];
-      boqRows.push({ code, description: o?.dataset.desc || code, uom: o?.dataset.uom || '', rate: parseFloat(o?.dataset.rate) || 0, qty });
+      const dv = sel => (tr.querySelector(sel)?.value || '').trim();
+      boqRows.push({
+        code, description: o?.dataset.desc || code, uom: o?.dataset.uom || '', rate: parseFloat(o?.dataset.rate) || 0, qty,
+        nos: dv('.rw-nos'), l: dv('.rw-l'), b: dv('.rw-b'), h: dv('.rw-h')
+      });
     }
   });
   // Collect overhead rows
@@ -1731,11 +1752,16 @@ window._mpSaveRecordWork = function() {
   if (!sheet.entries) sheet.entries = [];
   if (!sheet.overheadEntries) sheet.overheadEntries = [];
 
-  // Merge chargeable rows into the running sheet by code (accumulate qty).
+  // Push each measurement as its OWN line (with its dimensions), exactly like a
+  // measurement book — so the dims survive and the sheet reads naturally. The
+  // cumulative-per-code math (RA billing) sums these lines, so accumulation
+  // still works without flattening away the L×B×H detail.
   boqRows.forEach(r => {
-    const ex = sheet.entries.find(e => e.code === r.code && !e._locked);
-    if (ex) { ex.qty = (parseFloat(ex.qty) || 0) + r.qty; ex._lastDate = date; }
-    else sheet.entries.push({ code: r.code, description: r.description, uom: r.uom, rate: r.rate, qty: r.qty, remarks: `Daily ${date}`, _src: 'daily', _firstDate: date, _lastDate: date });
+    sheet.entries.push({
+      code: r.code, description: r.description, uom: r.uom, rate: r.rate,
+      nos: r.nos, l: r.l, b: r.b, h: r.h, qty: r.qty,
+      remarks: `Daily ${date}`, _src: 'daily', _date: date
+    });
   });
   // Overhead → owner-only record on the sheet.
   ohRows.forEach(r => sheet.overheadEntries.push(r));
