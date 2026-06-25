@@ -12,9 +12,10 @@ const _days = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return 
 const _inLast = (dateStr, n) => dateStr && dateStr >= _days(n);
 const _age = (d) => d ? Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 86400000)) : 0;
 const fmt = (v) => getCurrencySymbol() + Math.round(N(v)).toLocaleString('en-IN');
+const _esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt1 = (v) => Math.round(N(v) * 10) / 10;
 
-let _cfTab = 'overview';
+let _cfTab = 'cockpit';
 
 // ── AGGREGATIONS ────────────────────────────────────────────────────────────
 function _billed(period) {
@@ -835,7 +836,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -845,11 +846,99 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
   if (_cfTab === 'tools' && typeof window._cfSimulate === 'function') window._cfSimulate();
+}
+
+/* ============================================================================
+ *  OWNER COCKPIT — cross-project P&L (Phase 5)
+ *  Rolls up computeProjectPnL(projectId) across every project. Single source of
+ *  margin math shared with the Micro-Planning Cost & Profit ledger.
+ * ==========================================================================*/
+function _renderCockpit() {
+  if (typeof window.computeProjectPnL !== 'function') {
+    return `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:24px;text-align:center;color:#92400e;">Cockpit needs the Micro-Planning engine — open <b>Micro Planning</b> once, then come back.</div>`;
+  }
+  const projects = state.projects || [];
+  const pnls = projects.map(p => window.computeProjectPnL(p.id)).filter(Boolean);
+
+  // Portfolio totals
+  let earned = 0, material = 0, labour = 0, other = 0, profit = 0, wip = 0, billed = 0;
+  pnls.forEach(p => { earned += p.earned; material += p.material; labour += p.labour; other += p.other; profit += p.profit; wip += p.wip; billed += p.billed; });
+  const totalCost = material + labour + other;
+  const marginPct = earned > 0 ? (profit / earned) * 100 : 0;
+
+  // Receivables at client level: billed (RA bills) − received (paymentsIn).
+  const clientBilled = {};
+  pnls.forEach(p => { const proj = projects.find(x => x.id === p.projectId); const cid = proj?.clientId; if (cid) clientBilled[cid] = (clientBilled[cid] || 0) + p.billed; });
+  let receivables = 0;
+  Object.entries(clientBilled).forEach(([cid, b]) => {
+    const paid = (state.paymentsIn || []).filter(x => x.clientId === cid).reduce((s, x) => s + N(x.amount), 0);
+    receivables += Math.max(0, b - paid);
+  });
+
+  // Leakage aggregate
+  const leak = {};
+  pnls.forEach(p => Object.entries(p.leakage || {}).forEach(([k, n]) => { leak[k] = (leak[k] || 0) + n; }));
+  const leakTotal = Object.values(leak).reduce((a, b) => a + b, 0);
+
+  const league = pnls.filter(p => p.earned > 0).sort((a, b) => b.marginPct - a.marginPct);
+
+  const kpi = (label, val, sub, color) => `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;text-align:center;">
+      <p style="font-size:10px;font-weight:800;text-transform:uppercase;color:${color};letter-spacing:.04em;">${label}</p>
+      <p style="font-size:20px;font-weight:900;color:#0f172a;margin-top:2px;">${val}</p>${sub ? `<p style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</p>` : ''}</div>`;
+
+  const marginColor = m => m >= 25 ? '#16a34a' : m >= 10 ? '#ca8a04' : m >= 0 ? '#ea580c' : '#dc2626';
+  const leagueRows = league.map(p => `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${_esc(p.projectName)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#0d9488;font-weight:700;">${fmt(p.earned)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#64748b;">${fmt(p.totalCost)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:800;color:${p.profit >= 0 ? '#16a34a' : '#dc2626'};">${fmt(p.profit)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:800;color:${marginColor(p.marginPct)};">${p.marginPct.toFixed(1)}%</td>
+      <td style="padding:8px 10px;text-align:right;color:#7c3aed;font-weight:700;">${fmt(p.wip)}</td>
+    </tr>`).join('');
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+      ${kpi('Work done (earned)', fmt(earned), 'measured value, all projects', '#0d9488')}
+      ${kpi('Total cost', fmt(totalCost), 'material + labour + other', '#ea580c')}
+      ${kpi(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% portfolio margin', profit >= 0 ? '#16a34a' : '#dc2626')}
+      ${kpi('WIP (unbilled)', fmt(wip), 'earned, not yet RA-billed', '#7c3aed')}
+      ${kpi('Receivables', fmt(receivables), 'billed, not yet collected', '#2563eb')}
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:16px;">
+      <div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#334155;font-size:13px;">🏆 Project league table <span style="font-weight:500;color:#94a3b8;font-size:11px;">— ranked by margin</span></div>
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px;">
+        <thead><tr style="background:#f8fafc;text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;">
+          <th style="padding:8px 10px;">Project</th><th style="padding:8px 10px;text-align:right;">Earned</th><th style="padding:8px 10px;text-align:right;">Cost</th>
+          <th style="padding:8px 10px;text-align:right;">Profit</th><th style="padding:8px 10px;text-align:right;">Margin</th><th style="padding:8px 10px;text-align:right;">WIP</th></tr></thead>
+        <tbody>${leagueRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">No measured work yet. Record work on the Micro-Planning daily sheet to populate the cockpit.</td></tr>'}</tbody>
+      </table></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;">
+        <h4 style="font-weight:800;color:#334155;font-size:13px;margin-bottom:8px;">Cash pipeline</h4>
+        <div style="font-size:13px;color:#475569;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;"><span>Earned (work done)</span><b style="color:#0d9488;">${fmt(earned)}</b></div>
+          <div style="display:flex;justify-content:space-between;"><span>• WIP — not yet billed</span><b style="color:#7c3aed;">${fmt(wip)}</b></div>
+          <div style="display:flex;justify-content:space-between;"><span>• Billed (RA bills)</span><b>${fmt(billed)}</b></div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:6px;"><span>Receivables — billed, uncollected</span><b style="color:#2563eb;">${fmt(receivables)}</b></div>
+        </div>
+        <p style="font-size:10px;color:#94a3b8;margin-top:8px;">WIP → bill it (RA Billing) to turn work into receivables; collect receivables to turn them into cash.</p>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;">
+        <h4 style="font-weight:800;color:#334155;font-size:13px;margin-bottom:8px;">💧 Leakage — non-BOQ work <span style="font-weight:500;color:#94a3b8;font-size:11px;">across all projects</span></h4>
+        ${leakTotal ? `<div style="font-size:12px;color:#475569;display:flex;flex-direction:column;gap:4px;">${Object.entries(leak).sort((a, b) => b[1] - a[1]).map(([cat, n]) => `<div style="display:flex;justify-content:space-between;"><span>${_esc(cat)}</span><b>${n} log${n > 1 ? 's' : ''}</b></div>`).join('')}</div>
+          <p style="font-size:10px;color:#94a3b8;margin-top:8px;">${leakTotal} non-BOQ activities logged — labour you can't bill. Keep this small to protect margin.</p>`
+          : '<p style="font-size:12px;color:#94a3b8;">No non-BOQ activities logged yet.</p>'}
+      </div>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin-top:12px;text-align:center;">Owner Cockpit reads the same profitability engine as Micro-Planning → Cost &amp; Profit. Earned = measured value · WIP = unbilled · Receivables = billed but uncollected.</p>`;
 }
 
 if (typeof window !== 'undefined') window.renderCashFlow = renderCashFlow;
