@@ -986,17 +986,9 @@ export function renderMicroPlanningView() {
         <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">Generated Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">View saved daily sheets</div>
       </div>
-      <div onclick="_openMpSection('locations')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-        <div style="width:50px;height:50px;background:#0d948815;border:2px solid #0d948830;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📍</div>
-        <div style="font-size:14px;font-weight:700;color:#0f172a;">Locations</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Block / Floor / Unit master</div>
-      </div>
       <div onclick="_openMpSection('rabill')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
         <div style="width:50px;height:50px;background:#7c3aed15;border:2px solid #7c3aed30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📑</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">RA Billing</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Running-account bill by location</div>
-      </div>
-      <div onclick="_openMpSection('cost')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-        <div style="width:50px;height:50px;background:#ea580c15;border:2px solid #ea580c30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📊</div>
-        <div style="font-size:14px;font-weight:700;color:#0f172a;">Cost &amp; Profit</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Owner P&amp;L · margin · leakage</div>
       </div>
     </div>
     <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
@@ -1103,20 +1095,10 @@ export function renderMicroPlanningView() {
       <div id="mpDailySheets"></div>
     </div><!-- /mpSecPlan -->
 
-    <!-- SECTION: LOCATIONS (Block / Floor / Unit master) -->
-    <div id="mpSecLocations" class="mp-section hide">
-      <div id="siteLocationsContent"></div>
-    </div><!-- /mpSecLocations -->
-
     <!-- SECTION: RA BILLING (running-account) -->
     <div id="mpSecRABill" class="mp-section hide">
       <div id="raBillingContent"></div>
-    </div><!-- /mpSecRABill -->
-
-    <!-- SECTION: COST & PROFIT (owner P&L) -->
-    <div id="mpSecCost" class="mp-section hide">
-      <div id="costLedgerContent"></div>
-    </div><!-- /mpSecCost -->`;
+    </div><!-- /mpSecRABill -->`;
 
   // Render the saved-plans list (transaction-style history)
   _mpRenderSavedPlans();
@@ -1205,11 +1187,9 @@ window._openMpSection = function(section) {
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
-  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', locations: 'mpSecLocations', rabill: 'mpSecRABill', cost: 'mpSecCost' };
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', rabill: 'mpSecRABill' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
-  if (section === 'locations' && typeof window.renderSiteLocations === 'function') window.renderSiteLocations();
   if (section === 'rabill' && typeof window.renderRABilling === 'function') window.renderRABilling();
-  if (section === 'cost' && typeof window.renderCostLedger === 'function') window.renderCostLedger();
 };
 
 // ─────────────────────────────────────────────────────
@@ -1492,18 +1472,32 @@ export function mpPrintDay(dateStr) {
 function _currentProject() {
   return (state.projects || []).find(p => p.id === _pid());
 }
+/**
+ * Locations are NOT maintained separately — they're auto-pulled from the
+ * locations/areas already used on this project's Planning & Micro tasks (the
+ * task "Area" field). We also include locations already saved on running sheets
+ * (so existing measurements stay selectable) and any legacy siteLocations.
+ * Returns [{ id, _label }] where id === the area string (the accumulator key).
+ */
 function _projectLocations() {
-  const proj = _currentProject();
-  return (proj && Array.isArray(proj.siteLocations)) ? proj.siteLocations : [];
+  const pid = _pid();
+  const map = new Map(); // id -> label
+  const add = (id, label) => { const k = (id || '').toString().trim(); if (k && !map.has(k)) map.set(k, (label || k).toString().trim()); };
+  (state.planningTasks || []).filter(t => t.projectId === pid).forEach(t => add(t.area, t.area));
+  (state.microTasks || []).filter(t => t.projectId === pid).forEach(t => add(t.area, t.area));
+  (state.sheets || []).filter(s => s.projectId === pid && s.locationId).forEach(s => add(s.locationId, s.area || s.locationId));
+  const proj = (state.projects || []).find(p => p.id === pid);
+  (proj?.siteLocations || []).forEach(l => add(l.id, [l.block, l.floor, l.unit].filter(Boolean).join(' › ') || l.id));
+  return [...map.entries()].map(([id, _label]) => ({ id, _label }));
 }
-/** Human label: "Block A › 2nd Floor › Flat 203" — skips empty parts. */
+/** Readable label for a location id/object (area string or legacy {block…}). */
 export function siteLocationLabel(loc) {
   if (!loc) return '';
   if (typeof loc === 'string') {
-    const found = _projectLocations().find(l => l.id === loc);
-    if (found) loc = found; else return loc; // raw label fallback
+    const f = _projectLocations().find(l => l.id === loc);
+    return f ? f._label : loc;
   }
-  return [loc.block, loc.floor, loc.unit].map(s => (s || '').trim()).filter(Boolean).join(' › ') || 'Location';
+  return loc._label || [loc.block, loc.floor, loc.unit].map(s => (s || '').trim()).filter(Boolean).join(' › ') || loc.id || 'Location';
 }
 window.siteLocationLabel = siteLocationLabel;
 
@@ -1675,7 +1669,7 @@ window._mpRecordWork = function(dateStr) {
           <div><label class="ef-label">Date</label><input id="rwDate" type="date" value="${date}" class="ef-input"></div>
           <div><label class="ef-label">Location</label>${locs.length
             ? `<select id="rwLocation" class="ef-input">${locOpts}</select>`
-            : `<div class="text-[11px] text-amber-600 font-bold p-2 bg-amber-50 border border-amber-200 rounded">No locations yet — add Block/Floor/Unit in the <b>Locations</b> tab first.</div>`}</div>
+            : `<div class="text-[11px] text-amber-600 font-bold p-2 bg-amber-50 border border-amber-200 rounded">No locations yet — set an <b>Area</b> on a Planning / Micro task (Block, floor or zone). Locations are pulled from there automatically.</div>`}</div>
         </div>
 
         <div class="flex items-center justify-between mb-1">

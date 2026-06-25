@@ -19,7 +19,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.4.66"></script>
+    <script type="module" src="js/app.js?v=1.4.67"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -150,6 +150,7 @@
           <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> Petty Cash</button>
           <button onclick="switchView('recipeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="recipeView"><span style="font-size:13px">&#129516;</span> Recipes</button>
           <button onclick="switchView('assetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="assetsView"><span style="font-size:13px">&#128295;</span> Tools</button>
+          <button onclick="switchView('costProfitView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="costProfitView"><span style="font-size:13px">&#128202;</span> Cost &amp; Profit</button>
           <button onclick="switchView('measurementListView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="measurementListView"><span style="font-size:13px">&#128208;</span> Measurement</button>
           <button onclick="switchView('abstractsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="abstractsView"><span style="font-size:13px">&#128209;</span> Abstracts</button>
         </div>
@@ -816,6 +817,17 @@
         </div>
 
         <!-- ═══════ MEASUREMENT ENTRY ═══════ -->
+        <!-- ═══════ COST & PROFIT VIEW (Owner P&L per project) ═══════ -->
+        <div id="costProfitView" class="view-section hide">
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <h2 class="text-3xl font-extrabold text-slate-800">Cost &amp; Profit</h2>
+              <p class="text-sm text-slate-500 mt-1">Value of work done vs what it cost — margin, P&amp;L and non-BOQ leakage for this project.</p>
+            </div>
+          </div>
+          <div id="costLedgerContent"></div>
+        </div>
+
         <!-- ═══════ MEASUREMENT LIST VIEW ═══════ -->
         <div id="measurementListView" class="view-section hide">
           <div class="flex justify-between items-center mb-6">
