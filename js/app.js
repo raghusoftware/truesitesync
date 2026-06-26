@@ -114,7 +114,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.18';
+} from './modules/microPlanning.js?v=1.4.19';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {

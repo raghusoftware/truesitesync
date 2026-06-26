@@ -1834,7 +1834,9 @@ export function renderRABilling() {
   const proj = _currentProject();
   if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
   const cur = getCurrencySymbol();
-  const locs = _projectLocations().filter(l => Object.keys(_cumulativeMeasured(l.id)).length);
+  // Only show locations that still have something to bill (unbilled balance > 0).
+  // Fully-billed locations drop off the picker — no clutter, no accidental ₹0 RA.
+  const locs = _projectLocations().filter(l => _locationBalance(l.id).balanceVal > 0.009);
   const raList = (state.raBills || []).filter(b => b.projectId === proj.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const locCards = locs.map(l => {
@@ -1849,12 +1851,19 @@ export function renderRABilling() {
     </label>`;
   }).join('');
 
-  const raRows = raList.map(b => `<tr class="border-b hover:bg-slate-50">
+  const raRows = raList.map(b => {
+    const abs = (state.abstracts || []).find(a => a.id === b.abstractId);
+    const invoiced = abs && (abs.isInvoiced || abs.status === 'invoiced');
+    return `<tr class="border-b hover:bg-slate-50">
       <td class="px-3 py-2 font-mono font-bold text-violet-700">${b.raNo}</td>
       <td class="px-3 py-2 text-slate-500">${b.date}</td>
       <td class="px-3 py-2 text-slate-600 truncate">${_esc((b.locationLabels || []).join(', '))}</td>
       <td class="px-3 py-2 text-right font-bold">${cur}${Math.round(b.total || 0).toLocaleString('en-IN')}</td>
-    </tr>`).join('');
+      <td class="px-3 py-2 text-center">${invoiced
+        ? `<span class="text-[10px] font-bold text-green-600" title="Billed via ${_esc(abs.linkedInvoice || abs.linkedInvoiceId || 'invoice')}">✓ Invoiced</span>`
+        : `<button onclick="window._mpDeleteRA('${b.id}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-[11px] font-bold" title="Delete this RA bill — its quantities return to unbilled">Delete</button>`}</td>
+    </tr>`;
+  }).join('');
 
   c.innerHTML = `
     <div class="bg-white border rounded-xl p-4 mb-4">
@@ -1862,7 +1871,9 @@ export function renderRABilling() {
       <p class="text-[11px] text-slate-400 mb-3">Select one location (single RA) or several (consolidated RA). The bill auto-computes <b>cumulative measured − already billed</b> for each BOQ item.</p>
       ${locs.length ? `<div class="space-y-2 mb-3">${locCards}</div>
       <button onclick="window._mpPrepareRA()" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">Prepare RA Bill →</button>`
-      : '<p class="text-xs text-amber-600">No measured work yet. Use <b>📐 Record Work</b> on a daily sheet first.</p>'}
+      : (raList.length
+        ? '<p class="text-xs text-green-600 font-medium">✓ All measured work is billed. Record more work to raise the next RA.</p>'
+        : '<p class="text-xs text-amber-600">No measured work yet. Use <b>📐 Record Work</b> on a daily sheet first.</p>')}
     </div>
     <div id="raBillDraft"></div>
     <div class="bg-white border rounded-xl overflow-hidden mt-4">
@@ -1870,10 +1881,31 @@ export function renderRABilling() {
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
         <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">RA No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
         <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Locations</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
-      </tr></thead><tbody>${raRows || '<tr><td colspan="4" class="p-5 text-center text-slate-400">No RA bills yet.</td></tr>'}</tbody></table></div>
+        <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Action</th>
+      </tr></thead><tbody>${raRows || '<tr><td colspan="5" class="p-5 text-center text-slate-400">No RA bills yet.</td></tr>'}</tbody></table></div>
     </div>`;
 }
 window.renderRABilling = renderRABilling;
+
+/** Delete an RA bill — its quantities return to unbilled (prevBilled recomputes
+ *  from raBills) and the mirrored abstract is removed. Blocked once invoiced. */
+window._mpDeleteRA = function(id) {
+  const b = (state.raBills || []).find(x => x.id === id);
+  if (!b) return;
+  const abs = (state.abstracts || []).find(a => a.id === b.abstractId);
+  if (abs && (abs.isInvoiced || abs.status === 'invoiced')) {
+    showToast(`Can't delete ${b.raNo} — its abstract is already invoiced. Cancel the invoice first.`, 'error');
+    return;
+  }
+  if (!confirm(`Delete ${b.raNo} (${getCurrencySymbol()}${Math.round(b.total || 0).toLocaleString('en-IN')})?\n\nIts quantities go back to unbilled and can be billed again in a later RA.`)) return;
+  state.raBills = (state.raBills || []).filter(x => x.id !== id);
+  if (b.abstractId) state.abstracts = (state.abstracts || []).filter(a => a.id !== b.abstractId);
+  saveAllData();
+  if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
+  if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
+  renderRABilling();
+  showToast(`${b.raNo} deleted — quantities returned to unbilled`, 'info');
+};
 
 window._mpPrepareRA = function() {
   const locIds = [...document.querySelectorAll('.ra-loc-chk:checked')].map(c => c.value);
