@@ -2095,8 +2095,10 @@ export function renderAbstractsList() {
   if (emptyState) emptyState.classList.add('hidden');
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
     const client = state.clients.find(c => c.id === a.clientId);
-    const statusBadge = a.isInvoiced
-      ? `<span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">&#10003; Invoiced: ${a.linkedInvoice}</span>`
+    const _invoiced = a.isInvoiced || a.status === 'invoiced';
+    const _invNo = a.linkedInvoice || a.linkedInvoiceId || '';
+    const statusBadge = _invoiced
+      ? `<span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">&#10003; Invoiced${_invNo ? ': ' + _invNo : ''}</span>`
       : `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-xs px-3 py-1 rounded-full font-bold border border-amber-200">&#9679; Pending Invoice</span>`;
     container.innerHTML += `
       <div id="abscard_${a.id}" class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition p-4">

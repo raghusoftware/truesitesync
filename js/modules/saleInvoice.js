@@ -695,10 +695,16 @@ export function saveSaleInvoiceForm() {
     }
   }
   // ── Mark linked abstracts as invoiced (only on first save, not on edit) ──
+  // Set BOTH conventions: status/linkedInvoiceId (Sales module) AND
+  // isInvoiced/linkedInvoice (what the Abstracts list badge reads) — otherwise
+  // the abstract stays "Pending Invoice" even after the invoice is created.
   if (!existing) {
     linkedAbstracts.forEach(aId => {
       const abs = (state.abstracts || []).find(a => a.id === aId);
-      if (abs) { abs.status = 'invoiced'; abs.linkedInvoiceId = invoiceId; }
+      if (abs) {
+        abs.status = 'invoiced'; abs.linkedInvoiceId = invoiceId;
+        abs.isInvoiced = true; abs.linkedInvoice = rec.invoiceNo;
+      }
     });
   }
   // Clear edit-mode flag so the next "+ New" opens cleanly.
@@ -749,7 +755,7 @@ export function renderSaleInvoices() {
     if (hasAbstracts) linksHtml += '<span class="bg-orange-100 text-orange-700 text-[9px] px-1.5 py-0.5 rounded font-bold cursor-pointer" onclick="viewSaleInvoiceInfo(\'' + inv.id + '\')" title="Abstracts linked">📋 Abs</span>';
     if (!hasProject && !hasAbstracts) linksHtml += '<span class="text-slate-300 text-[9px]">—</span>';
     linksHtml += '</div>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="viewSaleInvoiceInfo('${inv.id}')">${inv.invoiceNo}</td><td class="px-4 py-3 text-slate-500">${inv.date}</td><td class="px-4 py-3 font-bold">${clientDisplay}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.subtotal?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.gstAmount?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${inv.total?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right text-green-600 font-bold">${getCurrencySymbol()}${Math.min(received, inv.total).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center">${linksHtml}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewSaleInvoiceInfo('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold" title="View Details">👁</button><button onclick="exportSaleInvoicePDF('${inv.id}')" class="text-slate-600 bg-slate-50 hover:bg-slate-100 text-[10px] px-2 py-1 rounded font-bold" title="Download PDF">📄</button><button onclick="deleteSaleInvoice('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold" title="Delete">🗑</button></div></td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="viewSaleInvoiceInfo('${inv.id}')">${inv.invoiceNo}</td><td class="px-4 py-3 text-slate-500">${inv.date}</td><td class="px-4 py-3 font-bold">${clientDisplay}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.subtotal?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.gstAmount?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${inv.total?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right text-green-600 font-bold">${getCurrencySymbol()}${Math.min(received, inv.total).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center">${linksHtml}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewSaleInvoiceInfo('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold" title="View Details">👁</button><button onclick="openSaleInvoiceForm('${inv.id}')" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-[10px] px-2 py-1 rounded font-bold" title="Edit / Reopen invoice">✏️</button><button onclick="exportSaleInvoicePDF('${inv.id}')" class="text-slate-600 bg-slate-50 hover:bg-slate-100 text-[10px] px-2 py-1 rounded font-bold" title="Download PDF">📄</button><button onclick="deleteSaleInvoice('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold" title="Delete">🗑</button></div></td></tr>`;
   });
   if (!invoices.length) tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-slate-400 font-medium">No sale invoices found.</td></tr>';
   const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -927,6 +933,7 @@ export function viewSaleInvoiceInfo(id) {
   }
   // ─── Action Buttons ───
   html += `<div class="flex gap-3 pt-2 pb-2">
+    <button onclick="document.getElementById('saleInvoiceDetailModal').classList.add('hide');openSaleInvoiceForm('${inv.id}')" class="flex-1 bg-emerald-700 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-600">✏️ Edit / Reopen</button>
     <button onclick="exportSaleInvoicePDF('${inv.id}')" class="flex-1 bg-slate-800 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-slate-700">📄 Download PDF</button>
     <button onclick="printSaleInvoice('${inv.id}')" class="flex-1 bg-blue-700 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-blue-600">🖨️ Print</button>
     <button onclick="shareSaleInvoice('${inv.id}')" class="flex-1 bg-purple-700 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-purple-600">📤 Share</button>
