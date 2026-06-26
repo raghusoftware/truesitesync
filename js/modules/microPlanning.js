@@ -14,7 +14,7 @@ import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF } from 
 const WORK_HOURS = 8;
 const SUNDAY = 0;
 
-function _fmtDate(d) { return d.toISOString().split('T')[0]; }
+function _fmtDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); } // local parts — toISOString shifts a day back in ahead-of-UTC zones (IST)
 function _parseDate(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
 function _isWorkingDay(dateStr) {
   const d = _parseDate(dateStr);
@@ -896,6 +896,10 @@ let _mpHorizonEnd = '';
 let _mpAllocations = {};
 let _mpDecomposed = {};
 let _mpMode = 'daily'; // 'daily' | 'weekly'
+let _mpSection = null; // currently-open MP sub-section (preserved across sync re-renders)
+
+/** Recompute the End date from the Start date + current mode (no mode change). */
+window._mpRecalcHorizon = function() { mpSwitchMode(_mpMode); };
 
 export function mpSwitchMode(mode) {
   _mpMode = mode;
@@ -905,6 +909,17 @@ export function mpSwitchMode(mode) {
   const w = document.getElementById('mpModeWeekly');
   if (d) d.className = 'px-3 py-2 rounded-md text-xs font-bold transition ' + (mode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200');
   if (w) w.className = 'px-3 py-2 rounded-md text-xs font-bold transition ' + (mode === 'weekly' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200');
+  // The End date is derived from the mode now, so reflect it and lock the box:
+  // Daily → End = Start (one day); Weekly → End = Start + 6.
+  const startEl = document.getElementById('mpStartDate');
+  const endEl = document.getElementById('mpEndDate');
+  if (startEl && endEl) {
+    const startV = startEl.value || _fmtDate(new Date());
+    if (mode === 'weekly') { const dd = _parseDate(startV); dd.setDate(dd.getDate() + 6); endEl.value = _fmtDate(dd); }
+    else { endEl.value = startV; }
+    endEl.readOnly = true; endEl.style.opacity = '.6';
+    _mpHorizonStart = startV; _mpHorizonEnd = endEl.value;
+  }
   // If a plan is already generated in this session, re-render it in the new mode.
   if (_mpDecomposed && Object.keys(_mpDecomposed).length) {
     const sheets = document.getElementById('mpDailySheets');
@@ -1065,12 +1080,12 @@ export function renderMicroPlanningView() {
     <!-- HORIZON + MODE -->
     <div class="bg-white border rounded-xl p-4 mb-5 flex flex-wrap items-end gap-4">
       <div>
-        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Start</label>
-        <input type="date" id="mpStartDate" value="${_mpHorizonStart}" class="border rounded-lg px-3 py-2 text-sm">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">${_mpMode === 'weekly' ? 'Week starts' : 'Day'}</label>
+        <input type="date" id="mpStartDate" value="${_mpHorizonStart}" onchange="window._mpRecalcHorizon&&window._mpRecalcHorizon()" class="border rounded-lg px-3 py-2 text-sm">
       </div>
       <div>
-        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">End</label>
-        <input type="date" id="mpEndDate" value="${_mpHorizonEnd}" class="border rounded-lg px-3 py-2 text-sm">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">End <span class="text-slate-300 normal-case">(auto)</span></label>
+        <input type="date" id="mpEndDate" value="${_mpHorizonEnd}" readonly style="opacity:.6" class="border rounded-lg px-3 py-2 text-sm">
       </div>
       <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
         <button id="mpModeDaily" onclick="_mpSwitchMode('daily')" class="px-3 py-2 rounded-md text-xs font-bold transition ${_mpMode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'}">Daily View</button>
@@ -1102,8 +1117,9 @@ export function renderMicroPlanningView() {
 
   // Render the saved-plans list (transaction-style history)
   _mpRenderSavedPlans();
-  // Start on the icon grid
-  if (typeof window._openMpSection === 'function') window._openMpSection(null);
+  // Restore whatever sub-section was open (null = icon grid). This is what stops
+  // a background sync re-render from bouncing the user out of Generate/Plan/etc.
+  if (typeof window._openMpSection === 'function') window._openMpSection(_mpSection);
 }
 
 /** List of saved plans — transaction-style rows */
@@ -1182,6 +1198,7 @@ window._mpDeleteSavedPlan = function(planId) {
 
 /** App-icon section navigation for Micro Planning */
 window._openMpSection = function(section) {
+  _mpSection = section || null; // remember so a sync re-render doesn't bounce the user to the hub
   const grid = document.getElementById('mpGrid');
   const back = document.getElementById('mpBackBtn');
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
@@ -1231,8 +1248,18 @@ window._mpConfirmOutsideLabour = function() {
 };
 
 export function mpGenerate() {
-  _mpHorizonStart = document.getElementById('mpStartDate')?.value || _mpHorizonStart;
-  _mpHorizonEnd = document.getElementById('mpEndDate')?.value || _mpHorizonEnd;
+  // The mode drives the horizon: Daily = just the selected day; Weekly = that day
+  // + 6 days. (Previously it used the End-date box regardless of mode, so 'Daily'
+  // could still generate a whole range.)
+  const startV = document.getElementById('mpStartDate')?.value || _mpHorizonStart || _fmtDate(new Date());
+  _mpHorizonStart = startV;
+  if (_mpMode === 'weekly') {
+    const d = _parseDate(startV); d.setDate(d.getDate() + 6); _mpHorizonEnd = _fmtDate(d);
+  } else {
+    _mpHorizonEnd = startV; // daily → single day
+  }
+  // Keep the End-date box in sync with what was actually generated.
+  const endEl = document.getElementById('mpEndDate'); if (endEl) endEl.value = _mpHorizonEnd;
 
   const tasks = _getAllTasks();
   const allWorkers = _getProjectWorkers();
