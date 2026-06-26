@@ -2164,9 +2164,15 @@ export function deleteAbstract(id) {
   if (confirm(`Are you sure you want to delete Abstract ${abs.abstractNum}?`)) {
     const sheetIdx = state.sheets.findIndex(s => s.id === abs.sheetId);
     if (sheetIdx > -1) { state.sheets[sheetIdx].isBilled = false; state.sheets[sheetIdx].linkedAbstract = null; }
+    // Cascade: if this abstract mirrors an RA bill (Micro-Planning), delete that
+    // RA bill too — otherwise it lingers in RA Billing and the cumulative math
+    // keeps treating its quantities as billed.
+    const raId = abs._raBillId || (state.raBills || []).find(b => b.abstractId === id)?.id;
+    if (raId) state.raBills = (state.raBills || []).filter(b => b.id !== raId);
     state.abstracts = state.abstracts.filter(a => a.id !== id);
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.();
-    showToast('Abstract deleted & Measurement Sheet restored', 'success');
+    if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
+    showToast(raId ? 'Abstract & linked RA bill deleted — quantities back to unbilled' : 'Abstract deleted & Measurement Sheet restored', 'success');
   }
 }
 

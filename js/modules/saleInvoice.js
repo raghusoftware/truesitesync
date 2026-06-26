@@ -766,8 +766,24 @@ export function renderSaleInvoices() {
 }
 export function deleteSaleInvoice(id) {
   if (!confirm('Delete this Sale Invoice?')) return;
+  const inv = (state.saleInvoices || []).find(i => i.id === id);
+  // Un-invoice any abstracts this invoice billed, so they're no longer stuck
+  // "Invoiced" and can be re-billed or deleted. Match both the saved link list
+  // and any abstract that points back at this invoice.
+  if (inv) {
+    const ids = new Set(inv.linkedAbstractIds || []);
+    (state.abstracts || []).forEach(a => {
+      if (ids.has(a.id) || a.linkedInvoiceId === inv.id || a.linkedInvoice === inv.invoiceNo) {
+        a.isInvoiced = false; a.status = 'pending';
+        delete a.linkedInvoiceId; delete a.linkedInvoice;
+      }
+    });
+  }
   state.saleInvoices = (state.saleInvoices || []).filter(i => i.id !== id);
-  saveAllData(); renderSaleInvoices(); showToast('Sale Invoice Deleted', 'error');
+  saveAllData(); renderSaleInvoices();
+  if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
+  if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
+  showToast('Sale Invoice deleted — linked abstracts returned to pending', 'error');
 }
 
 // ── View Sale Invoice Details with Links ──

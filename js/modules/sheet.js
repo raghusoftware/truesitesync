@@ -829,6 +829,12 @@ export function renderMeasurementList() {
 }
 
 /** Delete measurement sheet from list view */
+/** An RA bill that has billed quantities from this (running) sheet's location. */
+function _sheetBilledInRA(s) {
+  if (!s || !s.locationId) return null;
+  return (state.raBills || []).find(b => b.projectId === s.projectId && (b.locationIds || []).includes(s.locationId));
+}
+
 export function deleteMeasurementSheet(id) {
   const s = state.sheets.find(x => x.id === id);
   if (!s) return;
@@ -836,6 +842,10 @@ export function deleteMeasurementSheet(id) {
     showToast('Cannot delete a billed sheet. Remove the linked abstract first.', 'error');
     return;
   }
+  // Running (Record-Work) sheets are billed through RA bills, not isBilled — block
+  // deletion while an RA bill still depends on this location's measurement.
+  const ra = _sheetBilledInRA(s);
+  if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first (Micro-Planning → RA Billing).`, 'error'); return; }
   if (!confirm(`Delete sheet ${s.sheetNum}? This cannot be undone.`)) return;
   state.sheets = state.sheets.filter(x => x.id !== id);
   state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
@@ -858,6 +868,10 @@ export function renderSavedSheets() {
 }
 
 export function deleteSheet(id) {
+  const s = state.sheets.find(x => x.id === id);
+  if (s && s.isBilled) { showToast('Cannot delete a billed sheet. Remove the linked abstract first.', 'error'); return; }
+  const ra = _sheetBilledInRA(s);
+  if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first.`, 'error'); return; }
   if (confirm('Delete sheet? Associated material consumption will also be reversed.')) {
     state.sheets = state.sheets.filter(s => s.id !== id);
     state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
