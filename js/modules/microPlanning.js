@@ -635,7 +635,6 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
           <p class="text-blue-200 text-[10px] mt-0.5">${assignedWorkerIds.size} assigned | ${freeWorkers.length} free | ${totalHours}h | ${formatINR(totalCost)}</p>
         </div>
         <div class="flex gap-2">
-          <button onclick="window._mpRecordWork('${dateStr}')" title="Record work done & measure" class="bg-emerald-400/90 hover:bg-emerald-400 text-emerald-950 text-[10px] px-3 py-1.5 rounded font-extrabold">📐 Record Work</button>
           <button onclick="window._mpExportLocationPlanPDF('${dateStr}')" title="Location-wise plan (no cost) — for site" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">📍 Plan PDF</button>
           <button onclick="_mpExportDayPDF('${dateStr}')" title="Allocation with cost (office)" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">PDF</button>
           <button onclick="_mpPrintDay('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">Print</button>
@@ -1842,12 +1841,16 @@ window.mpRecordWork = function(payload) {
     lines++;
   });
   // Non-BOQ / overhead lines — owner-only record, never billed (tagged Overhead).
+  // Carries a resource (labour/equipment/material) and an auto-computed cost so
+  // Cost & Profit can quantify the leak.
   (payload.overheads || []).forEach(o => {
-    if (!o.activity) return;
+    if (!o.activity && !(o.cost > 0)) return;
+    const qty = parseFloat(o.qty) || 0, rate = parseFloat(o.rate) || 0;
     sheet.overheadEntries.push({
-      activity: o.activity, category: o.category || 'Other',
-      qty: parseFloat(o.qty) || 0, uom: o.uom || '', hours: parseFloat(o.hours) || 0,
-      resource: o.resource || '', date, _src: payload.src || 'daily'
+      activity: o.activity || o.resource || o.type || 'Overhead', category: o.category || o.type || 'Other',
+      type: o.type || '', resourceId: o.resourceId || '', resource: o.resource || '',
+      qty, uom: o.uom || '', rate, cost: (o.cost != null ? o.cost : Math.round(qty * rate * 100) / 100),
+      date, _src: payload.src || 'daily'
     });
     lines++;
   });
@@ -2242,12 +2245,20 @@ export function computeProjectPnL(pid) {
   const other = (state.expenses || []).filter(e => e.projectId === pid).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
   const billed = _billedValue(pid);
   const wip = Math.max(0, earned - billed);
-  const totalCost = material + labour + other;
+  // Non-BOQ overhead — sum the cost (and count) by category, plus a total. This
+  // is the quantified cost leak, and it reduces profit.
+  const leakage = {}; let overhead = 0;
+  (state.sheets || []).filter(s => s.projectId === pid).forEach(s => (s.overheadEntries || []).forEach(o => {
+    const c = parseFloat(o.cost) || 0; overhead += c;
+    const cat = o.category || o.type || 'Other';
+    if (!leakage[cat]) leakage[cat] = { count: 0, cost: 0 };
+    leakage[cat].count++; leakage[cat].cost += c;
+  }));
+  overhead = Math.round(overhead);
+  const totalCost = material + labour + other + overhead;
   const profit = earned - totalCost;
   const marginPct = earned > 0 ? (profit / earned) * 100 : 0;
-  const leakage = {};
-  (state.sheets || []).filter(s => s.projectId === pid).forEach(s => (s.overheadEntries || []).forEach(o => { leakage[o.category] = (leakage[o.category] || 0) + 1; }));
-  return { projectId: pid, projectName: proj.name, earned, billed, wip, material, labour, other, totalCost, profit, marginPct, noRecipe, byItem, leakage };
+  return { projectId: pid, projectName: proj.name, earned, billed, wip, material, labour, other, overhead, totalCost, profit, marginPct, noRecipe, byItem, leakage };
 }
 window.computeProjectPnL = computeProjectPnL;
 
@@ -2264,9 +2275,9 @@ export function renderCostLedger() {
   const rows = pnl.byItem;
   const income = pnl.earned, materialTotal = pnl.material, noRecipe = pnl.noRecipe;
   const labourCost = pnl.labour, otherExpenses = pnl.other, billed = pnl.billed, wip = pnl.wip;
-  const profit = pnl.profit, marginPct = pnl.marginPct;
-  const ohByCat = pnl.leakage;
-  const ohTotal = Object.values(ohByCat).reduce((a, b) => a + b, 0);
+  const profit = pnl.profit, marginPct = pnl.marginPct, overheadCost = pnl.overhead || 0;
+  const ohByCat = pnl.leakage; // { category: { count, cost } }
+  const ohTotal = Object.values(ohByCat).reduce((a, b) => a + (b.count || 0), 0);
 
   const itemRows = rows.map(r => `<tr class="border-b hover:bg-slate-50">
       <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(r.code)}</td>
@@ -2308,15 +2319,17 @@ export function renderCostLedger() {
           <div class="flex justify-between"><span class="text-slate-500">Work done (earned)</span><span class="font-bold text-teal-700">${fmt(income)}</span></div>
           <div class="flex justify-between"><span class="text-slate-500">– Material (recipe)</span><span class="text-slate-700">${fmt(materialTotal)}</span></div>
           <div class="flex justify-between"><span class="text-slate-500">– Labour (attendance)</span><span class="text-slate-700">${fmt(labourCost)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">– Non-BOQ / overhead</span><span class="text-amber-700">${fmt(overheadCost)}</span></div>
           <div class="flex justify-between"><span class="text-slate-500">– Other expenses</span><span class="text-slate-700">${fmt(otherExpenses)}</span></div>
           <div class="flex justify-between border-t pt-1.5 mt-1.5"><span class="font-bold text-slate-700">${profit >= 0 ? 'Gross profit' : 'Gross loss'}</span><span class="font-extrabold ${profit >= 0 ? 'text-green-700' : 'text-red-600'}">${fmt(profit)} <span class="text-[11px] font-bold">(${marginPct.toFixed(1)}%)</span></span></div>
         </div>
       </div>
       <div class="bg-white border rounded-xl p-4">
-        <h4 class="font-bold text-sm text-slate-800 mb-2">Non-BOQ work (leakage) <span class="text-[10px] text-slate-400 font-medium">— labour spent outside the bill</span></h4>
-        ${ohTotal ? `<div class="space-y-1 text-xs">${Object.entries(ohByCat).sort((a, b) => b[1] - a[1]).map(([cat, n]) => `<div class="flex justify-between"><span class="text-slate-600">${_esc(cat)}</span><span class="font-bold text-slate-700">${n} log${n > 1 ? 's' : ''}</span></div>`).join('')}</div>
-          <p class="text-[11px] text-slate-400 mt-2">${ohTotal} non-BOQ activities recorded. These consume labour you can't bill — watch this to protect margin.</p>`
-          : '<p class="text-xs text-slate-400">No non-BOQ activities logged yet.</p>'}
+        <h4 class="font-bold text-sm text-slate-800 mb-2">Non-BOQ / overhead leakage <span class="text-[10px] text-slate-400 font-medium">— cost not paid by the client</span></h4>
+        ${ohTotal ? `<div class="space-y-1 text-xs">${Object.entries(ohByCat).sort((a, b) => (b[1].cost || 0) - (a[1].cost || 0)).map(([cat, v]) => `<div class="flex justify-between"><span class="text-slate-600">${_esc(cat)} <span class="text-slate-300">· ${v.count}</span></span><span class="font-bold text-amber-700">${fmt(v.cost || 0)}</span></div>`).join('')}</div>
+          <div class="flex justify-between border-t pt-1.5 mt-1.5"><span class="font-bold text-slate-700">Total leak</span><span class="font-extrabold text-amber-700">${fmt(overheadCost)}</span></div>
+          <p class="text-[11px] text-slate-400 mt-2">Internal cost across ${ohTotal} entr${ohTotal > 1 ? 'ies' : 'y'} — money spent that no client pays back. Watch this to protect margin.</p>`
+          : '<p class="text-xs text-slate-400">No non-BOQ / overhead logged yet.</p>'}
       </div>
     </div>
     <p class="text-[10px] text-slate-400 mt-3">Material cost = mix-design recipe × latest purchase rate of each ingredient. Labour = attendance wages (present + ½ half-day + 1.5× OT). Earned = measured value (billed + work-in-progress).</p>`;

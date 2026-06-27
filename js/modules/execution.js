@@ -216,38 +216,81 @@ function _renderDPR(root) {
     ${_rowActions('dailyProgress', d)}</div>`).join('');
   root.innerHTML = _listShell('Daily Progress Report', '+ Add DPR', "_exDprForm()", rows, list.length);
 }
-// Overhead category list (non-BOQ, internal) + a row builder shared by the DPR.
-const _DPR_OH_CATS = ['Material Handling', 'Housekeeping / Cleaning', 'Rework', 'Dewatering', 'Scaffolding', 'Curing', 'Idle / Standby', 'Safety', 'Mobilization', 'Internal Equipment', 'Other'];
-window._dprOhRow = function () {
-  const inp = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
+// ── DPR shared builders (window-bound for inline handlers) ──
+const _DPR_INP = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
+const _dprBoqList = () => (typeof window.mpBoqItems === 'function' ? window.mpBoqItems() : []);
+const _dprLocList = () => (typeof window.mpProjectLocations === 'function' ? window.mpProjectLocations() : []);
+
+// ===== MEASUREMENT row (BOQ + Nos×L×B×H → auto qty) — same metrics as the
+//       measurement sheet, flows to abstract → invoice → sales. =====
+window._dprMeasRow = function (loc, code) {
+  const boqOpts = '<option value="">— BOQ item —</option>' + _dprBoqList().map(b =>
+    `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${code === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('');
+  const dim = cls => `<td style="padding:3px;"><input class="${cls}" type="number" min="0" step="0.001" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:46px;text-align:right;"></td>`;
   return `<tr>
-    <td style="padding:3px;"><input class="dpr-oh-act" placeholder="e.g. JCB for internal debris clearing" style="${inp}width:100%;"></td>
-    <td style="padding:3px;"><select class="dpr-oh-cat" style="${inp}width:100%;">${_DPR_OH_CATS.map(c => `<option>${c}</option>`).join('')}</select></td>
-    <td style="padding:3px;"><input class="dpr-oh-qty" type="number" min="0" step="0.01" placeholder="0" style="${inp}width:60px;text-align:right;"></td>
-    <td style="padding:3px;"><input class="dpr-oh-unit" placeholder="hrs/nos" style="${inp}width:56px;"></td>
+    <td style="padding:3px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:96px;"></td>
+    <td style="padding:3px;"><select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:150px;">${boqOpts}</select></td>
+    ${dim('dm-nos')}${dim('dm-l')}${dim('dm-b')}${dim('dm-h')}
+    <td style="padding:3px;"><input class="dm-qty" type="number" min="0" step="0.001" placeholder="0" style="${_DPR_INP}width:60px;text-align:right;font-weight:700;color:#1d4ed8;background:#f8fafc;"></td>
+    <td style="padding:3px;"><input class="dm-uom" readonly style="${_DPR_INP}width:40px;"></td>
+    <td style="padding:3px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;">✕</button></td>
+  </tr>`;
+};
+window._dprAddMeas = function () { const tb = document.getElementById('dprMeasBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprMeasRow()); };
+window._dprMeasPick = function (sel) { const o = sel.selectedOptions[0]; const u = sel.closest('tr').querySelector('.dm-uom'); if (u) u.value = o?.dataset.uom || ''; };
+window._dprMeasCalc = function (el) {
+  const tr = el.closest('tr');
+  const r = s => { const v = (tr.querySelector(s)?.value ?? '').trim(); if (v === '') return { v: 1, has: false }; const n = parseFloat(v); return { v: isNaN(n) ? 1 : n, has: true }; };
+  const nos = r('.dm-nos'), l = r('.dm-l'), b = r('.dm-b'), h = r('.dm-h');
+  const any = nos.has || l.has || b.has || h.has;
+  const q = tr.querySelector('.dm-qty');
+  if (any) { q.value = (nos.v * l.v * b.v * h.v).toFixed(3); q.readOnly = true; q.style.background = '#f8fafc'; }
+  else { q.readOnly = false; q.style.background = '#fff'; }
+};
+
+// ===== NON-BOQ / OVERHEAD row with resource selection + auto cost =====
+const _DPR_OH_TYPES = ['Labour', 'Equipment', 'Material', 'Other'];
+function _dprOhResources(type) {
+  const pid = (typeof _pid === 'function') ? _pid() : state.currentProjectId;
+  if (type === 'Labour') return (state.labourMaster || []).filter(w => !w.projectId || w.projectId === pid).map(w => ({ id: w.id, name: `${w.name} (${w.trade || 'labour'})`, rate: parseFloat(w.dayRate) || 0, unit: 'day' }));
+  if (type === 'Equipment') return (state.equipmentList || []).map(e => ({ id: e.id, name: e.name || e.code || 'Equipment', rate: parseFloat(e.rentRate) || 0, unit: e.rentBasis === 'daily' ? 'day' : e.rentBasis === 'monthly' ? 'mo' : 'hr' }));
+  if (type === 'Material') return (state.rawMaterials || []).map(m => ({ id: m.id, name: m.name, rate: _dprMatRate(m.id), unit: m.unit || 'nos' }));
+  return [];
+}
+function _dprMatRate(id) { const ins = (state.inventoryTx || []).filter(t => t.rawMaterialId === id && t.type === 'IN' && (parseFloat(t.rate) || 0) > 0).sort((a, b) => new Date(b.date) - new Date(a.date)); return ins.length ? (parseFloat(ins[0].rate) || 0) : 0; }
+function _dprOhResOpts(type) { return '<option value="">— select —</option>' + _dprOhResources(type).map(r => `<option value="${_esc(r.id)}" data-rate="${r.rate}" data-name="${_esc(r.name)}" data-unit="${_esc(r.unit)}">${_esc(r.name)}${r.rate ? ` · ${r.rate}/${r.unit}` : ''}</option>`).join(''); }
+window._dprOhRow = function () {
+  return `<tr>
+    <td style="padding:3px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:84px;">${_DPR_OH_TYPES.map(t => `<option>${t}</option>`).join('')}</select></td>
+    <td style="padding:3px;" class="oh-res-cell"><select class="oh-res" onchange="window._dprOhRes(this)" style="${_DPR_INP}width:150px;">${_dprOhResOpts('Labour')}</select></td>
+    <td style="padding:3px;"><input class="oh-qty" type="number" min="0" step="0.01" value="1" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:50px;text-align:right;"></td>
+    <td style="padding:3px;"><input class="oh-rate" type="number" min="0" step="0.01" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
+    <td style="padding:3px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:12px;">0</span></td>
+    <td style="padding:3px;"><input class="oh-note" placeholder="e.g. site prep" style="${_DPR_INP}width:96px;"></td>
     <td style="padding:3px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;">✕</button></td>
   </tr>`;
 };
 window._dprAddOh = function () { const tb = document.getElementById('dprOhBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprOhRow()); };
+window._dprOhType = function (sel) {
+  const tr = sel.closest('tr'); const type = sel.value; const cell = tr.querySelector('.oh-res-cell');
+  if (type === 'Other') { cell.innerHTML = `<input class="oh-res-text" placeholder="activity name" style="${_DPR_INP}width:150px;">`; tr.querySelector('.oh-rate').value = ''; }
+  else { cell.innerHTML = `<select class="oh-res" onchange="window._dprOhRes(this)" style="${_DPR_INP}width:150px;">${_dprOhResOpts(type)}</select>`; }
+  window._dprOhCalc(tr.querySelector('.oh-qty'));
+};
+window._dprOhRes = function (sel) { const tr = sel.closest('tr'); const o = sel.selectedOptions[0]; if (o && o.dataset.rate) tr.querySelector('.oh-rate').value = o.dataset.rate; window._dprOhCalc(tr.querySelector('.oh-qty')); };
+window._dprOhCalc = function (el) { const tr = el.closest('tr'); const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0; const rate = parseFloat(tr.querySelector('.oh-rate')?.value) || 0; const c = tr.querySelector('.oh-cost'); if (c) c.textContent = Math.round(qty * rate).toLocaleString('en-IN'); };
 
 window._exDprForm = function (id) {
   const d = id ? (state.dailyProgress || []).find(x => x.id === id) : null;
   _pendingPhoto = d?.photo || null;
 
-  // ── Pull active planned tasks + BOQ items from Micro-Planning (real-time link) ──
+  // ── Real-time link to Micro-Planning: seed measurement rows from planned tasks ──
   const _tasks = (typeof window.mpActivePlannedTasks === 'function') ? window.mpActivePlannedTasks() : [];
-  const _boqItems = (typeof window.mpBoqItems === 'function') ? window.mpBoqItems() : [];
-  const _boqOpts = (sel) => '<option value="">— none (not billable) —</option>' +
-    _boqItems.map(b => `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${sel === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('');
-  const _inpS = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
-  const plannedRows = _tasks.length
-    ? _tasks.map(t => `<tr data-task="${_esc(t.id)}" data-loc="${_esc(t.area || '')}">
-        <td style="padding:4px 6px;font-weight:600;font-size:12px;">${_esc(t.name || 'Task')}<div style="font-size:10px;color:#94a3b8;">📍 ${_esc(t.area || '—')}</div></td>
-        <td style="padding:4px 6px;"><select class="dpr-boq" style="${_inpS}width:100%;">${_boqOpts(t.boqCode || t.boqRef)}</select></td>
-        <td style="padding:4px 6px;"><input class="dpr-qty" type="number" min="0" step="0.01" placeholder="0" style="${_inpS}width:80px;text-align:right;"></td>
-        <td style="padding:4px 6px;"><select class="dpr-status" style="${_inpS}width:100%;"><option value="">—</option><option>In Progress</option><option>Completed</option><option>On Hold</option></select></td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" style="padding:10px;text-align:center;color:#94a3b8;font-size:12px;">No active planned tasks. Add tasks in Planning / Micro Plan.</td></tr>';
+  const _locList = _dprLocList();
+  const _locDatalist = `<datalist id="dprLocList">${_locList.map(l => `<option value="${_esc(l.label)}">`).join('')}</datalist>`;
+  // One measurement row per active task (pre-filled location + BOQ if the task
+  // carries one), plus a blank row to add more.
+  const measRows = (_tasks.length ? _tasks.map(t => window._dprMeasRow(t.area || '', t.boqCode || t.boqRef || '')).join('') : '') + window._dprMeasRow();
 
   _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -268,24 +311,28 @@ window._exDprForm = function (id) {
     </div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
 
-    <!-- ── PLANNED WORK DONE TODAY (billable — flows to measurement & RA bill) ── -->
+    ${_locDatalist}
+    <!-- ── MEASUREMENT — work done today (BOQ × Nos×L×B×H → bill) ── -->
     <div style="border:1px solid #d1fae5;background:#f0fdf4;border-radius:12px;padding:12px;margin-bottom:12px;">
-      <div style="font-weight:800;font-size:13px;color:#065f46;margin-bottom:2px;">📐 Planned Work Done Today</div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Enter quantity executed against each planned task. Pick the BOQ item to make it billable — it auto-flows to the measurement sheet, RA billing, Cost & Profit and Cash Flow.</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <div style="font-weight:800;font-size:13px;color:#065f46;">📐 Measurement — Work Done Today</div>
+        <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#dcfce7;color:#065f46;border:1px solid #bbf7d0;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
       <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
-        <th style="padding:4px 6px;">Task / Location</th><th style="padding:4px 6px;">BOQ item (billable)</th><th style="padding:4px 6px;">Qty done</th><th style="padding:4px 6px;">Status</th></tr></thead>
-        <tbody id="dprPlannedBody">${plannedRows}</tbody></table></div>
+        <th style="padding:3px;">Location</th><th style="padding:3px;">BOQ item</th><th style="padding:3px;">Nos</th><th style="padding:3px;">L</th><th style="padding:3px;">B</th><th style="padding:3px;">H</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;"></th></tr></thead>
+        <tbody id="dprMeasBody">${measRows}</tbody></table></div>
     </div>
 
-    <!-- ── NON-BOQ / OVERHEAD (internal, not paid by client) ── -->
+    <!-- ── NON-BOQ / OVERHEAD — resource + auto cost (internal, not billed) ── -->
     <div style="border:1px solid #fde68a;background:#fffbeb;border-radius:12px;padding:12px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-        <div style="font-weight:800;font-size:13px;color:#92400e;">🛠 Non-BOQ / Overhead Activities</div>
+        <div style="font-weight:800;font-size:13px;color:#92400e;">🛠 Non-BOQ / Overhead — Cost Leaks</div>
         <button onclick="window._dprAddOh()" style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add</button>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work not billed to the client (e.g. "2 hrs extra labour for site prep", "JCB for internal debris"). Captured as <b>Overhead</b> to track cost leaks — never touches BOQ billing.</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work NOT paid by the client. Pick <b>Labour / Equipment / Material</b> (or Other) — the rate auto-fills and cost = qty × rate. Tagged <b>Overhead</b>, it hits Cost &amp; Profit but never BOQ billing.</div>
       <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
-        <th style="padding:3px;">Activity</th><th style="padding:3px;">Category</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;"></th></tr></thead>
+        <th style="padding:3px;">Type</th><th style="padding:3px;">Resource</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Rate</th><th style="padding:3px;text-align:right;">Cost</th><th style="padding:3px;">Note</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprOhBody">${window._dprOhRow()}</tbody></table></div>
     </div>
 
@@ -304,26 +351,31 @@ window._exDprSave = function (id) {
   //    pipeline (→ measurement sheet → RA billing → Cost & Profit → Cash Flow). ──
   let syncedLines = 0;
   if (typeof window.mpRecordWork === 'function') {
-    const byLoc = {}; // location label → billable items[]
-    document.querySelectorAll('#dprPlannedBody tr[data-task]').forEach(tr => {
-      const code = tr.querySelector('.dpr-boq')?.value;
-      const qty = parseFloat(tr.querySelector('.dpr-qty')?.value) || 0;
-      const loc = (tr.getAttribute('data-loc') || data.area || 'General').trim() || 'General';
-      // Mark a task Completed if the user set that status.
-      if (tr.querySelector('.dpr-status')?.value === 'Completed') {
-        const tid = tr.getAttribute('data-task');
-        const t = (state.planningTasks || []).find(x => x.id === tid) || (state.microTasks || []).find(x => x.id === tid);
-        if (t) t.status = 'Completed';
-      }
+    // Measurement rows (BOQ + Nos/L/B/H) grouped by location.
+    const byLoc = {};
+    document.querySelectorAll('#dprMeasBody tr').forEach(tr => {
+      const code = tr.querySelector('.dm-boq')?.value;
+      const qty = parseFloat(tr.querySelector('.dm-qty')?.value) || 0;
       if (!code || qty <= 0) return;
-      const o = tr.querySelector('.dpr-boq').selectedOptions[0];
-      (byLoc[loc] = byLoc[loc] || []).push({ code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty });
+      const loc = (tr.querySelector('.dm-loc')?.value || data.area || 'General').trim() || 'General';
+      const o = tr.querySelector('.dm-boq').selectedOptions[0];
+      const dv = s => (tr.querySelector(s)?.value || '').trim();
+      (byLoc[loc] = byLoc[loc] || []).push({ code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h') });
     });
+    // Overhead rows (resource + auto cost), tagged Overhead.
     const overheads = [];
     document.querySelectorAll('#dprOhBody tr').forEach(tr => {
-      const act = (tr.querySelector('.dpr-oh-act')?.value || '').trim();
-      if (!act) return;
-      overheads.push({ activity: act, category: tr.querySelector('.dpr-oh-cat')?.value || 'Other', qty: parseFloat(tr.querySelector('.dpr-oh-qty')?.value) || 0, uom: (tr.querySelector('.dpr-oh-unit')?.value || '').trim() });
+      const type = tr.querySelector('.oh-type')?.value || 'Other';
+      const resSel = tr.querySelector('.oh-res');
+      const resName = type === 'Other'
+        ? (tr.querySelector('.oh-res-text')?.value || '').trim()
+        : (resSel?.selectedOptions?.[0]?.dataset.name || '').trim();
+      const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0;
+      const rate = parseFloat(tr.querySelector('.oh-rate')?.value) || 0;
+      const note = (tr.querySelector('.oh-note')?.value || '').trim();
+      const activity = note || resName;
+      if (!activity && !(qty > 0 && rate > 0)) return;
+      overheads.push({ activity: activity || type, category: type, type, resourceId: resSel?.value || '', resource: resName, qty, rate, uom: (resSel?.selectedOptions?.[0]?.dataset.unit) || '', cost: Math.round(qty * rate * 100) / 100 });
     });
     const ohLoc = (data.area || Object.keys(byLoc)[0] || 'General').trim() || 'General';
     Object.keys(byLoc).forEach(loc => {
