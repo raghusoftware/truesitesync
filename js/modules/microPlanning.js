@@ -1780,8 +1780,9 @@ window._mpSaveRecordWork = function() {
 
   saveAllData();
   document.getElementById('mpRecordWorkModal')?.remove();
-  // Refresh any open measurement views.
+  // Refresh any open measurement views + finance (earned/profit just changed).
   if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
+  _mpRefreshFinance();
   const lineCount = boqRows.length + ohRows.length;
   showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — ${lineCount} line${lineCount > 1 ? 's' : ''} recorded`, 'success');
 };
@@ -1904,8 +1905,16 @@ window._mpDeleteRA = function(id) {
   if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
   if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
   renderRABilling();
+  _mpRefreshFinance();
   showToast(`${b.raNo} deleted — quantities returned to unbilled`, 'info');
 };
+
+/** Re-render the finance views that depend on RA bills (Cost & Profit ledger and
+ *  the Owner Cockpit) so billed / WIP / margin stay in sync after any RA change. */
+function _mpRefreshFinance() {
+  if (typeof window.renderCostLedger === 'function') { try { window.renderCostLedger(); } catch {} }
+  if (typeof window.renderCashFlow === 'function') { try { window.renderCashFlow(); } catch {} }
+}
 
 window._mpPrepareRA = function() {
   const locIds = [...document.querySelectorAll('.ra-loc-chk:checked')].map(c => c.value);
@@ -2011,6 +2020,7 @@ window._mpGenerateRA = function(locIdsCsv) {
   if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
   document.getElementById('raBillDraft').innerHTML = '';
   renderRABilling();
+  _mpRefreshFinance();
   showToast(`${raNo} generated · ${getCurrencySymbol()}${Math.round(raBill.total).toLocaleString('en-IN')} — also added to Abstracts`, 'success');
 };
 

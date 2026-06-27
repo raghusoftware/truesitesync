@@ -2172,6 +2172,7 @@ export function deleteAbstract(id) {
     state.abstracts = state.abstracts.filter(a => a.id !== id);
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.();
     if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
+    if (typeof window.renderCostLedger === 'function') { try { window.renderCostLedger(); } catch {} }
     showToast(raId ? 'Abstract & linked RA bill deleted — quantities back to unbilled' : 'Abstract deleted & Measurement Sheet restored', 'success');
   }
 }
