@@ -636,7 +636,8 @@ export function generateDailySheet(dateStr, allocation, conflicts, chunks, allWo
         </div>
         <div class="flex gap-2">
           <button onclick="window._mpRecordWork('${dateStr}')" title="Record work done & measure" class="bg-emerald-400/90 hover:bg-emerald-400 text-emerald-950 text-[10px] px-3 py-1.5 rounded font-extrabold">📐 Record Work</button>
-          <button onclick="_mpExportDayPDF('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">PDF</button>
+          <button onclick="window._mpExportLocationPlanPDF('${dateStr}')" title="Location-wise plan (no cost) — for site" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">📍 Plan PDF</button>
+          <button onclick="_mpExportDayPDF('${dateStr}')" title="Allocation with cost (office)" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">PDF</button>
           <button onclick="_mpPrintDay('${dateStr}')" class="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-1.5 rounded font-bold">Print</button>
           <button onclick="document.getElementById('dailySheet_${dateStr}').remove()" title="Close this day" class="bg-white/20 hover:bg-white/30 text-white text-[12px] px-2.5 py-1.5 rounded font-bold leading-none">✕</button>
         </div>
@@ -1482,6 +1483,77 @@ export function mpExportDayPDF(dateStr) {
   showToast('PDF downloaded');
 }
 
+/**
+ * Location-wise plan PDF — grouped Location → Work Task → Labour allocation.
+ * STRICTLY excludes all cost / financial data (this is a site-execution sheet,
+ * not a costing document).
+ */
+window._mpExportLocationPlanPDF = function(dateStr) {
+  const JsPDF = window.jspdf?.jsPDF || window.jsPDF;
+  if (!JsPDF) { showToast('PDF library not loaded — refresh the page', 'error'); return; }
+  // Use the live allocation if present, else fall back to the latest saved plan
+  // for this project that covers this date (so the PDF works after a reload too).
+  let alloc = _mpAllocations[dateStr];
+  if (!alloc || !(alloc.assignments || []).length) {
+    const sp = (state.savedPlans || []).filter(p => p.projectId === _pid() && p.allocations && p.allocations[dateStr]).sort((a, b) => (b.generated || '').localeCompare(a.generated || ''))[0];
+    if (sp) alloc = sp.allocations[dateStr];
+  }
+  if (!alloc || !(alloc.assignments || []).length) { showToast('No allocation for this day — generate the plan first', 'error'); return; }
+
+  // Group: location -> task -> [ {worker, trade, hours} ]
+  const byLoc = {};
+  alloc.assignments.forEach(a => {
+    const loc = a.location || 'Unassigned location';
+    const task = a.taskName || 'Task';
+    (byLoc[loc] = byLoc[loc] || {});
+    (byLoc[loc][task] = byLoc[loc][task] || []).push({ worker: a.workerName, trade: a.trade, hours: a.hours });
+  });
+
+  const doc = new JsPDF('p', 'mm', 'a4');
+  const proj = state.projects.find(p => p.id === _pid());
+  const dayLabel = _parseDate(dateStr).toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), ml = 14, mr = 14;
+
+  let y = (typeof getCompanyHeaderForPDF === 'function') ? getCompanyHeaderForPDF(doc) : 16;
+  doc.setFillColor(30, 58, 138); doc.rect(ml, y, pw - ml - mr, 9, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  doc.text('SITE WORK PLAN — LOCATION WISE', pw / 2, y + 6.2, { align: 'center' });
+  y += 13; doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`Project: ${proj ? proj.name : '—'}    |    Date: ${dayLabel}`, ml, y); y += 6;
+
+  Object.keys(byLoc).sort().forEach(loc => {
+    if (y > ph - 30) { doc.addPage(); y = 16; }
+    // Location heading
+    doc.setFillColor(238, 242, 255); doc.rect(ml, y, pw - ml - mr, 7, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(30, 58, 138);
+    doc.text(`📍 ${loc}`, ml + 2, y + 5); y += 9; doc.setTextColor(0);
+    Object.keys(byLoc[loc]).forEach(task => {
+      const workers = byLoc[loc][task];
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      if (y > ph - 24) { doc.addPage(); y = 16; }
+      doc.text(`Task: ${task}`, ml + 4, y); y += 1;
+      doc.autoTable({
+        startY: y + 1,
+        head: [['#', 'Worker', 'Trade', 'Hours']],
+        body: workers.map((w, i) => [i + 1, w.worker, w.trade || '-', w.hours]),
+        styles: { fontSize: 8, cellPadding: 1.6 },
+        headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 10 }, 3: { halign: 'right', cellWidth: 22 } },
+        margin: { left: ml + 4, right: mr },
+        theme: 'grid'
+      });
+      y = doc.lastAutoTable.finalY + 4;
+    });
+    y += 2;
+  });
+
+  const sy = Math.max(y + 8, ph - 24);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(80);
+  doc.text('Site Engineer: __________________     Supervisor: __________________     Date: ____________', ml, sy);
+  doc.save(`SitePlan_LocationWise_${dateStr}.pdf`);
+  showToast('Location-wise plan PDF downloaded');
+};
+
 export function mpPrintDay(dateStr) {
   const el = document.getElementById(`dailySheet_${dateStr}`);
   if (!el) return;
@@ -1729,62 +1801,103 @@ window._mpRecordWork = function(dateStr) {
   document.body.insertAdjacentHTML('beforeend', html);
 };
 
+/**
+ * PUBLIC measurement API — the single entry point any module (Record Work modal,
+ * DPR/Execution, etc.) uses to record daily work into the running measurement
+ * sheet for a location. This is what keeps Planning → DPR → RA Billing →
+ * Cost & Profit → Cash Flow in real-time sync.
+ *
+ * @param {{date:string, locationId:string, locationLabel?:string,
+ *   items?:Array<{code,description?,uom?,rate?,qty,nos?,l?,b?,h?,src?}>,
+ *   overheads?:Array<{activity,category?,qty?,uom?,hours?,resource?}>,
+ *   src?:string}} payload
+ * @returns {{sheet:object, lines:number}|null}
+ */
+window.mpRecordWork = function(payload) {
+  const proj = _currentProject();
+  if (!proj || !payload) return null;
+  const date = payload.date || new Date().toISOString().split('T')[0];
+  const locId = payload.locationId || payload.locationLabel;
+  if (!locId) return null;
+  const locLabel = payload.locationLabel || siteLocationLabel(locId);
+  const boqByCode = {}; _mpBoqItems().forEach(b => boqByCode[b.code] = b);
+
+  const sheet = _findOrCreateRunningSheet(locId, locLabel);
+  if (!sheet.entries) sheet.entries = [];
+  if (!sheet.overheadEntries) sheet.overheadEntries = [];
+
+  let lines = 0;
+  // Chargeable BOQ lines — one entry per measurement (dims preserved). Rate is
+  // taken from the payload or looked up from the BOQ; cumulative-per-code math
+  // (RA billing) sums these lines.
+  (payload.items || []).forEach(r => {
+    if (!r.code || !(parseFloat(r.qty) > 0)) return;
+    const boq = boqByCode[r.code] || {};
+    sheet.entries.push({
+      code: r.code, description: r.description || boq.description || r.code,
+      uom: r.uom || boq.uom || '', rate: (r.rate != null ? r.rate : (boq.rate || 0)),
+      nos: r.nos || '', l: r.l || '', b: r.b || '', h: r.h || '', qty: parseFloat(r.qty),
+      remarks: `Daily ${date}`, _src: r.src || payload.src || 'daily', _date: date
+    });
+    lines++;
+  });
+  // Non-BOQ / overhead lines — owner-only record, never billed (tagged Overhead).
+  (payload.overheads || []).forEach(o => {
+    if (!o.activity) return;
+    sheet.overheadEntries.push({
+      activity: o.activity, category: o.category || 'Other',
+      qty: parseFloat(o.qty) || 0, uom: o.uom || '', hours: parseFloat(o.hours) || 0,
+      resource: o.resource || '', date, _src: payload.src || 'daily'
+    });
+    lines++;
+  });
+  if (!lines) return null;
+
+  sheet.updatedAt = new Date().toISOString();
+  saveAllData();
+  if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
+  _mpRefreshFinance();
+  return { sheet, lines };
+};
+
+/** Active (not-completed) planned + micro tasks for the current project. */
+window.mpActivePlannedTasks = function() {
+  const pid = _pid();
+  return [...(state.planningTasks || []), ...(state.microTasks || [])]
+    .filter(t => t.projectId === pid && t.status !== 'Completed');
+};
+/** BOQ items for the current project (code/description/uom/rate). For DPR pickers. */
+window.mpBoqItems = function() { return _mpBoqItems(); };
+/** Locations for the current project (auto-pulled). For DPR pickers. */
+window.mpProjectLocations = function() { return _projectLocations().map(l => ({ id: l.id, label: siteLocationLabel(l) })); };
+
 window._mpSaveRecordWork = function() {
   const date = document.getElementById('rwDate')?.value || new Date().toISOString().split('T')[0];
   const locId = document.getElementById('rwLocation')?.value || '';
   if (!locId) { showToast('Pick a location', 'error'); return; }
-  const loc = _projectLocations().find(l => l.id === locId);
-  const locLabel = siteLocationLabel(loc);
+  const locLabel = siteLocationLabel(_projectLocations().find(l => l.id === locId));
 
-  // Collect chargeable BOQ rows (with measurement dimensions Nos/L/B/H).
-  const boqRows = [];
+  const items = [];
   document.querySelectorAll('#rwBoqBody tr').forEach(tr => {
     const code = tr.querySelector('.rw-boq')?.value;
     const qty = parseFloat(tr.querySelector('.rw-qty')?.value) || 0;
     if (code && qty > 0) {
       const o = tr.querySelector('.rw-boq').selectedOptions[0];
       const dv = sel => (tr.querySelector(sel)?.value || '').trim();
-      boqRows.push({
-        code, description: o?.dataset.desc || code, uom: o?.dataset.uom || '', rate: parseFloat(o?.dataset.rate) || 0, qty,
-        nos: dv('.rw-nos'), l: dv('.rw-l'), b: dv('.rw-b'), h: dv('.rw-h')
-      });
+      items.push({ code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty, nos: dv('.rw-nos'), l: dv('.rw-l'), b: dv('.rw-b'), h: dv('.rw-h') });
     }
   });
-  // Collect overhead rows
-  const ohRows = [];
+  const overheads = [];
   document.querySelectorAll('#rwOhBody tr').forEach(tr => {
     const act = (tr.querySelector('.oh-act')?.value || '').trim();
-    const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0;
-    if (act) ohRows.push({ activity: act, category: tr.querySelector('.oh-cat')?.value || 'Other', qty, uom: (tr.querySelector('.oh-uom')?.value || '').trim(), date });
+    if (act) overheads.push({ activity: act, category: tr.querySelector('.oh-cat')?.value || 'Other', qty: parseFloat(tr.querySelector('.oh-qty')?.value) || 0, uom: (tr.querySelector('.oh-uom')?.value || '').trim() });
   });
-  if (!boqRows.length && !ohRows.length) { showToast('Enter at least one quantity', 'warning'); return; }
+  if (!items.length && !overheads.length) { showToast('Enter at least one quantity', 'warning'); return; }
 
-  const sheet = _findOrCreateRunningSheet(locId, locLabel);
-  if (!sheet.entries) sheet.entries = [];
-  if (!sheet.overheadEntries) sheet.overheadEntries = [];
-
-  // Push each measurement as its OWN line (with its dimensions), exactly like a
-  // measurement book — so the dims survive and the sheet reads naturally. The
-  // cumulative-per-code math (RA billing) sums these lines, so accumulation
-  // still works without flattening away the L×B×H detail.
-  boqRows.forEach(r => {
-    sheet.entries.push({
-      code: r.code, description: r.description, uom: r.uom, rate: r.rate,
-      nos: r.nos, l: r.l, b: r.b, h: r.h, qty: r.qty,
-      remarks: `Daily ${date}`, _src: 'daily', _date: date
-    });
-  });
-  // Overhead → owner-only record on the sheet.
-  ohRows.forEach(r => sheet.overheadEntries.push(r));
-  sheet.updatedAt = new Date().toISOString();
-
-  saveAllData();
+  const res = window.mpRecordWork({ date, locationId: locId, locationLabel: locLabel, items, overheads, src: 'daily' });
+  if (!res) { showToast('Nothing to save', 'warning'); return; }
   document.getElementById('mpRecordWorkModal')?.remove();
-  // Refresh any open measurement views + finance (earned/profit just changed).
-  if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
-  _mpRefreshFinance();
-  const lineCount = boqRows.length + ohRows.length;
-  showToast(`Saved to ${sheet.sheetNum} · ${locLabel} — ${lineCount} line${lineCount > 1 ? 's' : ''} recorded`, 'success');
+  showToast(`Saved to ${res.sheet.sheetNum} · ${locLabel} — ${res.lines} line${res.lines > 1 ? 's' : ''} recorded`, 'success');
 };
 
 // ═══════════════════════════════════════════════════════════

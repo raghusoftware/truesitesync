@@ -216,9 +216,39 @@ function _renderDPR(root) {
     ${_rowActions('dailyProgress', d)}</div>`).join('');
   root.innerHTML = _listShell('Daily Progress Report', '+ Add DPR', "_exDprForm()", rows, list.length);
 }
+// Overhead category list (non-BOQ, internal) + a row builder shared by the DPR.
+const _DPR_OH_CATS = ['Material Handling', 'Housekeeping / Cleaning', 'Rework', 'Dewatering', 'Scaffolding', 'Curing', 'Idle / Standby', 'Safety', 'Mobilization', 'Internal Equipment', 'Other'];
+window._dprOhRow = function () {
+  const inp = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
+  return `<tr>
+    <td style="padding:3px;"><input class="dpr-oh-act" placeholder="e.g. JCB for internal debris clearing" style="${inp}width:100%;"></td>
+    <td style="padding:3px;"><select class="dpr-oh-cat" style="${inp}width:100%;">${_DPR_OH_CATS.map(c => `<option>${c}</option>`).join('')}</select></td>
+    <td style="padding:3px;"><input class="dpr-oh-qty" type="number" min="0" step="0.01" placeholder="0" style="${inp}width:60px;text-align:right;"></td>
+    <td style="padding:3px;"><input class="dpr-oh-unit" placeholder="hrs/nos" style="${inp}width:56px;"></td>
+    <td style="padding:3px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;">✕</button></td>
+  </tr>`;
+};
+window._dprAddOh = function () { const tb = document.getElementById('dprOhBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprOhRow()); };
+
 window._exDprForm = function (id) {
   const d = id ? (state.dailyProgress || []).find(x => x.id === id) : null;
   _pendingPhoto = d?.photo || null;
+
+  // ── Pull active planned tasks + BOQ items from Micro-Planning (real-time link) ──
+  const _tasks = (typeof window.mpActivePlannedTasks === 'function') ? window.mpActivePlannedTasks() : [];
+  const _boqItems = (typeof window.mpBoqItems === 'function') ? window.mpBoqItems() : [];
+  const _boqOpts = (sel) => '<option value="">— none (not billable) —</option>' +
+    _boqItems.map(b => `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${sel === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('');
+  const _inpS = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
+  const plannedRows = _tasks.length
+    ? _tasks.map(t => `<tr data-task="${_esc(t.id)}" data-loc="${_esc(t.area || '')}">
+        <td style="padding:4px 6px;font-weight:600;font-size:12px;">${_esc(t.name || 'Task')}<div style="font-size:10px;color:#94a3b8;">📍 ${_esc(t.area || '—')}</div></td>
+        <td style="padding:4px 6px;"><select class="dpr-boq" style="${_inpS}width:100%;">${_boqOpts(t.boqCode || t.boqRef)}</select></td>
+        <td style="padding:4px 6px;"><input class="dpr-qty" type="number" min="0" step="0.01" placeholder="0" style="${_inpS}width:80px;text-align:right;"></td>
+        <td style="padding:4px 6px;"><select class="dpr-status" style="${_inpS}width:100%;"><option value="">—</option><option>In Progress</option><option>Completed</option><option>On Hold</option></select></td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="padding:10px;text-align:center;color:#94a3b8;font-size:12px;">No active planned tasks. Add tasks in Planning / Micro Plan.</td></tr>';
+
   _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Date</label><input id="dpDate" type="date" value="${d ? _esc(d.date) : _today()}" style="${_inp}"></div>
@@ -237,16 +267,78 @@ window._exDprForm = function (id) {
       <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('dpBoq', d?.boqRef)}</div>
     </div>
     <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
+
+    <!-- ── PLANNED WORK DONE TODAY (billable — flows to measurement & RA bill) ── -->
+    <div style="border:1px solid #d1fae5;background:#f0fdf4;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-weight:800;font-size:13px;color:#065f46;margin-bottom:2px;">📐 Planned Work Done Today</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Enter quantity executed against each planned task. Pick the BOQ item to make it billable — it auto-flows to the measurement sheet, RA billing, Cost & Profit and Cash Flow.</div>
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
+        <th style="padding:4px 6px;">Task / Location</th><th style="padding:4px 6px;">BOQ item (billable)</th><th style="padding:4px 6px;">Qty done</th><th style="padding:4px 6px;">Status</th></tr></thead>
+        <tbody id="dprPlannedBody">${plannedRows}</tbody></table></div>
+    </div>
+
+    <!-- ── NON-BOQ / OVERHEAD (internal, not paid by client) ── -->
+    <div style="border:1px solid #fde68a;background:#fffbeb;border-radius:12px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <div style="font-weight:800;font-size:13px;color:#92400e;">🛠 Non-BOQ / Overhead Activities</div>
+        <button onclick="window._dprAddOh()" style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work not billed to the client (e.g. "2 hrs extra labour for site prep", "JCB for internal debris"). Captured as <b>Overhead</b> to track cost leaks — never touches BOQ billing.</div>
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
+        <th style="padding:3px;">Activity</th><th style="padding:3px;">Category</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;"></th></tr></thead>
+        <tbody id="dprOhBody">${window._dprOhRow()}</tbody></table></div>
+    </div>
+
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
   </div>`);
 };
 window._exDprSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { date: v('dpDate') || _today(), weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null };
+  const date = v('dpDate') || _today();
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.dailyProgress.push({ id: 'dpr_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
-  _pendingPhoto = null; saveAllData(); _exCloseModal(); showToast('DPR saved', 'success'); renderExecution();
+
+  // ── Real-time sync: feed measured work + overhead into the shared measurement
+  //    pipeline (→ measurement sheet → RA billing → Cost & Profit → Cash Flow). ──
+  let syncedLines = 0;
+  if (typeof window.mpRecordWork === 'function') {
+    const byLoc = {}; // location label → billable items[]
+    document.querySelectorAll('#dprPlannedBody tr[data-task]').forEach(tr => {
+      const code = tr.querySelector('.dpr-boq')?.value;
+      const qty = parseFloat(tr.querySelector('.dpr-qty')?.value) || 0;
+      const loc = (tr.getAttribute('data-loc') || data.area || 'General').trim() || 'General';
+      // Mark a task Completed if the user set that status.
+      if (tr.querySelector('.dpr-status')?.value === 'Completed') {
+        const tid = tr.getAttribute('data-task');
+        const t = (state.planningTasks || []).find(x => x.id === tid) || (state.microTasks || []).find(x => x.id === tid);
+        if (t) t.status = 'Completed';
+      }
+      if (!code || qty <= 0) return;
+      const o = tr.querySelector('.dpr-boq').selectedOptions[0];
+      (byLoc[loc] = byLoc[loc] || []).push({ code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty });
+    });
+    const overheads = [];
+    document.querySelectorAll('#dprOhBody tr').forEach(tr => {
+      const act = (tr.querySelector('.dpr-oh-act')?.value || '').trim();
+      if (!act) return;
+      overheads.push({ activity: act, category: tr.querySelector('.dpr-oh-cat')?.value || 'Other', qty: parseFloat(tr.querySelector('.dpr-oh-qty')?.value) || 0, uom: (tr.querySelector('.dpr-oh-unit')?.value || '').trim() });
+    });
+    const ohLoc = (data.area || Object.keys(byLoc)[0] || 'General').trim() || 'General';
+    Object.keys(byLoc).forEach(loc => {
+      const res = window.mpRecordWork({ date, locationId: loc, locationLabel: loc, items: byLoc[loc], overheads: (loc === ohLoc ? overheads : []), src: 'dpr' });
+      if (res) syncedLines += res.lines;
+    });
+    if (overheads.length && !byLoc[ohLoc]) {
+      const res = window.mpRecordWork({ date, locationId: ohLoc, locationLabel: ohLoc, items: [], overheads, src: 'dpr' });
+      if (res) syncedLines += res.lines;
+    }
+  }
+
+  _pendingPhoto = null; saveAllData(); _exCloseModal();
+  showToast(syncedLines ? `DPR saved — ${syncedLines} measurement/overhead line(s) synced to billing & cost` : 'DPR saved', 'success');
+  renderExecution();
 };
 
 // ══════════════════════════════════════════════════════════
