@@ -2262,16 +2262,60 @@ export function computeProjectPnL(pid) {
 }
 window.computeProjectPnL = computeProjectPnL;
 
+// Cost & Profit filter scope (client + project). _costProject === undefined means
+// "not initialised yet" → default to the current project on first render.
+let _costClient = '';
+let _costProject;
+window._costSetClient = function(v) { _costClient = v || ''; _costProject = ''; renderCostLedger(); };
+window._costSetProject = function(v) { _costProject = v || ''; renderCostLedger(); };
+
+/** Aggregate several projects' P&L into one object shaped like computeProjectPnL,
+ *  so the same render handles a single project or a whole portfolio. */
+function _aggregatePnL(ids) {
+  const parts = ids.map(id => computeProjectPnL(id)).filter(p => p && p.projectName);
+  const sum = k => parts.reduce((s, p) => s + (p[k] || 0), 0);
+  const itemMap = {};
+  parts.forEach(p => (p.byItem || []).forEach(it => {
+    const m = itemMap[it.code] || (itemMap[it.code] = { code: it.code, description: it.description, uom: it.uom, rate: it.rate, qty: 0, value: 0, matCost: null, itemMargin: null, marginPct: null });
+    m.qty += it.qty; m.value += it.value;
+    if (it.matCost != null) m.matCost = (m.matCost || 0) + it.matCost;
+  }));
+  Object.values(itemMap).forEach(m => { if (m.matCost != null) { m.itemMargin = m.value - m.matCost; m.marginPct = m.value ? (m.itemMargin / m.value) * 100 : null; } });
+  const leakage = {};
+  parts.forEach(p => Object.entries(p.leakage || {}).forEach(([cat, v]) => { if (!leakage[cat]) leakage[cat] = { count: 0, cost: 0 }; leakage[cat].count += v.count || 0; leakage[cat].cost += v.cost || 0; }));
+  const earned = sum('earned'), billed = sum('billed'), material = sum('material'), labour = sum('labour'), other = sum('other'), overhead = sum('overhead');
+  const totalCost = material + labour + other + overhead;
+  const profit = earned - totalCost;
+  return { earned, billed, wip: Math.max(0, earned - billed), material, labour, other, overhead, totalCost, profit, marginPct: earned > 0 ? (profit / earned) * 100 : 0, noRecipe: sum('noRecipe'), byItem: Object.values(itemMap).sort((a, b) => b.value - a.value), leakage, _parts: parts };
+}
+
 export function renderCostLedger() {
   const c = document.getElementById('costLedgerContent');
   if (!c) return;
-  const proj = _currentProject();
-  if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
   const cur = getCurrencySymbol();
   const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
+  const allProjects = state.projects || [];
+  if (!allProjects.length) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">No projects yet.</p>'; return; }
+  if (_costProject === undefined) _costProject = _pid() || ''; // default to current project
 
-  // Single source of truth — same math the Owner Cockpit (Cash Flow) uses.
-  const pnl = computeProjectPnL(proj.id);
+  // ── Scope resolution ──
+  const scopeProjects = _costClient ? allProjects.filter(p => p.clientId === _costClient) : allProjects;
+  if (_costProject && !allProjects.some(p => p.id === _costProject)) _costProject = '';
+  const scopeIds = _costProject ? [_costProject] : scopeProjects.map(p => p.id);
+  const single = scopeIds.length === 1;
+  const pnl = single ? computeProjectPnL(scopeIds[0]) : _aggregatePnL(scopeIds);
+
+  // ── Filter bar ──
+  const clientName = (cid) => { const cl = (state.clients || []).find(c => c.id === cid); return cl ? cl.name : 'Unknown'; };
+  const clientOpts = '<option value="">All clients</option>' + (state.clients || []).map(cl => `<option value="${cl.id}" ${_costClient === cl.id ? 'selected' : ''}>${_esc(cl.name)}</option>`).join('');
+  const projOpts = '<option value="">All projects</option>' + scopeProjects.map(p => `<option value="${p.id}" ${_costProject === p.id ? 'selected' : ''}>${_esc(p.name)}${p.clientId ? ' — ' + _esc(clientName(p.clientId)) : ''}</option>`).join('');
+  const filterBar = `<div class="flex flex-wrap items-center gap-2 mb-4 bg-white border rounded-xl p-3">
+    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Scope</span>
+    <select onchange="window._costSetClient(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${clientOpts}</select>
+    <select onchange="window._costSetProject(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${projOpts}</select>
+    <span class="text-[11px] text-slate-400 ml-auto">${single ? '1 project' : scopeIds.length + ' projects (all sites)'}</span>
+  </div>`;
+
   const rows = pnl.byItem;
   const income = pnl.earned, materialTotal = pnl.material, noRecipe = pnl.noRecipe;
   const labourCost = pnl.labour, otherExpenses = pnl.other, billed = pnl.billed, wip = pnl.wip;
@@ -2293,13 +2337,33 @@ export function renderCostLedger() {
       <p class="text-[10px] font-bold uppercase" style="color:${color}">${label}</p>
       <p class="text-lg font-extrabold text-slate-800">${val}</p>${sub ? `<p class="text-[10px] text-slate-400">${sub}</p>` : ''}</div>`;
 
-  c.innerHTML = `
+  // Per-project breakdown (only in the multi-project / all-sites view).
+  const projTable = single ? '' : `
+    <div class="bg-white border rounded-xl overflow-hidden mb-4">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">Per-project P&amp;L (${(pnl._parts || []).length} sites)</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Project</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Earned</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Cost</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Profit</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
+        <tbody>${(pnl._parts || []).slice().sort((a, b) => b.profit - a.profit).map(p => `<tr class="border-b hover:bg-slate-50">
+          <td class="px-2 py-1.5 font-semibold text-slate-700">${_esc(p.projectName)}</td>
+          <td class="px-2 py-1.5 text-right text-slate-500">${fmt(p.earned)}</td>
+          <td class="px-2 py-1.5 text-right text-slate-500">${fmt(p.totalCost)}</td>
+          <td class="px-2 py-1.5 text-right font-bold ${p.profit >= 0 ? 'text-green-700' : 'text-red-600'}">${fmt(p.profit)}</td>
+          <td class="px-2 py-1.5 text-right font-bold ${p.marginPct >= 0 ? 'text-green-600' : 'text-red-500'}">${p.marginPct.toFixed(0)}%</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="p-5 text-center text-slate-400">No data.</td></tr>'}</tbody></table></div>
+    </div>`;
+
+  c.innerHTML = filterBar + `
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       ${card('Work done (earned)', fmt(income), `Billed ${fmt(billed)} · WIP ${fmt(wip)}`, '#0d9488')}
       ${card('Material cost', fmt(materialTotal), 'recipe × purchase rate', '#ea580c')}
       ${card('Labour cost', fmt(labourCost), 'attendance wages', '#7c3aed')}
       ${card(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% margin', profit >= 0 ? '#16a34a' : '#dc2626')}
     </div>
+    ${projTable}
 
     <div class="bg-white border rounded-xl overflow-hidden mb-4">
       <div class="p-3 border-b font-bold text-slate-700 text-sm">Margin by BOQ item</div>
@@ -2308,7 +2372,7 @@ export function renderCostLedger() {
         <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Done</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Value</th>
         <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Material</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Margin</th>
         <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
-        <tbody>${itemRows || '<tr><td colspan="7" class="p-5 text-center text-slate-400">No measured work yet — use 📐 Record Work.</td></tr>'}</tbody></table></div>
+        <tbody>${itemRows || '<tr><td colspan="7" class="p-5 text-center text-slate-400">No measured work yet — record it in the DPR (Execution).</td></tr>'}</tbody></table></div>
       ${noRecipe ? `<p class="text-[11px] text-amber-600 px-3 py-2 border-t bg-amber-50">${noRecipe} item(s) have no mix-design recipe — their material cost shows "—" and isn't in the totals. Add recipes for accurate margins.</p>` : ''}
     </div>
 
