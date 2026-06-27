@@ -110,9 +110,8 @@ function _backBar(title) {
 //  HOME — app-icon grid
 // ══════════════════════════════════════════════════════════
 function _renderHome(root) {
-  const card = (icon, color, title, sub, sec, count) => `
+  const card = (icon, color, title, sub, sec) => `
     <div onclick="_exOpen('${sec}')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 16px;cursor:pointer;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);position:relative;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      ${count != null ? `<span style="position:absolute;top:10px;right:12px;font-size:11px;font-weight:800;color:${color};background:${color}15;border:1px solid ${color}30;border-radius:9px;padding:1px 7px;">${count}</span>` : ''}
       <div style="width:50px;height:50px;background:${color}15;border:2px solid ${color}30;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">${icon}</div>
       <div style="font-size:13px;font-weight:700;color:#0f172a;">${title}</div>
       <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</div>
@@ -154,15 +153,21 @@ function _renderDashboard(root) {
 // ══════════════════════════════════════════════════════════
 //  shared list shell + modal
 // ══════════════════════════════════════════════════════════
-function _modal(html) {
+function _modal(html, opts) {
+  const full = opts && opts.full;
   let o = document.getElementById('exModalOverlay');
   if (!o) {
     o = document.createElement('div'); o.id = 'exModalOverlay';
-    o.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:200000;display:flex;align-items:center;justify-content:center;padding:16px;';
     o.addEventListener('click', e => { if (e.target === o) _exCloseModal(); });
     document.body.appendChild(o);
   }
-  o.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:600px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">${html}</div>`;
+  // Full-screen forms (e.g. DPR) fill the viewport; standard modals stay centered.
+  o.style.cssText = full
+    ? 'position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:200000;display:flex;align-items:stretch;justify-content:center;padding:0;'
+    : 'position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:200000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  o.innerHTML = full
+    ? `<div style="background:#fff;width:100%;height:100%;max-height:100vh;overflow:auto;box-shadow:0 0 60px rgba(0,0,0,.3);">${html}</div>`
+    : `<div style="background:#fff;border-radius:18px;max-width:600px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">${html}</div>`;
   o.style.display = 'flex';
 }
 window._exCloseModal = function () { const o = document.getElementById('exModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; };
@@ -337,7 +342,7 @@ window._exDprForm = function (id) {
     </div>
 
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
-  </div>`);
+  </div>`, { full: true });
 };
 window._exDprSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
