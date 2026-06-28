@@ -22,6 +22,10 @@ const DEBOUNCE_MS = 1500;
 // ── Online status ──
 let _online = navigator.onLine;
 const _dirtyKeys = new Set();
+// Keys whose push is mid-flight (network upsert not yet confirmed). Kept in
+// hasPendingPush so a concurrent pull/realtime can't adopt the stale cloud value
+// and revert a just-made local change (e.g. a delete coming back).
+const _inFlight = new Set();
 
 // ── Push gating: never push to cloud until the initial pull has completed,
 //    so a freshly-opened (stale) tab can't overwrite newer cloud data. ──
@@ -53,7 +57,7 @@ export function setLocalKeyTs(key, ms) { _setLocalTs(key, ms); }
  *  the local copy when there's a genuine un-synced edit — otherwise the cloud
  *  copy always wins, guaranteeing every device converges. */
 export function hasPendingPush(key) {
-  return _dirtyKeys.has(key) || _queuedKeys.has(key) || (_pendingValues[key] !== undefined);
+  return _dirtyKeys.has(key) || _queuedKeys.has(key) || _inFlight.has(key) || (_pendingValues[key] !== undefined);
 }
 
 /** Called once the initial cloud pull is done — releases queued pushes. */
@@ -268,15 +272,18 @@ function _reportPush(ok) {
 }
 
 async function _pushKey(dataKey, value) {
+  // Mark in-flight synchronously (before any await) so a pull/realtime during the
+  // push window can't adopt the stale cloud value and revert this change.
+  _inFlight.add(dataKey);
   const sb = getSupabase();
   if (!sb || !_online) {
-    _dirtyKeys.add(dataKey);
+    _dirtyKeys.add(dataKey); _inFlight.delete(dataKey);
     _reportPush(false);
     return false;
   }
   const orgId = await _resolveOrg();
   const userId = await _uidAsync();
-  if (!orgId || !userId) { _dirtyKeys.add(dataKey); _reportPush(false); return false; }
+  if (!orgId || !userId) { _dirtyKeys.add(dataKey); _inFlight.delete(dataKey); _reportPush(false); return false; }
 
   try {
     // Org-shared store: one row per (org, module key). Everyone in the company
@@ -305,6 +312,8 @@ async function _pushKey(dataKey, value) {
     _dirtyKeys.add(dataKey);
     _reportPush(false);
     return false;
+  } finally {
+    _inFlight.delete(dataKey);
   }
 }
 
