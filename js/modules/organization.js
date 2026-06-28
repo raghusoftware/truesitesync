@@ -337,7 +337,25 @@ export async function buyExtraSeats(count) {
   _openRazorpayCheckout(order);
 }
 
-function _openRazorpayCheckout(order) {
+/** Load the Razorpay SDK on demand (it's not loaded on app open — loading it
+ *  eagerly kept the browser tab spinning forever because the SDK opens a
+ *  persistent risk-detection/telemetry session). Resolves once window.Razorpay
+ *  is available. */
+function _ensureRazorpay() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) return resolve();
+    let s = document.getElementById('rzpSdk');
+    if (s) { s.addEventListener('load', () => resolve()); s.addEventListener('error', () => reject(new Error('rzp'))); return; }
+    s = document.createElement('script');
+    s.id = 'rzpSdk'; s.src = 'js/vendor/razorpay.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Razorpay SDK failed to load'));
+    document.head.appendChild(s);
+  });
+}
+
+async function _openRazorpayCheckout(order) {
+  try { await _ensureRazorpay(); } catch (e) { showToast('Could not load the payment gateway. Check your connection and try again.', 'error'); return; }
   if (!window.Razorpay) {
     showToast('Razorpay SDK not loaded. Please try again.', 'error');
     return;

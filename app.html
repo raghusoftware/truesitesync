@@ -12,14 +12,15 @@
     <script src="js/vendor/jspdf-autotable.min.js"></script>
     <script src="js/vendor/xlsx.min.js"></script>
     <script src="js/vendor/supabase.min.js"></script>
-    <script src="js/vendor/razorpay.min.js" async></script>
+    <!-- Razorpay SDK is loaded on demand at checkout (see _ensureRazorpay) — loading
+         it here kept the browser tab spinning forever (persistent risk/telemetry session). -->
     <!-- Fonts (loaded async — app works without them) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.4.80"></script>
+    <script type="module" src="js/app.js?v=1.4.81"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
