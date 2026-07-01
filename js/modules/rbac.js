@@ -1105,7 +1105,7 @@ async function _inviteUserToOrg(email, role) {
 
 export function deleteUser(userId) {
   if (!confirm('Delete this user?')) return;
-  state.rbacUsers = (state.rbacUsers || []).filter(u => u.id !== userId);
+  window.recycleDelete && window.recycleDelete('rbacUsers', userId, 'User');
   saveAllData();
   showToast('User deleted', 'warning');
   renderUsersRolesPanel();

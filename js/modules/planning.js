@@ -634,7 +634,7 @@ export function saveTask(taskId) {
 
 export function deleteTask(taskId) {
   if (!confirm('Delete this task and all its material/equipment links?')) return;
-  state.planningTasks = (state.planningTasks || []).filter(t => t.id !== taskId);
+  window.recycleDelete && window.recycleDelete('planningTasks', taskId, 'Task');
   state.taskMaterials = (state.taskMaterials || []).filter(m => m.taskId !== taskId);
   state.taskEquipment = (state.taskEquipment || []).filter(e => e.taskId !== taskId);
   saveAllData();

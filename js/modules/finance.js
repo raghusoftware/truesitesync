@@ -231,7 +231,7 @@ export function renderVendorLedger() {
 export function deleteVendorRecord(id, type) {
   if (!confirm("Are you sure you want to delete this record?")) return;
   if (type === 'bill' || type === 'mat') {
-    state.vendorMaterials = state.vendorMaterials.filter(m => m.id !== id);
+    window.recycleDelete && window.recycleDelete('vendorMaterials', id, 'Purchase Bill');
     state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
   } else {
     state.vendorPayments = state.vendorPayments.filter(p => p.id !== id);
@@ -437,7 +437,7 @@ window._deleteAccount = function(accId) {
   const acc = state.accounts.find(a => a.id === accId);
   if (!acc) return;
   if (!confirm(`Delete account "${acc.name}"? Transactions linked to it will remain but the account will be removed.`)) return;
-  state.accounts = state.accounts.filter(a => a.id !== accId);
+  window.recycleDelete && window.recycleDelete('accounts', accId, 'Account');
   saveAllData(); populateDropdowns(); renderAccounts();
   showToast('Account deleted', 'error');
 };

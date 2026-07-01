@@ -2170,7 +2170,7 @@ export function deleteAbstract(id) {
     // keeps treating its quantities as billed.
     const raId = abs._raBillId || (state.raBills || []).find(b => b.abstractId === id)?.id;
     if (raId) state.raBills = (state.raBills || []).filter(b => b.id !== raId);
-    state.abstracts = state.abstracts.filter(a => a.id !== id);
+    window.recycleDelete && window.recycleDelete('abstracts', id, 'Abstract');
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.();
     if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
     if (typeof window.renderCostLedger === 'function') { try { window.renderCostLedger(); } catch {} }
@@ -2374,7 +2374,7 @@ export function deleteInvoice(id) {
     const a = state.abstracts.find(x => x.id === aId);
     if (a) { a.isInvoiced = false; a.linkedInvoice = null; }
   });
-  state.invoices = state.invoices.filter(i => i.id !== id);
+  window.recycleDelete && window.recycleDelete('invoices', id, 'Tax Invoice');
   saveAllData(); renderInvoiceHistory(); showToast('Invoice Deleted');
 }
 
@@ -2774,7 +2774,7 @@ window._ppeManage = function(ppeId) {
 /** Delete a PPE record (from the manage modal). */
 window._ppeDelete = function(ppeId) {
   if (!confirm('Delete this PPE record?')) return;
-  state.labourPPE = (state.labourPPE || []).filter(p => p.id !== ppeId);
+  window.recycleDelete && window.recycleDelete('labourPPE', ppeId, 'PPE Issue');
   saveAllData(); renderLabourMasterList();
   const m = document.getElementById('payrollModal'); if (m) m.remove();
   showToast('PPE record deleted', 'warning');

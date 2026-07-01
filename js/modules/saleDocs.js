@@ -78,7 +78,7 @@ export function renderProformaInvoices() {
 export function clearPIFilters() { ['piSearch','piFilterClient','piFilterStatus','piFromDate','piToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderProformaInvoices(); }
 export function deleteProformaInvoice(id) {
   if (!confirm('Delete this Proforma Invoice?')) return;
-  state.proformaInvoices = (state.proformaInvoices || []).filter(p => p.id !== id);
+  window.recycleDelete && window.recycleDelete('proformaInvoices', id, 'Proforma Invoice');
   saveAllData(); renderProformaInvoices(); showToast('Proforma Invoice Deleted', 'error');
 }
 
@@ -173,7 +173,7 @@ export function renderPaymentInList() {
 export function clearPaymentInFilters() { ['pinSearch','pinFilterClient','pinFromDate','pinToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderPaymentInList(); }
 export function deletePaymentIn(id) {
   if (!confirm('Delete this payment receipt?')) return;
-  state.paymentsIn = (state.paymentsIn || []).filter(p => p.id !== id);
+  window.recycleDelete && window.recycleDelete('paymentsIn', id, 'Payment In');
   saveAllData(); renderPaymentInList(); showToast('Payment Deleted', 'error');
 }
 
@@ -247,7 +247,7 @@ export function renderSaleOrders() {
 export function clearSOFilters() { ['soSearch','soFilterClient','soFilterStatus','soFromDate','soToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderSaleOrders(); }
 export function deleteSaleOrder(id) {
   if (!confirm('Delete this Sale Order?')) return;
-  state.saleOrders = (state.saleOrders || []).filter(o => o.id !== id);
+  window.recycleDelete && window.recycleDelete('saleOrders', id, 'Sale Order');
   saveAllData(); renderSaleOrders(); showToast('Sale Order Deleted', 'error');
 }
 
@@ -305,7 +305,7 @@ export function renderDeliveryChallans() {
 export function clearDCFilters() { ['dcSearch','dcFilterStatus','dcFromDate','dcToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderDeliveryChallans(); }
 export function deleteDeliveryChallan(id) {
   if (!confirm('Delete this Delivery Challan?')) return;
-  state.deliveryChallans = (state.deliveryChallans || []).filter(d => d.id !== id);
+  window.recycleDelete && window.recycleDelete('deliveryChallans', id, 'Delivery Challan');
   saveAllData(); renderDeliveryChallans(); showToast('Delivery Challan Deleted', 'error');
 }
 
@@ -367,7 +367,7 @@ export function renderSaleReturns() {
 export function clearSRFilters() { ['srSearch','srFilterClient','srFromDate','srToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderSaleReturns(); }
 export function deleteSaleReturn(id) {
   if (!confirm('Delete this Sale Return?')) return;
-  state.saleReturns = (state.saleReturns || []).filter(r => r.id !== id);
+  window.recycleDelete && window.recycleDelete('saleReturns', id, 'Sale Return');
   saveAllData(); renderSaleReturns(); showToast('Sale Return Deleted', 'error');
 }
 
@@ -422,7 +422,7 @@ export function renderSaleFixedAssets() {
 export function clearSFAFilters() { ['sfaSearch','sfaFromDate','sfaToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderSaleFixedAssets(); }
 export function deleteSaleFixedAsset(id) {
   if (!confirm('Delete this Asset Sale?')) return;
-  state.saleFixedAssets = (state.saleFixedAssets || []).filter(a => a.id !== id);
+  window.recycleDelete && window.recycleDelete('saleFixedAssets', id, 'Sale Fixed Asset');
   saveAllData(); renderSaleFixedAssets(); showToast('Asset Sale Deleted', 'error');
 }
 
@@ -478,6 +478,6 @@ export function renderOtherIncome() {
 export function clearOIFilters() { ['oiSearch','oiFilterCategory','oiFromDate','oiToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderOtherIncome(); }
 export function deleteOtherIncome(id) {
   if (!confirm('Delete this income entry?')) return;
-  state.otherIncome = (state.otherIncome || []).filter(o => o.id !== id);
+  window.recycleDelete && window.recycleDelete('otherIncome', id, 'Other Income');
   saveAllData(); renderOtherIncome(); showToast('Income Entry Deleted', 'error');
 }

@@ -121,7 +121,7 @@ export function clearPOFilters() {
 
 export function deletePurchaseOrder(id) {
   if (!confirm('Delete this Purchase Order?')) return;
-  state.purchaseOrders = (state.purchaseOrders || []).filter(o => o.id !== id);
+  window.recycleDelete && window.recycleDelete('purchaseOrders', id, 'Purchase Order');
   saveAllData(); renderPurchaseOrders(); showToast('Purchase Order Deleted', 'error');
 }
 
@@ -182,7 +182,7 @@ export function renderPurchaseReturns() {
 
 export function deletePurchaseReturn(id) {
   if (!confirm('Delete this Purchase Return?')) return;
-  state.purchaseReturns = (state.purchaseReturns || []).filter(r => r.id !== id);
+  window.recycleDelete && window.recycleDelete('purchaseReturns', id, 'Purchase Return');
   saveAllData(); renderPurchaseReturns(); showToast('Purchase Return Deleted', 'error');
 }
 
@@ -249,7 +249,7 @@ export function renderFixedAssets() {
 
 export function deleteFixedAsset(id) {
   if (!confirm('Delete this Fixed Asset?')) return;
-  state.fixedAssets = (state.fixedAssets || []).filter(a => a.id !== id);
+  window.recycleDelete && window.recycleDelete('fixedAssets', id, 'Fixed Asset');
   saveAllData(); renderFixedAssets(); showToast('Fixed Asset Deleted', 'error');
 }
 

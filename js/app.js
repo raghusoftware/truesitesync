@@ -28,7 +28,7 @@ import {
   addTaskMaterial, saveMaterial as planSaveMaterial, removeMaterial as planRemoveMaterial, onMaterialSelect as planOnMaterialSelect,
   addTaskEquipment, saveEquipment as planSaveEquipment, removeEquipment as planRemoveEquipment,
   checkResourceAvailability, runPreflight
-} from './modules/planning.js?v=1.3.23';
+} from './modules/planning.js?v=1.3.24';
 import {
   openLocationModal, saveLocation, deleteLocation, renderAssetsView,
   openTransferModal, executeTransfer, openMaintenanceModal, saveMaintenance,
@@ -60,20 +60,20 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.48';
+} from './modules/ui.js?v=1.4.49';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
-import { renderIssues } from './modules/issues.js?v=1.3.21';
+import { renderIssues } from './modules/issues.js?v=1.3.22';
 import { renderExecution } from './modules/execution.js?v=1.4.8';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.36';
 import './modules/mobileShell.js?v=1.4.0';
 import './modules/orgTeam.js?v=1.4.9';
 import './modules/cashFlow.js?v=1.4.25';
-import './modules/recycleBin.js?v=1.0.0';
+import './modules/recycleBin.js?v=1.0.1';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.26';
@@ -115,7 +115,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.24';
+} from './modules/microPlanning.js?v=1.4.25';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {

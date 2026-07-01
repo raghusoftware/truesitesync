@@ -23,7 +23,7 @@ export function saveLocation() {
 
 export function deleteLocation(id) {
   if (confirm("Delete this internal location?")) {
-    state.locations = state.locations.filter(l => l.id !== id);
+    window.recycleDelete && window.recycleDelete('locations', id, 'Location');
     saveAllData();
     window.populateDropdowns();
     renderAssetsView();
@@ -440,7 +440,7 @@ window._fuelAddStorage = function() {
 };
 window._fuelDeleteStorage = function(id) {
   if (!confirm('Delete this tank? Its fuel transactions remain in records.')) return;
-  state.fuelStorages = state.fuelStorages.filter(s => s.id !== id);
+  window.recycleDelete && window.recycleDelete('fuelStorages', id, 'Fuel Storage');
   saveAllData(); _fuelRenderTank();
 };
 window._fuelReceipt = function(storageId) {
@@ -820,14 +820,14 @@ export function renderEquipmentLog() {
 
 export function deleteEquipment(id) {
   if (!confirm('Remove this equipment?')) return;
-  state.equipmentList = state.equipmentList.filter(e => e.id !== id);
+  window.recycleDelete && window.recycleDelete('equipmentList', id, 'Equipment');
   state.equipmentLogs = state.equipmentLogs.filter(l => l.assetId !== id);
   saveEquipmentData();
   renderEquipmentView();
 }
 
 export function deleteEquipmentLog(id) {
-  state.equipmentLogs = state.equipmentLogs.filter(l => l.id !== id);
+  window.recycleDelete && window.recycleDelete('equipmentLogs', id, 'Equipment Log');
   saveEquipmentData();
   renderEquipmentLog();
 }

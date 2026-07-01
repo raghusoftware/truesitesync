@@ -84,7 +84,7 @@ export function deleteInvoiceFromLedger(id) {
       if (abs) { abs.isInvoiced = false; abs.linkedInvoice = null; }
     });
   }
-  state.invoices = state.invoices.filter(x => x.id !== id);
+  window.recycleDelete && window.recycleDelete('invoices', id, 'Tax Invoice');
   saveAllData(); renderSalesLedger();
   showToast('Invoice Deleted', 'error');
 }

@@ -388,11 +388,13 @@ export function closeEntryForm() {
 
 // ── Delete entry ──
 export function deleteEntry(stateKey, entryId, reportId) {
-  if (!confirm('Delete this entry?')) return;
+  if (!confirm('Move this entry to the Recycle Bin?')) return;
   if (state[stateKey]) {
-    state[stateKey] = state[stateKey].filter(e => e.id !== entryId);
-    saveAllData();
-    showToast('Entry deleted', 'success');
+    const it = state[stateKey].find(e => e.id === entryId);
+    const label = it?.name || it?.title || it?.no || it?.number || it?.billNo || it?.invoiceNo || it?.date || entryId;
+    if (window.recycleDelete) window.recycleDelete(stateKey, entryId, stateKey, label);
+    else { state[stateKey] = state[stateKey].filter(e => e.id !== entryId); saveAllData(); }
+    showToast('Moved to Recycle Bin', 'success');
     if (window._rptRefreshReport) window._rptRefreshReport();
   }
 }

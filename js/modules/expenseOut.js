@@ -132,7 +132,7 @@ export function clearPaymentOutFilters() {
 
 export function deletePaymentOutRecord(id) {
   if (!confirm('Delete this payment record?')) return;
-  state.vendorPayments = state.vendorPayments.filter(p => p.id !== id);
+  window.recycleDelete && window.recycleDelete('vendorPayments', id, 'Payment Out');
   saveAllData(); renderPaymentOut(); showToast('Payment Deleted', 'error');
 }
 

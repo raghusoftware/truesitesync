@@ -26,10 +26,14 @@ export function recycleDelete(key, id, type, label) {
   if (idx < 0) return false;
   const item = arr[idx];
   arr.splice(idx, 1);
+  // Auto-derive a readable label from the item if the caller didn't pass one.
+  const autoLabel = label || item.name || item.title || item.invoiceNo || item.billNo ||
+    item.no || item.number || item.poNo || item.sheetNum || item.abstractNum || item.raNo ||
+    item.challanNo || item.docNo || item.description || item.date || String(id);
   if (!Array.isArray(state.recycleBin)) state.recycleBin = [];
   state.recycleBin.push({
     binId: 'bin_' + Date.now() + '_' + Math.floor(Math.random() * 1e6),
-    key, id, type: type || key, label: label || String(id),
+    key, id, type: type || key, label: autoLabel,
     item, deletedAt: new Date().toISOString(), deletedBy: _who()
   });
   saveAllData();

@@ -349,7 +349,7 @@ window._isReopen = function (id) {
 };
 window._isDelete = function (id) {
   if (!confirm('Delete this issue?')) return;
-  state.issues = (state.issues || []).filter(x => x.id !== id);
+  window.recycleDelete && window.recycleDelete('issues', id, 'Issue');
   saveAllData();
   showToast('Issue deleted');
   renderIssues();

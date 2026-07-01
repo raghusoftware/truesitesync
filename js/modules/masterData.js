@@ -87,7 +87,7 @@ export function deleteRawMaterial(id) {
     warningMsg = `⚠️ WARNING: This ${rm.type} has historical records (Purchases, Maintenance, or Transfers).\n\nIf you delete it now, its past ledger records will display the name as 'Unknown'.\n\nAre you sure you want to proceed with deletion?`;
   }
   if (confirm(warningMsg)) {
-    state.rawMaterials = state.rawMaterials.filter(r => r.id !== id);
+    window.recycleDelete && window.recycleDelete('rawMaterials', id, 'Raw Material');
     saveAllData(); populateDropdowns(); refreshPurchaseDropdowns(); renderRawMaterialTable(); window.renderLiveInventory?.();
     window.renderAssetsView?.();
     showToast("Item Deleted Successfully", "success");

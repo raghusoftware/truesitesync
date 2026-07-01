@@ -336,7 +336,7 @@ export function mpSaveTask(editId) {
 
 export function mpDeleteTask(taskId) {
   if (!confirm('Delete this micro-plan task?')) return;
-  state.microTasks = (state.microTasks || []).filter(t => t.id !== taskId);
+  window.recycleDelete && window.recycleDelete('microTasks', taskId, 'Micro Task');
   saveAllData();
   showToast('Task deleted');
   renderMicroPlanningView();
@@ -1189,7 +1189,7 @@ window._mpViewSavedPlan = function(planId) {
 
 window._mpDeleteSavedPlan = function(planId) {
   if (!confirm('Delete this saved plan?')) return;
-  state.savedPlans = (state.savedPlans || []).filter(x => x.id !== planId);
+  window.recycleDelete && window.recycleDelete('savedPlans', planId, 'Saved Plan');
   saveAllData();
   _mpRenderSavedPlans();
   const sheets = document.getElementById('mpDailySheets'); if (sheets) sheets.innerHTML = '';
@@ -2015,7 +2015,7 @@ window._mpDeleteRA = function(id) {
     return;
   }
   if (!confirm(`Delete ${b.raNo} (${getCurrencySymbol()}${Math.round(b.total || 0).toLocaleString('en-IN')})?\n\nIts quantities go back to unbilled and can be billed again in a later RA.`)) return;
-  state.raBills = (state.raBills || []).filter(x => x.id !== id);
+  window.recycleDelete && window.recycleDelete('raBills', id, 'RA Bill');
   if (b.abstractId) state.abstracts = (state.abstracts || []).filter(a => a.id !== b.abstractId);
   saveAllData();
   if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
