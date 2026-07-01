@@ -100,7 +100,26 @@ export async function loadUserOrg() {
     return _currentOrg;
   }
 
-  // No org — check for pending invitation
+  // No membership yet. Before creating a brand-new org, accept any pending
+  // org_invites (these are what the "Add User" flow writes) so the invited
+  // teammate JOINS the inviter's organization and sees their shared data —
+  // instead of getting a fresh empty workspace. Mirrors sync.js _resolveOrg().
+  try {
+    const { data: joinedOrgId } = await sb.rpc('accept_pending_invites');
+    if (joinedOrgId) {
+      const { data: m2 } = await sb.from('org_members')
+        .select('org_id, role, organizations(*)')
+        .eq('user_id', user.id).eq('is_active', true).limit(1);
+      if (m2?.length) {
+        _currentOrg = m2[0].organizations;
+        _currentOrg._userRole = m2[0].role;
+        _cacheOrg(_currentOrg);
+        return _currentOrg;
+      }
+    }
+  } catch (e) { console.warn('[org] accept_pending_invites failed:', e); }
+
+  // Legacy invitations-table fallback (older invite system).
   const { data: invites } = await sb.from('invitations')
     .select('*, organizations(name)')
     .eq('email', user.email)
