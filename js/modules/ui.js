@@ -745,9 +745,9 @@ export function saveProject() {
 }
 
 export function deleteProject(projId) {
-  if (!confirm('Delete this project? All project data associations will remain but the project entry will be removed.')) return;
-  state.projects = (state.projects || []).filter(p => p.id !== projId);
-  saveAllData();
+  if (!confirm('Move this project to the Recycle Bin? You can restore it later.')) return;
+  const _p = (state.projects || []).find(p => p.id === projId);
+  window.recycleDelete?.('projects', projId, 'Project', _p?.name || projId);
   if (state.currentProjectId === projId) goProjectsHome();
   else renderProjectsHome();
   showToast('Project deleted', 'error');
@@ -1195,6 +1195,7 @@ export function switchView(viewId) {
   if (viewId === 'masterFinancialView') { renderMasterClientList(); renderMasterVendorList(); }
   if (viewId === 'measurementListView') window.renderMeasurementList?.();
   if (viewId === 'costProfitView') window.renderCostLedger?.();
+  if (viewId === 'recycleBinView') window.renderRecycleBin?.();
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
   if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
@@ -2557,9 +2558,10 @@ export function renderLabourMasterList() {
 }
 
 export function deleteLabour(id) {
-  if (!confirm('Remove this labourer?')) return;
-  state.labourMaster = state.labourMaster.filter(l => l.id !== id);
-  saveLabourData(); renderLabourMasterList(); renderMonthlyMuster();
+  if (!confirm('Move this labourer to the Recycle Bin?')) return;
+  const _l = (state.labourMaster || []).find(l => l.id === id);
+  window.recycleDelete?.('labourMaster', id, 'Labourer', _l?.name || id);
+  renderLabourMasterList(); renderMonthlyMuster();
 }
 
 /** Labour belonging to the current project (untagged legacy ones excluded once project scoping is active) */

@@ -846,12 +846,11 @@ export function deleteMeasurementSheet(id) {
   // deletion while an RA bill still depends on this location's measurement.
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first (Micro-Planning → RA Billing).`, 'error'); return; }
-  if (!confirm(`Delete sheet ${s.sheetNum}? This cannot be undone.`)) return;
-  state.sheets = state.sheets.filter(x => x.id !== id);
+  if (!confirm(`Move sheet ${s.sheetNum} to the Recycle Bin?`)) return;
   state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
-  saveAllData();
+  window.recycleDelete?.('sheets', id, 'Measurement Sheet', s.sheetNum);
   renderMeasurementList();
-  showToast('Sheet deleted');
+  showToast('Sheet moved to Recycle Bin');
 }
 
 export function renderSavedSheets() {
@@ -872,12 +871,11 @@ export function deleteSheet(id) {
   if (s && s.isBilled) { showToast('Cannot delete a billed sheet. Remove the linked abstract first.', 'error'); return; }
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first.`, 'error'); return; }
-  if (confirm('Delete sheet? Associated material consumption will also be reversed.')) {
-    state.sheets = state.sheets.filter(s => s.id !== id);
+  if (confirm('Move sheet to the Recycle Bin? Associated material consumption will be reversed.')) {
     state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
-    saveAllData();
+    window.recycleDelete?.('sheets', id, 'Measurement Sheet', s?.sheetNum || id);
     renderSavedSheets();
-    showToast('Deleted');
+    showToast('Moved to Recycle Bin');
   }
 }
 

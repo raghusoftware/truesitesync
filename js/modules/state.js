@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   sheets: 'mes_sheets',
   abstracts: 'mes_abstracts',
   raBills: 'mes_ra_bills',
+  recycleBin: 'mes_recycle_bin',
   invoices: 'mes_invoices',
   paymentsIn: 'mes_pay_in',
   expenses: 'mes_exp',
@@ -108,6 +109,7 @@ export const state = {
   sheets: load(STORAGE_KEYS.sheets, []),
   abstracts: load(STORAGE_KEYS.abstracts, []),
   raBills: load(STORAGE_KEYS.raBills, []),
+  recycleBin: load(STORAGE_KEYS.recycleBin, []),
   invoices: load(STORAGE_KEYS.invoices, []),
   paymentsIn: load(STORAGE_KEYS.paymentsIn, []),
   expenses: load(STORAGE_KEYS.expenses, []),
@@ -192,6 +194,33 @@ export const state = {
   currentSelectedParty: null,
   activeAutocompleteInput: null
 };
+
+/**
+ * Recycle Bin is the source of truth for "what's deleted". Deleting moves an item
+ * into state.recycleBin (see recycleBin.js) and removes it from its source array.
+ * This reconciler re-applies those deletes after any load/sync, so a stale device
+ * that re-pushed a deleted item can never resurrect it — the item is stripped from
+ * its source array again as long as its bin entry still exists.
+ * Returns the number of stray items removed.
+ */
+export function reconcileRecycleBin() {
+  const bin = state.recycleBin;
+  if (!Array.isArray(bin) || !bin.length) return 0;
+  let removed = 0;
+  for (const e of bin) {
+    if (!e || !e.key || e.id == null) continue;
+    const arr = state[e.key];
+    if (!Array.isArray(arr)) continue;
+    const before = arr.length;
+    state[e.key] = arr.filter(x => x && x.id !== e.id);
+    if (state[e.key].length !== before) {
+      removed++;
+      try { const sk = STORAGE_KEYS[e.key]; if (sk) localStorage.setItem(sk, JSON.stringify(state[e.key])); } catch {}
+    }
+  }
+  return removed;
+}
+if (typeof window !== 'undefined') window.reconcileRecycleBin = reconcileRecycleBin;
 
 /** True for "no data" values: null/undefined, [], or {}. Used by the anti-clobber
  *  guard so an EMPTY cloud value can never silently wipe populated local data
@@ -392,6 +421,7 @@ export function applyRemoteChange(key, data) {
   console.log('[rt] applying remote change → state.' + key, Array.isArray(data) ? data.length + ' rows' : typeof data);
   state[key] = data;
   try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
+  reconcileRecycleBin();  // a remote push may have re-added a binned item — strip it again
   _rtChangedKeys.add(key);
   // Debounce a single UI refresh after a burst of remote changes.
   if (_rtRefreshTimer) clearTimeout(_rtRefreshTimer);
@@ -482,6 +512,7 @@ export async function pullRemoteUpdates() {
       applied++;
     }
     if (applied && typeof window !== 'undefined') {
+      reconcileRecycleBin();     // re-strip binned items a stale device may have re-pushed
       if (typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
       if (typeof window.showToast === 'function') window.showToast('Synced latest data', 'info');
     }

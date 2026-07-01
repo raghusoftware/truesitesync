@@ -117,10 +117,11 @@ export function editClient(id) {
 export function deleteClient(id) {
   const projCount = (state.projects || []).filter(p => p.clientId === id).length;
   if (projCount) { showToast(`Cannot delete — this client has ${projCount} project${projCount === 1 ? '' : 's'}. Remove or reassign them first.`, 'error'); return; }
-  if (confirm('Delete this client?')) {
-    state.clients = state.clients.filter(c => c.id !== id);
-    saveAllData(); populateDropdowns(); renderClientTable();
+  if (confirm('Move this client to the Recycle Bin?')) {
+    const _c = (state.clients || []).find(c => c.id === id);
+    window.recycleDelete?.('clients', id, 'Client', _c?.name || id);
+    populateDropdowns(); renderClientTable();
     if (typeof window.renderProjectsHome === 'function') window.renderProjectsHome();
-    showToast('Client deleted');
+    showToast('Client moved to Recycle Bin');
   }
 }

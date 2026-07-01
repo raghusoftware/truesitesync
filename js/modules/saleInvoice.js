@@ -765,7 +765,7 @@ export function renderSaleInvoices() {
   setEl('slKpiCount', invoices.length);
 }
 export function deleteSaleInvoice(id) {
-  if (!confirm('Delete this Sale Invoice?')) return;
+  if (!confirm('Move this Sale Invoice to the Recycle Bin?')) return;
   const inv = (state.saleInvoices || []).find(i => i.id === id);
   // Un-invoice any abstracts this invoice billed, so they're no longer stuck
   // "Invoiced" and can be re-billed or deleted. Match both the saved link list
@@ -779,11 +779,11 @@ export function deleteSaleInvoice(id) {
       }
     });
   }
-  state.saleInvoices = (state.saleInvoices || []).filter(i => i.id !== id);
-  saveAllData(); renderSaleInvoices();
+  window.recycleDelete?.('saleInvoices', id, 'Sale Invoice', inv?.invoiceNo || id);
+  renderSaleInvoices();
   if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
   if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }
-  showToast('Sale Invoice deleted — linked abstracts returned to pending', 'error');
+  showToast('Sale Invoice moved to Recycle Bin — linked abstracts returned to pending', 'warning');
 }
 
 // ── View Sale Invoice Details with Links ──

@@ -102,17 +102,17 @@ export function viewPurchaseBill(id) {
 }
 
 export function deletePurchaseBill(id) {
-  if (!confirm("Permanently delete this Purchase Bill?\n\nWARNING: The associated Inventory items will also be removed from stock!")) return;
-  state.vendorMaterials = state.vendorMaterials.filter(m => m.id !== id);
+  if (!confirm("Move this Purchase Bill to the Recycle Bin?\n\nThe associated Inventory items will be removed from stock (restored if you restore the bill).")) return;
+  const bill = (state.vendorMaterials || []).find(m => m.id === id);
   state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
   // Remove auto-GRNs this bill created, and un-bill any manual GRNs it claimed
   // so they reappear as "pending" in the purchase form.
   state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== id);
   state.grnRecords.forEach(g => { if (g.billedByBillId === id) { g.billed = false; delete g.billedByBillId; } });
-  saveAllData();
+  window.recycleDelete?.('vendorMaterials', id, 'Purchase Bill', bill?.billNo || bill?.invoiceNo || id);
   renderPurchaseLedger();
   if (!document.getElementById('vendorView').classList.contains('hide')) renderVendorLedger();
-  showToast('Purchase Bill Deleted & Inventory Reversed', 'error');
+  showToast('Purchase Bill moved to Recycle Bin & inventory reversed', 'warning');
 }
 
 // ==========================================
