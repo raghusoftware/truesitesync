@@ -1005,6 +1005,10 @@ export function renderMicroPlanningView() {
         <div style="width:50px;height:50px;background:#7c3aed15;border:2px solid #7c3aed30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📑</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">RA Billing</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Running-account bill by location</div>
       </div>
+      <div onclick="_openMpSection('progress')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+        <div style="width:50px;height:50px;background:#0891b215;border:2px solid #0891b230;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📈</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">Plan vs Actual</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Planned qty vs work done</div>
+      </div>
     </div>
     <button id="mpBackBtn" onclick="_openMpSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Micro Planning</button>
 
@@ -1111,6 +1115,10 @@ export function renderMicroPlanningView() {
     </div><!-- /mpSecPlan -->
 
     <!-- SECTION: RA BILLING (running-account) -->
+    <div id="mpSecProgress" class="mp-section hide">
+      <div id="mpProgressContent"></div>
+    </div><!-- /mpSecProgress -->
+
     <div id="mpSecRABill" class="mp-section hide">
       <div id="raBillingContent"></div>
     </div><!-- /mpSecRABill -->`;
@@ -1204,9 +1212,71 @@ window._openMpSection = function(section) {
   document.querySelectorAll('.mp-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none'; return; }
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
-  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', rabill: 'mpSecRABill' };
+  const map = { tasks: 'mpSecTasks', generate: 'mpSecGenerate', plan: 'mpSecPlan', rabill: 'mpSecRABill', progress: 'mpSecProgress' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'rabill' && typeof window.renderRABilling === 'function') window.renderRABilling();
+  if (section === 'progress' && typeof window.renderPlanVsActual === 'function') window.renderPlanVsActual();
+};
+
+/** Plan vs Actual — per BOQ item, planned (contract) qty vs actual done
+ *  (cumulative measured), with % complete and remaining. */
+window.renderPlanVsActual = function() {
+  const c = document.getElementById('mpProgressContent');
+  if (!c) return;
+  const proj = _currentProject();
+  if (!proj) { c.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Select a project first.</p>'; return; }
+  const cur = getCurrencySymbol();
+  const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
+  // Planned qty per BOQ code (from the contract BOQ).
+  const planned = {};
+  (proj.boqs || []).forEach(g => (g.items || []).forEach(it => {
+    const code = it.code || it.itemNo; if (!code) return;
+    const q = parseFloat(it.qty) || 0;
+    if (!planned[code]) planned[code] = { code, description: it.description || it.name || code, uom: it.uom || it.unit || '', rate: parseFloat(it.rate) || 0, plannedQty: 0 };
+    planned[code].plannedQty += q;
+  }));
+  const done = _measuredByCode(proj.id); // { code: { qty, rate, ... } }
+  const codes = Object.keys(planned).length ? Object.keys(planned) : Object.keys(done);
+  let totPlanVal = 0, totDoneVal = 0;
+  const rows = codes.map(code => {
+    const p = planned[code] || { code, description: (done[code]?.description || code), uom: done[code]?.uom || '', rate: done[code]?.rate || 0, plannedQty: 0 };
+    const dq = (done[code]?.qty) || 0;
+    const pq = p.plannedQty;
+    const pct = pq > 0 ? Math.min(100, (dq / pq) * 100) : (dq > 0 ? 100 : 0);
+    totPlanVal += pq * p.rate; totDoneVal += dq * p.rate;
+    return { ...p, doneQty: dq, pct, remaining: Math.max(0, pq - dq) };
+  }).sort((a, b) => (a.pct - b.pct));
+  const overallPct = totPlanVal > 0 ? Math.min(100, (totDoneVal / totPlanVal) * 100) : 0;
+
+  const body = rows.map(r => {
+    const barColor = r.pct >= 100 ? '#16a34a' : r.pct >= 50 ? '#0891b2' : r.pct > 0 ? '#f59e0b' : '#e2e8f0';
+    return `<tr class="border-b hover:bg-slate-50">
+      <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(r.code)}</td>
+      <td class="px-2 py-1.5 text-slate-600">${_esc(r.description)}</td>
+      <td class="px-2 py-1.5 text-right text-slate-500">${r.plannedQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${_esc(r.uom)}</td>
+      <td class="px-2 py-1.5 text-right font-bold text-slate-700">${r.doneQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+      <td class="px-2 py-1.5 text-right text-slate-400">${r.remaining.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+      <td class="px-2 py-1.5" style="min-width:120px;"><div style="background:#f1f5f9;border-radius:6px;height:14px;overflow:hidden;"><div style="background:${barColor};height:100%;width:${r.pct}%;"></div></div></td>
+      <td class="px-2 py-1.5 text-right font-bold ${r.pct >= 100 ? 'text-green-600' : 'text-slate-600'}">${r.pct.toFixed(0)}%</td>
+    </tr>`;
+  }).join('');
+
+  c.innerHTML = `
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <div class="flex items-center justify-between mb-2"><h3 class="font-bold text-slate-800 text-sm">📈 Overall progress</h3><span class="font-extrabold text-cyan-700">${overallPct.toFixed(1)}%</span></div>
+      <div style="background:#f1f5f9;border-radius:8px;height:20px;overflow:hidden;"><div style="background:linear-gradient(90deg,#0891b2,#06b6d4);height:100%;width:${overallPct}%;"></div></div>
+      <div class="flex justify-between text-[11px] text-slate-400 mt-1"><span>Done ${fmt(totDoneVal)}</span><span>Planned ${fmt(totPlanVal)}</span></div>
+    </div>
+    <div class="bg-white border rounded-xl overflow-hidden">
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">Plan vs Actual by BOQ item</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Code</th><th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Description</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Planned</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Done</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Balance</th><th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Progress</th>
+        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
+        <tbody>${body || '<tr><td colspan="7" class="p-5 text-center text-slate-400">No BOQ items or measured work yet.</td></tr>'}</tbody></table></div>
+      <p class="text-[10px] text-slate-400 px-3 py-2 border-t">Planned = contract BOQ quantity. Done = cumulative measured (from DPR / measurement). Add BOQ quantities to your project to see planned targets.</p>
+    </div>`;
 };
 
 // ─────────────────────────────────────────────────────
