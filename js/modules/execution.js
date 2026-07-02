@@ -222,23 +222,26 @@ function _renderDPR(root) {
   root.innerHTML = _listShell('Daily Progress Report', '+ Add DPR', "_exDprForm()", rows, list.length);
 }
 // ── DPR shared builders (window-bound for inline handlers) ──
-const _DPR_INP = 'padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;';
+// Larger, easy-to-read/fill inputs (the DPR opens full-screen).
+const _DPR_INP = 'padding:8px 9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;';
 const _dprBoqList = () => (typeof window.mpBoqItems === 'function' ? window.mpBoqItems() : []);
 const _dprLocList = () => (typeof window.mpProjectLocations === 'function' ? window.mpProjectLocations() : []);
 
 // ===== MEASUREMENT row (BOQ + Nos×L×B×H → auto qty) — same metrics as the
-//       measurement sheet, flows to abstract → invoice → sales. =====
-window._dprMeasRow = function (loc, code) {
+//       measurement sheet, flows to abstract → invoice → sales. Accepts a full
+//       prefill (d = {nos,l,b,h,qty}) so a reopened DPR shows what was entered. =====
+window._dprMeasRow = function (loc, code, d) {
+  d = d || {};
   const boqOpts = '<option value="">— BOQ item —</option>' + _dprBoqList().map(b =>
     `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${code === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('');
-  const dim = cls => `<td style="padding:3px;"><input class="${cls}" type="number" min="0" step="0.001" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:46px;text-align:right;"></td>`;
+  const dim = (cls, val) => `<td style="padding:4px;"><input class="${cls}" type="number" min="0" step="0.001" value="${val != null && val !== '' ? _esc(val) : ''}" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:60px;text-align:right;"></td>`;
   return `<tr>
-    <td style="padding:3px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:96px;"></td>
-    <td style="padding:3px;"><select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:150px;">${boqOpts}</select></td>
-    ${dim('dm-nos')}${dim('dm-l')}${dim('dm-b')}${dim('dm-h')}
-    <td style="padding:3px;"><input class="dm-qty" type="number" min="0" step="0.001" placeholder="0" style="${_DPR_INP}width:60px;text-align:right;font-weight:700;color:#1d4ed8;background:#f8fafc;"></td>
-    <td style="padding:3px;"><input class="dm-uom" readonly style="${_DPR_INP}width:40px;"></td>
-    <td style="padding:3px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;">✕</button></td>
+    <td style="padding:4px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:130px;"></td>
+    <td style="padding:4px;"><select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:210px;">${boqOpts}</select></td>
+    ${dim('dm-nos', d.nos)}${dim('dm-l', d.l)}${dim('dm-b', d.b)}${dim('dm-h', d.h)}
+    <td style="padding:4px;"><input class="dm-qty" type="number" min="0" step="0.001" value="${d.qty != null && d.qty !== '' ? _esc(d.qty) : ''}" placeholder="0" style="${_DPR_INP}width:78px;text-align:right;font-weight:800;color:#1d4ed8;background:#f8fafc;"></td>
+    <td style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" readonly style="${_DPR_INP}width:56px;background:#f8fafc;"></td>
+    <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
 window._dprAddMeas = function () { const tb = document.getElementById('dprMeasBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprMeasRow()); };
@@ -263,16 +266,23 @@ function _dprOhResources(type) {
   return [];
 }
 function _dprMatRate(id) { const ins = (state.inventoryTx || []).filter(t => t.rawMaterialId === id && t.type === 'IN' && (parseFloat(t.rate) || 0) > 0).sort((a, b) => new Date(b.date) - new Date(a.date)); return ins.length ? (parseFloat(ins[0].rate) || 0) : 0; }
-function _dprOhResOpts(type) { return '<option value="">— select —</option>' + _dprOhResources(type).map(r => `<option value="${_esc(r.id)}" data-rate="${r.rate}" data-name="${_esc(r.name)}" data-unit="${_esc(r.unit)}">${_esc(r.name)}${r.rate ? ` · ${r.rate}/${r.unit}` : ''}</option>`).join(''); }
-window._dprOhRow = function () {
+function _dprOhResOpts(type, selId) { return '<option value="">— select —</option>' + _dprOhResources(type).map(r => `<option value="${_esc(r.id)}" data-rate="${r.rate}" data-name="${_esc(r.name)}" data-unit="${_esc(r.unit)}" ${selId && String(selId) === String(r.id) ? 'selected' : ''}>${_esc(r.name)}${r.rate ? ` · ${r.rate}/${r.unit}` : ''}</option>`).join(''); }
+window._dprOhRow = function (o) {
+  o = o || {};
+  const type = o.type || 'Labour';
+  const typeOpts = _DPR_OH_TYPES.map(t => `<option ${t === type ? 'selected' : ''}>${t}</option>`).join('');
+  const resCell = (type === 'Other')
+    ? `<input class="oh-res-text" value="${_esc(o.resource || o.activity || '')}" placeholder="activity name" style="${_DPR_INP}width:210px;">`
+    : `<select class="oh-res" onchange="window._dprOhRes(this)" style="${_DPR_INP}width:210px;">${_dprOhResOpts(type, o.resourceId)}</select>`;
+  const qty = o.qty != null ? o.qty : 1, rate = o.rate != null ? o.rate : '', cost = Math.round((parseFloat(qty) || 0) * (parseFloat(rate) || 0)).toLocaleString('en-IN');
   return `<tr>
-    <td style="padding:3px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:84px;">${_DPR_OH_TYPES.map(t => `<option>${t}</option>`).join('')}</select></td>
-    <td style="padding:3px;" class="oh-res-cell"><select class="oh-res" onchange="window._dprOhRes(this)" style="${_DPR_INP}width:150px;">${_dprOhResOpts('Labour')}</select></td>
-    <td style="padding:3px;"><input class="oh-qty" type="number" min="0" step="0.01" value="1" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:50px;text-align:right;"></td>
-    <td style="padding:3px;"><input class="oh-rate" type="number" min="0" step="0.01" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
-    <td style="padding:3px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:12px;">0</span></td>
-    <td style="padding:3px;"><input class="oh-note" placeholder="e.g. site prep" style="${_DPR_INP}width:96px;"></td>
-    <td style="padding:3px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;">✕</button></td>
+    <td style="padding:4px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:110px;">${typeOpts}</select></td>
+    <td style="padding:4px;" class="oh-res-cell">${resCell}</td>
+    <td style="padding:4px;"><input class="oh-qty" type="number" min="0" step="0.01" value="${_esc(qty)}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
+    <td style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
+    <td style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
+    <td style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="e.g. site prep" style="${_DPR_INP}width:130px;"></td>
+    <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
 window._dprAddOh = function () { const tb = document.getElementById('dprOhBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprOhRow()); };
@@ -295,7 +305,14 @@ window._exDprForm = function (id) {
   const _locDatalist = `<datalist id="dprLocList">${_locList.map(l => `<option value="${_esc(l.label)}">`).join('')}</datalist>`;
   // One measurement row per active task (pre-filled location + BOQ if the task
   // carries one), plus a blank row to add more.
-  const measRows = (_tasks.length ? _tasks.map(t => window._dprMeasRow(t.area || '', t.boqCode || t.boqRef || '')).join('') : '') + window._dprMeasRow();
+  // Reopen persistence: if this DPR already stored measurement rows, prefill from
+  // them; otherwise seed one row per active planned task + a blank row.
+  const measRows = (d && Array.isArray(d.measurements) && d.measurements.length)
+    ? d.measurements.map(m => window._dprMeasRow(m.location || '', m.code || '', m)).join('') + window._dprMeasRow()
+    : (_tasks.length ? _tasks.map(t => window._dprMeasRow(t.area || '', t.boqCode || t.boqRef || '')).join('') : '') + window._dprMeasRow();
+  const ohRows = (d && Array.isArray(d.overheads) && d.overheads.length)
+    ? d.overheads.map(o => window._dprOhRow(o)).join('')
+    : window._dprOhRow();
 
   _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -338,7 +355,7 @@ window._exDprForm = function (id) {
       <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work NOT paid by the client. Pick <b>Labour / Equipment / Material</b> (or Other) — the rate auto-fills and cost = qty × rate. Tagged <b>Overhead</b>, it hits Cost &amp; Profit but never BOQ billing.</div>
       <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
         <th style="padding:3px;">Type</th><th style="padding:3px;">Resource</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Rate</th><th style="padding:3px;text-align:right;">Cost</th><th style="padding:3px;">Note</th><th style="padding:3px;"></th></tr></thead>
-        <tbody id="dprOhBody">${window._dprOhRow()}</tbody></table></div>
+        <tbody id="dprOhBody">${ohRows}</tbody></table></div>
     </div>
 
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
@@ -347,48 +364,53 @@ window._exDprForm = function (id) {
 window._exDprSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
   const date = v('dpDate') || _today();
-  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null };
+  // Resolve the DPR id up front so measurement/overhead lines can be tagged with
+  // it (needed for idempotent edits and reopen persistence).
+  const dprId = id || ('dpr_' + Date.now());
+
+  // ── Collect measurement + overhead rows into flat arrays (also stored on the
+  //    DPR record so reopening prefills them). ──
+  const measurements = [];
+  document.querySelectorAll('#dprMeasBody tr').forEach(tr => {
+    const code = tr.querySelector('.dm-boq')?.value;
+    const qty = parseFloat(tr.querySelector('.dm-qty')?.value) || 0;
+    if (!code || qty <= 0) return;
+    const o = tr.querySelector('.dm-boq').selectedOptions[0];
+    const dv = s => (tr.querySelector(s)?.value || '').trim();
+    measurements.push({ location: (tr.querySelector('.dm-loc')?.value || v('dpArea') || 'General').trim() || 'General', code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h') });
+  });
+  const overheads = [];
+  document.querySelectorAll('#dprOhBody tr').forEach(tr => {
+    const type = tr.querySelector('.oh-type')?.value || 'Other';
+    const resSel = tr.querySelector('.oh-res');
+    const resName = type === 'Other' ? (tr.querySelector('.oh-res-text')?.value || '').trim() : (resSel?.selectedOptions?.[0]?.dataset.name || '').trim();
+    const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0;
+    const rate = parseFloat(tr.querySelector('.oh-rate')?.value) || 0;
+    const note = (tr.querySelector('.oh-note')?.value || '').trim();
+    const activity = note || resName;
+    if (!activity && !(qty > 0 && rate > 0)) return;
+    overheads.push({ activity: activity || type, category: type, type, resourceId: resSel?.value || '', resource: resName, qty, rate, uom: (resSel?.selectedOptions?.[0]?.dataset.unit) || '', note, cost: Math.round(qty * rate * 100) / 100 });
+  });
+
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, measurements, overheads };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.dailyProgress.push({ id: 'dpr_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
+  else state.dailyProgress.push({ id: dprId, projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
 
-  // ── Real-time sync: feed measured work + overhead into the shared measurement
-  //    pipeline (→ measurement sheet → RA billing → Cost & Profit → Cash Flow). ──
+  // ── Feed measured work + overhead into the shared measurement pipeline. On an
+  //    edit, first clear this DPR's prior lines so we don't double-count. ──
   let syncedLines = 0;
   if (typeof window.mpRecordWork === 'function') {
-    // Measurement rows (BOQ + Nos/L/B/H) grouped by location.
+    if (id && typeof window.mpClearDpr === 'function') window.mpClearDpr(id);
     const byLoc = {};
-    document.querySelectorAll('#dprMeasBody tr').forEach(tr => {
-      const code = tr.querySelector('.dm-boq')?.value;
-      const qty = parseFloat(tr.querySelector('.dm-qty')?.value) || 0;
-      if (!code || qty <= 0) return;
-      const loc = (tr.querySelector('.dm-loc')?.value || data.area || 'General').trim() || 'General';
-      const o = tr.querySelector('.dm-boq').selectedOptions[0];
-      const dv = s => (tr.querySelector(s)?.value || '').trim();
-      (byLoc[loc] = byLoc[loc] || []).push({ code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h') });
-    });
-    // Overhead rows (resource + auto cost), tagged Overhead.
-    const overheads = [];
-    document.querySelectorAll('#dprOhBody tr').forEach(tr => {
-      const type = tr.querySelector('.oh-type')?.value || 'Other';
-      const resSel = tr.querySelector('.oh-res');
-      const resName = type === 'Other'
-        ? (tr.querySelector('.oh-res-text')?.value || '').trim()
-        : (resSel?.selectedOptions?.[0]?.dataset.name || '').trim();
-      const qty = parseFloat(tr.querySelector('.oh-qty')?.value) || 0;
-      const rate = parseFloat(tr.querySelector('.oh-rate')?.value) || 0;
-      const note = (tr.querySelector('.oh-note')?.value || '').trim();
-      const activity = note || resName;
-      if (!activity && !(qty > 0 && rate > 0)) return;
-      overheads.push({ activity: activity || type, category: type, type, resourceId: resSel?.value || '', resource: resName, qty, rate, uom: (resSel?.selectedOptions?.[0]?.dataset.unit) || '', cost: Math.round(qty * rate * 100) / 100 });
-    });
+    measurements.forEach(m => { (byLoc[m.location] = byLoc[m.location] || []).push(m); });
     const ohLoc = (data.area || Object.keys(byLoc)[0] || 'General').trim() || 'General';
     Object.keys(byLoc).forEach(loc => {
-      const res = window.mpRecordWork({ date, locationId: loc, locationLabel: loc, items: byLoc[loc], overheads: (loc === ohLoc ? overheads : []), src: 'dpr' });
+      const res = window.mpRecordWork({ date, locationId: loc, locationLabel: loc, items: byLoc[loc], overheads: (loc === ohLoc ? overheads : []), src: 'dpr', dprId });
       if (res) syncedLines += res.lines;
     });
     if (overheads.length && !byLoc[ohLoc]) {
-      const res = window.mpRecordWork({ date, locationId: ohLoc, locationLabel: ohLoc, items: [], overheads, src: 'dpr' });
+      const res = window.mpRecordWork({ date, locationId: ohLoc, locationLabel: ohLoc, items: [], overheads, src: 'dpr', dprId });
       if (res) syncedLines += res.lines;
     }
   }

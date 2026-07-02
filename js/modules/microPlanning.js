@@ -1836,7 +1836,7 @@ window.mpRecordWork = function(payload) {
       code: r.code, description: r.description || boq.description || r.code,
       uom: r.uom || boq.uom || '', rate: (r.rate != null ? r.rate : (boq.rate || 0)),
       nos: r.nos || '', l: r.l || '', b: r.b || '', h: r.h || '', qty: parseFloat(r.qty),
-      remarks: `Daily ${date}`, _src: r.src || payload.src || 'daily', _date: date
+      remarks: `Daily ${date}`, _src: r.src || payload.src || 'daily', _date: date, _dprId: payload.dprId || ''
     });
     lines++;
   });
@@ -1850,7 +1850,7 @@ window.mpRecordWork = function(payload) {
       activity: o.activity || o.resource || o.type || 'Overhead', category: o.category || o.type || 'Other',
       type: o.type || '', resourceId: o.resourceId || '', resource: o.resource || '',
       qty, uom: o.uom || '', rate, cost: (o.cost != null ? o.cost : Math.round(qty * rate * 100) / 100),
-      date, _src: payload.src || 'daily'
+      date, _src: payload.src || 'daily', _dprId: payload.dprId || ''
     });
     lines++;
   });
@@ -1861,6 +1861,18 @@ window.mpRecordWork = function(payload) {
   if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
   _mpRefreshFinance();
   return { sheet, lines };
+};
+
+/** Remove all running-sheet entries + overhead entries recorded by a given DPR
+ *  (so re-saving an edited DPR doesn't double-count). */
+window.mpClearDpr = function(dprId) {
+  if (!dprId) return 0;
+  let removed = 0;
+  (state.sheets || []).forEach(s => {
+    if (Array.isArray(s.entries)) { const b = s.entries.length; s.entries = s.entries.filter(e => e._dprId !== dprId); removed += b - s.entries.length; }
+    if (Array.isArray(s.overheadEntries)) { const b = s.overheadEntries.length; s.overheadEntries = s.overheadEntries.filter(e => e._dprId !== dprId); removed += b - s.overheadEntries.length; }
+  });
+  return removed;
 };
 
 /** Active (not-completed) planned + micro tasks for the current project. */
