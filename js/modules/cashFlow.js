@@ -15,7 +15,7 @@ const fmt = (v) => getCurrencySymbol() + Math.round(N(v)).toLocaleString('en-IN'
 const _esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt1 = (v) => Math.round(N(v) * 10) / 10;
 
-let _cfTab = 'cockpit';
+let _cfTab = 'cashflow';
 
 // ── AGGREGATIONS ────────────────────────────────────────────────────────────
 function _billed(period) {
@@ -829,6 +829,137 @@ function _renderCommitments() {
     <p style="font-size:11px;color:#94a3b8;margin-top:12px;text-align:center;">These flow straight into your 🔮 Forecast & Weekly Planner — "never decide on bank balance; confidence comes from preparation."</p>`;
 }
 
+/* ============================================================================
+ *  CONSTRUCTION CASH FLOW — receivables (aged + retention) vs payables
+ *  (material / labour / expenses), a 4 & 8-week projection, and a payroll /
+ *  next-material-order signal. Built on the shared aggregation helpers.
+ * ==========================================================================*/
+/** FIFO-aged unpaid balance for a client (payments applied oldest-invoice first). */
+function _clientAging(cid) {
+  const invs = (state.saleInvoices || []).filter(i => i.clientId === cid && i.status !== 'Cancelled')
+    .map(i => ({ date: i.date, bal: N(i.total) })).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let recv = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+  const b = { cur: 0, d30: 0, d60: 0, d90: 0, total: 0 };
+  invs.forEach(inv => {
+    let bal = inv.bal;
+    if (recv > 0) { const use = Math.min(recv, bal); bal -= use; recv -= use; }
+    if (bal <= 0.5) return;
+    const age = _age(inv.date);
+    if (age <= 30) b.cur += bal; else if (age <= 60) b.d30 += bal; else if (age <= 90) b.d60 += bal; else b.d90 += bal;
+    b.total += bal;
+  });
+  return b;
+}
+function _renderConstructionCF() {
+  const s = state.cashFlowSettings || (state.cashFlowSettings = {});
+  const retPct = N(s.retentionPct) || 5;      // % retention held by client
+  const creditDays = N(s.creditDays) || 30;   // client credit terms
+
+  // ── Receivables (money in), aged + retention ──
+  const clients = state.clients || [];
+  const agingRows = [];
+  const agg = { cur: 0, d30: 0, d60: 0, d90: 0, total: 0 };
+  clients.forEach(c => {
+    const a = _clientAging(c.id);
+    if (a.total <= 0.5) return;
+    agingRows.push({ name: c.name, ...a });
+    ['cur', 'd30', 'd60', 'd90', 'total'].forEach(k => agg[k] += a[k]);
+  });
+  agingRows.sort((x, y) => y.total - x.total);
+  const retentionHeld = Math.round(agg.total * retPct / 100);
+  const netCollectible = Math.max(0, agg.total - retentionHeld);
+  const overdue = agg.d30 + agg.d60 + agg.d90;  // past the first 30-day bucket
+
+  // ── Payables (money out) ──
+  const materialAP = apOutstanding();           // purchases − vendor payments
+  const labourAP = labourDue();                 // wages billed − paid
+  const expenseRun = _expenses(30);             // last-30-day expense run-rate
+  const totalAP = materialAP + labourAP + expenseRun;
+
+  // ── Position + projection ──
+  const cash = cashPosition();
+  // 4-week expected collections: everything overdue + half of the current bucket
+  // (net of retention), capped at what's actually outstanding.
+  const expect4 = Math.max(0, Math.min(netCollectible, overdue + agg.cur * 0.5));
+  const expect8 = netCollectible;               // most current dues collected within 8 weeks
+  const committed4 = materialAP + labourAP + expenseRun;      // due soon
+  const net4 = cash + expect4 - committed4;
+  const net8 = cash + expect8 - (committed4 + expenseRun);    // + another month of expenses
+
+  // ── Signal: can you cover payroll + a typical material order? ──
+  const available = cash + expect4;
+  const payroll = labourAP;
+  const nextOrder = materialAP;                 // outstanding vendor bills as the near-term order proxy
+  const coversPayroll = available >= payroll;
+  const coversBoth = available >= (payroll + nextOrder);
+  const sig = coversBoth ? { c: '#16a34a', bg: '#f0fdf4', t: 'Healthy', m: 'You can cover payroll and clear vendor dues from expected cash.' }
+    : coversPayroll ? { c: '#d97706', bg: '#fffbeb', t: 'Tight', m: 'Payroll is covered, but vendor dues may need collections to come in first.' }
+      : { c: '#dc2626', bg: '#fef2f2', t: 'At risk', m: 'Expected cash may not cover payroll — chase overdue receivables now.' };
+
+  const card = (label, val, sub, color) => `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+    <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${color};">${label}</p>
+    <p style="font-size:22px;font-weight:900;color:#0f172a;margin-top:2px;">${fmt(val)}</p>${sub ? `<p style="font-size:11px;color:#94a3b8;margin-top:2px;">${sub}</p>` : ''}</div>`;
+
+  return `
+    <div style="background:${sig.bg};border:1px solid ${sig.c}33;border-left:5px solid ${sig.c};border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div><span style="font-size:13px;font-weight:900;color:${sig.c};text-transform:uppercase;">● ${sig.t}</span>
+          <p style="font-size:13px;color:#475569;margin-top:2px;">${sig.m}</p></div>
+        <div style="text-align:right;"><p style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Available (cash + 4-wk collections)</p>
+          <p style="font-size:20px;font-weight:900;color:${sig.c};">${fmt(available)}</p></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;">
+        <span>Payroll due: <b style="color:${coversPayroll ? '#16a34a' : '#dc2626'};">${fmt(payroll)}</b></span>
+        <span>Vendor dues: <b style="color:${coversBoth ? '#16a34a' : '#d97706'};">${fmt(nextOrder)}</b></span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+      ${card('Cash position', cash, 'received − paid out', '#0d9488')}
+      ${card('Receivables (money in)', agg.total, `${fmt(netCollectible)} collectible · ${fmt(retentionHeld)} retention`, '#2563eb')}
+      ${card('Payables (money out)', totalAP, 'material + labour + expenses', '#ea580c')}
+      ${card(net4 >= 0 ? 'Net (4-week)' : 'Shortfall (4-week)', net4, 'cash + collections − dues', net4 >= 0 ? '#16a34a' : '#dc2626')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+        <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:14px;color:#0f172a;">💰 Receivables — aged (money in)</div>
+        <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:right;">
+          <th style="padding:8px;text-align:left;">Client</th><th style="padding:8px;">0–30</th><th style="padding:8px;">31–60</th><th style="padding:8px;">61–90</th><th style="padding:8px;">90+</th><th style="padding:8px;">Total</th></tr></thead>
+          <tbody>${agingRows.map(r => `<tr style="border-top:1px solid #f1f5f9;text-align:right;">
+            <td style="padding:8px;text-align:left;font-weight:700;color:#334155;">${_esc(r.name)}</td>
+            <td style="padding:8px;color:#64748b;">${fmt(r.cur)}</td>
+            <td style="padding:8px;color:#d97706;">${fmt(r.d30)}</td>
+            <td style="padding:8px;color:#ea580c;">${fmt(r.d60)}</td>
+            <td style="padding:8px;color:#dc2626;font-weight:700;">${fmt(r.d90)}</td>
+            <td style="padding:8px;font-weight:800;color:#0f172a;">${fmt(r.total)}</td></tr>`).join('') || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8;">No outstanding receivables.</td></tr>'}</tbody>
+          ${agingRows.length ? `<tfoot><tr style="border-top:2px solid #e2e8f0;text-align:right;font-weight:800;background:#f8fafc;">
+            <td style="padding:8px;text-align:left;">Total</td><td style="padding:8px;">${fmt(agg.cur)}</td><td style="padding:8px;">${fmt(agg.d30)}</td><td style="padding:8px;">${fmt(agg.d60)}</td><td style="padding:8px;color:#dc2626;">${fmt(agg.d90)}</td><td style="padding:8px;">${fmt(agg.total)}</td></tr></tfoot>` : ''}
+        </table></div>
+        <p style="font-size:10px;color:#94a3b8;padding:8px 12px;border-top:1px solid #f1f5f9;">Credit terms ${creditDays} days · retention ${retPct}% held (${fmt(retentionHeld)}). Overdue (31+ days): <b style="color:#dc2626;">${fmt(overdue)}</b> — chase these first.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+          <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:14px;color:#0f172a;">🧾 Payables — money out</div>
+          <div style="padding:6px 14px;">
+            ${[['Material (vendor bills)', materialAP, '#ea580c'], ['Labour wages due', labourAP, '#7c3aed'], ['Expenses (last 30 days)', expenseRun, '#64748b']].map(([l, v, col]) => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f8fafc;font-size:13px;"><span style="color:#64748b;">${l}</span><span style="font-weight:700;color:${col};">${fmt(v)}</span></div>`).join('')}
+            <div style="display:flex;justify-content:space-between;padding:9px 0 2px;font-size:14px;"><span style="font-weight:800;color:#0f172a;">Total due</span><span style="font-weight:900;color:#ea580c;">${fmt(totalAP)}</span></div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+          <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:14px;color:#0f172a;">🔮 Projected runway</div>
+          <div style="padding:6px 14px;">
+            ${[['Next 4 weeks', expect4, committed4, net4], ['Next 8 weeks', expect8, committed4 + expenseRun, net8]].map(([l, ei, out, net]) => `<div style="padding:8px 0;border-bottom:1px solid #f8fafc;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#0f172a;"><span>${l}</span><span style="color:${net >= 0 ? '#16a34a' : '#dc2626'};">${net >= 0 ? '+' : ''}${fmt(net)}</span></div>
+              <div style="display:flex;gap:14px;font-size:11px;color:#94a3b8;margin-top:2px;"><span>In ${fmt(ei)}</span><span>Out ${fmt(out)}</span></div></div>`).join('')}
+            <p style="font-size:10px;color:#94a3b8;margin-top:6px;">Money-in = expected collections (overdue + part of current, net of retention). Money-out = vendor + labour dues + expense run-rate.</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 
@@ -836,7 +967,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'cashflow' ? _renderConstructionCF() : _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -846,7 +977,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('cashflow', 'Cash Flow', '💵')}${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
