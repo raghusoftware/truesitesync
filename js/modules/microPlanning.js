@@ -2301,6 +2301,52 @@ function _aggregatePnL(ids) {
   return { earned, billed, wip: Math.max(0, earned - billed), material, labour, other, overhead, totalCost, profit, marginPct: earned > 0 ? (profit / earned) * 100 : 0, noRecipe: sum('noRecipe'), byItem: Object.values(itemMap).sort((a, b) => b.value - a.value), leakage, _parts: parts };
 }
 
+/** Owner "work done per labour": days worked, wages (cost) and the work-done
+ *  value attributed to each worker by their man-day share of project earned. */
+function _labourOutputRows(pid) {
+  const workers = (state.labourMaster || []).filter(l => l.projectId === pid);
+  const logs = (state.attendanceLogs || []).filter(a => a.siteId === pid);
+  const earned = computeProjectPnL(pid).earned;
+  const rows = workers.map(w => {
+    const wl = logs.filter(a => a.labourId === w.id);
+    const present = wl.filter(a => a.status === 'P').length;
+    const half = wl.filter(a => a.status === 'H').length;
+    const ot = wl.reduce((s, a) => s + (parseFloat(a.ot) || 0), 0);
+    const manDays = present + half * 0.5;
+    const rate = parseFloat(w.dayRate) || 0;
+    const wages = Math.round(manDays * rate + ot * (rate / 8) * 1.5);
+    return { name: w.name, trade: w.trade || '—', ot, manDays, wages };
+  }).filter(r => r.manDays > 0 || r.wages > 0);
+  const totalManDays = rows.reduce((s, r) => s + r.manDays, 0) || 1;
+  rows.forEach(r => { r.output = Math.round(earned * (r.manDays / totalManDays)); r.ratio = r.wages > 0 ? r.output / r.wages : 0; });
+  return rows.sort((a, b) => b.output - a.output);
+}
+function _labourOutputSection(pid) {
+  const cur = getCurrencySymbol();
+  const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
+  const rows = _labourOutputRows(pid);
+  const body = rows.map(r => `<tr class="border-b hover:bg-slate-50">
+    <td class="px-2 py-1.5 font-semibold text-slate-700">${_esc(r.name)}</td>
+    <td class="px-2 py-1.5 text-slate-500">${_esc(r.trade)}</td>
+    <td class="px-2 py-1.5 text-center">${r.manDays}${r.ot ? ` <span class="text-[10px] text-orange-500">+${r.ot}h OT</span>` : ''}</td>
+    <td class="px-2 py-1.5 text-right text-slate-600">${fmt(r.wages)}</td>
+    <td class="px-2 py-1.5 text-right font-bold text-teal-700">${fmt(r.output)}</td>
+    <td class="px-2 py-1.5 text-right font-bold ${r.ratio >= 1 ? 'text-green-600' : 'text-red-500'}">${r.ratio ? r.ratio.toFixed(2) + '×' : '—'}</td>
+  </tr>`).join('');
+  return `<div class="bg-white border rounded-xl overflow-hidden mt-4">
+    <div class="p-3 border-b font-bold text-slate-700 text-sm">👷 Work done per labour <span class="text-[10px] text-slate-400 font-medium">— value attributed by man-days</span></div>
+    <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+      <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Labourer</th>
+      <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Trade</th>
+      <th class="px-2 py-2 text-center font-bold uppercase text-slate-500">Days</th>
+      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Wages</th>
+      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Work value</th>
+      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Output/₹</th></tr></thead>
+      <tbody>${body || '<tr><td colspan="6" class="p-4 text-center text-slate-400">No attendance recorded yet.</td></tr>'}</tbody></table></div>
+    <p class="text-[10px] text-slate-400 px-3 py-2 border-t">Work value = project earned shared across workers by man-days (present + ½ half-day). Output/₹ = value ÷ wages; above 1× means output exceeds wage cost.</p>
+  </div>`;
+}
+
 export function renderCostLedger() {
   const c = document.getElementById('costLedgerContent');
   if (!c) return;
@@ -2408,6 +2454,7 @@ export function renderCostLedger() {
           : '<p class="text-xs text-slate-400">No non-BOQ / overhead logged yet.</p>'}
       </div>
     </div>
+    ${single ? _labourOutputSection(scopeIds[0]) : ''}
     <p class="text-[10px] text-slate-400 mt-3">Material cost = mix-design recipe × latest purchase rate of each ingredient. Labour = attendance wages (present + ½ half-day + 1.5× OT). Earned = measured value (billed + work-in-progress).</p>`;
 }
 window.renderCostLedger = renderCostLedger;
