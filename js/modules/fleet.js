@@ -30,6 +30,49 @@ export function deleteLocation(id) {
   }
 }
 
+// ── Add Tool (creates a Tools raw-material + opening stock, linked to the same
+//    rawMaterials + inventory modules the tracking table reads) ──
+window._openAddTool = function () {
+  const locs = getAllLocations();
+  document.getElementById('addToolModal')?.remove();
+  const locOpts = locs.map(l => `<option value="${l.id}">${l.name}${l.type ? ' (' + l.type + ')' : ''}</option>`).join('');
+  const html = `<div id="addToolModal" class="ef-overlay" style="z-index:299999" onclick="if(event.target===this)this.remove()">
+    <div class="ef-modal" style="max-width:440px;">
+      <div class="ef-header"><h3 class="ef-title">➕ Add Tool</h3><button onclick="document.getElementById('addToolModal').remove()" class="ef-close">&times;</button></div>
+      <div class="ef-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div><label class="ef-label">Tool / Asset name</label><input id="at_name" class="ef-input" placeholder="e.g. Needle vibrator, Scaffolding pipe"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><label class="ef-label">Unit</label><input id="at_unit" class="ef-input" value="Nos"></div>
+          <div><label class="ef-label">Opening qty</label><input id="at_qty" type="text" inputmode="numeric" class="ef-input" placeholder="0"></div>
+        </div>
+        <div><label class="ef-label">Store / Location</label><select id="at_loc" class="ef-input">${locOpts || '<option value="">No locations yet — add one first</option>'}</select></div>
+        <p style="font-size:11px;color:#94a3b8;margin:0;">Adds it to the tool master and (if a quantity is given) opening stock at the chosen store.</p>
+      </div>
+      <div class="ef-footer"><button onclick="document.getElementById('addToolModal').remove()" class="ef-btn-cancel">Cancel</button><button onclick="window._saveAddTool()" class="ef-btn-save">Add Tool</button></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(() => document.getElementById('at_name')?.focus(), 50);
+};
+window._saveAddTool = function () {
+  const name = (document.getElementById('at_name')?.value || '').trim();
+  if (!name) { showToast('Tool name required', 'error'); return; }
+  const unit = (document.getElementById('at_unit')?.value || 'Nos').trim() || 'Nos';
+  const qty = parseFloat(document.getElementById('at_qty')?.value) || 0;
+  const locId = document.getElementById('at_loc')?.value || '';
+  const toolId = 'rm_' + Date.now();
+  if (!Array.isArray(state.rawMaterials)) state.rawMaterials = [];
+  state.rawMaterials.push({ id: toolId, name, unit, type: 'Tools', category: 'Tools' });
+  if (qty > 0 && locId) {
+    if (!Array.isArray(state.inventoryTx)) state.inventoryTx = [];
+    state.inventoryTx.push({ id: 'tx_' + Date.now(), rawMaterialId: toolId, siteId: locId, type: 'IN', qty, rate: 0, date: new Date().toISOString().split('T')[0], note: 'Tool added' });
+  }
+  saveAllData();
+  window.populateDropdowns?.();
+  document.getElementById('addToolModal')?.remove();
+  renderAssetsView();
+  showToast('Tool added', 'success');
+};
+
 export function renderAssetsView() {
   const allLocs = getAllLocations();
   const tools = state.rawMaterials.filter(rm => rm.type === 'Tools');

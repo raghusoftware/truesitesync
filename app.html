@@ -20,7 +20,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.4.86"></script>
+    <script type="module" src="js/app.js?v=1.4.87"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -771,6 +771,7 @@
                     <p class="text-slate-500 font-medium mt-1">Track non-consumable inventory across stores and project sites.</p>
                 </div>
                 <div class="flex gap-2">
+                    <button onclick="window._openAddTool && window._openAddTool()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg hover:bg-emerald-700 font-bold shadow-md transition">➕ Add Tool</button>
                     <button onclick="openLocationModal()" class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg hover:bg-blue-200 font-bold shadow-sm transition">➕ Add Location</button>
                     <button onclick="openTransferModal()" class="bg-[#f97316] text-white px-6 py-2 rounded-lg hover:bg-orange-600 font-bold shadow-md transition">🔄 Transfer Asset</button>
                 </div>
