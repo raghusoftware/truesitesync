@@ -3119,9 +3119,8 @@ export function loadAttendanceSheet() {
       <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
         <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
         <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">P</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Half</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Absent</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Present</th>
+        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">½ Day</th>
         <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
         <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
       </tr></thead><tbody class="divide-y">${labours.map(l => {
@@ -3132,11 +3131,10 @@ export function loadAttendanceSheet() {
     return `<tr class="hover:bg-slate-50">
       <td class="px-3 py-2.5 font-bold text-slate-800">${l.name}</td>
       <td class="px-3 py-2.5 text-slate-500 text-xs">${l.trade || '—'}</td>
-      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="P" ${s === 'P' ? 'checked' : ''} class="w-4 h-4 accent-green-500"></td>
-      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="H" ${s === 'H' ? 'checked' : ''} class="w-4 h-4 accent-orange-500"></td>
-      <td class="px-3 py-2.5 text-center"><input type="radio" name="att_${l.id}" value="A" ${s === 'A' ? 'checked' : ''} class="w-4 h-4 accent-red-400"></td>
-      <td class="px-3 py-2.5 text-center"><input type="number" id="ot_${l.id}" value="${ot}" min="0" max="12" class="w-14 p-1 border rounded text-xs text-center outline-none"></td>
-      <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1 border rounded text-xs outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
+      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = present"><input type="checkbox" id="att_p_${l.id}" ${s === 'P' || s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-green-600 cursor-pointer"></label></td>
+      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = half day"><input type="checkbox" id="att_h_${l.id}" ${s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-orange-500 cursor-pointer"></label></td>
+      <td class="px-3 py-2.5 text-center"><input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0" class="w-16 p-1.5 border rounded text-sm text-center outline-none"></td>
+      <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1.5 border rounded text-sm outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
     </tr>`;
   }).join('')}</tbody></table></div>
     </div>`;
@@ -3151,8 +3149,12 @@ window._closeAttendanceSheet = function() {
 /** Bulk mark all workers in the sheet */
 window._attMarkAll = function(status) {
   _projectLabour().forEach(l => {
-    const radio = document.querySelector(`input[name="att_${l.id}"][value="${status}"]`);
-    if (radio) radio.checked = true;
+    const p = document.getElementById('att_p_' + l.id);
+    const h = document.getElementById('att_h_' + l.id);
+    if (!p || !h) return;
+    if (status === 'P') { p.checked = true; h.checked = false; }
+    else if (status === 'H') { p.checked = true; h.checked = true; }
+    else { p.checked = false; h.checked = false; }
   });
   showToast(`Marked all as ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : 'Half-Day'}`, 'info');
 };
@@ -3175,9 +3177,9 @@ export function saveAttendance() {
   const projLabourIds = new Set(labours.map(l => l.id));
   state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
   labours.forEach(l => {
-    const radios = document.querySelectorAll(`input[name="att_${l.id}"]`);
-    let status = 'A';
-    radios.forEach(r => { if (r.checked) status = r.value; });
+    const present = document.getElementById('att_p_' + l.id)?.checked;
+    const half = document.getElementById('att_h_' + l.id)?.checked;
+    const status = half ? 'H' : (present ? 'P' : 'A');
     const ot = parseFloat(document.getElementById('ot_' + l.id)?.value) || 0;
     const shift = document.getElementById('shift_' + l.id)?.value || 'Day';
     state.attendanceLogs.push({ id: 'att_' + Date.now() + '_' + l.id, date, siteId, labourId: l.id, status, ot, shift });
