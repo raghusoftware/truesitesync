@@ -230,6 +230,7 @@ export function renderPlanningView() {
         <input type="text" id="planSearchInput" placeholder="Search tasks..." class="p-2 text-xs border border-slate-300 rounded-lg bg-white w-48" oninput="window._planRefreshList()">
       </div>
       <div class="flex items-center gap-2">
+        <button id="planViewToggle" onclick="window._planToggleBoard()" class="bg-cyan-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-cyan-700 shadow-sm transition">📋 Board view</button>
         <button onclick="window.exportPlanningPDF&&window.exportPlanningPDF()" class="bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-slate-800 shadow-sm transition inline-flex items-center gap-1.5">&#128196; Export PDF</button>
         <button onclick="window._planOpenTaskForm()" class="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm transition">+ Add Task</button>
       </div>
@@ -239,8 +240,66 @@ export function renderPlanningView() {
     <div class="space-y-2" id="planningTaskList">
       ${_renderTaskList(tasks)}
     </div>
+    <!-- Status board (drag-drop by location) — hidden until toggled -->
+    <div id="planningBoard" class="hidden"></div>
   `;
 }
+
+// ── Drag-drop status board: To-do / In Progress / Done columns, tasks grouped by
+//    location within each column. Drop a card on a column to set its status. ──
+window._planToggleBoard = function () {
+  const list = document.getElementById('planningTaskList');
+  const board = document.getElementById('planningBoard');
+  const btn = document.getElementById('planViewToggle');
+  if (!list || !board) return;
+  const showBoard = board.classList.contains('hidden');
+  board.classList.toggle('hidden', !showBoard);
+  list.classList.toggle('hidden', showBoard);
+  if (btn) btn.textContent = showBoard ? '☰ List view' : '📋 Board view';
+  if (showBoard) window.renderStatusBoard();
+};
+const _BOARD_COLS = [
+  { label: 'To-do', canon: 'Not Started', color: '#94a3b8', match: s => { const x = (s || '').toLowerCase(); return !x || ['not started', 'pending', 'to do', 'todo', 'on hold', 'not started'].includes(x); } },
+  { label: 'In Progress', canon: 'In Progress', color: '#f59e0b', match: s => ['in progress', 'ongoing', 'started', 'wip'].includes((s || '').toLowerCase()) },
+  { label: 'Done', canon: 'Completed', color: '#16a34a', match: s => ['completed', 'done', 'closed'].includes((s || '').toLowerCase()) },
+];
+window.renderStatusBoard = function () {
+  const c = document.getElementById('planningBoard');
+  if (!c) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const pid = state.currentProjectId || state.projects?.[0]?.id;
+  const tasks = [...(state.planningTasks || []).filter(t => t.projectId === pid), ...(state.microTasks || []).filter(t => t.projectId === pid)];
+  const colHtml = _BOARD_COLS.map(col => {
+    const colTasks = tasks.filter(t => col.match(t.status));
+    const byLoc = {};
+    colTasks.forEach(t => { const loc = (t.area || 'Unassigned').trim() || 'Unassigned'; (byLoc[loc] = byLoc[loc] || []).push(t); });
+    const inner = Object.keys(byLoc).sort().map(loc => `
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">📍 ${esc(loc)}</div>
+        ${byLoc[loc].map(t => `<div draggable="true" ondragstart="window._boardDragStart(event,'${t.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${col.color};border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.05);">
+          <div style="font-size:12px;font-weight:700;color:#0f172a;">${esc(t.name || 'Task')}</div>
+          ${(t.trade || t.boqCode) ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px;">${esc(t.trade || '')}${t.boqCode ? ' · ' + esc(t.boqCode) : ''}</div>` : ''}
+        </div>`).join('')}
+      </div>`).join('') || '<div style="font-size:11px;color:#cbd5e1;padding:14px;text-align:center;border:1px dashed #e2e8f0;border-radius:8px;">Drop tasks here</div>';
+    return `<div ondragover="window._boardAllowDrop(event)" ondrop="window._boardDrop(event,'${col.canon}')" style="flex:1;min-width:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;min-height:220px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:800;font-size:13px;color:${col.color};">${col.label}</span><span style="font-size:11px;font-weight:700;color:#fff;background:${col.color};border-radius:10px;padding:1px 8px;">${colTasks.length}</span></div>
+      ${inner}
+    </div>`;
+  }).join('');
+  c.innerHTML = `<p class="text-[11px] text-slate-400 mb-2">Drag a task card between columns to update its status. Cards are grouped by location.</p>
+    <div style="display:flex;gap:12px;align-items:flex-start;">${colHtml}</div>`;
+};
+window._boardDragStart = function (ev, taskId) { ev.dataTransfer.setData('text/plain', taskId); ev.dataTransfer.effectAllowed = 'move'; };
+window._boardAllowDrop = function (ev) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; };
+window._boardDrop = function (ev, canonStatus) {
+  ev.preventDefault();
+  const taskId = ev.dataTransfer.getData('text/plain');
+  const t = (state.planningTasks || []).find(x => x.id === taskId) || (state.microTasks || []).find(x => x.id === taskId);
+  if (!t || t.status === canonStatus) return;
+  t.status = canonStatus;
+  saveAllData();
+  window.renderStatusBoard();
+};
 
 function _renderShortageWidget(pid) {
   const shortages = _getUpcomingShortages(pid, 3);

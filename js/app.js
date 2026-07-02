@@ -28,7 +28,7 @@ import {
   addTaskMaterial, saveMaterial as planSaveMaterial, removeMaterial as planRemoveMaterial, onMaterialSelect as planOnMaterialSelect,
   addTaskEquipment, saveEquipment as planSaveEquipment, removeEquipment as planRemoveEquipment,
   checkResourceAvailability, runPreflight
-} from './modules/planning.js?v=1.3.24';
+} from './modules/planning.js?v=1.3.25';
 import {
   openLocationModal, saveLocation, deleteLocation, renderAssetsView,
   openTransferModal, executeTransfer, openMaintenanceModal, saveMaintenance,
