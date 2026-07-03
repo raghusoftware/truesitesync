@@ -61,8 +61,8 @@ import {
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
 } from './modules/ui.js?v=1.4.50';
-import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.19';
-import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.18';
+import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.20';
+import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.19';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js';
@@ -107,7 +107,7 @@ import {
   renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js?v=1.3.19';
+} from './modules/settings.js?v=1.3.20';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,

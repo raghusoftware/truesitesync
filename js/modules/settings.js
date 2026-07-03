@@ -111,6 +111,106 @@ window._setAbstractColor = function(hex) {
   showToast('Abstract PDF colour updated', 'success');
 };
 
+// ═══════════════════════════════════════════════════════════
+//  UNIFIED DOCUMENT COLOUR PICKER (header / border / font / highlight)
+//  Visual, click-to-edit, with a live preview. Header/highlight reuse the
+//  existing keys for back-compat; border & font are new.
+// ═══════════════════════════════════════════════════════════
+const DOC_COLOR_KEYS = {
+  measurement: { header: 'measurementColor', highlight: 'measurementTotalColor', border: 'measurementBorderColor', font: 'measurementFontColor' },
+  abstract:    { header: 'abstractColor',    highlight: 'abstractHighlightColor', border: 'abstractBorderColor', font: 'abstractFontColor' },
+  invoice:     { header: 'invoiceColor',     highlight: 'invoiceHighlightColor', border: 'invoiceBorderColor', font: 'invoiceFontColor' },
+};
+const DOC_COLOR_DEFAULTS = {
+  measurement: { header: '#f97316', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
+  abstract:    { header: '#1e3a8a', highlight: '#fef3c7', border: '#111827', font: '#0f172a' },
+  invoice:     { header: '#1e3a8a', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
+};
+const DOC_COLOR_LABELS = { measurement: 'Measurement / RA', abstract: 'Abstract', invoice: 'Tax Invoice' };
+let _colorDoc = 'measurement';
+
+export function getDocColor(docType, kind) {
+  const key = DOC_COLOR_KEYS[docType]?.[kind];
+  return (state.printSettings && state.printSettings[key]) || DOC_COLOR_DEFAULTS[docType][kind];
+}
+window.getDocColor = getDocColor;
+
+window._setDocColor = function(docType, kind, hex) {
+  if (!state.printSettings) state.printSettings = {};
+  const key = DOC_COLOR_KEYS[docType]?.[kind];
+  if (!key) return;
+  state.printSettings[key] = hex || DOC_COLOR_DEFAULTS[docType][kind];
+  saveAllData();
+  _refreshDocColorPreview(docType);
+};
+window._docColorTab = function(docType) { _colorDoc = docType; if (typeof window.renderPrintConfigTab === 'function') window.renderPrintConfigTab(); else _rerenderSettings(); };
+window._resetDocColors = function(docType) {
+  if (!state.printSettings) state.printSettings = {};
+  Object.entries(DOC_COLOR_KEYS[docType]).forEach(([kind, key]) => { state.printSettings[key] = DOC_COLOR_DEFAULTS[docType][kind]; });
+  saveAllData();
+  showToast('Reset to default colours', 'info');
+  window._docColorTab(docType);
+};
+function _rerenderSettings() { if (typeof window.renderSettingsView === 'function') window.renderSettingsView(); }
+
+function _refreshDocColorPreview(docType) {
+  const el = document.getElementById('docColorPreview');
+  if (el) el.innerHTML = _docColorPreviewInner(docType);
+}
+function _docColorPreviewInner(docType) {
+  const H = getDocColor(docType, 'header'), B = getDocColor(docType, 'border'),
+        F = getDocColor(docType, 'font'), L = getDocColor(docType, 'highlight');
+  return `<div style="border:2px solid ${B};border-radius:8px;overflow:hidden;max-width:340px;">
+    <div style="background:${H};color:#fff;padding:7px 12px;font-weight:800;font-size:13px;">${DOC_COLOR_LABELS[docType]} — Sample</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;color:${F};">
+      <thead><tr style="background:${H};color:#fff;"><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Code</th><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Description</th><th style="border:1px solid ${B};padding:4px 8px;text-align:right;">Qty</th></tr></thead>
+      <tbody>
+        <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">4.2</td><td style="border:1px solid ${B};padding:4px 8px;">RCC Slab M25</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">10.00</td></tr>
+        <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">5.1</td><td style="border:1px solid ${B};padding:4px 8px;">Plaster 12mm</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">42.50</td></tr>
+        <tr style="background:${L};font-weight:800;"><td style="border:1px solid ${B};padding:4px 8px;" colspan="2">Total</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">52.50</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/** The visual colour-picker panel (doc tabs + 4 swatches + live preview). */
+export function docColorsPanelHTML() {
+  const docType = _colorDoc;
+  const tabs = ['measurement', 'abstract', 'invoice'].map(d =>
+    `<button onclick="window._docColorTab('${d}')" class="px-3 py-1.5 rounded-lg text-xs font-bold border ${d === docType ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">${DOC_COLOR_LABELS[d]}</button>`).join('');
+  const swatch = (kind, label, hint) => {
+    const val = getDocColor(docType, kind);
+    return `<label class="flex items-center gap-3 bg-slate-50 border rounded-lg px-3 py-2 cursor-pointer">
+      <input type="color" value="${val}" oninput="window._setDocColor('${docType}','${kind}',this.value)" class="w-10 h-9 border rounded cursor-pointer p-0.5" title="${label}">
+      <span class="flex-1"><span class="block text-xs font-bold text-slate-700">${label}</span><span class="block text-[10px] text-slate-400">${hint}</span></span>
+      <span class="text-[10px] font-mono text-slate-400 uppercase">${val}</span>
+    </label>`;
+  };
+  return `
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">🎨</span>
+        <h4 class="font-bold text-sm text-slate-800">Document Colours</h4>
+        <span class="text-[10px] text-slate-400 ml-auto">Click a swatch to edit — preview updates live</span>
+      </div>
+      <div class="flex gap-2 mb-4 flex-wrap">${tabs}</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-2">
+          ${swatch('header', 'Header / title bar', 'table header & document title')}
+          ${swatch('border', 'Table borders', 'the grid lines around cells')}
+          ${swatch('font', 'Text / font', 'the body text colour')}
+          ${swatch('highlight', 'Highlight', 'totals & emphasis rows')}
+          <button onclick="window._resetDocColors('${docType}')" class="mt-1 text-[11px] font-bold text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-100">↺ Reset to default</button>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Live preview</p>
+          <div id="docColorPreview">${_docColorPreviewInner(docType)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+window.renderPrintConfigTab = renderPrintConfigTab;
+
 function renderPrintConfigTab() {
   const c = document.getElementById('settPrintContent');
   if (!c) return;
@@ -124,6 +224,7 @@ function renderPrintConfigTab() {
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
   c.innerHTML = `
+    ${docColorsPanelHTML()}
     <!-- ═══ TAX INVOICE MIN ROWS ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">
@@ -138,11 +239,6 @@ function renderPrintConfigTab() {
         <input type="checkbox" ${state.printSettings?.invoiceShowReceived ? 'checked' : ''} onchange="window._setInvoiceShowReceived(this.checked)" class="w-4 h-4 accent-blue-600">
         <span class="text-xs font-medium text-slate-700">Show &ldquo;Received&rdquo; &amp; &ldquo;Balance&rdquo; on the Tax Invoice</span>
       </label>
-      <div class="flex items-center gap-3 mt-3">
-        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
-        <input type="color" value="${state.printSettings?.invoiceColor || '#1e3a8a'}" onchange="window._setInvoiceColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Invoice header & table colour">
-        <span class="text-[11px] text-slate-400">Used for the invoice title bar and table header.</span>
-      </div>
     </div>
 
     <!-- ═══ NAME OF AUTHORITY ═══ -->
@@ -164,26 +260,6 @@ function renderPrintConfigTab() {
       <div class="flex gap-2">
         <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
         <button onclick="window._setMeasOrientation('landscape')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📑 Landscape</button>
-      </div>
-      <div class="flex items-center gap-3 mt-3 flex-wrap">
-        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
-        <input type="color" value="${state.printSettings?.measurementColor || '#f97316'}" onchange="window._setMeasurementColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Measurement PDF table colour">
-        <span class="text-xs font-medium text-slate-700 ml-2">Total Quantity colour:</span>
-        <input type="color" value="${state.printSettings?.measurementTotalColor || '#fef3c7'}" onchange="window._setMeasurementTotalColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Total Quantity cell colour">
-      </div>
-      <p class="text-[10px] text-slate-400 mt-2">Theme colour = table header & item titles. Total Quantity colour = the per-item total cell. Applies to all measurement PDFs.</p>
-    </div>
-
-    <!-- ═══ ABSTRACT / RA BILL PDF COLOUR ═══ -->
-    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-base">&#128209;</span>
-        <h4 class="font-bold text-sm text-slate-800">Abstract / RA Bill PDF Colour</h4>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-xs font-medium text-slate-700">Theme colour:</span>
-        <input type="color" value="${state.printSettings?.abstractColor || '#1e3a8a'}" onchange="window._setAbstractColor(this.value)" class="w-12 h-8 border rounded cursor-pointer p-0.5" title="Abstract PDF table & title colour">
-        <span class="text-[11px] text-slate-400">Used for the abstract & RA-bill table header and titles.</span>
       </div>
     </div>
 
