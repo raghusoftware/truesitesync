@@ -161,14 +161,18 @@ function _docColorPreviewInner(docType) {
   const T = getDocColor(docType, 'title'), H = getDocColor(docType, 'header'), HT = getDocColor(docType, 'headerText'),
         B = getDocColor(docType, 'border'), F = getDocColor(docType, 'font'), L = getDocColor(docType, 'highlight');
   const titleTxt = { measurement: 'MEASUREMENT SHEET', abstract: 'ABSTRACT (RA BILL)', invoice: 'TAX INVOICE' }[docType];
+  // NOTE: colour is set on every th/td explicitly (not just the row) because a
+  // global `th`/`td` CSS rule would otherwise override the inherited colour.
+  const th = `border:1px solid ${B};padding:4px 8px;color:${HT} !important;background:${H} !important;`;
+  const td = `border:1px solid ${B};padding:4px 8px;color:${F} !important;`;
   return `<div style="border:2px solid ${B};border-radius:8px;overflow:hidden;max-width:340px;">
-    <div style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:${T};background:#fff;">${titleTxt}</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;color:${F};">
-      <thead><tr style="background:${H};color:${HT};"><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Code</th><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Description</th><th style="border:1px solid ${B};padding:4px 8px;text-align:right;">Qty</th></tr></thead>
+    <div style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:${T} !important;background:#fff;">${titleTxt}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr><th style="${th}text-align:left;">Code</th><th style="${th}text-align:left;">Description</th><th style="${th}text-align:right;">Qty</th></tr></thead>
       <tbody>
-        <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">4.2</td><td style="border:1px solid ${B};padding:4px 8px;">RCC Slab M25</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">10.00</td></tr>
-        <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">5.1</td><td style="border:1px solid ${B};padding:4px 8px;">Plaster 12mm</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">42.50</td></tr>
-        <tr style="background:${L};font-weight:800;"><td style="border:1px solid ${B};padding:4px 8px;" colspan="2">Total</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">52.50</td></tr>
+        <tr><td style="${td}font-weight:700;">4.2</td><td style="${td}">RCC Slab M25</td><td style="${td}text-align:right;">10.00</td></tr>
+        <tr><td style="${td}font-weight:700;">5.1</td><td style="${td}">Plaster 12mm</td><td style="${td}text-align:right;">42.50</td></tr>
+        <tr style="font-weight:800;"><td style="${td}background:${L} !important;" colspan="2">Total</td><td style="${td}background:${L} !important;text-align:right;">52.50</td></tr>
       </tbody>
     </table>
   </div>`;
