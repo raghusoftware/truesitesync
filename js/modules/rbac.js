@@ -51,6 +51,43 @@ export const ACCESS_MODULES = [
 
 const ALL_MODULE_IDS = ACCESS_MODULES.map(m => m.id);
 
+/** Group name for a sidebar button, from the nearest preceding section <p> label. */
+function _sectionGroupFor(btn) {
+  const MAP = { 'project modules': 'Project', 'sale': 'Sale', 'purchase': 'Purchase', 'finance': 'Finance', 'system': 'System', 'super admin': 'System' };
+  let cur = btn;
+  while (cur && cur.id !== 'appSidebar' && cur.tagName !== 'BODY') {
+    let sib = cur.previousElementSibling;
+    while (sib) {
+      if (sib.tagName === 'P') { const t = (sib.textContent || '').trim(); return MAP[t.toLowerCase()] || t || 'Other'; }
+      sib = sib.previousElementSibling;
+    }
+    cur = cur.parentElement;
+  }
+  return 'Other';
+}
+
+/**
+ * Live module registry for RBAC. Starts from the known ACCESS_MODULES (stable
+ * labels/groups/order), then auto-registers every sidebar nav button
+ * ([data-target]) that isn't already listed — so ANY new module shows up in the
+ * role-permissions UI automatically, with no hardcoding or redeploy.
+ */
+export function getAccessModules() {
+  const out = ACCESS_MODULES.map(m => ({ ...m }));
+  const seen = new Set(out.map(m => m.id));
+  try {
+    document.querySelectorAll('[data-target]').forEach(btn => {
+      const id = btn.getAttribute('data-target');
+      if (!id || seen.has(id) || id === 'projectsHome') return;
+      const label = (btn.textContent || id).replace(/\s+/g, ' ').trim() || id;
+      out.push({ id, label, group: _sectionGroupFor(btn) });
+      seen.add(id);
+    });
+  } catch {}
+  return out;
+}
+window.getAccessModules = getAccessModules;
+
 const DEFAULT_ROLES = {
   Admin: { permissions: [...ALL_MODULE_IDS], isSystem: true },
   CEO: { permissions: [...ALL_MODULE_IDS] },
@@ -944,7 +981,7 @@ export function renderUsersRolesPanel() {
 
 function _renderPermissionGrid(roleName, perms) {
   const groups = {};
-  ACCESS_MODULES.forEach(m => {
+  getAccessModules().forEach(m => {
     if (!groups[m.group]) groups[m.group] = [];
     groups[m.group].push(m);
   });
@@ -1135,7 +1172,7 @@ export function toggleGroupPermissions(roleName, group, checked) {
   const role = (state.rbacRoles || {})[roleName];
   if (!role) return;
   if (!role.permissions) role.permissions = [];
-  const groupModuleIds = ACCESS_MODULES.filter(m => m.group === group).map(m => m.id);
+  const groupModuleIds = getAccessModules().filter(m => m.group === group).map(m => m.id);
   if (checked) {
     groupModuleIds.forEach(id => { if (!role.permissions.includes(id)) role.permissions.push(id); });
   } else {
