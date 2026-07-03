@@ -361,8 +361,8 @@ window._cfSaveCreditPolicy = function () {
 };
 
 // ── UI HELPERS ──────────────────────────────────────────────────────────────
-const _tile = (label, value, sub, color, icon) => `
-  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+const _tile = (label, value, sub, color, icon, kind) => `
+  <div ${kind ? `onclick="window._cfTileDetail('${kind}')" onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,.10)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)';this.style.transform=''"` : ''} style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:.15s;${kind ? 'cursor:pointer;' : ''}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div style="min-width:0;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${label}</div>
@@ -371,7 +371,126 @@ const _tile = (label, value, sub, color, icon) => `
       </div>
       <div style="font-size:22px;opacity:.3;flex-shrink:0;">${icon}</div>
     </div>
+    ${kind ? '<div style="font-size:9px;color:#cbd5e1;margin-top:8px;font-weight:700;letter-spacing:.03em;">CLICK FOR DETAILS →</div>' : ''}
   </div>`;
+
+// ── Per-vendor payables (purchases − payments) for the AP drill-down ──
+function _apByVendor() {
+  const byV = {};
+  const key = o => o.vendorId || o.vendor || '__none';
+  (state.vendorMaterials || []).forEach(m => { const v = key(m); (byV[v] = byV[v] || { purchased: 0, paid: 0, oldest: '', due: '' }); byV[v].purchased += (N(m.totalAmount) || N(m.amount)); if (m.date && (!byV[v].oldest || m.date < byV[v].oldest)) byV[v].oldest = m.date; if (m.dueDate && (!byV[v].due || m.dueDate < byV[v].due)) byV[v].due = m.dueDate; });
+  (state.vendorPayments || []).forEach(p => { const v = key(p); (byV[v] = byV[v] || { purchased: 0, paid: 0, oldest: '', due: '' }); byV[v].paid += N(p.amount); });
+  return Object.entries(byV).map(([vid, x]) => ({ name: (state.vendors || []).find(v => v.id === vid)?.name || (vid === '__none' ? 'Unassigned' : vid), ...x, outstanding: Math.max(0, x.purchased - x.paid) })).filter(r => r.outstanding > 0.5).sort((a, b) => b.outstanding - a.outstanding);
+}
+
+/** Open a drill-down showing the source transactions behind a cash-flow tile. */
+window._cfCloseDetail = function () { const o = document.getElementById('cfDetailOverlay'); if (o) o.remove(); };
+window._cfTileDetail = function (kind) {
+  const cur = getCurrencySymbol();
+  const M = n => cur + Math.round(n).toLocaleString('en-IN');
+  const daysAgo = d => { if (!d) return '—'; const n = _age(d); return n + 'd ago'; };
+  let title = '', subtitle = '', cols = [], rows = [], foot = '', total = 0, totalColor = '#0f172a';
+
+  if (kind === 'ar' || kind === 'inflow') {
+    const list = clientScores().filter(c => c.outstanding > 0.5).sort((a, b) => b.outstanding - a.outstanding);
+    total = list.reduce((s, c) => s + c.outstanding, 0); totalColor = '#2563eb';
+    title = (kind === 'inflow' ? '📥 Expected Inflow' : '⏳ Receivables (AR)') + ' — whom to receive from';
+    subtitle = `${list.length} customer${list.length !== 1 ? 's' : ''} owe you money`;
+    cols = ['Customer', 'Billed', 'Received', 'Outstanding', 'Avg age'];
+    rows = list.map(c => [c.name, M(c.billed), M(c.received), { v: M(c.outstanding), strong: 1, color: '#dc2626' }, { v: c.avgDays + ' d', color: c.avgDays > 60 ? '#dc2626' : '#64748b' }]);
+    foot = 'Outstanding = Billed − Received per customer (receipts applied to the oldest invoice first). Chase the oldest ageing first.';
+  } else if (kind === 'ap') {
+    const vlist = _apByVendor();
+    total = vlist.reduce((s, v) => s + v.outstanding, 0); totalColor = '#ea580c';
+    title = '🧾 Payables (AP) — whom to pay';
+    subtitle = `${vlist.length} vendor${vlist.length !== 1 ? 's' : ''} to pay`;
+    cols = ['Vendor', 'Purchased', 'Paid', 'Outstanding', 'Due / oldest'];
+    rows = vlist.map(v => [v.name, M(v.purchased), M(v.paid), { v: M(v.outstanding), strong: 1, color: '#dc2626' }, { v: v.due ? v.due : daysAgo(v.oldest), color: '#64748b' }]);
+    foot = 'Outstanding = Purchases billed − Payments made, per vendor. Pay the ones due / oldest first.';
+  } else if (kind === 'outflow') {
+    const vlist = _apByVendor(); const ld = labourDue(); const opex = _expenses(90) / 3;
+    rows = vlist.map(v => [v.name + ' (vendor)', '', '', { v: M(v.outstanding), strong: 1, color: '#dc2626' }, daysAgo(v.oldest)]);
+    if (ld > 0.5) rows.push([{ v: 'Labour wages due', color: '#7c3aed' }, '', '', { v: M(ld), strong: 1, color: '#dc2626' }, 'payroll']);
+    if (opex > 0.5) rows.push([{ v: 'Operating expenses (30d run-rate)', color: '#0891b2' }, '', '', { v: M(opex), strong: 1, color: '#dc2626' }, 'recurring']);
+    total = vlist.reduce((s, v) => s + v.outstanding, 0) + Math.max(0, ld) + Math.max(0, opex); totalColor = '#dc2626';
+    title = '📤 Expected Outflow · 30d';
+    subtitle = 'Vendors + labour + operating expenses';
+    cols = ['Item', '', '', 'Amount', 'Note'];
+    foot = 'Outflow = vendor payables + labour wages due + operating-expense run-rate (last-90-day average ÷ 3).';
+  } else if (kind === 'netcash') {
+    const inAll = (state.paymentsIn || []).reduce((s, p) => s + N(p.amount), 0);
+    const vp = _vendorPaid(null), ex = _expenses(null), lp = _labourPaid(null);
+    total = inAll - (vp + ex + lp); totalColor = total >= 0 ? '#059669' : '#dc2626';
+    title = '🏦 Net Cash Position';
+    subtitle = 'Everything received in, minus everything paid out (to date)';
+    cols = ['Flow', '', '', 'Amount', 'Count'];
+    rows = [
+      [{ v: 'Payments received (in)', color: '#059669' }, '', '', { v: '+ ' + M(inAll), strong: 1, color: '#059669' }, (state.paymentsIn || []).length + ''],
+      [{ v: 'Vendor payments (out)', color: '#dc2626' }, '', '', { v: '− ' + M(vp), color: '#dc2626' }, (state.vendorPayments || []).length + ''],
+      [{ v: 'Expenses (out)', color: '#dc2626' }, '', '', { v: '− ' + M(ex), color: '#dc2626' }, (state.expenses || []).length + ''],
+      [{ v: 'Labour payments (out)', color: '#dc2626' }, '', '', { v: '− ' + M(lp), color: '#dc2626' }, (state.labourPayments || []).length + ''],
+    ];
+    foot = 'Net cash = total received − (vendor payments + expenses + labour payments), across all dates.';
+  } else if (kind === 'projected') {
+    const f = forecast30();
+    total = f.projected; totalColor = f.projected >= 0 ? '#059669' : '#dc2626';
+    title = f.projected >= 0 ? '✅ Projected Cash · 30d' : '⚠️ Projected Cash · 30d';
+    subtitle = 'Where your cash lands after the next 30 days';
+    cols = ['Component', '', '', 'Amount', ''];
+    rows = [
+      [{ v: 'Opening cash (today)', color: '#0f172a' }, '', '', { v: M(f.opening), strong: 1 }, ''],
+      [{ v: 'Expected inflow (receivables)', color: '#059669' }, '', '', { v: '+ ' + M(f.inflow), color: '#059669' }, ''],
+      [{ v: 'Expected outflow', color: '#dc2626' }, '', '', { v: '− ' + M(f.outflow), color: '#dc2626' }, ''],
+    ];
+    foot = 'Projected = Opening cash + Expected inflow − Expected outflow. Click the Inflow / Outflow tiles to see their sources.';
+  } else if (kind === 'inventory') {
+    const mats = Object.entries(_stockByMaterial()).map(([id, x]) => ({ name: (state.rawMaterials || []).find(r => r.id === id)?.name || 'Material', qty: x.qty, rate: x.rate, val: Math.max(0, x.qty) * x.rate })).filter(m => m.val > 0.5).sort((a, b) => b.val - a.val);
+    total = mats.reduce((s, m) => s + m.val, 0); totalColor = '#7c3aed';
+    title = '📦 Inventory Locked';
+    subtitle = `${mats.length} material${mats.length !== 1 ? 's' : ''} in stock`;
+    cols = ['Material', 'Qty', 'Rate', 'Value', ''];
+    rows = mats.map(m => [m.name, m.qty.toLocaleString('en-IN', { maximumFractionDigits: 2 }), M(m.rate), { v: M(m.val), strong: 1, color: '#7c3aed' }, '']);
+    foot = 'Value = current stock qty × last purchase rate, per material (from inventory transactions).';
+  } else if (kind === 'ccc') {
+    const dso = arDays(), dpo = apDays(), invd = inventoryDays(); total = dso + invd - dpo;
+    title = '🔄 Cash Conversion Cycle';
+    subtitle = 'How many days your cash is tied up (lower = better)';
+    cols = ['Component', '', '', 'Days', ''];
+    rows = [
+      [{ v: 'AR days (time to collect, DSO)', color: '#2563eb' }, '', '', { v: '+ ' + dso, strong: 1 }, ''],
+      [{ v: 'Inventory days (stock held)', color: '#7c3aed' }, '', '', { v: '+ ' + invd, strong: 1 }, ''],
+      [{ v: 'AP days (time you take to pay, DPO)', color: '#ea580c' }, '', '', { v: '− ' + dpo, strong: 1 }, ''],
+    ];
+    foot = 'CCC = AR days + Inventory days − AP days. Collect faster and pay later to shrink it.';
+    _openCfDetailModal(title, subtitle, cols, rows, foot, total + ' days', totalColor); return;
+  } else return;
+
+  _openCfDetailModal(title, subtitle, cols, rows, foot, M(total), totalColor);
+};
+
+function _openCfDetailModal(title, subtitle, cols, rows, foot, totalStr, totalColor) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cell = (c, i) => {
+    const o = (c && typeof c === 'object') ? c : { v: c };
+    const align = i === 0 ? 'left' : 'right';
+    return `<td style="padding:9px 12px;text-align:${align};font-size:13px;${o.strong ? 'font-weight:800;' : ''}color:${o.color || '#334155'};border-bottom:1px solid #f1f5f9;white-space:nowrap;">${esc(o.v)}</td>`;
+  };
+  const body = rows.length
+    ? rows.map(r => `<tr>${r.map(cell).join('')}</tr>`).join('')
+    : `<tr><td colspan="${cols.length}" style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">Nothing outstanding here — clean book! 🎉</td></tr>`;
+  document.getElementById('cfDetailOverlay')?.remove();
+  const html = `<div id="cfDetailOverlay" onclick="if(event.target===this)window._cfCloseDetail()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:300000;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#fff;border-radius:18px;max-width:640px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 20px;border-bottom:1px solid #eef2f7;position:sticky;top:0;background:#fff;">
+        <div><h3 style="font-size:16px;font-weight:800;color:#0f172a;">${title}</h3><p style="font-size:12px;color:#64748b;margin-top:2px;">${subtitle}</p></div>
+        <div style="text-align:right;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#94a3b8;">Total</div><div style="font-size:20px;font-weight:800;color:${totalColor};">${totalStr}</div></div>
+      </div>
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>${cols.map((c, i) => `<th style="padding:8px 12px;text-align:${i === 0 ? 'left' : 'right'};font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #e2e8f0;background:#f8fafc;">${c}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
+      <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;"><p style="font-size:11px;color:#64748b;line-height:1.5;">💡 ${foot}</p>
+        <button onclick="window._cfCloseDetail()" style="margin-top:10px;width:100%;padding:10px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">Close</button></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
 const _scoreRow = (label, value, bold, color) => `
   <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;">
     <span style="font-size:13px;${bold ? 'font-weight:800;color:#0f172a;' : 'color:#475569;'}">${label}</span>
@@ -407,16 +526,16 @@ function _renderOverview() {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px;">
-      ${_tile('Net Cash Position', fmt(cash), 'Money in − money out', cash >= 0 ? '#0f172a' : '#dc2626', '🏦')}
-      ${_tile('Expected Inflow · 30d', fmt(f.inflow), 'Outstanding receivables', '#059669', '📥')}
-      ${_tile('Expected Outflow · 30d', fmt(f.outflow), 'Vendors + labour + OpEx', '#dc2626', '📤')}
-      ${_tile('Projected Cash · 30d', fmt(f.projected), f.net >= 0 ? 'Surplus expected' : 'Gap — act now', projColor, f.projected >= 0 ? '✅' : '⚠️')}
+      ${_tile('Net Cash Position', fmt(cash), 'Money in − money out', cash >= 0 ? '#0f172a' : '#dc2626', '🏦', 'netcash')}
+      ${_tile('Expected Inflow · 30d', fmt(f.inflow), 'Outstanding receivables', '#059669', '📥', 'inflow')}
+      ${_tile('Expected Outflow · 30d', fmt(f.outflow), 'Vendors + labour + OpEx', '#dc2626', '📤', 'outflow')}
+      ${_tile('Projected Cash · 30d', fmt(f.projected), f.net >= 0 ? 'Surplus expected' : 'Gap — act now', projColor, f.projected >= 0 ? '✅' : '⚠️', 'projected')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px;">
-      ${_tile('Receivables (AR)', fmt(ar), dso + ' AR days (DSO)', '#2563eb', '⏳')}
-      ${_tile('Payables (AP)', fmt(ap), dpo + ' AP days (DPO)', '#ea580c', '🧾')}
-      ${_tile('Inventory Locked', fmt(inventoryValue()), invD + ' inventory days', '#7c3aed', '📦')}
-      ${_tile('Cash Conversion Cycle', ccc + ' days', ccc <= 30 ? 'Healthy' : ccc <= 60 ? 'Watch' : 'Too slow', cccColor, '🔄')}
+      ${_tile('Receivables (AR)', fmt(ar), dso + ' AR days (DSO)', '#2563eb', '⏳', 'ar')}
+      ${_tile('Payables (AP)', fmt(ap), dpo + ' AP days (DPO)', '#ea580c', '🧾', 'ap')}
+      ${_tile('Inventory Locked', fmt(inventoryValue()), invD + ' inventory days', '#7c3aed', '📦', 'inventory')}
+      ${_tile('Cash Conversion Cycle', ccc + ' days', ccc <= 30 ? 'Healthy' : ccc <= 60 ? 'Watch' : 'Too slow', cccColor, '🔄', 'ccc')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
