@@ -42,6 +42,7 @@ export function exportAbstractPDF(id) {
   const border = _rgb(state.printSettings?.abstractBorderColor, [17, 24, 39]);
   const fontCol = _rgb(state.printSettings?.abstractFontColor, [15, 23, 42]);
   const titleCol = _rgb(state.printSettings?.abstractTitleColor, [30, 58, 138]);
+  const headTextCol = _rgb(state.printSettings?.abstractHeaderTextColor, [255, 255, 255]);
   let nextY = _simpleHeader(doc);
   doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(titleCol[0], titleCol[1], titleCol[2]);
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
@@ -52,7 +53,7 @@ export function exportAbstractPDF(id) {
   doc.text(`Ref Sheet: ${a.sheetNum || '—'} | Area: ${a.area || '—'}`, 14, nextY + 12);
   let rows = [];
   (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', (i.qty || 0).toFixed(3), i.uom || '', _num2(i.rate), _num2(i.amount)]));
-  doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: accent, textColor: [255,255,255], fontSize: 8, lineColor: border, lineWidth: 0.2 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', textColor: fontCol, lineColor: border, lineWidth: 0.15 }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
+  doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: accent, textColor: headTextCol, fontSize: 8, lineColor: border, lineWidth: 0.2 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', textColor: fontCol, lineColor: border, lineWidth: 0.15 }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   let gtY = doc.lastAutoTable.finalY + 12;
   doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
   doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, gtY);

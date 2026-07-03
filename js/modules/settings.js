@@ -117,14 +117,14 @@ window._setAbstractColor = function(hex) {
 //  existing keys for back-compat; border & font are new.
 // ═══════════════════════════════════════════════════════════
 const DOC_COLOR_KEYS = {
-  measurement: { title: 'measurementTitleColor', header: 'measurementColor', highlight: 'measurementTotalColor', border: 'measurementBorderColor', font: 'measurementFontColor' },
-  abstract:    { title: 'abstractTitleColor',    header: 'abstractColor',    highlight: 'abstractHighlightColor', border: 'abstractBorderColor', font: 'abstractFontColor' },
-  invoice:     { title: 'invoiceTitleColor',     header: 'invoiceColor',     highlight: 'invoiceHighlightColor', border: 'invoiceBorderColor', font: 'invoiceFontColor' },
+  measurement: { title: 'measurementTitleColor', header: 'measurementColor', headerText: 'measurementHeaderTextColor', highlight: 'measurementTotalColor', border: 'measurementBorderColor', font: 'measurementFontColor' },
+  abstract:    { title: 'abstractTitleColor',    header: 'abstractColor',    headerText: 'abstractHeaderTextColor',    highlight: 'abstractHighlightColor', border: 'abstractBorderColor', font: 'abstractFontColor' },
+  invoice:     { title: 'invoiceTitleColor',     header: 'invoiceColor',     headerText: 'invoiceHeaderTextColor',     highlight: 'invoiceHighlightColor', border: 'invoiceBorderColor', font: 'invoiceFontColor' },
 };
 const DOC_COLOR_DEFAULTS = {
-  measurement: { title: '#0f172a', header: '#f97316', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
-  abstract:    { title: '#1e3a8a', header: '#1e3a8a', highlight: '#fef3c7', border: '#111827', font: '#0f172a' },
-  invoice:     { title: '#1e3a8a', header: '#1e3a8a', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
+  measurement: { title: '#0f172a', header: '#f97316', headerText: '#ffffff', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
+  abstract:    { title: '#1e3a8a', header: '#1e3a8a', headerText: '#ffffff', highlight: '#fef3c7', border: '#111827', font: '#0f172a' },
+  invoice:     { title: '#1e3a8a', header: '#1e3a8a', headerText: '#ffffff', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
 };
 const DOC_COLOR_LABELS = { measurement: 'Measurement / RA', abstract: 'Abstract', invoice: 'Tax Invoice' };
 let _colorDoc = 'measurement';
@@ -158,13 +158,13 @@ function _refreshDocColorPreview(docType) {
   if (el) el.innerHTML = _docColorPreviewInner(docType);
 }
 function _docColorPreviewInner(docType) {
-  const T = getDocColor(docType, 'title'), H = getDocColor(docType, 'header'), B = getDocColor(docType, 'border'),
-        F = getDocColor(docType, 'font'), L = getDocColor(docType, 'highlight');
+  const T = getDocColor(docType, 'title'), H = getDocColor(docType, 'header'), HT = getDocColor(docType, 'headerText'),
+        B = getDocColor(docType, 'border'), F = getDocColor(docType, 'font'), L = getDocColor(docType, 'highlight');
   const titleTxt = { measurement: 'MEASUREMENT SHEET', abstract: 'ABSTRACT (RA BILL)', invoice: 'TAX INVOICE' }[docType];
   return `<div style="border:2px solid ${B};border-radius:8px;overflow:hidden;max-width:340px;">
     <div style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:${T};background:#fff;">${titleTxt}</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;color:${F};">
-      <thead><tr style="background:${H};color:#fff;"><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Code</th><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Description</th><th style="border:1px solid ${B};padding:4px 8px;text-align:right;">Qty</th></tr></thead>
+      <thead><tr style="background:${H};color:${HT};"><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Code</th><th style="border:1px solid ${B};padding:4px 8px;text-align:left;">Description</th><th style="border:1px solid ${B};padding:4px 8px;text-align:right;">Qty</th></tr></thead>
       <tbody>
         <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">4.2</td><td style="border:1px solid ${B};padding:4px 8px;">RCC Slab M25</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">10.00</td></tr>
         <tr><td style="border:1px solid ${B};padding:4px 8px;font-weight:700;">5.1</td><td style="border:1px solid ${B};padding:4px 8px;">Plaster 12mm</td><td style="border:1px solid ${B};padding:4px 8px;text-align:right;">42.50</td></tr>
@@ -199,6 +199,7 @@ export function docColorsPanelHTML() {
         <div class="space-y-2">
           ${swatch('title', 'Title text', 'the document title (e.g. “MEASUREMENT SHEET”)')}
           ${swatch('header', 'Header bar', 'the table header row background')}
+          ${swatch('headerText', 'Header text', 'text colour on the header bar')}
           ${swatch('border', 'Table borders', 'the grid lines around cells')}
           ${swatch('font', 'Text / font', 'the body text colour')}
           ${swatch('highlight', 'Highlight', 'totals & emphasis rows')}

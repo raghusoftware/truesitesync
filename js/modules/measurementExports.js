@@ -57,6 +57,7 @@ export function exportSimpleMeasurementPdf(id) {
   const border = _rgb(state.printSettings?.measurementBorderColor, [226, 232, 240]);
   const fontCol = _rgb(state.printSettings?.measurementFontColor, [15, 23, 42]);
   const titleCol = _rgb(state.printSettings?.measurementTitleColor, [15, 23, 42]);
+  const headTextCol = _rgb(state.printSettings?.measurementHeaderTextColor, [255, 255, 255]);
 
   doc.setFontSize(14); doc.setTextColor(titleCol[0], titleCol[1], titleCol[2]); doc.setFont('helvetica', 'bold');
   doc.text('MEASUREMENT SHEET', cx, y + 5, null, null, 'center');
@@ -97,7 +98,7 @@ export function exportSimpleMeasurementPdf(id) {
   });
   doc.autoTable({
     startY: y + 28, head, body: rows, theme: 'grid', tableWidth: 'auto',
-    headStyles: { fillColor: accent, fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center', lineColor: border, lineWidth: 0.15 },
+    headStyles: { fillColor: accent, textColor: headTextCol, fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center', lineColor: border, lineWidth: 0.15 },
     styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, overflow: 'linebreak', textColor: fontCol, lineColor: border, lineWidth: 0.15 },
     columnStyles: {
       0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
