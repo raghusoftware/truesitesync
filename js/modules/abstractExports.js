@@ -41,8 +41,9 @@ export function exportAbstractPDF(id) {
   const accent = _rgb(state.printSettings?.abstractColor, [30, 58, 138]);
   const border = _rgb(state.printSettings?.abstractBorderColor, [17, 24, 39]);
   const fontCol = _rgb(state.printSettings?.abstractFontColor, [15, 23, 42]);
+  const titleCol = _rgb(state.printSettings?.abstractTitleColor, [30, 58, 138]);
   let nextY = _simpleHeader(doc);
-  doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
+  doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(titleCol[0], titleCol[1], titleCol[2]);
   doc.text("ABSTRACT OF MEASUREMENT (RA BILL)", 105, nextY, null, null, "center");
   nextY += 8;
   doc.setFontSize(9.5); doc.setFont("helvetica", "normal"); doc.setTextColor(60, 60, 60);

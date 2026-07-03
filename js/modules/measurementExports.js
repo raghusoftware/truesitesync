@@ -56,8 +56,9 @@ export function exportSimpleMeasurementPdf(id) {
   const totalFill = _rgb(state.printSettings?.measurementTotalColor, [254, 243, 199]);
   const border = _rgb(state.printSettings?.measurementBorderColor, [226, 232, 240]);
   const fontCol = _rgb(state.printSettings?.measurementFontColor, [15, 23, 42]);
+  const titleCol = _rgb(state.printSettings?.measurementTitleColor, [15, 23, 42]);
 
-  doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14); doc.setTextColor(titleCol[0], titleCol[1], titleCol[2]); doc.setFont('helvetica', 'bold');
   doc.text('MEASUREMENT SHEET', cx, y + 5, null, null, 'center');
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(80);
 
