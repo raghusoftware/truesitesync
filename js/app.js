@@ -72,7 +72,7 @@ import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.36';
 import './modules/mobileShell.js?v=1.4.0';
 import './modules/orgTeam.js?v=1.4.9';
-import './modules/cashFlow.js?v=1.4.27';
+import './modules/cashFlow.js?v=1.4.28';
 import './modules/recycleBin.js?v=1.0.1';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js';

@@ -463,6 +463,37 @@ window._cfTileDetail = function (kind) {
     ];
     foot = 'CCC = AR days + Inventory days − AP days. Collect faster and pay later to shrink it.';
     _openCfDetailModal(title, subtitle, cols, rows, foot, total + ' days', totalColor); return;
+  } else if (kind === 'cc_recv') {
+    // Command Center Receivables — aged, reconciles to the tile total (agg.total).
+    const list = (state.clients || []).map(c => ({ name: c.name, ...(_clientAging(c.id)) })).filter(r => r.total > 0.5).sort((a, b) => b.total - a.total);
+    total = list.reduce((s, r) => s + r.total, 0); totalColor = '#2563eb';
+    title = '💰 Receivables — whom to receive from (aged)';
+    subtitle = `${list.length} customer${list.length !== 1 ? 's' : ''} · overdue (31+ days) chase first`;
+    cols = ['Client', '0–30', '31–60', '61–90', '90+', 'Total'];
+    rows = list.map(r => [r.name, M(r.cur), { v: M(r.d30), color: '#d97706' }, { v: M(r.d60), color: '#ea580c' }, { v: M(r.d90), color: '#dc2626' }, { v: M(r.total), strong: 1 }]);
+    foot = 'Each client\'s unpaid invoices bucketed by age (receipts applied oldest-first). 31+ day columns are overdue — chase those first.';
+  } else if (kind === 'cc_pay') {
+    // Command Center Payables = material (per vendor) + labour due + last-30-day expenses.
+    const vlist = _apByVendor(); const ld = labourDue(); const ex30 = _expenses(30);
+    rows = vlist.map(v => [v.name + ' (material)', M(v.purchased), M(v.paid), { v: M(v.outstanding), strong: 1, color: '#dc2626' }, { v: v.due || daysAgo(v.oldest), color: '#64748b' }]);
+    if (ld > 0.5) rows.push([{ v: 'Labour wages due', color: '#7c3aed' }, '', '', { v: M(ld), strong: 1, color: '#dc2626' }, 'payroll']);
+    if (ex30 > 0.5) rows.push([{ v: 'Expenses (last 30 days)', color: '#64748b' }, '', '', { v: M(ex30), strong: 1, color: '#dc2626' }, '30d run-rate']);
+    total = vlist.reduce((s, v) => s + v.outstanding, 0) + Math.max(0, ld) + Math.max(0, ex30); totalColor = '#ea580c';
+    title = '🧾 Payables — whom to pay';
+    subtitle = `${vlist.length} vendor${vlist.length !== 1 ? 's' : ''} + labour + expenses`;
+    cols = ['Item', 'Purchased', 'Paid', 'Outstanding', 'Due / oldest'];
+    foot = 'Material = vendor bills − payments (per vendor), plus labour wages due and the last-30-day expense run-rate. Pay the oldest/due vendors first.';
+  } else if (kind === 'cc_net4') {
+    const s = _ccSnap || {}; total = s.net4 || 0; totalColor = (s.net4 || 0) >= 0 ? '#16a34a' : '#dc2626';
+    title = (s.net4 || 0) >= 0 ? '📈 Net (4-week)' : '📉 Shortfall (4-week)';
+    subtitle = 'Cash you\'ll have after 4 weeks of collections and dues';
+    cols = ['Component', '', '', 'Amount', ''];
+    rows = [
+      [{ v: 'Cash position (today)', color: '#0d9488' }, '', '', { v: M(s.cash || 0), strong: 1 }, ''],
+      [{ v: 'Expected collections (4 weeks)', color: '#059669' }, '', '', { v: '+ ' + M(s.expect4 || 0), color: '#059669' }, ''],
+      [{ v: 'Dues (material + labour + expenses)', color: '#dc2626' }, '', '', { v: '− ' + M(s.committed4 || 0), color: '#dc2626' }, ''],
+    ];
+    foot = 'Net (4-week) = Cash + expected 4-week collections − upcoming dues. Click Receivables / Payables to see the underlying transactions.';
   } else return;
 
   _openCfDetailModal(title, subtitle, cols, rows, foot, M(total), totalColor);
@@ -969,6 +1000,7 @@ function _clientAging(cid) {
   });
   return b;
 }
+let _ccSnap = null; // snapshot of Command Center figures for the tile drill-downs
 function _renderConstructionCF() {
   const s = state.cashFlowSettings || (state.cashFlowSettings = {});
   const retPct = N(s.retentionPct) || 5;      // % retention held by client
@@ -1015,9 +1047,12 @@ function _renderConstructionCF() {
     : coversPayroll ? { c: '#d97706', bg: '#fffbeb', t: 'Tight', m: 'Payroll is covered, but vendor dues may need collections to come in first.' }
       : { c: '#dc2626', bg: '#fef2f2', t: 'At risk', m: 'Expected cash may not cover payroll — chase overdue receivables now.' };
 
-  const card = (label, val, sub, color) => `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+  // Snapshot the computed figures so the tile drill-downs reconcile exactly.
+  _ccSnap = { agingRows, agg, materialAP, labourAP, expenseRun, totalAP, cash, expect4, expect8, committed4, net4, retentionHeld, netCollectible, overdue, creditDays, retPct };
+
+  const card = (label, val, sub, color, kind) => `<div ${kind ? `onclick="window._cfTileDetail('${kind}')" onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,.10)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''"` : ''} style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;transition:.15s;${kind ? 'cursor:pointer;' : ''}">
     <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${color};">${label}</p>
-    <p style="font-size:22px;font-weight:900;color:#0f172a;margin-top:2px;">${fmt(val)}</p>${sub ? `<p style="font-size:11px;color:#94a3b8;margin-top:2px;">${sub}</p>` : ''}</div>`;
+    <p style="font-size:22px;font-weight:900;color:#0f172a;margin-top:2px;">${fmt(val)}</p>${sub ? `<p style="font-size:11px;color:#94a3b8;margin-top:2px;">${sub}</p>` : ''}${kind ? '<p style="font-size:9px;color:#cbd5e1;margin-top:8px;font-weight:700;">CLICK FOR DETAILS →</p>' : ''}</div>`;
 
   return `
     <div style="background:${sig.bg};border:1px solid ${sig.c}33;border-left:5px solid ${sig.c};border-radius:14px;padding:16px 18px;margin-bottom:16px;">
@@ -1034,10 +1069,10 @@ function _renderConstructionCF() {
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
-      ${card('Cash position', cash, 'received − paid out', '#0d9488')}
-      ${card('Receivables (money in)', agg.total, `${fmt(netCollectible)} collectible · ${fmt(retentionHeld)} retention`, '#2563eb')}
-      ${card('Payables (money out)', totalAP, 'material + labour + expenses', '#ea580c')}
-      ${card(net4 >= 0 ? 'Net (4-week)' : 'Shortfall (4-week)', net4, 'cash + collections − dues', net4 >= 0 ? '#16a34a' : '#dc2626')}
+      ${card('Cash position', cash, 'received − paid out', '#0d9488', 'netcash')}
+      ${card('Receivables (money in)', agg.total, `${fmt(netCollectible)} collectible · ${fmt(retentionHeld)} retention`, '#2563eb', 'cc_recv')}
+      ${card('Payables (money out)', totalAP, 'material + labour + expenses', '#ea580c', 'cc_pay')}
+      ${card(net4 >= 0 ? 'Net (4-week)' : 'Shortfall (4-week)', net4, 'cash + collections − dues', net4 >= 0 ? '#16a34a' : '#dc2626', 'cc_net4')}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
