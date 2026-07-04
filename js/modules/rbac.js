@@ -172,16 +172,21 @@ function _getFallbackUser() {
 
 function _mapSupabaseUser(supaUser) {
   const meta = supaUser.user_metadata || {};
-  // Map to our internal user format
-  const role = meta.role || 'Admin';
-  const rbacUser = (state.rbacUsers || []).find(u => u.supabaseId === supaUser.id);
+  // Map to our internal user format. IMPORTANT: match the RBAC entry by
+  // supabaseId OR email — an admin-created teammate (Add User) has the role set
+  // but no supabaseId until they log in, so a supabaseId-only match would miss it
+  // and fall back to 'Admin', silently bypassing all role permissions.
+  const em = (supaUser.email || '').trim().toLowerCase();
+  const rbacUser = (state.rbacUsers || []).find(u => u.supabaseId === supaUser.id)
+    || (em ? (state.rbacUsers || []).find(u => ((u.email || u.username || '').trim().toLowerCase() === em)) : null);
+  const role = rbacUser?.role || meta.role || 'Admin';
   return {
     id: rbacUser?.id || 'usr_supa_' + supaUser.id.substring(0, 8),
     supabaseId: supaUser.id,
-    name: meta.display_name || meta.name || supaUser.email?.split('@')[0] || 'User',
+    name: rbacUser?.name || meta.display_name || meta.name || supaUser.email?.split('@')[0] || 'User',
     username: supaUser.email,
     email: supaUser.email,
-    role: rbacUser?.role || role,
+    role,
     active: true,
   };
 }
@@ -346,7 +351,7 @@ export function _ensureRbacUser(supaUser) {
       changed = true;
     }
   }
-  if (changed) saveAllData();
+  if (changed) { _cachedUser = null; saveAllData(); } // re-derive role after linking the entry
 }
 
 /**
