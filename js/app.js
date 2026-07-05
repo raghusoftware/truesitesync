@@ -442,9 +442,13 @@ function _bootApp() {
   // Remove any legacy built-in demo data (City Mall / DEMO) left in old accounts.
   // Called via window (not a named import) so a freshly-bumped app.js paired with
   // a still-cached older state.js can't fail at module-link time — it just no-ops.
-  try { if (typeof window.purgeDemoData === 'function' && window.purgeDemoData()) { saveAllData(); pushAllToCloud().catch(() => {}); } } catch (e) { console.warn('[boot] demo purge failed:', e); }
+  // NOTE: only saveAllData() here — it syncs the CHANGED keys per-key (dirty-check
+  // + timestamp guarded). Do NOT bulk pushAllToCloud() on boot: if this device's
+  // pull was stale/timed-out, a full push would overwrite the whole org with old
+  // data (the overnight-data-loss bug).
+  try { if (typeof window.purgeDemoData === 'function' && window.purgeDemoData()) { saveAllData(); } } catch (e) { console.warn('[boot] demo purge failed:', e); }
   // Link existing projects to the shared client master (Client → Projects hierarchy)
-  try { if (typeof window.migrateClientsProjects === 'function' && window.migrateClientsProjects()) { saveAllData(); pushAllToCloud().catch(() => {}); } } catch (e) { console.warn('[boot] client/project migration failed:', e); }
+  try { if (typeof window.migrateClientsProjects === 'function' && window.migrateClientsProjects()) { saveAllData(); } } catch (e) { console.warn('[boot] client/project migration failed:', e); }
   // Migrate existing data to projects if needed
   if (state.projects.length && state.clients.some(c => !c.projectId)) {
     migrateToProjects();

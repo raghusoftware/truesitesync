@@ -500,11 +500,16 @@ export async function pullRemoteUpdates() {
       // ANTI-CLOBBER / RECOVERY: an empty cloud value must never wipe populated
       // local data — re-push our copy to restore the shared cloud instead.
       if (_isEmptyVal(c.data) && !_isEmptyVal(state[key])) { syncPush(key, state[key]); continue; }
-      // Cloud differs from local. Keep local ONLY if we have a genuine un-synced
-      // local edit for this key (it will be pushed). Otherwise adopt cloud so
-      // every device converges — this is what makes ALL modules sync, not just
-      // clients/projects.
+      // Cloud differs from local. Keep local if we have a genuine un-synced edit
+      // (it will be pushed).
       if (hasPendingPush(key)) continue;
+      // TIMESTAMP GUARD (symmetric to the push-side anti-clobber): if OUR copy is
+      // newer than the cloud's, the cloud has gone backwards (a stale device
+      // clobbered it) — heal it by re-pushing our copy instead of adopting the
+      // older data. Only adopt when the cloud is genuinely newer, so no device can
+      // resurrect old data or drop newer data.
+      const localTs = getLocalKeyTs(key) || 0;
+      if (localTs && cloudTs && localTs > cloudTs) { syncPush(key, state[key]); continue; }
       state[key] = c.data;
       try { localStorage.setItem(storageKey, newJson); } catch {}
       setLocalKeyTs(key, cloudTs);
