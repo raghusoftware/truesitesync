@@ -1927,8 +1927,12 @@ window.mpRecordWork = function(payload) {
   if (!lines) return null;
 
   sheet.updatedAt = new Date().toISOString();
+  // Recipe-based inventory auto-consume for this running sheet (same as the
+  // classic measurement sheet) — deducts materials per the BOQ item's recipe.
+  if (typeof window.rebuildSheetConsumption === 'function') { try { window.rebuildSheetConsumption(sheet); } catch (e) { console.warn('[mp] consume failed', e); } }
   saveAllData();
   if (typeof window.renderMeasurementList === 'function') { try { window.renderMeasurementList(); } catch {} }
+  if (typeof window.renderLiveInventory === 'function') { try { window.renderLiveInventory(); } catch {} }
   _mpRefreshFinance();
   return { sheet, lines };
 };
