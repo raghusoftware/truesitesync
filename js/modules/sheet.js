@@ -406,8 +406,8 @@ export function createNewSheet() {
   _currentSheetBoqItems = [];
   _ensureSheetProjectContext();
   addMoreEntries(5);
-  renderGroupedEntry([]);   // start with one empty item card
-  setEntryMode('grouped');  // grouped (Measurement-Book) view by default
+  renderGroupedEntry([]);   // build the grouped view too (toggle-able)
+  setEntryMode('classic');  // open in Classic view by default
   window.switchView('entrySheet');
 }
 
@@ -737,9 +737,9 @@ export function loadSheet(id) {
     tbody.appendChild(tr);
   });
   while (tbody.rows.length < 5) addMoreEntries(1);
-  // Build grouped view from the same entries and show it by default
+  // Build the grouped view from the same entries (toggle-able), but open Classic.
   renderGroupedEntry(s.entries || []);
-  setEntryMode('grouped');
+  setEntryMode('classic');
   // Load BBS and attachments
   _loadBBSData(s.id);
   // Restore BBS linked item
