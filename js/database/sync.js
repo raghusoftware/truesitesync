@@ -510,19 +510,39 @@ export async function syncPushAll(stateObj, storageKeys) {
     }
   }
 
+  // ── ANTI-CLOBBER (per key) — never overwrite a cloud key that is NEWER than
+  // our copy unless we have a genuine un-synced local edit for it. This stops a
+  // device whose pull was stale/timed-out from blasting old data over the whole
+  // org (the "data disappears overnight / deleted items reappear" bug: one bulk
+  // pushAllToCloud from a stale device wiped every key). Keys we actually edited
+  // (dirty/pending) still push; only untouched keys the cloud has moved on are
+  // skipped, and the next pull brings their newer data down. ──
+  const cloudTs = {};
+  try {
+    const { data: tsRows } = await sb.from('module_data')
+      .select('module_name, updated_at').eq('organization_id', orgId);
+    (tsRows || []).forEach(r => { cloudTs[r.module_name] = Date.parse(r.updated_at) || 0; });
+  } catch (e) { console.warn('[sync] pushAll: could not read cloud timestamps:', e?.message || e); }
+
   const rows = [];
+  let skipped = 0;
   for (const [key, storageKey] of Object.entries(storageKeys)) {
-    if (stateObj[key] !== undefined) {
-      rows.push({
-        organization_id: orgId,
-        module_name: key,
-        record_id: key,
-        payload: stateObj[key],
-        updated_by: userId,
-        updated_at: new Date().toISOString()
-      });
+    if (stateObj[key] === undefined) continue;
+    const dirty = _dirtyKeys.has(key) || (_pendingValues[key] !== undefined);
+    if (!dirty) {
+      const cTs = cloudTs[key] || 0, lTs = _getLocalTs(key) || 0;
+      if (cTs > lTs) { skipped++; continue; }   // cloud is newer — don't clobber
     }
+    rows.push({
+      organization_id: orgId,
+      module_name: key,
+      record_id: key,
+      payload: stateObj[key],
+      updated_by: userId,
+      updated_at: new Date().toISOString()
+    });
   }
+  if (skipped) console.warn('[sync] pushAll: skipped ' + skipped + ' key(s) that are newer in the cloud (anti-clobber)');
 
   // Upsert in batches of 20 to avoid payload limits
   const BATCH = 20;
