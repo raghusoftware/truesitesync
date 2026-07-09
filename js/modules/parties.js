@@ -317,17 +317,20 @@ export function _deleteParty(id, type) {
 
   if (!confirm(`Delete "${name}" (${type})?\n\nThis will NOT delete their transactions (invoices, payments, etc). Only the party record will be removed.`)) return;
 
-  if (type === 'Client') {
-    state.clients = state.clients.filter(x => x.id !== id);
-  } else if (type === 'Vendor') {
-    state.vendors = state.vendors.filter(x => x.id !== id);
-  } else if (type === 'Labour') {
-    state.labourMaster = state.labourMaster.filter(x => x.id !== id);
-  }
+  // Route through the recycle bin so a tombstone is recorded. Without it, a stale
+  // device (or an anti-clobber pull) that re-pushes the clients/vendors/labour array
+  // would resurrect the deleted party — the "ghost deletion" bug. recycleDelete()
+  // removes it from the source array, adds a bin entry, and persists+syncs both, so
+  // reconcileRecycleBin() re-strips it after every load/pull/realtime.
+  const stateKey = type === 'Client' ? 'clients' : type === 'Vendor' ? 'vendors' : type === 'Labour' ? 'labourMaster' : null;
+  if (!stateKey) return;
+  const moved = window.recycleDelete
+    ? window.recycleDelete(stateKey, id, type, name)
+    : (state[stateKey] = state[stateKey].filter(x => x.id !== id), saveAllData(), true); // fallback if bin unavailable
+  if (!moved) { showToast(`Could not delete ${type}`, 'error'); return; }
 
   state.currentSelectedParty = null;
-  saveAllData();
-  showToast(`${type} "${name}" deleted`, 'error');
+  showToast(`${type} "${name}" moved to Recycle Bin`, 'error');
   document.getElementById('partyEmptyState').style.display = '';
   document.getElementById('partyInfoCard').innerHTML = '';
   renderPartiesList();

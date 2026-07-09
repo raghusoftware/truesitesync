@@ -325,8 +325,11 @@ window._pcSaveCustodian = function (editId) {
 window._pcDeleteCustodian = function (id) {
   if (_txns().some(t => t.custodianId === id)) return showToast('Cannot delete — custodian has transactions', 'error');
   if (!confirm('Delete this custodian?')) return;
-  state.pettyCashCustodians = state.pettyCashCustodians.filter(c => c.id !== id);
-  saveAllData(); _pcCloseModal(); _pcSection = 'wallets'; renderPettyCash();
+  const _c = (state.pettyCashCustodians || []).find(c => c.id === id);
+  // Tombstone via recycle bin so a stale re-push can't resurrect it (ghost-deletion guard).
+  if (window.recycleDelete) window.recycleDelete('pettyCashCustodians', id, 'Petty Cash Custodian', _c?.name || id);
+  else { state.pettyCashCustodians = state.pettyCashCustodians.filter(c => c.id !== id); saveAllData(); }
+  _pcCloseModal(); _pcSection = 'wallets'; renderPettyCash();
 };
 
 // ── Transfer funds ──
@@ -429,8 +432,10 @@ window._pcDoExpense = function (custId) {
 
 window._pcDeleteTxn = function (id) {
   if (!confirm('Delete this transaction?')) return;
-  state.pettyCashTxns = state.pettyCashTxns.filter(t => t.id !== id);
-  saveAllData(); renderPettyCash();
+  // Tombstone via recycle bin so a stale re-push can't resurrect it (ghost-deletion guard).
+  if (window.recycleDelete) window.recycleDelete('pettyCashTxns', id, 'Petty Cash Txn');
+  else { state.pettyCashTxns = state.pettyCashTxns.filter(t => t.id !== id); saveAllData(); }
+  renderPettyCash();
 };
 
 // ── Cinematic receipt lightbox ──
