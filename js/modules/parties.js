@@ -257,57 +257,128 @@ function _editPartyTerms(party, kind) {
   party.paymentTermsDays = nd;
 }
 
+function _findParty(id, type) {
+  if (type === 'Client') return (state.clients || []).find(x => x.id === id);
+  if (type === 'Vendor') return (state.vendors || []).find(x => x.id === id);
+  if (type === 'Labour') return (state.labourMaster || []).find(x => x.id === id);
+  return null;
+}
+
+const _peEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function _peField(label, id, val, opts = {}) {
+  const span = opts.full ? 'sm:col-span-2' : '';
+  const mono = opts.mono ? 'font-mono uppercase' : '';
+  return `<div class="${span}">
+    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">${label}</label>
+    <input id="${id}" type="${opts.type || 'text'}" value="${_peEsc(val)}" placeholder="${opts.ph || ''}" ${opts.min != null ? `min="${opts.min}"` : ''}
+      class="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${mono}">
+  </div>`;
+}
+
+/** Nice modal to edit a party (Client / Vendor / Labour). Replaces the old prompt() chain. */
 export function _editParty(id, type) {
-  if (type === 'Client') {
-    const c = state.clients.find(x => x.id === id);
-    if (!c) return;
-    const name = prompt('Client Name:', c.name);
-    if (!name) return;
-    c.name = name;
-    const phone = prompt('Phone:', c.contact || c.phone || '');
-    if (phone !== null) c.contact = phone;
-    const gst = prompt('GST Number:', c.gst || '');
-    if (gst !== null) c.gst = gst;
-    const addr = prompt('Address:', c.address || '');
-    if (addr !== null) c.address = addr;
-    const email = prompt('Email:', c.email || '');
-    if (email !== null) c.email = email;
-    _editPartyTerms(c, 'client');
-    saveAllData();
-    showToast('Client updated', 'success');
-  } else if (type === 'Vendor') {
-    const v = state.vendors.find(x => x.id === id);
-    if (!v) return;
-    const name = prompt('Vendor Name:', v.name);
-    if (!name) return;
-    v.name = name;
-    const phone = prompt('Phone:', v.contact || '');
-    if (phone !== null) v.contact = phone;
-    const gst = prompt('GST Number:', v.gst || '');
-    if (gst !== null) v.gst = gst;
-    const addr = prompt('Address:', v.address || '');
-    if (addr !== null) v.address = addr;
-    _editPartyTerms(v, 'vendor');
-    saveAllData();
-    showToast('Vendor updated', 'success');
-  } else if (type === 'Labour') {
-    const l = state.labourMaster.find(x => x.id === id);
-    if (!l) return;
-    const name = prompt('Labour Name:', l.name);
-    if (!name) return;
-    l.name = name;
-    const phone = prompt('Phone:', l.phone || '');
-    if (phone !== null) l.phone = phone;
-    const rate = prompt('Daily Rate:', l.dailyRate || '');
-    if (rate !== null) l.dailyRate = parseFloat(rate) || 0;
-    saveAllData();
-    showToast('Labour updated', 'success');
+  const rec = _findParty(id, type);
+  if (!rec) return showToast(type + ' not found', 'error');
+  window._partyEditCtx = { id, type };
+  document.getElementById('partyEditOverlay')?.remove();
+
+  const accent = type === 'Client' ? '#2563eb' : type === 'Vendor' ? '#ea580c' : '#d97706';
+  const icon = type === 'Client' ? '🏢' : type === 'Vendor' ? '🚚' : '👷';
+
+  let fields;
+  if (type === 'Labour') {
+    fields = [
+      _peField('Labour Name *', 'pe_name', rec.name, { full: true, ph: 'Full name' }),
+      _peField('Phone', 'pe_phone', rec.phone, { ph: 'Mobile number' }),
+      _peField('Daily Rate', 'pe_rate', rec.dailyRate, { type: 'number', min: 0, ph: '0' }),
+      _peField('Skill / Trade', 'pe_skill', rec.skill, { full: true, ph: 'e.g. Mason, Carpenter, Helper' })
+    ].join('');
+  } else {
+    const isClient = type === 'Client';
+    fields = [
+      _peField((isClient ? 'Client' : 'Vendor') + ' / Company Name *', 'pe_name', rec.name, { full: true, ph: 'e.g. L&T Construction' }),
+      _peField('Contact Person', 'pe_contact', rec.contact, { ph: 'Contact person' }),
+      _peField('Phone', 'pe_phone', rec.phone, { ph: 'Mobile / Phone' }),
+      _peField('Email', 'pe_email', rec.email, { type: 'email', ph: 'name@email.com' }),
+      _peField('GSTIN', 'pe_gst', rec.gst, { mono: true, ph: '22AAAAA0000A1Z5' }),
+      _peField('PAN', 'pe_pan', rec.pan, { mono: true, ph: 'ABCDE1234F' }),
+      _peField('Payment Terms — Credit Days', 'pe_terms', rec.paymentTermsDays, { type: 'number', min: 0, ph: 'e.g. 30' }),
+      isClient ? _peField('Credit Limit', 'pe_credit', rec.creditLimit, { type: 'number', min: 0, ph: 'Max outstanding' }) : '',
+      _peField('Address', 'pe_addr', rec.address, { full: true, ph: 'Full address' })
+    ].join('');
   }
+
+  const html = `
+  <div id="partyEditOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:199999;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)window._closePartyEdit()">
+    <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35);">
+      <div style="padding:18px 22px;border-bottom:1px solid #e2e8f0;border-top:4px solid ${accent};border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+        <div class="flex items-center gap-2.5">
+          <span style="font-size:22px;">${icon}</span>
+          <div>
+            <h3 class="font-extrabold text-slate-800 text-lg leading-tight">Edit ${type}</h3>
+            <p class="text-xs text-slate-400 font-medium">${_peEsc(rec.name || '')}</p>
+          </div>
+        </div>
+        <button onclick="window._closePartyEdit()" class="text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
+      </div>
+      <div style="padding:20px 22px;">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">${fields}</div>
+      </div>
+      <div style="padding:14px 22px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="window._closePartyEdit()" class="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200">Cancel</button>
+        <button onclick="window._savePartyEdit()" class="px-6 py-2 rounded-lg font-bold text-sm text-white" style="background:${accent};">💾 Save ${type}</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(() => document.getElementById('pe_name')?.focus(), 30);
+}
+
+window._closePartyEdit = function () { document.getElementById('partyEditOverlay')?.remove(); window._partyEditCtx = null; };
+
+window._savePartyEdit = function () {
+  const ctx = window._partyEditCtx;
+  if (!ctx) return;
+  const { id, type } = ctx;
+  const rec = _findParty(id, type);
+  if (!rec) return window._closePartyEdit();
+  const V = fid => (document.getElementById(fid)?.value ?? '').trim();
+  const name = V('pe_name');
+  if (!name) return showToast('Name is required', 'error');
+  rec.name = name;
+
+  if (type === 'Labour') {
+    rec.phone = V('pe_phone');
+    rec.dailyRate = parseFloat(V('pe_rate')) || 0;
+    rec.skill = V('pe_skill');
+  } else {
+    rec.contact = V('pe_contact');
+    rec.phone = V('pe_phone');
+    rec.email = V('pe_email');
+    rec.gst = V('pe_gst');
+    rec.pan = V('pe_pan');
+    rec.address = V('pe_addr');
+    if (type === 'Client') rec.creditLimit = parseFloat(V('pe_credit')) || 0;
+    // Payment terms — record a history entry only when the value actually changes.
+    const raw = V('pe_terms');
+    const nd = raw === '' ? null : Math.max(0, parseInt(raw) || 0);
+    const prev = rec.paymentTermsDays != null ? rec.paymentTermsDays : null;
+    if (nd !== prev) {
+      if (!Array.isArray(rec.termsHistory)) rec.termsHistory = [];
+      rec.termsHistory.push({ date: new Date().toISOString(), from: prev, to: nd, reason: prev == null ? 'Terms set' : 'Terms changed' });
+      rec.paymentTermsDays = nd;
+    }
+  }
+
+  saveAllData();
+  window._closePartyEdit();
+  showToast(type + ' updated', 'success');
   renderPartiesList();
   renderPartyTransactions();
   _renderPartyInfoCard(id, type);
   populateDropdowns();
-}
+};
 
 export function _deleteParty(id, type) {
   let name = '';
