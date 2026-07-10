@@ -1317,6 +1317,7 @@ export function handleDescInput(input) {
       input.value = match.description;
       const tr = input.closest('tr');
       if (tr.querySelector('.code-input')) tr.querySelector('.code-input').value = match.code;
+      if (tr.querySelector('.est-code')) tr.querySelector('.est-code').value = match.code;   // link estimate line to BOQ code (for recipe explosion)
       if (tr.querySelector('.uom-span')) { tr.querySelector('.uom-span').textContent = match.uom; tr.querySelector('.uom-input').value = match.uom; }
       if (tr.querySelector('.est-unit')) { tr.querySelector('.est-unit').value = match.uom; tr.querySelector('.est-rate').value = match.rate; calcEstimateRow(tr.querySelector('.est-rate')); }
       calcQty(input);
@@ -1980,7 +1981,7 @@ export function convertSheetToEstimate() {
   for (let k in grouped) {
     const i = grouped[k];
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="p-2 border text-center text-xs font-bold text-slate-400">${iCount++}</td><td class="p-2 border"><input type="text" class="table-input desc-input" value="${i.desc}" oninput="handleDescInput(this)"><div class="autocomplete-list hide"></div></td><td class="p-2 border"><input type="number" class="table-input est-qty font-bold" value="${i.qty}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-unit" value="${i.unit || ''}"></td><td class="p-2 border"><input type="number" class="table-input est-rate" value="${i.rate}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-amount font-bold text-emerald-700" value="${(i.qty * i.rate).toFixed(2)}" readonly></td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcEstimateTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+    tr.innerHTML = `<td class="p-2 border text-center text-xs font-bold text-slate-400">${iCount++}</td><td class="p-2 border"><input type="text" class="table-input desc-input" value="${i.desc}" oninput="handleDescInput(this)"><input type="hidden" class="est-code" value="${i.code || ''}"><div class="autocomplete-list hide"></div></td><td class="p-2 border"><input type="number" class="table-input est-qty font-bold" value="${i.qty}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-unit" value="${i.unit || ''}"></td><td class="p-2 border"><input type="number" class="table-input est-rate" value="${i.rate}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-amount font-bold text-emerald-700" value="${(i.qty * i.rate).toFixed(2)}" readonly></td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcEstimateTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
     tbody.appendChild(tr);
   }
   calcEstimateTotal();
