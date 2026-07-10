@@ -8,19 +8,36 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { _openFullScreenForm, _populateVendorSelect, closeFullScreenForm } from './formHelpers.js';
 
-export function openPurchaseOrderForm() {
+export function openPurchaseOrderForm(editId) {
   _populateVendorSelect('poOrdFormVendor');
-  document.getElementById('poOrdFormDate').value = new Date().toISOString().split('T')[0];
-  const poNum = 'PO-' + ((state.purchaseOrders || []).length + 1).toString().padStart(3, '0');
-  document.getElementById('poOrdFormNo').value = poNum;
-  ['poOrdFormAddr', 'poOrdFormDelivery', 'poOrdFormTerms'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('poOrdFormTableBody').innerHTML = '';
-  addPOFormRow(3);
-  document.getElementById('poOrdFormSubtotal').textContent = getCurrencySymbol() + '0.00';
-  document.getElementById('poOrdFormTotal').textContent = getCurrencySymbol() + '0.00';
+  const po = editId ? (state.purchaseOrders || []).find(o => o.id === editId) : null;
+  state._editingPOId = po ? po.id : null;
+  const tbody = document.getElementById('poOrdFormTableBody');
+  tbody.innerHTML = '';
+  if (po) {
+    document.getElementById('poOrdFormVendor').value = po.vendorId || '';
+    document.getElementById('poOrdFormNo').value = po.poNo || '';
+    document.getElementById('poOrdFormDate').value = po.date || new Date().toISOString().split('T')[0];
+    const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setV('poOrdFormAddr', po.address); setV('poOrdFormDelivery', po.deliveryDate); setV('poOrdFormTerms', po.terms);
+    (po.items || []).forEach(it => {
+      addPOFormRow(1);
+      const tr = tbody.rows[tbody.rows.length - 1];
+      tr.querySelector('.pur-mat').value = it.rawMatId || '';
+      tr.querySelector('.pur-qty').value = it.qty ?? '';
+      tr.querySelector('.pur-rate').value = it.rate ?? '';
+    });
+    if (!(po.items || []).length) addPOFormRow(1);
+  } else {
+    document.getElementById('poOrdFormDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('poOrdFormNo').value = 'PO-' + ((state.purchaseOrders || []).length + 1).toString().padStart(3, '0');
+    ['poOrdFormAddr', 'poOrdFormDelivery', 'poOrdFormTerms'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    addPOFormRow(3);
+  }
+  calcPOFormTotal();
   _openFullScreenForm('purchaseOrderFormPanel');
 }
 
@@ -64,18 +81,57 @@ export function savePurchaseOrderForm() {
   });
   if (items.length === 0) return showToast('Add at least one item!', 'error');
   if (!state.purchaseOrders) state.purchaseOrders = [];
-  state.purchaseOrders.push({
-    id: 'po_' + Date.now(), vendorId, poNo, date, items, totalAmount: total,
+  const fields = {
+    vendorId, poNo, date, items, totalAmount: total,
     deliveryDate: document.getElementById('poOrdFormDelivery').value,
     address: document.getElementById('poOrdFormAddr').value,
-    terms: document.getElementById('poOrdFormTerms').value,
-    deliveryStatus: 'Pending', paymentStatus: 'Unpaid'
-  });
+    terms: document.getElementById('poOrdFormTerms').value
+  };
+  const editId = state._editingPOId;
+  const existing = editId ? state.purchaseOrders.find(o => o.id === editId) : null;
+  if (existing) {
+    Object.assign(existing, fields);   // keep id, statuses, _fromEstimate
+  } else {
+    state.purchaseOrders.push({ id: 'po_' + Date.now(), ...fields, deliveryStatus: 'Pending', paymentStatus: 'Unpaid' });
+  }
+  state._editingPOId = null;
   saveAllData();
   closeFullScreenForm('purchaseOrderFormPanel');
-  showToast('Purchase Order Created!', 'success');
+  showToast(existing ? 'Purchase Order Updated!' : 'Purchase Order Created!', 'success');
   renderPurchaseOrders();
 }
+
+export function exportPurchaseOrderPDF(id) {
+  const po = (state.purchaseOrders || []).find(o => o.id === id);
+  if (!po) return showToast('Purchase Order not found', 'error');
+  const v = (state.vendors || []).find(x => x.id === po.vendorId);
+  const sym = getPdfCurrency().trim();
+  const n2 = x => (Number(x) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new window.jspdf.jsPDF();
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(14); doc.setTextColor(0);
+  doc.text('PURCHASE ORDER', 105, y + 5, null, null, 'center');
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text(`PO No: ${po.poNo || ''}`, 14, y + 15); doc.text(`Date: ${po.date || ''}`, 14, y + 20);
+  doc.text(`Vendor: ${v?.name || '—'}`, 14, y + 28);
+  if (po.deliveryDate) doc.text(`Delivery: ${po.deliveryDate}`, 140, y + 15);
+  if (po.address) doc.text(`Deliver to: ${po.address}`, 14, y + 33, { maxWidth: 180 });
+  const rows = (po.items || []).map((it, i) => {
+    const rm = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
+    return [i + 1, rm?.name || it.rawMatId, `${it.qty || 0} ${rm?.unit || ''}`.trim(), n2(it.rate), n2(it.amount ?? (it.qty || 0) * (it.rate || 0))];
+  });
+  doc.autoTable({
+    startY: y + 40, head: [['#', 'Material', 'Qty', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid',
+    headStyles: { fillColor: [37, 99, 235], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 82 }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 28 }, 4: { halign: 'right', cellWidth: 30 } }
+  });
+  let tY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+  doc.text(`Total: ${sym} ${n2(po.totalAmount)}`, 14, tY);
+  if (po.terms) { tY += 12; doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.text('Terms:', 14, tY); doc.setFont('helvetica', 'normal'); doc.text(po.terms, 14, tY + 6, { maxWidth: 180 }); }
+  mobileSavePDF(doc, `${po.poNo || 'PurchaseOrder'}.pdf`);
+}
+window.exportPurchaseOrderPDF = exportPurchaseOrderPDF;
 
 export function renderPurchaseOrders() {
   if (!state.purchaseOrders) state.purchaseOrders = [];
@@ -109,7 +165,11 @@ export function renderPurchaseOrders() {
       <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(o.totalAmount || 0).toLocaleString('en-IN')}</td>
       <td class="px-4 py-3 text-center">${dBadge}</td>
       <td class="px-4 py-3 text-center">${pBadge}</td>
-      <td class="px-4 py-3 text-center"><button onclick="deletePurchaseOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td>
+      <td class="px-4 py-3 text-center whitespace-nowrap">
+        <button onclick="openPurchaseOrderForm('${o.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold mr-1">Edit</button>
+        <button onclick="exportPurchaseOrderPDF('${o.id}')" class="text-slate-700 bg-slate-100 hover:bg-slate-200 text-[10px] px-2 py-1 rounded font-bold mr-1">PDF</button>
+        <button onclick="deletePurchaseOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button>
+      </td>
     </tr>`;
   });
 }
