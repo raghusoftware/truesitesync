@@ -18,6 +18,10 @@ function _estFullscreen(on) {
   const el = document.getElementById('estimateEditor');
   if (!el) return;
   if (on) {
+    // Re-parent to <body>: the .view-section ancestor keeps a residual transform
+    // (fadeIn animation, fill-mode both), which would otherwise make position:fixed
+    // resolve relative to that box (offset by the sidebar) and trap the z-index.
+    if (el.parentElement !== document.body) document.body.appendChild(el);
     Object.assign(el.style, {
       position: 'fixed', top: '0', left: '0', right: '0', bottom: '0', inset: '0',
       zIndex: '99999', margin: '0', borderRadius: '0', maxWidth: 'none',
