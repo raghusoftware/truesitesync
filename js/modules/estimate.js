@@ -11,6 +11,31 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 
+/** Open/close the estimate editor as a full-screen overlay (matches the other
+ *  full-screen forms). Escape closes it. */
+let _estEscH = null;
+function _estFullscreen(on) {
+  const el = document.getElementById('estimateEditor');
+  if (!el) return;
+  if (on) {
+    Object.assign(el.style, {
+      position: 'fixed', top: '0', left: '0', right: '0', bottom: '0', inset: '0',
+      zIndex: '99999', margin: '0', borderRadius: '0', maxWidth: 'none',
+      overflowY: 'auto', background: '#f0f2f8'
+    });
+    document.body.style.overflow = 'hidden';
+    if (!_estEscH) {
+      _estEscH = (e) => { if (e.key === 'Escape') closeEstimateEditor(); };
+      document.addEventListener('keydown', _estEscH);
+    }
+    el.scrollTop = 0;
+  } else {
+    ['position', 'top', 'left', 'right', 'bottom', 'inset', 'zIndex', 'margin', 'borderRadius', 'maxWidth', 'overflowY', 'background'].forEach(p => { el.style[p] = ''; });
+    document.body.style.overflow = '';
+    if (_estEscH) { document.removeEventListener('keydown', _estEscH); _estEscH = null; }
+  }
+}
+
 export function createNewEstimate() {
   state.currentEstimateId = null;
   document.getElementById('estClient').value = '';
@@ -22,6 +47,7 @@ export function createNewEstimate() {
   const t = document.getElementById('estEditorTitle'); if (t) t.textContent = 'Draft Estimate';
   addEstimateRow();
   document.getElementById('estimateEditor').classList.remove('hide');
+  _estFullscreen(true);
 }
 
 /** Reopen a saved estimate for editing: load it into the editor and mark it current
@@ -47,12 +73,12 @@ export function openEstimate(id) {
   if (!(e.items || []).length) addEstimateRow();
   const t = document.getElementById('estEditorTitle'); if (t) t.textContent = 'Edit Estimate — ' + (e.estNum || '');
   document.getElementById('estimateEditor').classList.remove('hide');
+  _estFullscreen(true);
   if (window.calcEstimateTotal) window.calcEstimateTotal();
-  document.getElementById('estimateEditor').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 window.openEstimate = openEstimate;
 
-export function closeEstimateEditor() { document.getElementById('estimateEditor').classList.add('hide'); }
+export function closeEstimateEditor() { _estFullscreen(false); document.getElementById('estimateEditor').classList.add('hide'); }
 
 export function addEstimateRow() {
   const tbody = document.getElementById('estTableBody');
