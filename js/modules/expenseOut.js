@@ -215,7 +215,7 @@ export function renderExpenseTransactions() {
   if (search) items = items.filter(e => (e.expNo || '').toLowerCase().includes(search) || (e.party || '').toLowerCase().includes(search));
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-12 text-center text-slate-400 font-medium">No transactions found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-12 text-center text-slate-400 font-medium">No transactions found.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
@@ -232,9 +232,20 @@ export function renderExpenseTransactions() {
       <td class="px-4 py-3 text-right ${e.balance > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${(e.balance || 0).toLocaleString('en-IN')}</td>
       <td class="px-4 py-3 text-slate-500">${e.dueDate || '-'}</td>
       <td class="px-4 py-3 text-center">${statusBadge}</td>
+      <td class="px-4 py-3 text-center"><button onclick="deleteExpense('${e.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td>
     </tr>`;
   });
 }
+
+export function deleteExpense(id) {
+  if (!confirm('Delete this expense transaction?')) return;
+  window.recycleDelete && window.recycleDelete('expenses', id, 'Expense');
+  saveAllData();
+  renderExpenseTransactions();
+  renderExpenseCategories();   // refresh category totals
+  showToast('Expense Deleted', 'error');
+}
+window.deleteExpense = deleteExpense;
 
 // ==========================================
 // PURCHASE ORDER MODULE
