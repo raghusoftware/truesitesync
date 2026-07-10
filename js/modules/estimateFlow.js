@@ -44,12 +44,42 @@ function _lastVendor(rmId) {
   return best ? best.vendorId : '';
 }
 
+const _norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Build a cross-client recipe index so a recipe saved under ANY client (or matched
+ *  by item description, when the estimate line has no code) can still be used.
+ *  Returns { byCode, byDesc } → recipe objects with a non-empty ingredient list. */
+function _recipeIndex() {
+  const byCode = {}, byDesc = {};
+  Object.entries(state.recipes || {}).forEach(([cid, recs]) => {
+    Object.entries(recs || {}).forEach(([code, rec]) => {
+      if (!rec || !(rec.ingredients || []).length) return;
+      if (!byCode[code]) byCode[code] = rec;
+      const desc = state.items?.[cid]?.[code]?.description;   // recipe's item name lives in the item catalog
+      if (desc) { const k = _norm(desc); if (!byDesc[k]) byDesc[k] = rec; }
+    });
+  });
+  return { byCode, byDesc };
+}
+
+/** Resolve a recipe for one estimate line: exact client+code → by code (any client)
+ *  → by description (any client). Lets recipes added later / under other clients apply. */
+function _resolveRecipe(est, it, idx) {
+  let r = it.code ? state.recipes?.[est.clientId]?.[it.code] : null;
+  if (r && (r.ingredients || []).length) return r;
+  if (it.code && idx.byCode[it.code] && idx.byCode[it.code].ingredients?.length) return idx.byCode[it.code];
+  const byDesc = it.desc ? idx.byDesc[_norm(it.desc)] : null;
+  if (byDesc && (byDesc.ingredients || []).length) return byDesc;
+  return null;
+}
+
 /** Explode an estimate into aggregated raw-material requirements. */
 function _explode(est) {
   const agg = {};             // rawMatId -> total qty
   const noRecipe = [];        // line descriptions with no usable recipe
+  const idx = _recipeIndex();
   (est.items || []).forEach(it => {
-    const recipe = it.code ? state.recipes?.[est.clientId]?.[it.code] : null;
+    const recipe = _resolveRecipe(est, it, idx);
     if (!recipe || !(recipe.ingredients || []).length) { noRecipe.push(it.desc || it.code || '—'); return; }
     recipe.ingredients.forEach(ing => {
       const need = (it.qty || 0) * (ing.qty || 0) * (1 + (ing.wastage || 0) / 100);
