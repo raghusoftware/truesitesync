@@ -180,12 +180,32 @@ export function deletePaymentIn(id) {
 // ══════════════════════════════════
 // SALE ORDER
 // ══════════════════════════════════
-export function openSaleOrderForm() {
+export function openSaleOrderForm(editId) {
   _populateClientSelect('soFormClient');
-  document.getElementById('soFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('soFormNo').value = 'SO-' + (Date.now() % 100000);
-  document.getElementById('soFormTableBody').innerHTML = '';
-  addSOFormRow(3); calcSOFormTotal();
+  const so = editId ? (state.saleOrders || []).find(o => o.id === editId) : null;
+  state._editingSOId = so ? so.id : null;
+  const tbody = document.getElementById('soFormTableBody');
+  tbody.innerHTML = '';
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+  if (so) {
+    setV('soFormClient', so.clientId); setV('soFormNo', so.soNo); setV('soFormDate', so.date);
+    setV('soFormDelivery', so.deliveryDate); setV('soFormTerms', so.terms);
+    (so.items || []).forEach(it => {
+      addSOFormRow(1);
+      const tr = tbody.rows[tbody.rows.length - 1];
+      tr.querySelector('input[type="text"]').value = it.desc || '';
+      const nums = tr.querySelectorAll('input[type="number"]');
+      if (nums[0]) nums[0].value = it.qty ?? '';
+      if (nums[1]) nums[1].value = it.rate ?? '';
+    });
+    if (!(so.items || []).length) addSOFormRow(1);
+  } else {
+    setV('soFormDate', new Date().toISOString().split('T')[0]);
+    setV('soFormNo', 'SO-' + (Date.now() % 100000));
+    setV('soFormDelivery', ''); setV('soFormTerms', '');
+    addSOFormRow(3);
+  }
+  calcSOFormTotal();
   _openFullScreenForm('saleOrderFormPanel');
 }
 export function addSOFormRow(count = 1) { for (let i = 0; i < count; i++) _addGenericFormRow('soFormTableBody', 'calcSOFormTotal'); }
@@ -203,17 +223,23 @@ export function saveSaleOrderForm() {
     if (desc && qty > 0) { items.push({ desc, qty, rate, amount: qty * rate }); sub += qty * rate; }
   });
   if (!items.length) { showToast('Add at least one item', 'error'); return; }
-  const rec = {
-    id: 'so_' + Date.now(), soNo: document.getElementById('soFormNo').value,
+  const fields = {
+    soNo: document.getElementById('soFormNo').value,
     date: document.getElementById('soFormDate').value, clientId, items, total: sub,
     deliveryDate: document.getElementById('soFormDelivery')?.value || '',
-    terms: document.getElementById('soFormTerms')?.value || '',
-    deliveryStatus: 'Pending', paymentStatus: 'Pending'
+    terms: document.getElementById('soFormTerms')?.value || ''
   };
   if (!state.saleOrders) state.saleOrders = [];
-  state.saleOrders.push(rec);
+  const editId = state._editingSOId;
+  const existing = editId ? state.saleOrders.find(o => o.id === editId) : null;
+  if (existing) {
+    Object.assign(existing, fields);   // keep id, statuses, _fromEstimate
+  } else {
+    state.saleOrders.push({ id: 'so_' + Date.now(), ...fields, deliveryStatus: 'Pending', paymentStatus: 'Pending' });
+  }
+  state._editingSOId = null;
   saveAllData(); closeFullScreenForm('saleOrderFormPanel');
-  showToast('Sale Order saved!'); renderSaleOrders();
+  showToast(existing ? 'Sale Order updated!' : 'Sale Order saved!'); renderSaleOrders();
 }
 export function renderSaleOrders() {
   const cfEl = document.getElementById('soFilterClient');
@@ -237,7 +263,7 @@ export function renderSaleOrders() {
     if (o.deliveryStatus === 'Completed') kComp++; else if (o.deliveryStatus === 'Invoiced') kInv++; else kPend++;
     const dBadge = o.deliveryStatus === 'Completed' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Completed</span>' : o.deliveryStatus === 'Invoiced' ? '<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">Invoiced</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
     const pBadge = o.paymentStatus === 'Paid' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Paid</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700">${o.soNo}</td><td class="px-4 py-3 text-slate-500">${o.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${o.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${dBadge}</td><td class="px-4 py-3 text-center">${pBadge}</td><td class="px-4 py-3 text-center"><button onclick="deleteSaleOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700">${o.soNo}</td><td class="px-4 py-3 text-slate-500">${o.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${o.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${dBadge}</td><td class="px-4 py-3 text-center">${pBadge}</td><td class="px-4 py-3 text-center whitespace-nowrap"><button onclick="openSaleOrderForm('${o.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold mr-1">Edit</button><button onclick="deleteSaleOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
   });
   if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No sale orders found.</td></tr>';
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
