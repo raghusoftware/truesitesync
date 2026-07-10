@@ -237,6 +237,42 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
 .p-card:hover{box-shadow:0 18px 40px -20px rgba(13,40,28,.18);border-color:rgba(16,185,129,.28)}
 .p-card.pop{background:linear-gradient(180deg,#f1fbf5,#ffffff);border-color:rgba(16,185,129,.45)}
 .section-label{color:var(--emerald-bright)}
+
+/* ================= Scroll-story ================= */
+.story{position:relative;z-index:2}
+.story__bg{position:fixed;inset:0;z-index:0;opacity:0;transition:opacity .7s ease;pointer-events:none;background:radial-gradient(120% 90% at 50% 30%,#0a0a16,#0c1526 70%)}
+.story__bg.on{opacity:1}
+.story__glow{position:absolute;width:72vw;height:72vw;max-width:920px;max-height:920px;left:50%;top:38%;transform:translate(-50%,-50%);border-radius:50%;filter:blur(30px);pointer-events:none;transition:background .25s linear,top .25s linear;background:radial-gradient(circle,rgba(255,150,60,.16),transparent 68%)}
+.story__dust{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.story__dust i{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.6);animation:dustFloat linear infinite}
+@keyframes dustFloat{0%{transform:translateY(30px);opacity:0}12%{opacity:.55}88%{opacity:.55}100%{transform:translateY(-140px);opacity:0}}
+.chapter{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;justify-content:center;max-width:860px;margin:0 auto;padding:110px 28px}
+.chapter__num{font-size:12px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:#ff9d55;margin-bottom:20px}
+.chapter h2{font-size:clamp(30px,5.4vw,62px);font-weight:900;line-height:1.08;letter-spacing:-.02em;color:#fff;margin-bottom:22px}
+.chapter h2 em{font-style:normal;background:linear-gradient(100deg,#ffb057,#ff7a3c 45%,#b98bff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.chapter p{font-size:clamp(16px,2vw,21px);line-height:1.62;color:#c6ccd8;max-width:640px}
+.chapter--light .chapter__num{color:#34d399}
+.chapter--light h2 em{background:linear-gradient(100deg,#6ee7b7,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.story__scrollhint{margin-top:44px;color:rgba(255,255,255,.6);font-size:12px;letter-spacing:.22em;text-transform:uppercase;animation:hintBob 1.9s ease-in-out infinite}
+@keyframes hintBob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+.story__spine{position:fixed;left:26px;top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;gap:14px;opacity:0;transition:opacity .5s}
+.story__spine.on{opacity:1}
+.story__spine b{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.22);transition:all .35s}
+.story__spine b.active{background:#ff9d55;box-shadow:0 0 12px #ff9d55;transform:scale(1.35)}
+@media (max-width:760px){.story__spine{display:none}}
+/* reveal — only hidden once JS confirms it can reveal (guards against JS failure) */
+.js-reveal .r{opacity:0;transform:translateY(46px);filter:blur(10px);transition:opacity 1s cubic-bezier(.2,.7,.2,1),transform 1s cubic-bezier(.2,.7,.2,1),filter 1s}
+.js-reveal .chapter.in .r{opacity:1;transform:none;filter:none}
+.js-reveal .chapter.in .r:nth-child(2){transition-delay:.12s}
+.js-reveal .chapter.in .r:nth-child(3){transition-delay:.26s}
+.js-reveal .chapter.in .r:nth-child(4){transition-delay:.4s}
+.js-reveal .sr{opacity:0;transform:translateY(38px);transition:opacity .9s ease,transform .9s cubic-bezier(.2,.7,.2,1)}
+.js-reveal .sr.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .js-reveal .r,.js-reveal .sr{opacity:1;transform:none;filter:none;transition:none}
+  .story__dust i,.story__scrollhint{animation:none}
+  .story__bg{transition:none}
+}
 </style>
 </head>
 <body>
@@ -296,6 +332,51 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
         </div>
       </div>
       <div class="hero-glow"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCROLL STORY ============ -->
+<section class="story" id="story">
+  <div class="story__bg" id="storyBg"><div class="story__glow" id="storyGlow"></div><div class="story__dust" id="storyDust"></div></div>
+
+  <div class="chapter" data-ch="0">
+    <div class="chapter__num r">Chapter 01 — The Beginning</div>
+    <h2 class="r">It started with <em>one small site.</em></h2>
+    <p class="r">One project. A notebook. A promise to finish on time. Every builder you look up to began exactly here — small, hungry, doing it all themselves.</p>
+    <div class="story__scrollhint r">Scroll to go deeper ↓</div>
+  </div>
+
+  <div class="chapter" data-ch="1">
+    <div class="chapter__num r">Chapter 02 — The Chaos</div>
+    <h2 class="r">But the business lived <em>in your head.</em></h2>
+    <p class="r">Measurements scribbled in a book. Bills raised from memory. Cement that quietly walked off site. Every new project felt like more chaos — not more profit.</p>
+  </div>
+
+  <div class="chapter" data-ch="2">
+    <div class="chapter__num r">Chapter 03 — The Leak</div>
+    <h2 class="r">Every missed measurement was <em>money walking off site.</em></h2>
+    <p class="r">A forgotten RA bill. An unbilled variation. Material no one logged. Small leaks in the dark — until they quietly sank the profit of an entire project.</p>
+  </div>
+
+  <div class="chapter" data-ch="3">
+    <div class="chapter__num r">Chapter 04 — The Turning Point</div>
+    <h2 class="r">So you put the whole site <em>in one place.</em></h2>
+    <p class="r">Measurement, billing, inventory, labour and cash — one login. The notebook became a system that never forgets, and never loses a number again.</p>
+  </div>
+
+  <div class="chapter chapter--light" data-ch="4">
+    <div class="chapter__num r">Chapter 05 — The System</div>
+    <h2 class="r">Measure once. Bill everything. <em>Miss nothing.</em></h2>
+    <p class="r">Every inch measured becomes an inch billed. Every bag of cement is tracked. Every labour day is counted. One by one, the leaks close.</p>
+  </div>
+
+  <div class="chapter chapter--light" data-ch="5">
+    <div class="chapter__num r">Chapter 06 — The Growth</div>
+    <h2 class="r">Now you see the profit <em>you were always earning.</em></h2>
+    <p class="r">Real numbers on every project. The confidence to take the next site — and the one after that. This is how a small business quietly becomes a big one.</p>
+    <div class="hero-actions r" style="margin-top:16px">
+      <a href="app.html" class="btn-primary"><i class="fa-solid fa-arrow-right-to-bracket"></i> Start Your Story — Free 7-Day Trial</a>
     </div>
   </div>
 </section>
@@ -686,6 +767,95 @@ async function submitDownloadGate(e) {
     btn.disabled = false;
   }, 2500);
 }
+</script>
+
+<!-- Scroll-story engine: depth background, glow, spine, reveals -->
+<script>
+(function () {
+  var story = document.getElementById('story');
+  if (!story) return;
+  document.documentElement.classList.add('js-reveal'); // now safe to hide-then-reveal
+  var hasIO = 'IntersectionObserver' in window;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var bg = document.getElementById('storyBg'), glow = document.getElementById('storyGlow'), dust = document.getElementById('storyDust');
+  var chapters = [].slice.call(story.querySelectorAll('.chapter'));
+
+  // vertical progress spine (book spine feel)
+  var spine = document.createElement('div'); spine.className = 'story__spine';
+  chapters.forEach(function () { spine.appendChild(document.createElement('b')); });
+  document.body.appendChild(spine);
+  var dots = [].slice.call(spine.children);
+
+  // ambient dust
+  if (!reduce) {
+    for (var i = 0; i < 40; i++) {
+      var d = document.createElement('i');
+      d.style.left = (Math.random() * 100) + '%';
+      d.style.top = (Math.random() * 100) + '%';
+      var dur = 6 + Math.random() * 9;
+      d.style.animationDuration = dur + 's';
+      d.style.animationDelay = (-Math.random() * dur) + 's';
+      d.style.opacity = 0.3 + Math.random() * 0.5;
+      dust.appendChild(d);
+    }
+  }
+
+  // depth colour stops (dawn → deep dark → emerald dawn) + glow hue
+  var stops = [[0,[12,21,38]],[0.28,[10,10,22]],[0.5,[5,4,10]],[0.72,[11,10,28]],[1,[10,31,24]]];
+  function L(a,b,t){ return Math.round(a+(b-a)*t); }
+  function colorAt(p){
+    for (var i=1;i<stops.length;i++){ if (p<=stops[i][0]){ var a=stops[i-1],b=stops[i],t=(p-a[0])/(b[0]-a[0]||1);
+      return [L(a[1][0],b[1][0],t),L(a[1][1],b[1][1],t),L(a[1][2],b[1][2],t)]; } }
+    return stops[stops.length-1][1];
+  }
+  function hueAt(p){ return p<0.5 ? 30+(265-30)*(p/0.5) : 265+(155-265)*((p-0.5)/0.5); } // amber→violet→emerald
+
+  var raf = 0;
+  function render(){
+    raf = 0;
+    var r = story.getBoundingClientRect(), vh = window.innerHeight;
+    var inView = r.top < vh && r.bottom > 0;
+    bg.classList.toggle('on', inView);
+    spine.classList.toggle('on', inView);
+    if (!inView) return;
+    var total = r.height - vh;
+    var p = total > 0 ? Math.min(1, Math.max(0, (-r.top) / total)) : 0;
+    var c = colorAt(p), c2 = colorAt(Math.min(1, p + 0.15));
+    bg.style.background = 'radial-gradient(120% 90% at 50% 28%, rgb('+c2[0]+','+c2[1]+','+c2[2]+') 0%, rgb('+c[0]+','+c[1]+','+c[2]+') 72%)';
+    var h = hueAt(p);
+    glow.style.background = 'radial-gradient(circle, hsla('+h.toFixed(0)+',92%,60%,'+(0.14 + 0.12*Math.sin(p*3.14159)).toFixed(3)+'), transparent 68%)';
+    glow.style.top = (30 + p*32) + '%';
+  }
+  function onScroll(){ if (!raf) raf = requestAnimationFrame(render); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  render();
+
+  // reveal chapters + light the active spine dot
+  if (hasIO) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('in');
+        var idx = chapters.indexOf(e.target);
+        dots.forEach(function (dt, i) { dt.classList.toggle('active', i === idx); });
+      });
+    }, { threshold: 0.45 });
+    chapters.forEach(function (ch) { io.observe(ch); });
+
+    // gentle scroll-reveal for the rest of the page
+    var sel = ['.stats-inner > div', '.section-label', '.section-title', '.features-inner > p',
+               '.feature-card', '.f-card', '.p-card', '.faq-item', '.cta-box', '.step'];
+    var targets = [];
+    sel.forEach(function (s) { targets = targets.concat([].slice.call(document.querySelectorAll(s))); });
+    var io2 = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io2.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    targets.forEach(function (el) { el.classList.add('sr'); io2.observe(el); });
+  } else {
+    chapters.forEach(function (ch) { ch.classList.add('in'); });
+  }
+})();
 </script>
 </body>
 </html>
