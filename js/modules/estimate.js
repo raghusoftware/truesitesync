@@ -108,7 +108,7 @@ export function saveEstimate() {
   // Preserve downstream links (Sale Order / Project / already-ordered materials) across edits.
   const prev = state.currentEstimateId ? state.estimates.find(e => e.id === state.currentEstimateId) : null;
   const data = { id: state.currentEstimateId || 'est_' + Date.now(), estNum: document.getElementById('estNum').value, clientId: cId, date: document.getElementById('estDate').value, items: estItems, total, terms: document.getElementById('estTerms').value, notes: document.getElementById('estNotes').value,
-    saleOrderId: prev?.saleOrderId || null, projectId: prev?.projectId || null, orderedMaterials: prev?.orderedMaterials || [] };
+    saleOrderId: prev?.saleOrderId || null, projectId: prev?.projectId || null, orderedMaterials: prev?.orderedMaterials || [], recipeMap: prev?.recipeMap || {} };
   if (state.currentEstimateId) state.estimates[state.estimates.findIndex(e => e.id === state.currentEstimateId)] = data;
   else state.estimates.push(data);
   saveAllData(); showToast('Estimate Saved'); closeEstimateEditor(); renderEstimatesList();

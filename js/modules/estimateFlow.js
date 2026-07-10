@@ -46,25 +46,66 @@ function _lastVendor(rmId) {
 
 const _norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
 
-/** Build a cross-client recipe index so a recipe saved under ANY client (or matched
- *  by item description, when the estimate line has no code) can still be used.
- *  Returns { byCode, byDesc } → recipe objects with a non-empty ingredient list. */
+/** Human label for a recipe owner key. Recipes are keyed by a client id, OR — when
+ *  added via a project's recipe editor — by the project id (see _recipeKey in
+ *  recipe.js). Resolve either to a readable name. */
+function _ownerName(cid) {
+  const c = (state.clients || []).find(x => x.id === cid);
+  if (c) return c.name || 'Client';
+  const p = (state.projects || []).find(x => x.id === cid);
+  if (p) return (p.name || 'Project') + ' (project)';
+  return cid;
+}
+
+/** Description for a (recipeOwner, code) pair. Checks the client item master AND
+ *  project BOQ items — the latter is where project-added recipe items live. */
+function _recipeDesc(cid, code) {
+  const fromItems = state.items?.[cid]?.[code]?.description;
+  if (fromItems) return fromItems;
+  const proj = (state.projects || []).find(p => p.id === cid);
+  const inProj = proj && (proj.boqs || []).flatMap(g => g.items || []).find(it => (it.code || it.itemNo) === code);
+  if (inProj) return inProj.description || inProj.name || '';
+  // last resort: any project's BOQ item with that code
+  for (const p of (state.projects || [])) {
+    const hit = (p.boqs || []).flatMap(g => g.items || []).find(it => (it.code || it.itemNo) === code);
+    if (hit) return hit.description || hit.name || '';
+  }
+  return '';
+}
+
+/** Build a cross-client recipe index so a recipe saved under ANY client/project (or
+ *  matched by item description, when the estimate line has no code) can still be used. */
 function _recipeIndex() {
   const byCode = {}, byDesc = {};
   Object.entries(state.recipes || {}).forEach(([cid, recs]) => {
     Object.entries(recs || {}).forEach(([code, rec]) => {
       if (!rec || !(rec.ingredients || []).length) return;
       if (!byCode[code]) byCode[code] = rec;
-      const desc = state.items?.[cid]?.[code]?.description;   // recipe's item name lives in the item catalog
+      const desc = _recipeDesc(cid, code);           // item name from item-master OR project BOQ
       if (desc) { const k = _norm(desc); if (!byDesc[k]) byDesc[k] = rec; }
     });
   });
   return { byCode, byDesc };
 }
 
-/** Resolve a recipe for one estimate line: exact client+code → by code (any client)
- *  → by description (any client). Lets recipes added later / under other clients apply. */
-function _resolveRecipe(est, it, idx) {
+/** Flat list of every saved recipe (with ingredients) for the manual picker. */
+function _allRecipes() {
+  const out = [];
+  Object.entries(state.recipes || {}).forEach(([cid, recs]) => {
+    Object.entries(recs || {}).forEach(([code, rec]) => {
+      if (!rec || !(rec.ingredients || []).length) return;
+      const d = _recipeDesc(cid, code);
+      out.push({ value: cid + '||' + code, label: _ownerName(cid) + ' · ' + (d || code) + ' (' + rec.ingredients.length + ' mat)' });
+    });
+  });
+  return out.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Resolve a recipe for one estimate line. Priority: manual per-line override
+ *  (est.recipeMap[i]) → exact client+code → code (any owner) → description (any owner). */
+function _resolveRecipe(est, it, i, idx) {
+  const sel = (est.recipeMap || {})[i];
+  if (sel) { const [cid, code] = sel.split('||'); const r = state.recipes?.[cid]?.[code]; if (r && (r.ingredients || []).length) return r; }
   let r = it.code ? state.recipes?.[est.clientId]?.[it.code] : null;
   if (r && (r.ingredients || []).length) return r;
   if (it.code && idx.byCode[it.code] && idx.byCode[it.code].ingredients?.length) return idx.byCode[it.code];
@@ -78,8 +119,8 @@ function _explode(est) {
   const agg = {};             // rawMatId -> total qty
   const noRecipe = [];        // line descriptions with no usable recipe
   const idx = _recipeIndex();
-  (est.items || []).forEach(it => {
-    const recipe = _resolveRecipe(est, it, idx);
+  (est.items || []).forEach((it, i) => {
+    const recipe = _resolveRecipe(est, it, i, idx);
     if (!recipe || !(recipe.ingredients || []).length) { noRecipe.push(it.desc || it.code || '—'); return; }
     recipe.ingredients.forEach(ing => {
       const need = (it.qty || 0) * (ing.qty || 0) * (1 + (ing.wastage || 0) / 100);
@@ -153,6 +194,25 @@ export function openEstimateMaterials(estId) {
   const client = (state.clients || []).find(c => c.id === est.clientId);
   document.getElementById('estMatOverlay')?.remove();
 
+  // Per-line recipe picker: shows how each estimate line resolved and lets the user
+  // pick ANY saved recipe (from any client/project) as an explicit override.
+  const idx = _recipeIndex();
+  const opts = _allRecipes();
+  const lineMapHtml = `
+    <div class="mb-3 border rounded-xl overflow-hidden">
+      <div class="bg-slate-50 px-3 py-2 text-[10px] uppercase font-bold text-slate-500">Recipe per estimate line — pick one to override the auto-match</div>
+      <table class="w-full text-xs"><tbody>
+        ${(est.items || []).map((it, i) => {
+          const sel = (est.recipeMap || {})[i] || '';
+          const autoR = _resolveRecipe({ clientId: est.clientId, recipeMap: {} }, it, i, idx);
+          const status = sel ? '<span class="text-blue-600 font-bold">manual</span>' : (autoR ? '<span class="text-emerald-600 font-bold">auto</span>' : '<span class="text-orange-500 font-bold">none</span>');
+          const optHtml = ['<option value="">— Auto ' + (autoR ? '✓' : '(no match)') + ' —</option>']
+            .concat(opts.map(o => `<option value="${_esc(o.value)}" ${o.value === sel ? 'selected' : ''}>${_esc(o.label)}</option>`)).join('');
+          return `<tr class="border-t"><td class="px-3 py-1.5 font-semibold text-slate-700">${_esc(it.desc || it.code || '—')}</td><td class="px-2 py-1.5 w-14 text-center">${status}</td><td class="px-3 py-1.5"><select onchange="window._estSetRecipe('${est.id}',${i},this.value)" class="w-full p-1 border rounded text-xs bg-white">${optHtml}</select></td></tr>`;
+        }).join('')}
+      </tbody></table>
+    </div>`;
+
   const bodyRows = rows.length ? rows.map(r => `
     <tr class="border-b ${r.ordered ? 'bg-slate-50 text-slate-400' : 'hover:bg-purple-50'}">
       <td class="px-2 py-2 text-center"><input type="checkbox" class="estmat-chk w-4 h-4" value="${_esc(r.rawMatId)}" ${r.ordered ? 'disabled' : 'checked'}></td>
@@ -179,6 +239,7 @@ export function openEstimateMaterials(estId) {
         <button onclick="document.getElementById('estMatOverlay').remove()" class="text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
       </div>
       <div style="padding:16px 20px;">
+        ${lineMapHtml}
         ${warn}
         <div class="flex items-center justify-between mb-2">
           <label class="text-xs font-bold text-slate-600 flex items-center gap-2"><input type="checkbox" id="estMatAll" class="w-4 h-4" checked onchange="window._estMatToggleAll(this.checked)"> Select all pending</label>
@@ -206,6 +267,16 @@ window.openEstimateMaterials = openEstimateMaterials;
 
 window._estMatToggleAll = function (on) {
   document.querySelectorAll('.estmat-chk:not(:disabled)').forEach(el => { el.checked = on; });
+};
+
+/** Manual per-line recipe override: "cid||code" to force, "" to revert to auto. */
+window._estSetRecipe = function (estId, i, value) {
+  const est = _est(estId);
+  if (!est) return;
+  if (!est.recipeMap) est.recipeMap = {};
+  if (value) est.recipeMap[i] = value; else delete est.recipeMap[i];
+  saveAllData();
+  openEstimateMaterials(estId);   // re-explode + refresh with the new mapping
 };
 
 export function createPOFromEstimate(estId) {
