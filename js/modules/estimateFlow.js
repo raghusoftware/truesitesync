@@ -90,7 +90,9 @@ export function estimateToSaleOrder(estId) {
   state.saleOrders.push(so);
 
   // Project with a BOQ group built from the estimate items.
-  const boqItems = items.map((i, idx) => ({ code: i.code || ('IT-' + (idx + 1)), desc: i.desc, uom: i.unit || '', qty: i.qty, rate: i.rate, amount: i.amount, boqIndex: '', ref: '' }));
+  // NOTE: BOQ rows read the `description` field (not `desc`) — see _createBOQRowHTML /
+  // _getBoqGroupItems in ui.js. Set both so every reader picks up the text.
+  const boqItems = items.map((i, idx) => ({ code: i.code || ('IT-' + (idx + 1)), description: i.desc || '', desc: i.desc || '', uom: i.unit || '', qty: i.qty, rate: i.rate, amount: i.amount, gst: 18, boqIndex: '', ref: '' }));
   const group = { id: 'boq_' + Date.now(), name: est.estNum || 'Estimate BOQ', type: 'BOQ', items: boqItems, poValue: total };
   const proj = {
     id: 'proj_' + Date.now(), name: (est.estNum ? est.estNum + ' — ' : '') + (client?.name || 'Project'),

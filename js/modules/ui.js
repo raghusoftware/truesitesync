@@ -381,7 +381,7 @@ function _createBOQRowHTML(sr, data = {}) {
   return `<tr data-boq-row="${id}" style="${sr % 2 === 0 ? 'background:#fafbfc;' : ''}">
     <td class="px-3 py-1.5 text-center text-xs text-slate-400 font-bold boq-sr">${sr}</td>
     <td class="px-2 py-1"><input type="text" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 font-mono boq-code" value="${data.code || ''}" placeholder="EXC-01"></td>
-    <td class="px-2 py-1"><input type="text" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-desc" value="${data.description || ''}" placeholder="Item description"></td>
+    <td class="px-2 py-1"><input type="text" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-desc" value="${data.description || data.desc || ''}" placeholder="Item description"></td>
     <td class="px-2 py-1"><select class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-uom">
       <option value="">--</option><option ${data.uom === 'Nos' ? 'selected' : ''}>Nos</option><option ${data.uom === 'M2' ? 'selected' : ''}>M2</option><option ${data.uom === 'M3' ? 'selected' : ''}>M3</option>
       <option ${data.uom === 'RMT' ? 'selected' : ''}>RMT</option><option ${data.uom === 'SQM' ? 'selected' : ''}>SQM</option><option ${data.uom === 'CUM' ? 'selected' : ''}>CUM</option>
