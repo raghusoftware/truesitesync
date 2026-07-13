@@ -2656,6 +2656,9 @@ window.renderContractorsList = function() {
       gangWages += (p + h * 0.5) * (l.dayRate || 0) + ot * ((l.dayRate || 0) / 8) * 1.5;
       gangPresent += p + h;
     });
+    const wages = Math.round(gangWages);
+    const paid = _gangPaidForMonth(c.id, selMonth);
+    const balance = Math.max(0, wages - paid);
     const gangList = gang.map(l => `<span style="display:inline-block;background:#f1f5f9;color:#475569;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;margin:2px;">${l.name} · ${l.trade}</span>`).join('') || '<span style="font-size:11px;color:#94a3b8;">No workers assigned yet — set this contractor in a worker\'s profile.</span>';
 
     return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
@@ -2665,18 +2668,32 @@ window.renderContractorsList = function() {
           <div style="font-size:11px;color:#64748b;margin-top:2px;">${gang.length} workers · ${gangPresent} man-days (${selMonth})</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${Math.round(gangWages).toLocaleString('en-IN')}</div>
+          <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${wages.toLocaleString('en-IN')}</div>
           <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;">Gang Wages (${selMonth})</div>
+          ${paid > 0 ? `<div style="font-size:10px;color:#0284c7;font-weight:700;margin-top:3px;">Paid ${cur}${paid.toLocaleString('en-IN')}</div>` : ''}
+          ${wages > 0 ? `<div style="font-size:11px;font-weight:800;margin-top:1px;color:${balance > 0 ? '#d97706' : '#059669'};">${balance > 0 ? `Balance ${cur}${balance.toLocaleString('en-IN')}` : '✓ Fully Paid'}</div>` : ''}
         </div>
       </div>
       <div style="margin:10px 0;">${gangList}</div>
       <div style="display:flex;gap:8px;">
-        <button onclick="_payContractor('${c.id}')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Gang (${cur}${Math.round(gangWages).toLocaleString('en-IN')})</button>
+        ${wages <= 0
+          ? `<span style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">No wages this month</span>`
+          : balance > 0
+            ? `<button onclick="_payContractor('${c.id}')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Balance (${cur}${balance.toLocaleString('en-IN')})</button>`
+            : `<span style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">✓ Settled for ${selMonth}</span>`}
         <button onclick="_deleteContractor('${c.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>
       </div>
     </div>`;
   }).join('');
 };
+
+/** Sum what has already been paid to a gang for a given wage-month (via Pay Gang). */
+function _gangPaidForMonth(contractorId, month) {
+  return Math.round((state.labourPayments || [])
+    .filter(p => p.contractorId === contractorId && (p.wageMonth ? p.wageMonth === month : (p.ref || '').includes('(' + month + ')')))
+    .reduce((s, p) => s + (p.amount || 0), 0));
+}
+window._gangPaidForMonth = _gangPaidForMonth;
 
 window._deleteContractor = function(id) {
   const c = (state.labourContractors || []).find(x => x.id === id);
@@ -3050,6 +3067,9 @@ window._payContractor = function(id) {
   });
   gangWages = Math.round(gangWages);
   if (gangWages <= 0) { showToast('No wages to pay — mark attendance first', 'warning'); return; }
+  const alreadyPaid = _gangPaidForMonth(id, selMonth);
+  const outstanding = Math.max(0, gangWages - alreadyPaid);
+  if (outstanding <= 0) { showToast(`${c.name} is already fully paid for ${selMonth}`, 'info'); return; }
 
   const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
   const rows = breakdown.map(b => `<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 10px;">${b.name}</td><td style="padding:5px 10px;text-align:right;color:#64748b;">${b.days} days</td><td style="padding:5px 10px;text-align:right;font-weight:700;">${cur}${b.wage.toLocaleString('en-IN')}</td></tr>`).join('');
@@ -3059,12 +3079,14 @@ window._payContractor = function(id) {
     <div style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>${rows}</tbody></table>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;"><span style="font-weight:600;">Total to ${c.name}</span><span style="font-size:18px;font-weight:800;color:#10b981;">${cur}${gangWages.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;padding:2px 2px;"><span>Earned this month</span><span style="font-weight:700;">${cur}${gangWages.toLocaleString('en-IN')}</span></div>
+    ${alreadyPaid > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#0284c7;padding:2px 2px 8px;"><span>Already paid</span><span style="font-weight:700;">− ${cur}${alreadyPaid.toLocaleString('en-IN')}</span></div>` : ''}
+    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;"><span style="font-weight:600;">Balance to pay</span><span style="font-size:18px;font-weight:800;color:#10b981;">${cur}${outstanding.toLocaleString('en-IN')}</span></div>
     <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
-    <label class="pm-l">Amount (editable)</label><input type="number" id="pmAmount" class="pm-i" value="${gangWages}">
+    <label class="pm-l">Amount (editable — pay part or full)</label><input type="number" id="pmAmount" class="pm-i" value="${outstanding}" max="${outstanding}">
   `, () => {
     const accountId = document.getElementById('pmAccount').value;
-    const amount = parseFloat(document.getElementById('pmAmount').value) || gangWages;
+    const amount = parseFloat(document.getElementById('pmAmount').value) || outstanding;
     const date = new Date().toISOString().split('T')[0];
     // Distribute the gang payout to each worker as a real labour payment (and
     // post their month's salary if not already posted) so the gang's connected
@@ -3084,7 +3106,7 @@ window._payContractor = function(id) {
       const hasSal = state.labourSalaries.some(s => s.labourId === b.id && s.month === selMonth);
       if (!hasSal) state.labourSalaries.push({ id: 'lsal_' + Date.now() + '_' + b.id, labourId: b.id, month: selMonth, amount: b.wage, date });
       // Paid side: a labour payment from the chosen account, tagged to the gang.
-      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + b.id, labourId: b.id, date, accountId, amount: share, ref, contractorId: id, viaGang: true });
+      state.labourPayments.push({ id: 'lpay_' + Date.now() + '_' + b.id, labourId: b.id, date, accountId, amount: share, ref, contractorId: id, viaGang: true, wageMonth: selMonth });
     });
     saveLabourData(); saveAllData(); renderContractorsList();
     if (typeof renderAccounts === 'function') renderAccounts();
