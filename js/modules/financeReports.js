@@ -49,19 +49,48 @@ function _accountTxs(accId) {
 }
 function _accountBalance(accId) { return _accountTxs(accId).reduce((b, x) => b + x.credit - x.debit, 0); }
 
-// ── Party (client/vendor) ledger ──
+// ── Party ledger (client / vendor / labour / contractor-gang) ──
+function _labourName(id) { return (state.labourMaster || []).find(l => l.id === id)?.name || ''; }
+function _gangName(id) { return (state.labourContractors || []).find(g => g.id === id)?.name || ''; }
+function _partyName(type, id) {
+  return type === 'client' ? _clientName(id) : type === 'vendor' ? _vendorName(id)
+    : type === 'labour' ? _labourName(id) : type === 'contractor' ? _gangName(id) : '';
+}
 function _partyLedger(type, id) {
   const t = [];
   if (type === 'client') {
     (state.abstracts || []).filter(a => a.clientId === id).forEach(a => t.push({ date: a.date, desc: 'Work Bill / Abstract ' + (a.abstractNum || ''), debit: _num(a.totalAmount), credit: 0 }));
-    (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, desc: 'Tax Invoice ' + (i.invoiceNo || ''), debit: _num(i.total), credit: 0 }));
+    (state.invoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, desc: 'Tax Invoice (GST) ' + (i.invoiceNum || ''), debit: _num(i.taxAmount), credit: 0 }));
+    (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, desc: 'Sale Invoice ' + (i.invoiceNo || ''), debit: _num(i.total), credit: 0 }));
     (state.paymentsIn || []).filter(p => p.clientId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Received ' + (p.ref || ''), debit: 0, credit: _num(p.amount) }));
+  } else if (type === 'labour') {
+    (state.labourSalaries || []).filter(s => s.labourId === id).forEach(s => t.push({ date: s.date, desc: 'Wages / Salary ' + (s.month || ''), debit: 0, credit: _num(s.amount) }));
+    (state.labourPayments || []).filter(p => p.labourId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || ''), debit: _num(p.amount), credit: 0 }));
+  } else if (type === 'contractor') {
+    (state.workMeasurements || []).filter(m => m.gangId === id && m.approved).forEach(m => {
+      const r = (state.workItemRates || []).find(x => x.id === m.rateId);
+      t.push({ date: m.date, desc: 'Piece-Rate ' + (r?.workCategory || 'Work') + ' (' + (m.quantity || 0) + ' ' + (r?.uom || '') + ')', debit: 0, credit: _num((r?.rate || 0) * (m.quantity || 0)) });
+    });
+    (state.expenses || []).filter(e => e.gangId === id && e.category === 'Piece-Rate Gang Payout').forEach(e => t.push({ date: e.date, desc: 'Gang Payout', debit: _num(e.amount), credit: 0 }));
+    (state.labourAdvances || []).filter(a => a.labourId === id).forEach(a => t.push({ date: a.date, desc: 'Advance', debit: _num(a.amount), credit: 0 }));
   } else {
     (state.vendorMaterials || []).filter(b => b.vendorId === id).forEach(b => t.push({ date: b.date, desc: 'Purchase Bill ' + (b.billNo || ''), debit: 0, credit: _num(b.totalAmount ?? b.amount) }));
     (state.vendorPayments || []).filter(p => p.vendorId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || ''), debit: _num(p.amount), credit: 0 }));
   }
   t.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   return t;
+}
+/** Split a party ledger into opening balance (before `from`) + rows within [from,to]. */
+function _partyLedgerRanged(type, id, from, to) {
+  const all = _partyLedger(type, id);
+  let opening = 0; const rows = [];
+  all.forEach(x => {
+    const d = x.date || '';
+    if (from && d < from) { opening += x.debit - x.credit; return; }
+    if (to && d > to) return;
+    rows.push(x);
+  });
+  return { opening, rows };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -112,26 +141,34 @@ export function exportBankStatementExcel(accId) {
 //  PARTIES STATEMENT
 // ══════════════════════════════════════════════════════════
 function _parsePartyKey(key) { const [type, id] = String(key || '').split(':'); return { type, id }; }
-export function exportPartiesStatementPDF(key) {
+const _typeLabel = t => t === 'client' ? 'Client' : t === 'vendor' ? 'Vendor' : t === 'labour' ? 'Labour' : t === 'contractor' ? 'Contractor / Gang' : 'Party';
+const _drcr = b => _n2(Math.abs(b)) + (b < 0 ? ' Cr' : ' Dr');
+const _fmtD = d => { if (!d) return ''; try { return new Date(d).toLocaleDateString('en-IN'); } catch { return d; } };
+
+export function exportPartiesStatementPDF(key, from, to) {
   try {
     const { type, id } = _parsePartyKey(key);
-    const name = type === 'client' ? _clientName(id) : _vendorName(id);
+    const name = _partyName(type, id);
     if (!name) return showToast('Select a party', 'error');
     if (!window.jspdf?.jsPDF) return showToast('PDF library not loaded — refresh', 'error');
     const cur = (getPdfCurrency() || 'Rs.').trim();
     const doc = _doc(); const ml = 12, mr = 12;
     let y = _titleBar(doc, 'STATEMENT OF ACCOUNT', [37, 99, 235]);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-    doc.text(`${type === 'client' ? 'Client' : 'Vendor'}: ${name}    |    As on: ${new Date().toLocaleDateString('en-IN')}`, ml, y); y += 3;
+    const period = (from || to) ? `Period: ${from ? _fmtD(from) : 'Beginning'} to ${to ? _fmtD(to) : new Date().toLocaleDateString('en-IN')}` : `As on: ${new Date().toLocaleDateString('en-IN')}`;
+    doc.text(`${_typeLabel(type)}: ${name}`, ml, y); y += 5;
+    doc.setFontSize(8.5); doc.setTextColor(100); doc.text(period, ml, y); doc.setTextColor(0); y += 2;
 
-    const led = _partyLedger(type, id);
-    let bal = 0;
-    const body = led.map(x => { bal += x.debit - x.credit; return [x.date || '—', x.desc, x.debit ? _n2(x.debit) : '', x.credit ? _n2(x.credit) : '', _n2(Math.abs(bal)) + (bal < 0 ? ' Cr' : ' Dr')]; });
+    const { opening, rows } = _partyLedgerRanged(type, id, from, to);
+    let bal = opening;
+    const body = [];
+    if (from) body.push(['', 'Opening Balance', '', '', _drcr(opening)]);
+    rows.forEach(x => { bal += x.debit - x.credit; body.push([x.date || '—', x.desc, x.debit ? _n2(x.debit) : '', x.credit ? _n2(x.credit) : '', _drcr(bal)]); });
     const closingLabel = type === 'client' ? (bal >= 0 ? 'Receivable' : 'Advance') : (bal >= 0 ? 'Advance' : 'Payable');
     doc.autoTable({
       startY: y + 2, head: [['Date', 'Particulars', 'Debit (' + cur + ')', 'Credit (' + cur + ')', 'Balance']],
-      body: body.length ? body : [['—', 'No transactions', '', '', '0.00']],
-      foot: [[{ content: 'Closing — ' + closingLabel, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, { content: cur + ' ' + _n2(Math.abs(bal)), styles: { fontStyle: 'bold' } }]],
+      body: body.length ? body : [['—', 'No transactions in this period', '', '', _drcr(opening)]],
+      foot: [[{ content: 'Closing — ' + closingLabel, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, { content: cur + ' ' + _drcr(bal), styles: { fontStyle: 'bold' } }]],
       theme: 'grid', headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 8 }, footStyles: { fillColor: [239, 246, 255], textColor: 0, fontStyle: 'bold' },
       styles: { fontSize: 8, cellPadding: 1.8 }, columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 'auto' }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 32 } },
       margin: { left: ml, right: mr },
@@ -140,14 +177,18 @@ export function exportPartiesStatementPDF(key) {
     showToast('Parties statement downloaded');
   } catch (e) { console.error(e); showToast('PDF error: ' + e.message, 'error'); }
 }
-export function exportPartiesStatementExcel(key) {
+export function exportPartiesStatementExcel(key, from, to) {
   try {
     const { type, id } = _parsePartyKey(key);
-    const name = type === 'client' ? _clientName(id) : _vendorName(id);
+    const name = _partyName(type, id);
     if (!name || !window.XLSX) return showToast('Select a party', 'error');
-    const led = _partyLedger(type, id); let bal = 0;
-    const aoa = [['Statement of Account — ' + name], ['Date', 'Particulars', 'Debit', 'Credit', 'Balance']];
-    led.forEach(x => { bal += x.debit - x.credit; aoa.push([x.date, x.desc, x.debit || '', x.credit || '', bal]); });
+    const { opening, rows } = _partyLedgerRanged(type, id, from, to);
+    let bal = opening;
+    const aoa = [['Statement of Account — ' + name + ' (' + _typeLabel(type) + ')'],
+      [(from || to) ? `Period: ${from || 'Beginning'} to ${to || 'Today'}` : 'As on: ' + new Date().toISOString().split('T')[0]],
+      ['Date', 'Particulars', 'Debit', 'Credit', 'Balance']];
+    if (from) aoa.push(['', 'Opening Balance', '', '', bal]);
+    rows.forEach(x => { bal += x.debit - x.credit; aoa.push([x.date, x.desc, x.debit || '', x.credit || '', bal]); });
     aoa.push(['', 'Closing Balance', '', '', bal]);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(aoa), 'Statement');

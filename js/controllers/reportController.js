@@ -835,12 +835,31 @@ function _renderFinancePanel(kind) {
       : '<p style="color:#94a3b8;">No bank/cash accounts yet.</p>';
     container.innerHTML = box('&#127974; Bank / Cash Statement', 'Running-balance statement of all receipts, payments, transfers and petty-cash top-ups for an account.', body);
   } else if (kind === 'parties') {
-    const cl = (state.clients || []).map(c => `<option value="client:${c.id}">🏢 ${(c.name || '').replace(/</g, '&lt;')}</option>`).join('');
-    const vn = (state.vendors || []).map(v => `<option value="vendor:${v.id}">🏭 ${(v.name || '').replace(/</g, '&lt;')}</option>`).join('');
-    const body = (cl || vn)
-      ? `<label style="${lbl}">Select Party</label><select id="finSel" style="${selStyle}">${cl ? '<optgroup label="Clients">' + cl + '</optgroup>' : ''}${vn ? '<optgroup label="Vendors">' + vn + '</optgroup>' : ''}</select>${btns("window.exportPartiesStatementPDF(document.getElementById('finSel').value)", "window.exportPartiesStatementExcel(document.getElementById('finSel').value)")}`
-      : '<p style="color:#94a3b8;">No clients or vendors yet.</p>';
-    container.innerHTML = box('&#129309; Parties Statement', 'Debit/credit ledger with running balance for any client or vendor (receivable / payable).', body);
+    const esc = s => (s || '').replace(/</g, '&lt;');
+    const cl = (state.clients || []).map(c => `<option value="client:${c.id}">🏢 ${esc(c.name)}</option>`).join('');
+    const vn = (state.vendors || []).map(v => `<option value="vendor:${v.id}">🏭 ${esc(v.name)}</option>`).join('');
+    const lb = (state.labourMaster || []).map(l => `<option value="labour:${l.id}">👷 ${esc(l.name)}</option>`).join('');
+    const gg = (state.labourContractors || []).map(g => `<option value="contractor:${g.id}">🧑‍🔧 ${esc(g.name)}</option>`).join('');
+    // Default period: current financial year (India, 1 Apr) → today.
+    const now = new Date();
+    const fyStart = (now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1) + '-04-01';
+    const today = now.toISOString().split('T')[0];
+    const dateStyle = 'width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:600;';
+    const args = "document.getElementById('finSel').value, document.getElementById('finFrom').value, document.getElementById('finTo').value";
+    const body = (cl || vn || lb || gg)
+      ? `<label style="${lbl}">Select Party</label><select id="finSel" style="${selStyle}">
+           ${cl ? '<optgroup label="Clients">' + cl + '</optgroup>' : ''}
+           ${vn ? '<optgroup label="Vendors">' + vn + '</optgroup>' : ''}
+           ${lb ? '<optgroup label="Labour">' + lb + '</optgroup>' : ''}
+           ${gg ? '<optgroup label="Contractors / Gangs">' + gg + '</optgroup>' : ''}
+         </select>
+         <div style="display:flex;gap:12px;margin-bottom:18px;">
+           <div style="flex:1;"><label style="${lbl}">From</label><input type="date" id="finFrom" value="${fyStart}" style="${dateStyle}"></div>
+           <div style="flex:1;"><label style="${lbl}">To</label><input type="date" id="finTo" value="${today}" style="${dateStyle}"></div>
+         </div>
+         ${btns("window.exportPartiesStatementPDF(" + args + ")", "window.exportPartiesStatementExcel(" + args + ")")}`
+      : '<p style="color:#94a3b8;">No parties yet.</p>';
+    container.innerHTML = box('&#129309; Parties Statement', 'Tally-style debit/credit ledger with opening balance and running balance for any client, vendor, labour or gang — filtered by date.', body);
   } else {
     container.innerHTML = box('&#128176; Cash Flow Forecast', 'Current cash &amp; bank position, expected inflows (receivables) and outflows (payables), with a 6-month projection.', btns('window.exportCashFlowForecastPDF()', 'window.exportCashFlowForecastExcel()'));
   }

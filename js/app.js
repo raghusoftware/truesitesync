@@ -18,7 +18,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.3.36';
+} from './controllers/reportController.js?v=1.3.37';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -69,7 +69,7 @@ import { renderPettyCash } from './modules/pettyCash.js?v=1.0.1';
 import { renderIssues } from './modules/issues.js?v=1.3.22';
 import { renderExecution } from './modules/execution.js?v=1.4.9';
 import './modules/projectReport.js?v=1.3.35';
-import './modules/financeReports.js?v=1.3.36';
+import './modules/financeReports.js?v=1.3.37';
 import './modules/mobileShell.js?v=1.4.0';
 import './modules/orgTeam.js?v=1.4.9';
 import './modules/cashFlow.js?v=1.4.28';
