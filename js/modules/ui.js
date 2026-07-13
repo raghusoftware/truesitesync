@@ -2989,9 +2989,10 @@ window._prCalcPayout = function() {
   const end = document.getElementById('prpEnd').value;
   const cur = getCurrencySymbol();
   if (!gangId) { showToast('Select a gang', 'error'); return; }
-  // Sum APPROVED measurements only
-  const meas = (state.workMeasurements || []).filter(m => m.gangId === gangId && m.approved && m.date >= start && m.date <= end);
-  if (!meas.length) { document.getElementById('prPayoutResult').innerHTML = '<p class="text-center text-slate-400 py-6">No approved measurements in this period.</p>'; return; }
+  // Sum APPROVED, not-yet-paid measurements only (so a second Calculate after paying
+  // doesn't re-offer work already settled).
+  const meas = (state.workMeasurements || []).filter(m => m.gangId === gangId && m.approved && !m.paid && m.date >= start && m.date <= end);
+  if (!meas.length) { document.getElementById('prPayoutResult').innerHTML = '<p class="text-center text-emerald-600 py-6 font-bold">✓ No unpaid approved work in this period — the gang is settled.</p>'; return; }
   let gross = 0;
   const rows = meas.map(m => {
     const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
@@ -3002,6 +3003,8 @@ window._prCalcPayout = function() {
   // Gang's unsettled advances (advances recorded against the contractor's workers? Use contractor-level: advances on gang leader stored as labourAdvances with labourId = gangId)
   const advances = (state.labourAdvances || []).filter(a => a.labourId === gangId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   const net = gross - advances;
+  // Remember exactly which measurements this payout covers so _prPayGang can mark them paid.
+  window._prPayoutCtx = { gangId, start, end, measIds: meas.map(m => m.id), gross, advances, net };
   const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
   document.getElementById('prPayoutResult').innerHTML = `
     <div class="border rounded-lg overflow-hidden mb-3"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Work</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Rate</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -3020,10 +3023,21 @@ window._prPayGang = function(gangId, net) {
   const accountId = document.getElementById('prpAccount').value;
   const gang = (state.labourContractors || []).find(g => g.id === gangId);
   const date = new Date().toISOString().split('T')[0];
-  state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Piece-Rate Gang Payout', amount: net, remarks: `Piece-rate payout to ${gang?.name || 'gang'}`, projectId: state.currentProjectId });
+  const ctx = (window._prPayoutCtx && window._prPayoutCtx.gangId === gangId) ? window._prPayoutCtx : null;
+  const payoutId = 'gpay_' + Date.now();
+  // Post the payout as an expense tagged to the gang so it appears on the gang's
+  // Parties Ledger (as a payment) and reduces the cash account.
+  if (!state.expenses) state.expenses = [];
+  state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Piece-Rate Gang Payout', amount: net, remarks: `Piece-rate payout to ${gang?.name || 'gang'}`, projectId: state.currentProjectId, gangId, payoutId, gross: ctx?.gross, advances: ctx?.advances });
+  // Mark the covered measurements as paid so a re-Calculate doesn't re-offer them.
+  const idSet = new Set(ctx?.measIds || []);
+  (state.workMeasurements || []).forEach(m => { if (idSet.has(m.id)) { m.paid = true; m.payoutId = payoutId; m.paidDate = date; } });
   // settle gang advances
   (state.labourAdvances || []).filter(a => a.labourId === gangId && !a.settled).forEach(a => a.settled = true);
+  window._prPayoutCtx = null;
   saveAllData();
+  window.renderPartiesList?.(); window.renderPartyTransactions?.();
+  if (typeof renderAccounts === 'function') { try { renderAccounts(); } catch {} }
   showToast(`Paid ${getCurrencySymbol()}${net.toLocaleString('en-IN')} to ${gang?.name || 'gang'}`, 'success');
   _prRenderPayout();
 };

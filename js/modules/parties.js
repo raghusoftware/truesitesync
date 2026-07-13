@@ -34,6 +34,18 @@ export function renderPartiesList() {
     let totalPaid = state.labourPayments.filter(p => p.labourId === l.id).reduce((sum, p) => sum + parseFloat(p.amount), 0);
     allParties.push({ id: l.id, name: l.name + ' (Labour)', type: 'Labour', balance: totalSalary - totalPaid });
   });
+  // Contractors / gang leaders (piece-rate). Owe = value of approved work; Paid = gang
+  // payouts + advances already given. Balance = what's still owed to the gang.
+  (state.labourContractors || []).forEach(g => {
+    const earned = (state.workMeasurements || []).filter(m => m.gangId === g.id && m.approved).reduce((s, m) => {
+      const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
+      return s + (rate?.rate || 0) * (m.quantity || 0);
+    }, 0);
+    const paid = (state.expenses || []).filter(e => e.gangId === g.id && e.category === 'Piece-Rate Gang Payout').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+      + (state.labourAdvances || []).filter(a => a.labourId === g.id).reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    if (earned === 0 && paid === 0) return; // skip gangs with no financial activity
+    allParties.push({ id: g.id, name: g.name + ' (Gang)', type: 'Contractor', balance: earned - paid });
+  });
   allParties.sort((a, b) => a.name.localeCompare(b.name));
   allParties.forEach(p => {
     if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return;
@@ -42,12 +54,12 @@ export function renderPartiesList() {
     if (p.type === 'Client') {
       if (p.balance > 0) { colorClass = 'text-green-600'; formattedBal = p.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
       else if (p.balance < 0) { colorClass = 'text-red-500'; formattedBal = Math.abs(p.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
-    } else if (p.type === 'Vendor' || p.type === 'Labour') {
+    } else if (p.type === 'Vendor' || p.type === 'Labour' || p.type === 'Contractor') {
       if (p.balance > 0) { colorClass = 'text-red-500'; formattedBal = p.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
       else if (p.balance < 0) { colorClass = 'text-green-600'; formattedBal = Math.abs(p.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }); }
     }
     const isSelected = state.currentSelectedParty?.id === p.id ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-slate-50 border-l-4 border-transparent';
-    const typeIcon = p.type === 'Client' ? '🏢' : p.type === 'Vendor' ? '🏭' : '👷';
+    const typeIcon = p.type === 'Client' ? '🏢' : p.type === 'Vendor' ? '🏭' : p.type === 'Contractor' ? '🧑‍🔧' : '👷';
     container.innerHTML += `<div class="cursor-pointer p-3 flex justify-between items-center transition ${isSelected}" onclick="selectParty('${p.id}', '${p.type}')"><div class="flex items-center gap-2"><span style="font-size:14px;">${typeIcon}</span><div><p class="font-bold text-slate-800 text-xs truncate w-32" title="${p.name}">${p.name}</p><p class="text-[9px] text-slate-400 font-medium">${p.type}</p></div></div><span class="font-bold ${colorClass} text-sm">${formattedBal}</span></div>`;
   });
 }
@@ -81,6 +93,21 @@ export function renderPartyTransactions() {
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment</button>`;
     state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false, _src: 'labourSalaries', _id: s.id }));
     state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
+  } else if (type === 'Contractor') {
+    const g = (state.labourContractors || []).find(x => x.id === id);
+    if (!g) return;
+    document.getElementById('selectedPartyName').textContent = g.name;
+    document.getElementById('selectedPartyType').textContent = 'GANG / CONTRACTOR';
+    document.getElementById('partyActionButtons').innerHTML = '';
+    // Approved piece-rate work = what we owe the gang (credit)
+    (state.workMeasurements || []).filter(m => m.gangId === id && m.approved).forEach(m => {
+      const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
+      txs.push({ date: m.date, number: (rate?.workCategory || 'Work') + (m.paid ? ' ✓ paid' : ''), type: 'Piece-Rate Work', total: (rate?.rate || 0) * (m.quantity || 0), isDebit: false, _src: 'workMeasurements', _id: m.id });
+    });
+    // Payouts (debit)
+    (state.expenses || []).filter(e => e.gangId === id && e.category === 'Piece-Rate Gang Payout').forEach(e => txs.push({ date: e.date, number: 'Gang Payout', type: 'Payment Made', total: parseFloat(e.amount) || 0, isDebit: true, _src: 'expenses', _id: e.id }));
+    // Advances already given (debit)
+    (state.labourAdvances || []).filter(a => a.labourId === id).forEach(a => txs.push({ date: a.date, number: 'Advance', type: 'Payment Made', total: parseFloat(a.amount) || 0, isDebit: true, _src: 'labourAdvances', _id: a.id }));
   }
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
   const tbody = document.getElementById('partyTransactionsBody');
@@ -91,7 +118,7 @@ export function renderPartyTransactions() {
     // abort the whole render (which made deletes/edits appear to do nothing).
     const tot = Number(t.total) || 0;
     if (type === 'Client') runningBal += t.isDebit ? tot : -tot;
-    else if (type === 'Vendor' || type === 'Labour') runningBal += t.isDebit ? -tot : tot;
+    else if (type === 'Vendor' || type === 'Labour' || type === 'Contractor') runningBal += t.isDebit ? -tot : tot;
     const isPayment = (t.type || '').includes('Payment') || (t.type || '').includes('Receipt');
     let statusBadge = isPayment ? `<span class="text-green-600 font-bold text-xs">Done</span>` : `<span class="text-blue-600 font-bold text-xs">Billed</span>`;
     // Per-row actions

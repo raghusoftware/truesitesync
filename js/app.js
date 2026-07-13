@@ -60,7 +60,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.4.53';
+} from './modules/ui.js?v=1.4.54';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.22';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.21';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
@@ -83,7 +83,7 @@ import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable,
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.0.4';
-import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.0.4';
+import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.0.5';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.0.1';
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.0.1';
