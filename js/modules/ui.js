@@ -34,6 +34,14 @@ if (typeof window !== 'undefined') {
     if (document.querySelector('.fullscreen-sheet')) return;
     const pf = document.getElementById('projectFormPanel');
     if (pf && pf.style.display && pf.style.display !== 'none') return;
+    // Don't bounce the user out of an open Labour sub-section on a background sync
+    // echo — a full switchView('labourView') resets to the card grid. Only guard when
+    // labourView is the CURRENT view and a section is open (grid hidden). The section's
+    // lists already refreshed via _renderForKeys.
+    if (v === 'labourView') {
+      const g = document.getElementById('labourGrid');
+      if (g && g.style.display === 'none') return; // a section is open — leave it
+    }
     try { switchView(v); } catch {}
   };
 }
