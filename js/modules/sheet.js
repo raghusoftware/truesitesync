@@ -394,6 +394,7 @@ export function createNewSheet() {
   document.getElementById('sheetArea').value = '';
   document.getElementById('sheetStatusText').textContent = 'New Unsaved Sheet';
   document.getElementById('entryTableBody').innerHTML = '';
+  measResetUndo();
   document.getElementById('btnGenerateAbstract')?.classList.add('hide');
   document.getElementById('exportControls')?.classList.add('hide');
   document.getElementById('bbsSection')?.classList.remove('hide');
@@ -598,7 +599,7 @@ function _buildRowHTML(hasBOQ, e) {
     ${_buildCustomCellsForPosition('after-qty', v)}
     <td class="p-1 border" data-label="Remarks"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
     ${_buildCustomCellsForPosition('after-remarks', v)}
-    <td class="p-1 border text-center" data-label=""><button onclick="this.closest('tr').remove()" title="Delete row" class="text-red-400 hover:bg-red-50 px-2 py-1 rounded font-bold" style="font-size:16px;line-height:1;">🗑</button></td>`;
+    <td class="p-1 border text-center" data-label=""><button onclick="window._measRowDelete(this)" title="Delete row (undoable)" class="text-red-400 hover:bg-red-50 px-2 py-1 rounded font-bold" style="font-size:16px;line-height:1;">🗑</button></td>`;
 }
 
 export function addMoreEntries(count = 1) {
@@ -610,6 +611,55 @@ export function addMoreEntries(count = 1) {
     tbody.appendChild(tr);
   }
 }
+
+// ── Undo for the measurement entry table ──────────────────────
+// Snapshot the table (with live input values baked into attributes) before any
+// destructive action, so a deleted row / cleared column can be restored intact.
+let _measUndoStack = [];
+function _measSnapshot() {
+  const tbody = document.getElementById('entryTableBody');
+  if (!tbody) return null;
+  const clone = tbody.cloneNode(true);
+  const live = tbody.querySelectorAll('input, textarea, select');
+  const cl = clone.querySelectorAll('input, textarea, select');
+  live.forEach((el, i) => {
+    const c = cl[i]; if (!c) return;
+    if (el.tagName === 'SELECT') { Array.from(c.options).forEach(o => o.removeAttribute('selected')); if (el.selectedIndex >= 0 && c.options[el.selectedIndex]) c.options[el.selectedIndex].setAttribute('selected', ''); }
+    else if (el.type === 'checkbox' || el.type === 'radio') { el.checked ? c.setAttribute('checked', '') : c.removeAttribute('checked'); }
+    else if (el.tagName === 'TEXTAREA') { c.textContent = el.value; }
+    else { c.setAttribute('value', el.value); }
+  });
+  return clone.innerHTML;
+}
+export function measResetUndo() { _measUndoStack = []; _measUpdateUndoBtn(); }
+window.measResetUndo = measResetUndo;
+window._measPushUndo = function () {
+  const snap = _measSnapshot();
+  if (snap == null) return;
+  _measUndoStack.push(snap);
+  if (_measUndoStack.length > 40) _measUndoStack.shift();
+  _measUpdateUndoBtn();
+};
+window._measRowDelete = function (btn) {
+  window._measPushUndo();
+  const tr = btn.closest('tr'); if (tr) tr.remove();
+};
+window._measUndo = function () {
+  const tbody = document.getElementById('entryTableBody');
+  if (!tbody) return;
+  if (!_measUndoStack.length) { if (window.showToast) showToast('Nothing to undo', 'info'); return; }
+  tbody.innerHTML = _measUndoStack.pop();
+  _measUpdateUndoBtn();
+  if (window.showToast) showToast('Undo — restored', 'success');
+};
+function _measUpdateUndoBtn() {
+  const b = document.getElementById('measUndoBtn');
+  if (!b) return;
+  const has = _measUndoStack.length > 0;
+  b.disabled = !has; b.style.opacity = has ? '1' : '.45'; b.style.cursor = has ? 'pointer' : 'not-allowed';
+  b.title = has ? `Undo last change (${_measUndoStack.length})` : 'Nothing to undo';
+}
+window._measUpdateUndoBtn = _measUpdateUndoBtn;
 
 /**
  * Recipe-based inventory auto-consume for a measurement sheet (classic OR the
@@ -714,6 +764,7 @@ export function loadSheet(id) {
   const s = state.sheets.find(x => x.id === id);
   if (!s) return;
   state.currentSheetId = s.id;
+  measResetUndo();
 
   // Load project context
   if (s.projectId) {

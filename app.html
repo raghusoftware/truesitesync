@@ -20,7 +20,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.5.20"></script>
+    <script type="module" src="js/app.js?v=1.5.21"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -937,6 +937,7 @@
             <!-- Below-table Add Row + Save (mirrors the header controls, next to the last row) -->
             <div class="flex flex-wrap items-center gap-3 mb-6 -mt-3">
               <button onclick="document.getElementById('groupedEntryContainer').classList.contains('hide')?addMoreEntries(1):(window.addGroupedItem&&window.addGroupedItem())" class="bg-white text-blue-900 border border-blue-300 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 text-sm shadow-sm">＋ Add Row</button>
+              <button id="measUndoBtn" onclick="window._measUndo&&window._measUndo()" disabled style="opacity:.45;cursor:not-allowed" title="Nothing to undo" class="bg-amber-50 text-amber-700 border border-amber-300 px-5 py-2.5 rounded-lg font-bold hover:bg-amber-100 text-sm shadow-sm">↶ Undo</button>
               <div class="flex-1"></div>
               <button onclick="saveEntries()" class="bg-slate-800 text-white px-6 py-2.5 rounded-lg hover:bg-slate-700 font-bold shadow-md text-sm">💾 Save Sheet</button>
             </div>
