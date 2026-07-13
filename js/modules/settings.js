@@ -61,6 +61,14 @@ window._setMeasOrientation = function(o) {
   showToast('Measurement PDF set to ' + o, 'success');
 };
 
+window._setMeasDecimals = function(n) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.measurementDecimals = parseInt(n) || 2;
+  saveAllData();
+  renderPrintConfigTab();
+  showToast('Measurement quantities set to ' + state.printSettings.measurementDecimals + ' decimal place(s)', 'success');
+};
+
 window._setInvoiceMinRows = function(v) {
   if (!state.printSettings) state.printSettings = {};
   const n = Math.max(0, Math.min(40, parseInt(v) || 0));
@@ -229,6 +237,7 @@ function renderPrintConfigTab() {
   const styles = [{v:'bold',l:'Bold'},{v:'normal',l:'Normal'},{v:'bolditalic',l:'Bold Italic'},{v:'italic',l:'Italic'}];
 
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
+  const measDec = (state.printSettings?.measurementDecimals ?? 2);
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
   c.innerHTML = `
     ${docColorsPanelHTML()}
@@ -267,6 +276,18 @@ function renderPrintConfigTab() {
       <div class="flex gap-2">
         <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
         <button onclick="window._setMeasOrientation('landscape')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'landscape' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📑 Landscape</button>
+      </div>
+    </div>
+
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-base">&#128290;</span>
+        <h4 class="font-bold text-sm text-slate-800">Measurement Quantity — Decimal Places</h4>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-3">How many digits after the decimal point in measured quantities (e.g. 5.2 vs 5.22). Trailing zeros are trimmed.</p>
+      <div class="flex gap-2">
+        <button onclick="window._setMeasDecimals(1)" class="px-4 py-2 rounded-lg text-sm font-bold border ${measDec === 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">1 decimal (5.2)</button>
+        <button onclick="window._setMeasDecimals(2)" class="px-4 py-2 rounded-lg text-sm font-bold border ${measDec === 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">2 decimals (5.22)</button>
       </div>
     </div>
 

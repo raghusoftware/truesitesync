@@ -36,7 +36,11 @@ export function calcQty(input) {
   });
   const hasVal = tr.querySelector('.nos-input').value || tr.querySelector('.l-input').value || tr.querySelector('.b-input').value || tr.querySelector('.h-input').value;
   const hasCustomDim = tr.querySelector('.custom-dim-input')?.value;
-  tr.querySelector('.qty-input').value = (hasVal || hasCustomDim) ? (n * l * b * h * customDimProduct).toFixed(3) : '';
+  // Decimal places for measured quantity (Settings → Print Config). Default 2.
+  // Round to N decimals then trim trailing zeros so 5.20 shows 5.2, 5.22 stays 5.22.
+  const dec = (state.printSettings?.measurementDecimals ?? 2);
+  const raw = n * l * b * h * customDimProduct;
+  tr.querySelector('.qty-input').value = (hasVal || hasCustomDim) ? String(parseFloat(raw.toFixed(dec))) : '';
 }
 
 export function calcEstimateRow(input) {
