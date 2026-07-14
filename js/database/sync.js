@@ -15,9 +15,15 @@
 import { getSupabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 
 // ── Debounce map to avoid flooding Supabase on rapid saves ──
-const _pendingSaves = {};          // dataKey -> timer id
+// Real-time strategy: LEADING-EDGE debounce. The first change to a key after an
+// idle gap is pushed to Supabase immediately (so other users see it in ~the
+// network round-trip, not seconds later); rapid follow-ups within DEBOUNCE_MS
+// are coalesced into a single trailing push. Keeps the DB write instant for
+// discrete actions while still throttling burst edits.
+const _pendingSaves = {};          // dataKey -> trailing timer id
 const _pendingValues = {};         // dataKey -> latest value not yet pushed
-const DEBOUNCE_MS = 1500;
+const _lastPushAt = {};            // dataKey -> ms of last actual push (leading-edge gate)
+const DEBOUNCE_MS = 400;
 
 // ── Online status ──
 let _online = navigator.onLine;
@@ -334,12 +340,24 @@ export function syncPush(dataKey, value) {
   // Hold all cloud pushes until the first pull finishes — prevents a stale tab
   // from overwriting newer cloud data before it has loaded it.
   if (!_syncReady) { _queuedKeys.add(dataKey); return; }
-  if (_pendingSaves[dataKey]) clearTimeout(_pendingSaves[dataKey]);
-  _pendingSaves[dataKey] = setTimeout(() => {
-    delete _pendingSaves[dataKey];
+  const now = Date.now();
+  // Leading edge: first change after an idle gap → push instantly (real-time).
+  if (!_pendingSaves[dataKey] && (now - (_lastPushAt[dataKey] || 0)) >= DEBOUNCE_MS) {
+    _lastPushAt[dataKey] = now;
     const v = _pendingValues[dataKey];
     delete _pendingValues[dataKey];
     _pushKey(dataKey, v);
+    return;
+  }
+  // A push just happened / is scheduled — coalesce this into a single trailing
+  // push (fixed delay, not reset per keystroke, so bursts still flush promptly).
+  if (_pendingSaves[dataKey]) return;
+  _pendingSaves[dataKey] = setTimeout(() => {
+    delete _pendingSaves[dataKey];
+    _lastPushAt[dataKey] = Date.now();
+    const v = _pendingValues[dataKey];
+    delete _pendingValues[dataKey];
+    if (v !== undefined) _pushKey(dataKey, v);
   }, DEBOUNCE_MS);
 }
 

@@ -423,14 +423,16 @@ export function applyRemoteChange(key, data) {
   try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
   reconcileRecycleBin();  // a remote push may have re-added a binned item — strip it again
   _rtChangedKeys.add(key);
-  // Debounce a single UI refresh after a burst of remote changes.
+  // Debounce a single UI refresh after a burst of remote changes. Kept short so
+  // realtime changes appear near-instantly (only long enough to coalesce a burst
+  // of keys arriving together).
   if (_rtRefreshTimer) clearTimeout(_rtRefreshTimer);
   _rtRefreshTimer = setTimeout(() => {
     const keys = [..._rtChangedKeys]; _rtChangedKeys.clear();
     try { _renderForKeys(keys); } catch (e) { console.warn('[rt] render error:', e); }
     if (typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
     if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast('🔄 Updated from another device', 'info');
-  }, 400);
+  }, 120);
 }
 
 /**
