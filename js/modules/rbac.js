@@ -1075,11 +1075,23 @@ export function openUserForm(userId) {
 
 export function saveUser(userId) {
   const name = document.getElementById('rbacUserName')?.value?.trim() || '';
-  const username = document.getElementById('rbacUserUsername')?.value?.trim() || '';
+  let username = document.getElementById('rbacUserUsername')?.value?.trim() || '';
   const role = document.getElementById('rbacUserRole')?.value;
   const active = document.getElementById('rbacUserActive')?.value === '1';
 
   if (!name || !username) { showToast('Name and email/username are required', 'error'); return; }
+
+  // Email hygiene: a typo like "name@gmailcom" (missing dot) silently orphans the
+  // user — they can never be matched or invited to the company. Normalise and block.
+  let cleanUsername = username.trim();
+  if (cleanUsername.includes('@')) {
+    cleanUsername = cleanUsername.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanUsername)) {
+      showToast('That email looks invalid (e.g. missing the dot — "gmailcom" should be "gmail.com"). Please fix it.', 'error');
+      return;
+    }
+  }
+  username = cleanUsername;
 
   const dup = (state.rbacUsers || []).find(u => (u.username === username || u.email === username) && u.id !== userId);
   if (dup) { showToast('Email/username already taken', 'error'); return; }

@@ -612,6 +612,10 @@ window._cloudPullAll = async function() {
 function _updateSyncBadge() {
   const el = document.getElementById('headerSyncBadge');
   if (!el) return;
+  // Badge doubles as the Sync Doctor button — one tap shows full sync health.
+  el.style.cursor = 'pointer';
+  el.title = 'Tap for sync status & force sync';
+  if (!el.onclick) el.onclick = () => window._openSyncDoctor?.();
   const sb = getSupabase();
   if (!sb) {
     el.textContent = '⚡ Local Only';
@@ -632,6 +636,40 @@ function _updateSyncBadge() {
 }
 // Update sync badge every 10s
 setInterval(_updateSyncBadge, 10000);
+
+// ── Sync Doctor: one-tap diagnosis + force sync (click the header badge) ──
+window._openSyncDoctor = async function () {
+  document.getElementById('syncDoctorOverlay')?.remove();
+  const d = await (window.getSyncDiagnostics ? window.getSyncDiagnostics() : Promise.resolve(null));
+  if (!d) { showToast('Diagnostics unavailable', 'error'); return; }
+  const yes = t => `<span style="color:#059669;font-weight:800;">✓ ${t}</span>`;
+  const no = t => `<span style="color:#dc2626;font-weight:800;">✕ ${t}</span>`;
+  const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;"><span style="color:#64748b;font-weight:600;">${k}</span><span style="text-align:right;font-weight:700;color:#0f172a;">${v}</span></div>`;
+  const rtOk = d.realtime.status === 'SUBSCRIBED';
+  const unsynced = [...new Set([...(d.dirtyKeys||[]), ...(d.pendingKeys||[])])];
+  const html = `
+  <div id="syncDoctorOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:199999;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:22px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:17px;font-weight:800;color:#0f172a;">🩺 Sync Doctor</h3>
+        <button onclick="document.getElementById('syncDoctorOverlay').remove()" style="border:none;background:none;font-size:22px;color:#94a3b8;cursor:pointer;">&times;</button>
+      </div>
+      ${row('App version', APP_VERSION)}
+      ${row('Internet', d.online ? yes('Online') : no('Offline'))}
+      ${row('Cloud login', d.hasSession ? yes(d.email || 'Signed in') : no('NOT signed in to cloud — nothing can sync'))}
+      ${row('Company (org)', d.orgId ? yes(d.orgId.slice(0, 8) + '…') : no('No company joined'))}
+      ${row('Live updates (realtime)', rtOk ? yes('Connected') : no(d.realtime.status))}
+      ${row('Last live update received', d.realtime.lastEventAt)}
+      ${row('Un-synced changes', unsynced.length ? no(unsynced.length + ' waiting: ' + unsynced.slice(0, 4).join(', ') + (unsynced.length > 4 ? '…' : '')) : yes('All saved to cloud'))}
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button onclick="this.textContent='Syncing…';window.forceFullSync().then(()=>{showToast('✅ Forced full sync complete','success');document.getElementById('syncDoctorOverlay').remove();window._openSyncDoctor();})" style="flex:1;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">⚡ Force Full Sync</button>
+        <button onclick="window.location.reload(true)" style="padding:11px 14px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">↻ Reload App</button>
+      </div>
+      <p style="font-size:10.5px;color:#94a3b8;margin-top:10px;line-height:1.5;">If "Cloud login" or "Company" shows ✕ on a teammate's device, they are not connected to your company — their changes stay on their phone only.</p>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
 
 // Per-save sync feedback: the sync layer calls this ~once after a burst of saves
 // settles. Success → brief "saved to cloud"; failure → clear error so the user
@@ -672,7 +710,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.17';
+const APP_VERSION = '1.5.26';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

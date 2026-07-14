@@ -87,6 +87,10 @@ let _rtApplyFn = null;
 let _rtTries = 0;
 let _rtAuthWired = false;   // one-time onAuthStateChange listener installed?
 let _rtTearingDown = false; // guard: removeChannel() re-fires the status callback
+// Diagnostics (surfaced by the Sync Doctor panel)
+let _rtLastStatus = 'not started';
+let _rtLastStatusAt = 0;
+let _rtLastEventAt = 0;     // last realtime payload received
 
 /** Fresh, non-expired access token from the live session (not stale localStorage). */
 async function _freshToken() {
@@ -170,6 +174,7 @@ export async function startRealtime(applyFn) {
         (payload) => {
           try {
             // ── POINT 4: prove data is arriving ──
+            _rtLastEventAt = Date.now();
             console.log('REALTIME PAYLOAD RECEIVED:', payload.eventType, payload.new && payload.new.module_name);
             const row = (payload.new && payload.new.module_name) ? payload.new : null;
             if (!row) return;
@@ -188,6 +193,7 @@ export async function startRealtime(applyFn) {
         })
       .subscribe((status) => {
         console.log('[rt] channel status:', status);
+        _rtLastStatus = status; _rtLastStatusAt = Date.now();
         if (status === 'SUBSCRIBED') { _rtTries = 0; return; }
         // Auto-recover from a dropped/errored socket. CRITICAL: removeChannel() makes
         // the channel "leave", which RE-FIRES this very callback with CLOSED — calling
@@ -694,3 +700,41 @@ export function getSyncStatus() {
 }
 
 export function isOnline() { return _online; }
+
+/** Full sync health snapshot for the Sync Doctor panel. */
+export async function getSyncDiagnostics() {
+  const sb = getSupabase();
+  let email = null, hasSession = false;
+  try {
+    const { data } = await sb?.auth.getSession() || {};
+    hasSession = !!data?.session;
+    email = data?.session?.user?.email || null;
+  } catch {}
+  return {
+    online: _online,
+    hasSupabase: !!sb,
+    hasSession, email,
+    orgId: _orgIdSync(),
+    syncReady: _syncReady,
+    realtime: {
+      status: _rtLastStatus,
+      statusAt: _rtLastStatusAt ? new Date(_rtLastStatusAt).toLocaleTimeString() : '—',
+      lastEventAt: _rtLastEventAt ? new Date(_rtLastEventAt).toLocaleTimeString() : 'never',
+      channelActive: !!_rtChannel
+    },
+    dirtyKeys: [..._dirtyKeys],
+    pendingKeys: Object.keys(_pendingValues),
+    inFlight: [..._inFlight]
+  };
+}
+if (typeof window !== 'undefined') window.getSyncDiagnostics = getSyncDiagnostics;
+
+/** Force everything through NOW: flush pending pushes, pull latest, reconnect realtime. */
+export async function forceFullSync() {
+  try { flushPendingSaves(); } catch {}
+  try { stopRealtime(); } catch {}
+  try { if (typeof window !== 'undefined' && typeof window.pullRemoteUpdates === 'function') await window.pullRemoteUpdates(); } catch {}
+  try { await startRealtime(_rtApplyFn); } catch {}
+  return getSyncDiagnostics();
+}
+if (typeof window !== 'undefined') window.forceFullSync = forceFullSync;
