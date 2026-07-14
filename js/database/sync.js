@@ -85,6 +85,37 @@ setTimeout(() => markSyncReady(), 15000);
 let _rtChannel = null;
 let _rtApplyFn = null;
 let _rtTries = 0;
+let _rtAuthWired = false;   // one-time onAuthStateChange listener installed?
+
+/** Fresh, non-expired access token from the live session (not stale localStorage). */
+async function _freshToken() {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try { const { data } = await sb.auth.getSession(); return data?.session?.access_token || null; }
+  catch { return null; }
+}
+
+/** Keep the realtime socket's JWT fresh. Supabase auto-refreshes the session token
+ *  (~hourly), but the realtime WebSocket keeps using the OLD token unless we call
+ *  setAuth again — once it expires, RLS re-check fails and the server SILENTLY drops
+ *  every payload. This is the #1 cause of "realtime worked, then just stopped". */
+function _wireRealtimeAuth() {
+  if (_rtAuthWired) return;
+  const sb = getSupabase();
+  if (!sb || !sb.auth?.onAuthStateChange) return;
+  _rtAuthWired = true;
+  sb.auth.onAuthStateChange((event, session) => {
+    const token = session?.access_token;
+    if (!token) return;
+    try { if (sb.realtime?.setAuth) sb.realtime.setAuth(token); } catch {}
+    // On token refresh / re-sign-in, rebuild the channel so the new token is used
+    // for the subscription's RLS checks.
+    if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+      try { if (_rtChannel) { sb.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
+      setTimeout(() => startRealtime(_rtApplyFn), 200);
+    }
+  });
+}
 
 /**
  * Subscribe to org-wide realtime changes. Subscribes STRICTLY only after the
@@ -116,7 +147,8 @@ export async function startRealtime(applyFn) {
   // this on sign-in, but on a restored session the socket can subscribe before
   // the token is set — the #1 reason realtime "works in a test but not live".
   try {
-    const token = _accessToken();
+    // Prefer a FRESH token from the live session; fall back to the cached one.
+    const token = (await _freshToken()) || _accessToken();
     if (token && sb.realtime && typeof sb.realtime.setAuth === 'function') {
       sb.realtime.setAuth(token);
       console.log('[rt] realtime auth token set');
@@ -124,6 +156,8 @@ export async function startRealtime(applyFn) {
       console.warn('[rt] no access token for realtime — RLS will drop payloads');
     }
   } catch (e) { console.warn('[rt] setAuth failed:', e); }
+  // Keep the socket token fresh across auto-refreshes (installed once).
+  _wireRealtimeAuth();
 
   // ── POINT 3: confirm the org_id right before subscribing ──
   console.log('[rt] subscribing to realtime for org_id =', orgId);
