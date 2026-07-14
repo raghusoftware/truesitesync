@@ -86,6 +86,7 @@ let _rtChannel = null;
 let _rtApplyFn = null;
 let _rtTries = 0;
 let _rtAuthWired = false;   // one-time onAuthStateChange listener installed?
+let _rtTearingDown = false; // guard: removeChannel() re-fires the status callback
 
 /** Fresh, non-expired access token from the live session (not stale localStorage). */
 async function _freshToken() {
@@ -187,11 +188,17 @@ export async function startRealtime(applyFn) {
         })
       .subscribe((status) => {
         console.log('[rt] channel status:', status);
-        if (status === 'SUBSCRIBED') { _rtTries = 0; }
-        // Auto-recover from a dropped/errored socket.
+        if (status === 'SUBSCRIBED') { _rtTries = 0; return; }
+        // Auto-recover from a dropped/errored socket. CRITICAL: removeChannel() makes
+        // the channel "leave", which RE-FIRES this very callback with CLOSED — calling
+        // removeChannel again re-entrantly recurses to "Maximum call stack size
+        // exceeded", which crashes realtime and the sync path. Guard against re-entry.
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          try { sb.removeChannel(_rtChannel); } catch {}
-          _rtChannel = null;
+          if (_rtTearingDown) return;      // already handling a teardown — ignore the echo
+          _rtTearingDown = true;
+          const ch = _rtChannel; _rtChannel = null;
+          try { sb.removeChannel(ch); } catch {}
+          _rtTearingDown = false;
           setTimeout(() => startRealtime(_rtApplyFn), 2000);
         }
       });
@@ -290,6 +297,33 @@ function _orgIdSync() {
 }
 export function getOrgId() { return _orgIdSync(); }
 if (typeof window !== 'undefined') window.getSyncOrgId = getOrgId;
+
+/**
+ * Create a PENDING invite so a teammate joins THIS company on first login.
+ * Writes to `org_invites` — the table accept_pending_invites() reads (the app's
+ * old inviteMember() wrote to a different table, so added users were never
+ * attached and created their own separate org instead). Best-effort.
+ */
+export async function createOrgInvite(email, role = 'member') {
+  const sb = getSupabase();
+  const em = String(email || '').trim().toLowerCase();
+  if (!sb || !em || !em.includes('@')) return false;
+  const orgId = await _resolveOrg();
+  if (!orgId) { console.warn('[invite] no org resolved'); return false; }
+  const userId = await _uidAsync();
+  try {
+    // Already a pending invite for this email in this org? Don't duplicate.
+    const { data: existing } = await sb.from('org_invites')
+      .select('id,status').eq('org_id', orgId).eq('email', em).eq('status', 'pending').maybeSingle();
+    if (existing) return true;
+    const { error } = await sb.from('org_invites')
+      .insert({ org_id: orgId, email: em, role, status: 'pending', invited_by: userId || null });
+    if (error) { console.warn('[invite] insert failed:', error.message); return false; }
+    console.log('[invite] pending invite created for', em);
+    return true;
+  } catch (e) { console.warn('[invite] error:', e); return false; }
+}
+if (typeof window !== 'undefined') window.createOrgInvite = createOrgInvite;
 
 // ════════════════════════════════════════════════
 //  PUSH — Save one key to Supabase (upsert)

@@ -1119,6 +1119,15 @@ export function saveUser(userId) {
 
   saveAllData();
   closeUserForm();
+  // Cloud invite: when adding a NEW teammate by email, create a pending org invite so
+  // they JOIN this company on first login (otherwise the app makes them a brand-new,
+  // separate org and their data never syncs with yours).
+  if (isNew && /^\S+@\S+\.\S+$/.test(username) && typeof window.createOrgInvite === 'function') {
+    window.createOrgInvite(username, 'member').then(ok => {
+      if (ok) showToast('☁️ Cloud invite created — they will join your company when they log in with ' + username, 'success');
+      else showToast('User added locally, but the cloud invite could not be created. Ask them to log in and re-check.', 'warning');
+    }).catch(() => {});
+  }
   showToast(userId ? 'User updated' : 'User added', 'success');
   renderUsersRolesPanel();
   if (typeof window.renderProjectsHome === 'function') { try { window.renderProjectsHome(); } catch {} }
