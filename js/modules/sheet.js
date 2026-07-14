@@ -595,7 +595,7 @@ function _buildRowHTML(hasBOQ, e) {
     ${_buildCustomCellsForPosition('after-b', v)}
     <td class="p-1 border" data-label="Height"><input type="number" class="table-input h-input" value="${v.h || ''}" oninput="calcQty(this)"></td>
     ${_buildCustomCellsForPosition('after-h', v)}
-    <td class="p-1 border bg-slate-50" data-label="Quantity"><input type="text" class="table-input qty-input font-bold text-blue-700 text-lg" value="${v.qty || ''}" readonly></td>
+    <td class="p-1 border bg-slate-50" data-label="Quantity"><input type="text" class="table-input qty-input font-bold text-blue-700 text-lg" value="${_fmtMeasQty(v.qty)}" readonly></td>
     ${_buildCustomCellsForPosition('after-qty', v)}
     <td class="p-1 border" data-label="Remarks"><input type="text" class="table-input remarks-input text-slate-500" value="${v.remarks || ''}"></td>
     ${_buildCustomCellsForPosition('after-remarks', v)}
@@ -1303,7 +1303,7 @@ function _classicCollectEntries() {
         boqIndex: r.querySelector('.boq-index-input')?.value ?? '',
         nos: r.querySelector('.nos-input')?.value || '', l: r.querySelector('.l-input')?.value || '',
         b: r.querySelector('.b-input')?.value || '', h: r.querySelector('.h-input')?.value || '',
-        qty: parseFloat(r.querySelector('.qty-input')?.value) || 0,
+        qty: _roundMeasQty(r.querySelector('.qty-input')?.value),
         remarks: r.querySelector('.remarks-input')?.value || ''
       };
       const customData = {};
@@ -1325,6 +1325,15 @@ function _renderClassicEntries(entries) {
   while (tbody.rows.length < 5) addMoreEntries(1);
 }
 
+// Measurement quantity decimal places (Settings → Print Config; default 2).
+// Shared by classic + grouped views so both round the same way.
+function _measDec() { return (state.printSettings?.measurementDecimals ?? 2); }
+/** Round to the setting, trim trailing zeros, '' for empty/zero (for input display). */
+function _fmtMeasQty(v) { const n = parseFloat(v); if (isNaN(n) || n === 0) return ''; return String(parseFloat(n.toFixed(_measDec()))); }
+/** Round to the setting as a Number (for storing/totals). */
+function _roundMeasQty(v) { const n = parseFloat(v); return isNaN(n) ? 0 : parseFloat(n.toFixed(_measDec())); }
+if (typeof window !== 'undefined') window._fmtMeasQty = _fmtMeasQty;
+
 function _gLineQty(tr) {
   const read = sel => { const raw = tr.querySelector(sel)?.value ?? ''; if (raw === '') return { v: 1, has: false }; const n = parseFloat(raw); return { v: isNaN(n) ? 1 : n, has: true }; };
   const nos = read('.g-nos'), l = read('.g-l'), b = read('.g-b'), h = read('.g-h');
@@ -1342,7 +1351,7 @@ export function calcGroupedLine(input) {
   if (!tr) return;
   const q = _gLineQty(tr);
   const qEl = tr.querySelector('.g-qty');
-  if (qEl) qEl.value = q ? q.toFixed(3) : '';
+  if (qEl) qEl.value = _fmtMeasQty(q);
   _groupedItemTotal(input.closest('.g-item'));
 }
 
@@ -1352,7 +1361,7 @@ function _groupedItemTotal(card) {
   card.querySelectorAll('.g-line').forEach(tr => { total += _gLineQty(tr); });
   const uom = card.querySelector('.g-uom')?.value || '';
   const tEl = card.querySelector('.g-total');
-  if (tEl) tEl.innerHTML = `Item Total <span class="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-extrabold" style="font-size:15px;">${total.toFixed(3)}</span> <span class="text-slate-400 font-semibold text-xs">${uom}</span>`;
+  if (tEl) tEl.innerHTML = `Item Total <span class="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-extrabold" style="font-size:15px;">${_roundMeasQty(total)}</span> <span class="text-slate-400 font-semibold text-xs">${uom}</span>`;
 }
 
 function _gLineHTML(d) {
@@ -1365,7 +1374,7 @@ function _gLineHTML(d) {
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-h ${inp} text-center" value="${d.h || ''}" oninput="calcGroupedLine(this)" onkeydown="window._gLineKey(event,this)"></td>
-    <td class="px-1.5 py-1"><input type="number" step="any" style="height:34px;" class="g-qty w-full px-2 border border-blue-200 rounded-md text-sm text-center font-extrabold text-blue-700 bg-blue-50/70 focus:bg-white focus:border-blue-400" value="${d.qty ? Number(d.qty).toFixed(3) : ''}" oninput="window._gQtyEdit(this)" title="Auto from L×B×H — or type directly for kg / MT / nos / bags"></td>
+    <td class="px-1.5 py-1"><input type="number" step="any" style="height:34px;" class="g-qty w-full px-2 border border-blue-200 rounded-md text-sm text-center font-extrabold text-blue-700 bg-blue-50/70 focus:bg-white focus:border-blue-400" value="${_fmtMeasQty(d.qty)}" oninput="window._gQtyEdit(this)" title="Auto from L×B×H — or type directly for kg / MT / nos / bags"></td>
     <td class="px-1 py-1 text-center whitespace-nowrap"><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="text-emerald-600 hover:bg-emerald-100 rounded-md inline-flex items-center justify-center" style="width:28px;height:28px;font-size:16px;">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="text-slate-400 hover:bg-red-100 hover:text-red-600 rounded-md inline-flex items-center justify-center" style="width:26px;height:28px;font-size:14px;">🗑</button></td>
   </tr>`;
 }
@@ -1503,7 +1512,7 @@ export function applyToAllLines(btn) {
     if (l !== '') tr.querySelector('.g-l').value = l;
     if (b !== '') tr.querySelector('.g-b').value = b;
     if (h !== '') tr.querySelector('.g-h').value = h;
-    const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : '';
+    const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = _fmtMeasQty(q);
   });
   _groupedItemTotal(card);
 }
@@ -1513,7 +1522,7 @@ export function clearColumn(btn, col) {
   const card = btn.closest('.g-item');
   if (!card) return;
   card.querySelectorAll('.g-line .g-' + col).forEach(inp => { inp.value = ''; });
-  card.querySelectorAll('.g-line').forEach(tr => { const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = q ? q.toFixed(3) : ''; });
+  card.querySelectorAll('.g-line').forEach(tr => { const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = _fmtMeasQty(q); });
   _groupedItemTotal(card);
 }
 
@@ -1622,7 +1631,7 @@ function _groupedCollectEntries() {
       // Keep the line if it has dimensions, a label, OR a directly-typed quantity
       // (weight/count units like kg, MT, nos, bags) — previously these were dropped.
       if (nos || l || b || h || label || qtyField) {
-        out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, qty: qty || 0, remarks: label });
+        out.push({ code, description: desc, uom, boqIndex, nos, l, b, h, qty: _roundMeasQty(qty), remarks: label });
       }
     });
   });
