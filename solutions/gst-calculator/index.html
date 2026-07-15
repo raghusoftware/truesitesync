@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GST Calculator — Add or Remove GST, CGST/SGST/IGST Split (Free) | True Site Sync</title>
+<meta name="description" content="Free GST calculator: add or remove GST from any amount, see the CGST+SGST or IGST split, and check current GST rates on cement, steel, sand &amp; construction works contracts. No signup.">
+<meta name="keywords" content="gst calculator, gst calculator india, add gst, remove gst, cgst sgst calculator, igst calculator, gst rate on cement, gst rate on steel, gst on construction, works contract gst rate, gst calculator for contractors">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://truesitesync.com/solutions/gst-calculator/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GST Calculator — Add or Remove GST, CGST/SGST/IGST Split">
+<meta property="og:description" content="Free GST calculator with CGST/SGST/IGST split and a construction materials GST rate chart. No signup.">
+<meta property="og:url" content="https://truesitesync.com/solutions/gst-calculator/">
+<meta property="og:image" content="https://truesitesync.com/assets/logo-full.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="/solutions/seo.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"GST Calculator","applicationCategory":"UtilitiesApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},"url":"https://truesitesync.com/solutions/gst-calculator/","publisher":{"@type":"Organization","name":"True Site Sync"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"How do you calculate GST on an amount?","acceptedAnswer":{"@type":"Answer","text":"To add GST to a base amount: GST amount = base amount × (GST rate ÷ 100); total = base amount + GST amount. To remove GST from a total (find the base price it already includes): base amount = total ÷ (1 + GST rate ÷ 100); GST amount = total − base amount."}},
+{"@type":"Question","name":"What is the difference between CGST, SGST and IGST?","acceptedAnswer":{"@type":"Answer","text":"For a sale within the same state, GST is split equally into CGST (Central GST) and SGST (State GST) — each half the total rate. For a sale between two different states (inter-state), the full rate is charged as IGST (Integrated GST) instead, collected by the centre and apportioned to the destination state."}},
+{"@type":"Question","name":"What is the current GST rate on cement?","acceptedAnswer":{"@type":"Answer","text":"Cement is taxed at 18% GST (HSN 2523), reduced from 28% after the September 2025 GST rate rationalisation."}},
+{"@type":"Question","name":"What is the GST rate on steel/TMT bars?","acceptedAnswer":{"@type":"Answer","text":"TMT steel bars and rods (HSN 7213/7214) attract 18% GST across all diameters and grades."}},
+{"@type":"Question","name":"What GST rate applies to a works contract for construction?","acceptedAnswer":{"@type":"Answer","text":"General construction works contracts are taxed at 18% GST. Certain government infrastructure works (roads, bridges, railways, metro) attract 12% GST with full input tax credit, and affordable housing projects are taxed at 1%."}},
+{"@type":"Question","name":"What are the current GST slabs in India?","acceptedAnswer":{"@type":"Answer","text":"Following the September 2025 GST Council reform, India uses a simplified structure: 0% (exempt), 5%, 18%, and 40% (for select luxury/sin goods). The earlier 12% and 28% general slabs were largely removed, though a few specific categories retain transitional rates."}}]}
+</script>
+<style>
+  .conv-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 1px 3px rgba(13,40,28,.05)}
+  .conv-card h3{font-size:16px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .conv-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .conv-field{flex:1;min-width:130px}
+  .conv-field label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  .conv-field input,.conv-field select{width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;font-weight:600;color:var(--text);background:#fff}
+  .conv-field input:focus,.conv-field select:focus{outline:none;border-color:var(--emerald)}
+  .conv-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .conv-result{background:#f4f8f5;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+  .conv-result .rv{font-size:19px;font-weight:800;color:var(--emerald-bright);font-variant-numeric:tabular-nums}
+  .conv-result .ru{font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-top:4px;letter-spacing:.3px}
+  .conv-note{font-size:12px;color:var(--text-muted);margin-top:10px}
+  .toggle-row{display:flex;gap:8px;margin-bottom:16px}
+  .toggle-btn{flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-family:inherit;font-weight:700;font-size:13px;color:var(--text-sec);cursor:pointer}
+  .toggle-btn.active{background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;border-color:transparent}
+  .conv-total{background:linear-gradient(135deg,rgba(16,185,129,.09),rgba(184,134,11,.06));border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:16px;text-align:center;margin-top:4px}
+  .conv-total .rv{font-size:26px;font-weight:800;color:var(--text)}
+  .conv-total .ru{font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  @media(max-width:560px){.conv-row{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="True Site Sync"><span>True Site Sync</span></a>
+  <div class="nav-links"><a href="/solutions/">Solutions</a><a href="/#pricing">Pricing</a><a href="/app.html">Login</a><a href="/app.html" class="nav-cta">Open Web App</a></div>
+</div></nav>
+
+<header class="seo-hero"><div class="wrap">
+  <div class="seo-eyebrow">🧮 Free Tool</div>
+  <h1>GST <span class="hl">Calculator</span></h1>
+  <p class="lead">Add or remove GST from any amount, see the CGST+SGST or IGST split instantly, and check current GST rates on cement, steel and construction works contracts. Free, no signup.</p>
+</div></header>
+
+<main class="wrap">
+
+  <section class="block" style="border-top:none;padding-top:8px">
+    <div class="conv-card">
+      <h3>💰 GST Calculator</h3>
+
+      <div class="toggle-row">
+        <button type="button" class="toggle-btn active" id="modeAdd" onclick="setMode('add')">Add GST (amount excludes GST)</button>
+        <button type="button" class="toggle-btn" id="modeRemove" onclick="setMode('remove')">Remove GST (amount includes GST)</button>
+      </div>
+
+      <div class="conv-row">
+        <div class="conv-field"><label id="amtLabel">Amount (excl. GST)</label><input type="number" id="gstAmt" value="100000" oninput="calcGST()"></div>
+        <div class="conv-field"><label>GST Rate</label><select id="gstRate" onchange="calcGST()">
+          <option value="0">0% (Exempt)</option>
+          <option value="5">5%</option>
+          <option value="12">12%</option>
+          <option value="18" selected>18%</option>
+          <option value="28">28%</option>
+          <option value="40">40%</option>
+        </select></div>
+      </div>
+
+      <div class="toggle-row">
+        <button type="button" class="toggle-btn active" id="supplyIntra" onclick="setSupply('intra')">Intra-state (CGST + SGST)</button>
+        <button type="button" class="toggle-btn" id="supplyInter" onclick="setSupply('inter')">Inter-state (IGST)</button>
+      </div>
+
+      <div class="conv-results" id="gstOut"></div>
+      <div class="conv-total" id="gstTotal"></div>
+      <p class="conv-note">India's current GST slabs (post September 2025 rate reform): 0%, 5%, 18%, and 40% for select luxury/sin goods. 12% and 28% are shown here for a few transitional categories (e.g. bricks, older contracts) that still use them — check the current rate for your specific item below.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>GST on construction materials &amp; works contracts</h2>
+    <p>Rates below reflect the GST Council's rate rationalisation effective 22 September 2025. Always confirm the HSN/SAC code and current rate for your exact item before billing — rates can change.</p>
+    <table class="compare">
+      <thead><tr><th>Item</th><th>HSN/SAC</th><th>GST Rate</th></tr></thead>
+      <tbody>
+        <tr><td>Cement (OPC, PPC)</td><td>2523</td><td>18%</td></tr>
+        <tr><td>TMT steel bars / rods (all grades)</td><td>7213 / 7214</td><td>18%</td></tr>
+        <tr><td>Sand &amp; aggregate</td><td>2505 / 2517</td><td>5%</td></tr>
+        <tr><td>Bricks (fired clay / fly ash)</td><td>6901</td><td>12% with ITC, or 6% without ITC</td></tr>
+        <tr><td>Ceramic / vitrified tiles</td><td>6907/6908</td><td>18%</td></tr>
+        <tr><td>Ready-mix concrete</td><td>3824</td><td>18%</td></tr>
+        <tr><td>General works contract (construction service)</td><td>9954</td><td>18%</td></tr>
+        <tr><td>Govt. infrastructure works contract (roads, bridges, metro)</td><td>9954</td><td>12% with full ITC</td></tr>
+        <tr><td>Affordable housing construction</td><td>9954</td><td>1% (no ITC)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block">
+    <h2>CGST, SGST &amp; IGST — what's the difference</h2>
+    <p>GST in India splits differently depending on where the buyer and seller are located. For a sale <strong>within the same state</strong>, the GST rate is split equally into <strong>CGST</strong> (Central GST, goes to the centre) and <strong>SGST</strong> (State GST, goes to the state) — each is exactly half the total rate. For a sale <strong>between two different states</strong>, the full rate is charged as a single <strong>IGST</strong> (Integrated GST), collected by the centre and apportioned to the destination state. The total tax paid is the same either way — only the split changes.</p>
+  </section>
+
+  <section class="block">
+    <h2>How the calculation works</h2>
+    <div class="steps">
+      <div class="step"><h3>Adding GST</h3><p>GST amount = base amount × (rate ÷ 100). Total = base amount + GST amount.</p></div>
+      <div class="step"><h3>Removing GST</h3><p>Base amount = total ÷ (1 + rate ÷ 100). GST amount = total − base amount.</p></div>
+      <div class="step"><h3>Splitting the tax</h3><p>Intra-state: CGST = SGST = GST amount ÷ 2. Inter-state: IGST = full GST amount.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>From calculation to a real RA bill</h2>
+    <p>A one-off GST check is useful, but a Running Account (RA) bill needs GST applied automatically on every billed quantity, with retention deducted correctly and the split (CGST+SGST or IGST) set once per client — not recalculated by hand every time. True Site Sync applies your project's GST and retention terms automatically to every RA bill raised from site measurements.</p>
+    <div class="btn-row" style="justify-content:flex-start;margin-top:14px"><a href="/solutions/ra-bill-software/" class="btn btn-pri">See RA bill software</a><a href="/app.html" class="btn btn-sec">Try free</a></div>
+  </section>
+
+  <section class="block faq">
+    <h2>Frequently asked questions</h2>
+    <details open><summary>How do you calculate GST on an amount?</summary><p>To add: GST = base × (rate÷100), total = base + GST. To remove: base = total ÷ (1 + rate÷100), GST = total − base.</p></details>
+    <details><summary>What is the difference between CGST, SGST and IGST?</summary><p>Intra-state sales split the rate equally into CGST + SGST. Inter-state sales charge the full rate as IGST. Total tax is the same either way.</p></details>
+    <details><summary>What is the current GST rate on cement?</summary><p>18% (HSN 2523), reduced from 28% after the September 2025 rate reform.</p></details>
+    <details><summary>What is the GST rate on steel/TMT bars?</summary><p>18% across all diameters and grades (HSN 7213/7214).</p></details>
+    <details><summary>What GST rate applies to a construction works contract?</summary><p>18% generally; 12% with full ITC for government infrastructure works; 1% for affordable housing.</p></details>
+    <details><summary>What are the current GST slabs in India?</summary><p>Since September 2025: 0%, 5%, 18%, and 40% for select luxury/sin goods, with a few transitional categories still at 12%/28%.</p></details>
+  </section>
+
+  <div class="cta">
+    <h2>GST, applied automatically on every bill</h2>
+    <p>True Site Sync handles GST and retention on every RA bill — no manual calculation. Start free.</p>
+    <a href="/app.html" class="btn btn-pri">Start free 7-day trial</a>
+    <div class="related"><a href="/solutions/construction-unit-converter/">Construction unit converter</a><a href="/solutions/ra-bill-software/">RA bill software</a><a href="/solutions/construction-billing-software-india/">Construction billing software</a><a href="/solutions/">All solutions</a></div>
+  </div>
+
+</main>
+<footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a></div></footer>
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+let _mode = 'add';     // 'add' = amount excludes GST, 'remove' = amount includes GST
+let _supply = 'intra'; // 'intra' = CGST+SGST, 'inter' = IGST
+
+function setMode(m){
+  _mode = m;
+  document.getElementById('modeAdd').classList.toggle('active', m === 'add');
+  document.getElementById('modeRemove').classList.toggle('active', m === 'remove');
+  document.getElementById('amtLabel').textContent = m === 'add' ? 'Amount (excl. GST)' : 'Amount (incl. GST)';
+  calcGST();
+}
+function setSupply(s){
+  _supply = s;
+  document.getElementById('supplyIntra').classList.toggle('active', s === 'intra');
+  document.getElementById('supplyInter').classList.toggle('active', s === 'inter');
+  calcGST();
+}
+
+function calcGST(){
+  const amt = parseFloat(document.getElementById('gstAmt').value) || 0;
+  const rate = parseFloat(document.getElementById('gstRate').value) || 0;
+  let base, gstAmount, total;
+  if (_mode === 'add') {
+    base = amt;
+    gstAmount = base * (rate / 100);
+    total = base + gstAmount;
+  } else {
+    total = amt;
+    base = total / (1 + rate / 100);
+    gstAmount = total - base;
+  }
+  const inr = n => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+  const cards = [['Base Amount', inr(base)]];
+  if (_supply === 'intra') {
+    cards.push(['CGST (' + (rate/2) + '%)', inr(gstAmount/2)]);
+    cards.push(['SGST (' + (rate/2) + '%)', inr(gstAmount/2)]);
+  } else {
+    cards.push(['IGST (' + rate + '%)', inr(gstAmount)]);
+  }
+  cards.push(['Total GST', inr(gstAmount)]);
+
+  document.getElementById('gstOut').innerHTML = cards.map(c =>
+    `<div class="conv-result"><div class="rv">${c[1]}</div><div class="ru">${c[0]}</div></div>`
+  ).join('');
+  document.getElementById('gstTotal').innerHTML = `<div class="rv">${inr(total)}</div><div class="ru">Total Amount</div>`;
+}
+
+calcGST();
+</script>
+</body>
+</html>
