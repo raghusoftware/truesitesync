@@ -270,32 +270,80 @@ async function _resolveOrg() {
     const userId = await _uidAsync();
     if (!userId) return null;
     try {
-      const { data } = await sb.from('org_members')
-        .select('org_id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle();
-      if (data && data.org_id) {
-        _orgId = data.org_id;
-      } else {
-        // No membership yet. First, accept any pending invite → join that company's
-        // shared org. Only if there's no invite do we create a brand-new org.
-        try {
-          const { data: joinedOrg } = await sb.rpc('accept_pending_invites');
-          if (joinedOrg) _orgId = joinedOrg;
-        } catch (e) { console.warn('[sync] accept invite failed:', e); }
+      // ALWAYS accept pending invites FIRST (idempotent). Previously this only ran
+      // for users with no membership — so a teammate who already had their own
+      // auto-created solo org NEVER joined the company that invited them, and the
+      // two devices lived in different orgs forever ("no sync" bug). The RPC joins
+      // invited orgs, retires their solo org, and returns the org to use.
+      try {
+        const { data: joinedOrg } = await sb.rpc('accept_pending_invites');
+        if (joinedOrg) _orgId = joinedOrg;
+      } catch (e) { console.warn('[sync] accept invite failed:', e); }
 
-        if (!_orgId) {
-          let email = null; try { const { data: u } = await sb.auth.getUser(); email = u?.user?.email || null; } catch {}
-          const nm = (email || 'My Company').split('@')[0];
-          const { data: newOrg, error } = await sb.rpc('create_org_with_owner', { p_name: nm, p_email: email });
-          if (!error && newOrg) _orgId = newOrg;
-          else console.warn('[sync] org create failed:', error && error.message);
-        }
+      if (!_orgId) {
+        const { data } = await sb.from('org_members')
+          .select('org_id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle();
+        if (data && data.org_id) _orgId = data.org_id;
+      }
+
+      if (!_orgId) {
+        let email = null; try { const { data: u } = await sb.auth.getUser(); email = u?.user?.email || null; } catch {}
+        const nm = (email || 'My Company').split('@')[0];
+        const { data: newOrg, error } = await sb.rpc('create_org_with_owner', { p_name: nm, p_email: email });
+        if (!error && newOrg) _orgId = newOrg;
+        else console.warn('[sync] org create failed:', error && error.message);
       }
     } catch (e) { console.warn('[sync] org resolve failed:', e); }
-    if (_orgId) { try { localStorage.setItem('mes_org_id', _orgId); } catch {} }
+    if (_orgId) {
+      // Org-switch guard: if this device previously synced a DIFFERENT org (e.g. the
+      // user just joined a company from their solo org), its local data/timestamps
+      // belong to the old org. Without this, syncPushAll could clobber the new
+      // company's data with the old copy. Reset sync baselines so the cloud wins.
+      let prevOrg = null; try { prevOrg = localStorage.getItem('mes_org_id'); } catch {}
+      if (prevOrg && prevOrg !== _orgId) _onOrgSwitched(prevOrg, _orgId);
+      try { localStorage.setItem('mes_org_id', _orgId); } catch {}
+    }
     return _orgId;
   })();
   const r = await _orgResolving; _orgResolving = null; return r;
 }
+/**
+ * This device switched companies (e.g. accepted an invite from its solo org).
+ * Everything cached locally — values, per-key timestamps, dirty flags, pending
+ * pushes — belongs to the OLD org and must not be pushed into the new one.
+ * Reset all sync baselines so the new org's cloud data is adopted wholesale,
+ * and reconnect realtime (the channel is org-scoped).
+ */
+function _onOrgSwitched(fromOrg, toOrg) {
+  console.warn('[sync] ORG SWITCH', fromOrg, '→', toOrg, '— resetting local sync baselines');
+  try {
+    for (const t of Object.values(_pendingSaves)) clearTimeout(t);
+  } catch {}
+  for (const k of Object.keys(_pendingSaves)) delete _pendingSaves[k];
+  for (const k of Object.keys(_pendingValues)) delete _pendingValues[k];
+  for (const k of Object.keys(_lastJson)) delete _lastJson[k];
+  for (const k of Object.keys(_lastPushAt)) delete _lastPushAt[k];
+  _dirtyKeys.clear(); _queuedKeys.clear(); _inFlight.clear();
+  // Zero every per-key local timestamp (memory + localStorage) so "cloud newer"
+  // wins everywhere and nothing local gets re-pushed over the new org's data.
+  for (const k of Object.keys(_localTs)) delete _localTs[k];
+  try {
+    const kill = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('mes_ts_')) kill.push(key);
+    }
+    kill.forEach(k => localStorage.removeItem(k));
+  } catch {}
+  // Reconnect realtime to the NEW org's channel and pull its data.
+  try { stopRealtime(); } catch {}
+  setTimeout(() => {
+    try { startRealtime(_rtApplyFn); } catch {}
+    try { if (typeof window !== 'undefined' && typeof window.pullRemoteUpdates === 'function') window.pullRemoteUpdates(); } catch {}
+  }, 300);
+  try { if (typeof window !== 'undefined' && window.showToast) window.showToast('🏢 Joined your company — loading shared data…', 'success'); } catch {}
+}
+
 /** Best-effort synchronous org id (for unload flush) from the in-memory/local cache. */
 function _orgIdSync() {
   if (_orgId) return _orgId;
