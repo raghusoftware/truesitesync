@@ -28,7 +28,25 @@ export function openSettingsSection(tabId) {
   if (tabId === 'settBackup') renderBackupTab();
   if (tabId === 'settCompany' && typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile();
   if (tabId === 'settOrg' && typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
+  if (tabId === 'settUnits') renderUnitsTab();
 }
+
+// ─── UNITS OF MEASURE MASTER ───
+export function renderUnitsTab() {
+  const box = document.getElementById('settUnitsContent');
+  if (!box) return;
+  const units = (window.getUnits ? window.getUnits() : (state.units || []));
+  box.innerHTML = `
+    <p class="text-sm text-slate-500 mb-4">These units appear in the material form's base-unit and alternate-unit pickers. Add a missing unit here and it shows up instantly when adding materials.</p>
+    <div class="flex gap-2 mb-5 max-w-md">
+      <input type="text" id="newUnitName" placeholder="New unit (e.g. Tonne, Bundle, Sqft)" class="flex-1 p-2.5 border rounded" onkeydown="if(event.key==='Enter')window._addUnitMaster('newUnitName')">
+      <button onclick="window._addUnitMaster('newUnitName')" class="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">Add Unit</button>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      ${units.map(u => `<span class="inline-flex items-center gap-2 bg-slate-100 border rounded-full px-3 py-1.5 text-sm font-medium">${u}<button onclick="window._deleteUnitMaster('${String(u).replace(/'/g, "\\'")}')" class="text-red-500 font-bold hover:text-red-700" title="Remove">✕</button></span>`).join('') || '<span class="text-slate-400">No units yet.</span>'}
+    </div>`;
+}
+window.renderUnitsTab = renderUnitsTab;
 
 /** Back-compat: callers that jump straight to a section still work. */
 export function switchSettingsTab(tabId) { openSettingsSection(tabId); }

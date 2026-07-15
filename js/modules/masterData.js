@@ -58,13 +58,8 @@ export function renderRawMaterialTable() {
 export function editRawMaterial(id) {
   const rm = state.rawMaterials.find(x => x.id === id);
   if (!rm) return;
-  const newName = prompt("Edit Name:", rm.name);
-  if (newName === null || newName.trim() === "") return;
-  const newUnit = prompt("Edit Unit:", rm.unit);
-  if (newUnit === null) return;
-  rm.name = newName.trim(); rm.unit = newUnit.trim();
-  saveAllData(); populateDropdowns(); refreshPurchaseDropdowns(); renderRawMaterialTable();
-  showToast("Material Updated");
+  // Open the full modal (base unit + alternate-unit conversions) in edit mode.
+  window.openRawMaterialModal(id);
 }
 
 export function deleteRawMaterial(id) {

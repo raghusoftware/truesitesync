@@ -139,6 +139,7 @@ export function populateDropdowns() {
       elInvMat.innerHTML += `<option value="${r.id}">${r.name} (${r.type})</option>`;
     });
     if (val) elInvMat.value = val;
+    window.refreshInvUnitPicker && window.refreshInvUnitPicker();
   }
 }
 

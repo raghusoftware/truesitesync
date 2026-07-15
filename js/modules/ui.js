@@ -1468,29 +1468,87 @@ export function updatePurRowNums() {
 // ==========================================
 // INVENTORY
 // ==========================================
-export function openRawMaterialModal() {
+import { unitMasterOptions, materialUnitOptions, toBaseQty } from './units.js';
+
+// Build one "1 <alt> = <factor> <base>" row inside the material modal.
+export function addAltUnitRow(unit = '', factor = '') {
+  const box = document.getElementById('altUnitRows');
+  if (!box) return;
+  const base = (document.getElementById('modalRawUnit').value || 'base');
+  const row = document.createElement('div');
+  row.className = 'alt-unit-row flex items-center gap-2 mb-2';
+  row.innerHTML = `
+    <span class="text-xs text-slate-500 shrink-0">1</span>
+    <select class="alt-unit-name flex-1 p-2 border rounded text-sm">${unitMasterOptions(unit)}</select>
+    <span class="text-xs text-slate-500 shrink-0">=</span>
+    <input type="number" step="any" class="alt-unit-factor w-20 p-2 border rounded text-sm" placeholder="qty" value="${factor}">
+    <span class="alt-unit-base text-xs font-bold text-slate-600 shrink-0">${base}</span>
+    <button type="button" class="text-red-500 font-bold px-1" onclick="this.parentElement.remove()">✕</button>`;
+  box.appendChild(row);
+}
+window.addAltUnitRow = addAltUnitRow;
+
+// Keep the "= X base" labels in sync when base unit changes.
+function syncAltBaseLabels() {
+  const base = document.getElementById('modalRawUnit').value || 'base';
+  document.querySelectorAll('#altUnitRows .alt-unit-base').forEach(el => el.textContent = base);
+}
+
+export function openRawMaterialModal(id) {
+  const rm = id ? state.rawMaterials.find(x => x.id === id) : null;
   document.getElementById('rawMatModal').classList.remove('hidden');
-  document.getElementById('modalRawName').value = '';
-  document.getElementById('modalRawUnit').value = '';
-  document.getElementById('modalRawMinStock').value = '';
+  document.getElementById('modalRawId').value = rm ? rm.id : '';
+  document.getElementById('rawMatModalTitle').textContent = rm ? 'Edit Material Master' : 'Add Material Master';
+  document.getElementById('modalRawName').value = rm ? rm.name : '';
+  document.getElementById('modalRawType').value = rm ? (rm.type || 'Raw Material') : 'Raw Material';
+  const unitSel = document.getElementById('modalRawUnit');
+  unitSel.innerHTML = unitMasterOptions(rm ? rm.unit : '');
+  unitSel.onchange = syncAltBaseLabels;
+  document.getElementById('modalRawMinStock').value = rm ? (rm.minStock || '') : '';
+  document.getElementById('altUnitRows').innerHTML = '';
+  if (rm && Array.isArray(rm.altUnits)) rm.altUnits.forEach(a => addAltUnitRow(a.unit, a.factor));
 }
 
 export function saveRawMaterial() {
+  const id = document.getElementById('modalRawId').value;
   const name = document.getElementById('modalRawName').value;
   const unit = document.getElementById('modalRawUnit').value;
   const type = document.getElementById('modalRawType').value;
   if (!name || !unit) return showToast('Name and Unit required', 'error');
-  const conflict = isNameTaken(name);
+  const conflict = isNameTaken(name, id);
   if (conflict) return showToast(`Cannot add! ${conflict}`, 'error');
-  state.rawMaterials.push({ id: 'rm_' + Date.now(), name: name.trim(), unit: unit.trim(), type, minStock: parseFloat(document.getElementById('modalRawMinStock').value) || 0 });
+  // Collect alternate-unit conversions (skip blanks / non-positive / same-as-base).
+  const altUnits = [];
+  document.querySelectorAll('#altUnitRows .alt-unit-row').forEach(r => {
+    const u = r.querySelector('.alt-unit-name').value.trim();
+    const f = parseFloat(r.querySelector('.alt-unit-factor').value);
+    if (u && u !== unit.trim() && isFinite(f) && f > 0 && !altUnits.some(a => a.unit === u)) altUnits.push({ unit: u, factor: f });
+  });
+  const minStock = parseFloat(document.getElementById('modalRawMinStock').value) || 0;
+  const existing = id ? state.rawMaterials.find(x => x.id === id) : null;
+  if (existing) {
+    existing.name = name.trim(); existing.unit = unit.trim(); existing.type = type;
+    existing.minStock = minStock; existing.altUnits = altUnits;
+  } else {
+    state.rawMaterials.push({ id: 'rm_' + Date.now(), name: name.trim(), unit: unit.trim(), type, minStock, altUnits });
+  }
   saveAllData();
   populateDropdowns();
   refreshPurchaseDropdowns();
   document.getElementById('rawMatModal').classList.add('hidden');
   renderLiveInventory();
   window.renderRawMaterialTable?.();
-  showToast('Saved Successfully');
+  showToast(existing ? 'Material Updated' : 'Saved Successfully');
 }
+
+// Repopulate the inventory qty unit-picker for the currently selected material.
+export function refreshInvUnitPicker() {
+  const sel = document.getElementById('invQtyUnit');
+  if (!sel) return;
+  const rm = state.rawMaterials.find(x => x.id === document.getElementById('invMaterial').value);
+  sel.innerHTML = materialUnitOptions(rm, rm ? rm.unit : '');
+}
+window.refreshInvUnitPicker = refreshInvUnitPicker;
 
 import { isNameTaken } from './utils.js';
 
@@ -1514,15 +1572,20 @@ export function saveItem() {
 export function saveInventoryTx() {
   const siteId = document.getElementById('invSiteSelect').value;
   const rmId = document.getElementById('invMaterial').value;
-  const qty = parseFloat(document.getElementById('invQty').value) || 0;
-  if (!siteId || !rmId || qty <= 0) return showToast('Location, Material, and Quantity required', 'error');
+  const enteredQty = parseFloat(document.getElementById('invQty').value) || 0;
+  if (!siteId || !rmId || enteredQty <= 0) return showToast('Location, Material, and Quantity required', 'error');
+  const rm = state.rawMaterials.find(x => x.id === rmId);
+  const entryUnit = (document.getElementById('invQtyUnit') || {}).value || (rm && rm.unit);
+  // Store stock in the material's BASE unit so all downstream math is unchanged.
+  const qty = toBaseQty(rm, enteredQty, entryUnit);
+  const refNote = (entryUnit && rm && entryUnit !== rm.unit) ? ` (${enteredQty} ${entryUnit})` : '';
   state.inventoryTx.push({
     id: 'tx_' + Date.now(),
     date: document.getElementById('invDate').value,
     siteId, type: document.getElementById('invType').value,
     rawMaterialId: rmId, qty,
     rate: parseFloat(document.getElementById('invRate').value) || 0,
-    ref: 'Manual Adjustment: ' + document.getElementById('invRef').value
+    ref: 'Manual Adjustment: ' + document.getElementById('invRef').value + refNote
   });
   saveAllData();
   document.getElementById('invQty').value = '';
