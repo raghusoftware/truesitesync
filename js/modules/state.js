@@ -40,6 +40,7 @@ const STORAGE_KEYS = {
   saleFixedAssets: 'mes_sale_fixed_assets',
   otherIncome: 'mes_other_income',
   itemsMaster: 'mes_items_master',
+  itemCategories: 'mes_item_categories',
   savedPOs: 'mes_saved_pos',
   projects: 'mes_projects',
   bbsData: 'mes_bbs_data',
@@ -142,6 +143,7 @@ export const state = {
   saleFixedAssets: load(STORAGE_KEYS.saleFixedAssets, []),
   otherIncome: load(STORAGE_KEYS.otherIncome, []),
   itemsMaster: load(STORAGE_KEYS.itemsMaster, []),
+  itemCategories: load(STORAGE_KEYS.itemCategories, ['Purchase Materials', 'Sales Items', 'Tools & Equipment', 'Services']),
   savedPOs: load(STORAGE_KEYS.savedPOs, []),
   projects: load(STORAGE_KEYS.projects, []),
   bbsData: load(STORAGE_KEYS.bbsData, {}),
@@ -464,6 +466,8 @@ function _renderForKeys(keys) {
     rawMaterials: ['renderLiveInventory'],
     inventoryTx: ['renderLiveInventory'],
     equipmentList: ['renderEquipmentView'],
+    itemsMaster: ['renderItemsMasterView'],
+    itemCategories: ['renderItemsMasterView'],
   };
   const seen = new Set();
   keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));

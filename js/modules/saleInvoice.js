@@ -682,7 +682,8 @@ export function saveSaleInvoiceForm() {
       if (item.hsn && !found.hsn) found.hsn = item.hsn;
       found.defaultRate = item.rate;
     } else {
-      state.itemsMaster.push({ id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: item.desc, hsn: item.hsn, defaultRate: item.rate, unit: item.unit, usageCount: 1, lastUsed: new Date().toISOString(), createdAt: new Date().toISOString() });
+      // Items first seen on an invoice belong in the Items Master as Sales Items.
+      state.itemsMaster.push({ id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: item.desc, description: '', hsn: item.hsn, defaultRate: item.rate, unit: item.unit, category: 'Sales Items', status: 'Active', usageCount: 1, lastUsed: new Date().toISOString(), createdAt: new Date().toISOString() });
     }
   });
   // ── Save PO if new ──
