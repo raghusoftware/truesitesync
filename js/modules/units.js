@@ -72,6 +72,41 @@ export function materialUnitOptions(material, selected) {
   ).join('');
 }
 
+// ─── Shared material qty unit-picker ───
+// Any form where a material is chosen and a quantity typed pairs a material
+// <select> with a unit <select>. The unit is PICKED, never baked into the
+// material's label, so users can enter in Tonne where the base is Kg.
+
+/** Refill `unitSelId` with the entry units of the material chosen in `matSelId`. */
+export function syncUnitPicker(matSelId, unitSelId) {
+  const matSel = document.getElementById(matSelId);
+  const unitSel = document.getElementById(unitSelId);
+  if (!matSel || !unitSel) return;
+  const mat = (state.rawMaterials || []).find(m => m.id === matSel.value);
+  unitSel.innerHTML = materialUnitOptions(mat, mat ? mat.unit : '');
+}
+
+/** Read a qty typed against a picker pair and convert it to the base unit. */
+export function pickedQtyToBase(matSelId, qty, unitSelId) {
+  const matSel = document.getElementById(matSelId);
+  const unitSel = document.getElementById(unitSelId);
+  const mat = matSel ? (state.rawMaterials || []).find(m => m.id === matSel.value) : null;
+  return toBaseQty(mat, qty, unitSel ? unitSel.value : (mat && mat.unit));
+}
+
+/** The unit a picker is currently set to (for "entered as" notes). */
+export function pickedUnit(unitSelId) {
+  const el = document.getElementById(unitSelId);
+  return el ? el.value : '';
+}
+
+/** Base unit of the material chosen in `matSelId`. */
+export function baseUnitOf(matSelId) {
+  const matSel = document.getElementById(matSelId);
+  const mat = matSel ? (state.rawMaterials || []).find(m => m.id === matSel.value) : null;
+  return mat ? mat.unit : '';
+}
+
 // ─── Shared "1 <alt> = <factor> <base>" row editor ───
 // Used by both the raw-material modal and the Items modal.
 
@@ -112,6 +147,8 @@ export function readAltUnitRows(containerId, baseUnit) {
 if (typeof window !== 'undefined') {
   window.addAltUnitRowTo = addAltUnitRowTo;
   window.syncAltBaseLabels = syncAltBaseLabels;
+  window.syncUnitPicker = syncUnitPicker;
+  window.pickedQtyToBase = pickedQtyToBase;
   window.getUnits = getUnits;
   window.unitMasterOptions = unitMasterOptions;
   window.materialUnits = materialUnits;

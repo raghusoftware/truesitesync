@@ -1469,7 +1469,7 @@ export function updatePurRowNums() {
 // ==========================================
 // INVENTORY
 // ==========================================
-import { unitMasterOptions, materialUnitOptions, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows } from './units.js';
+import { unitMasterOptions, materialUnitOptions, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows, syncUnitPicker, pickedQtyToBase, pickedUnit } from './units.js';
 
 // Build one "1 <alt> = <factor> <base>" row inside the material modal.
 export function addAltUnitRow(unit = '', factor = '') {
@@ -1658,8 +1658,13 @@ function _invSiteName(id) {
   if (g) return (g.woNumber?g.woNumber+' — ':'')+(g.name||g.type);
   return getAllLocations().find(l => l.id === id)?.name || id || '';
 }
+// Material labels carry NO unit — the unit is chosen in the paired unit picker.
 function _matOptions() {
-  return (state.rawMaterials || []).map(m => `<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
+  return (state.rawMaterials || []).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+}
+/** Markup for a qty unit picker bound to a material select. */
+function _unitPicker(id) {
+  return `<select id="${id}" title="Enter quantity in this unit" class="p-2 border rounded-lg text-sm bg-white font-bold"></select>`;
 }
 
 window._openInvSection = function(section) {
@@ -1735,9 +1740,10 @@ function _renderGRN() {
         <input id="grnDriver" placeholder="Driver contact (opt)" class="p-2 border rounded-lg text-sm outline-none">
         <input id="grnCat" placeholder="Category (Steel/Cement…)" class="p-2 border rounded-lg text-sm outline-none">
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-        <select id="grnMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-3">
+        <select id="grnMat" onchange="syncUnitPicker('grnMat','grnQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
         <input id="grnQty" type="number" placeholder="Qty received *" class="p-2 border rounded-lg text-sm outline-none">
+        ${_unitPicker('grnQtyUnit')}
         <input id="grnExpected" type="number" placeholder="Expected (PO)" class="p-2 border rounded-lg text-sm outline-none">
         <input id="grnRate" type="number" placeholder="Rate ${cur} (opt)" class="p-2 border rounded-lg text-sm outline-none">
         <button onclick="_saveGRN()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Receive Stock</button>
@@ -1751,6 +1757,7 @@ function _renderGRN() {
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th></tr></thead><tbody>
       ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td></tr>`;}).join('')||'<tr><td colspan="8" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
       </tbody></table></div></div>`;
+  syncUnitPicker('grnMat', 'grnQtyUnit');
 }
 window._grnViewPhoto = function (id) {
   const g = (state.grnRecords || []).find(x => x.id === id); if (!g) return;
@@ -1762,7 +1769,10 @@ window._grnViewPhoto = function (id) {
 };
 window._saveGRN = function() {
   const siteId=document.getElementById('grnSite').value, matId=document.getElementById('grnMat').value;
-  const qty=parseFloat(document.getElementById('grnQty').value)||0;
+  // Qty is typed in the picked unit; stock is always stored in the base unit.
+  const enteredQty=parseFloat(document.getElementById('grnQty').value)||0;
+  const entryUnit=pickedUnit('grnQtyUnit');
+  const qty=pickedQtyToBase('grnMat', enteredQty, 'grnQtyUnit');
   const rate=parseFloat(document.getElementById('grnRate').value)||0;
   const supplierId=document.getElementById('grnSupplier').value;
   const challanNo=document.getElementById('grnChallan').value.trim();
@@ -1774,16 +1784,19 @@ window._saveGRN = function() {
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
   const driver=document.getElementById('grnDriver').value.trim();
   const category=document.getElementById('grnCat').value.trim();
-  const expectedQty=parseFloat(document.getElementById('grnExpected').value)||0;
+  const expectedQty=pickedQtyToBase('grnMat', parseFloat(document.getElementById('grnExpected').value)||0, 'grnQtyUnit');
   const mat=state.rawMaterials.find(r=>r.id===matId);
+  // Rate is quoted per entered unit (e.g. ₹/Tonne) — restate it per base unit.
+  const baseRate = enteredQty > 0 ? (enteredQty * rate) / qty : rate;
+  const entryNote = (entryUnit && mat && entryUnit !== mat.unit) ? ` (${enteredQty} ${entryUnit})` : '';
   const grnNo=_grnNextNumber(date);
   const testable=_grnIsTestable(category+' '+(mat?.name||''));
   const qcStatus=testable?'Pending Inspection':'Accepted';
-  const amount=qty*rate;
+  const amount=enteredQty*rate;
   // GRN record (with cross-module flags: billed=false for accounts, qcStatus for QC)
-  state.grnRecords.push({id:'grn_'+Date.now(),grnNo,date,receivedAt:new Date().toISOString(),siteId,matId,category,qty,expectedQty,rate,amount,challanNo,supplierId,vehicleNo,driver,projectId:state.currentProjectId,challanPhoto:_grnChallanPhoto,condPhoto:_grnCondPhoto,billed:false,qcStatus});
+  state.grnRecords.push({id:'grn_'+Date.now(),grnNo,date,receivedAt:new Date().toISOString(),siteId,matId,category,qty,expectedQty,rate:baseRate,amount,enteredQty,entryUnit,challanNo,supplierId,vehicleNo,driver,projectId:state.currentProjectId,challanPhoto:_grnChallanPhoto,condPhoto:_grnCondPhoto,billed:false,qcStatus});
   // Inventory: increment stock on hand for this site/material
-  state.inventoryTx.push({id:'tx_grn_'+Date.now(),date,siteId,rawMaterialId:matId,type:'IN',qty,rate,ref:`${grnNo} ${challanNo||''}`.trim()});
+  state.inventoryTx.push({id:'tx_grn_'+Date.now(),date,siteId,rawMaterialId:matId,type:'IN',qty,rate:baseRate,ref:`${grnNo} ${challanNo||''}${entryNote}`.trim()});
   // Quality Control: testable materials (cement/steel…) → Pending Inspection alert
   if(testable){
     if(!state.qualityChecks)state.qualityChecks=[];
@@ -1802,11 +1815,12 @@ function _renderGangMaterial() {
   c.innerHTML=`
     <div class="bg-white border rounded-xl p-4 mb-4">
       <h4 class="font-bold text-slate-700 text-sm mb-3">🧱 Issue / Return Material to Gang</h4>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
         <select id="gmGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
-        <select id="gmMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+        <select id="gmMat" onchange="syncUnitPicker('gmMat','gmQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
         <select id="gmType" class="p-2 border rounded-lg text-sm bg-white"><option value="ISSUE">Issue (−stock)</option><option value="RETURN">Return (+stock)</option></select>
         <input id="gmQty" type="number" placeholder="Qty" class="p-2 border rounded-lg text-sm outline-none">
+        ${_unitPicker('gmQtyUnit')}
         <button onclick="_saveGangMat()" class="bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600">Save</button>
       </div>
       <input id="gmPurpose" placeholder="Purpose (e.g. blockwork 2nd floor)" class="w-full mt-2 p-2 border rounded-lg text-sm outline-none">
@@ -1824,10 +1838,12 @@ function _renderGangMaterial() {
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Gang</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th></tr></thead><tbody>
       ${issues.map(i=>{const m=state.rawMaterials.find(r=>r.id===i.matId);const g=(state.labourContractors||[]).find(x=>x.id===i.gangId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${g?.name||'—'}</td><td class="px-3 py-2">${m?.name||'—'}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type==='ISSUE'?'#ea580c':'#059669'};">${i.type}</span></td><td class="px-3 py-2 text-right font-bold">${i.qty} ${m?.unit||''}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No records.</td></tr>'}
       </tbody></table></div>`;
+  syncUnitPicker('gmMat', 'gmQtyUnit');
 }
 window._saveGangMat=function(){
   const gangId=document.getElementById('gmGang').value, matId=document.getElementById('gmMat').value;
-  const type=document.getElementById('gmType').value, qty=parseFloat(document.getElementById('gmQty').value)||0;
+  const type=document.getElementById('gmType').value;
+  const qty=pickedQtyToBase('gmMat', parseFloat(document.getElementById('gmQty').value)||0, 'gmQtyUnit');
   const purpose=document.getElementById('gmPurpose').value.trim();
   if(!gangId){showToast('Select gang','error');return;}
   if(!matId||qty<=0){showToast('Select material and qty','error');return;}
@@ -1912,9 +1928,10 @@ function _renderInvTransfer() {
         <select id="itTo" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
         <input id="itVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-        <select id="itMat" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <select id="itMat" onchange="syncUnitPicker('itMat','itQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
         <input id="itQty" type="number" placeholder="Qty to dispatch" class="p-2 border rounded-lg text-sm outline-none">
+        ${_unitPicker('itQtyUnit')}
         <button onclick="_initTransfer()" class="bg-cyan-600 text-white rounded-lg font-bold text-sm hover:bg-cyan-700">Dispatch (In-Transit)</button>
       </div>
     </div>
@@ -1922,10 +1939,12 @@ function _renderInvTransfer() {
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">From → To</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
       ${transfers.map(t=>{const m=state.rawMaterials.find(r=>r.id===t.assetId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2">${_invSiteName(t.fromLocId)} → ${_invSiteName(t.toLocId)}</td><td class="px-3 py-2 text-right font-bold">${t.qty}${t.receivedQty!=null&&t.receivedQty!==t.qty?` (rcv ${t.receivedQty})`:''}</td><td class="px-3 py-2 text-center">${t.status==='IN_TRANSIT'?`<button onclick="_receiveTransfer('${t.id}')" style="font-size:10px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Receive</button>`:`<span style="font-size:10px;color:#059669;font-weight:700;">✓ Received</span>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No transfers.</td></tr>'}
       </tbody></table></div>`;
+  syncUnitPicker('itMat', 'itQtyUnit');
 }
 window._initTransfer=function(){
   const fromLocId=document.getElementById('itFrom').value, toLocId=document.getElementById('itTo').value;
-  const assetId=document.getElementById('itMat').value, qty=parseFloat(document.getElementById('itQty').value)||0;
+  const assetId=document.getElementById('itMat').value;
+  const qty=pickedQtyToBase('itMat', parseFloat(document.getElementById('itQty').value)||0, 'itQtyUnit');
   const vehicleNo=document.getElementById('itVehicle').value.trim();
   if(fromLocId===toLocId){showToast('Source and destination must differ','error');return;}
   if(!assetId||qty<=0){showToast('Select material and qty','error');return;}
@@ -1952,10 +1971,11 @@ function _renderInvAudit() {
   c.innerHTML=`
     <div class="bg-white border rounded-xl p-4 mb-4">
       <h4 class="font-bold text-slate-700 text-sm mb-3">📋 Physical Stock Audit</h4>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
         <select id="auSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <select id="auMat" class="p-2 border rounded-lg text-sm bg-white" onchange="_auShowBook()">${_matOptions()}</select>
+        <select id="auMat" class="p-2 border rounded-lg text-sm bg-white" onchange="syncUnitPicker('auMat','auQtyUnit');_auShowBook()">${_matOptions()}</select>
         <input id="auActual" type="number" placeholder="Physical count" class="p-2 border rounded-lg text-sm outline-none">
+        ${_unitPicker('auQtyUnit')}
         <button onclick="_saveAudit()" class="bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700">Reconcile</button>
       </div>
       <p id="auBook" class="text-xs text-slate-500 mt-2"></p>
@@ -1964,6 +1984,8 @@ function _renderInvAudit() {
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Book</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Physical</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Variance</th></tr></thead><tbody>
       ${audits.map(a=>{const m=state.rawMaterials.find(r=>r.id===a.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${a.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${a.book.toFixed(1)}</td><td class="px-3 py-2 text-right">${a.actual.toFixed(1)}</td><td class="px-3 py-2 text-right font-bold" style="color:${Math.abs(a.variance)>0?(a.variance<0?'#dc2626':'#059669'):'#64748b'};">${a.variance>0?'+':''}${a.variance.toFixed(1)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No audits yet.</td></tr>'}
       </tbody></table></div>`;
+  syncUnitPicker('auMat', 'auQtyUnit');
+  _auShowBook();
 }
 window._auShowBook=function(){
   const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;
@@ -1973,8 +1995,10 @@ window._auShowBook=function(){
 };
 window._saveAudit=function(){
   const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;
-  const actual=parseFloat(document.getElementById('auActual').value);
-  if(isNaN(actual)){showToast('Enter physical count','error');return;}
+  const entered=parseFloat(document.getElementById('auActual').value);
+  if(isNaN(entered)){showToast('Enter physical count','error');return;}
+  // Book stock is in the base unit — convert the count before comparing.
+  const actual=pickedQtyToBase('auMat', entered, 'auQtyUnit');
   const book=_materialSOH(matId,siteId);
   const variance=actual-book;
   const date=new Date().toISOString().split('T')[0];
