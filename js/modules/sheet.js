@@ -728,7 +728,16 @@ export function saveEntries() {
     updatedAt: new Date().toISOString(), isBilled, linkedAbstract
   };
   if (!state.currentSheetId) { state.sheets.push(data); state.currentSheetId = data.id; }
-  else { state.sheets[state.sheets.findIndex(s => s.id === state.currentSheetId)] = data; }
+  else {
+    // findIndex can be -1 when the open sheet is no longer in the array — a cloud
+    // pull or a realtime push replaces state.sheets wholesale, so a sheet opened
+    // before that arrives can vanish from it mid-edit. Assigning to [-1] would
+    // silently drop the save (it sets a property, not an element) while still
+    // toasting "Draft Saved". Re-add instead of losing the user's work.
+    const idx = state.sheets.findIndex(s => s.id === state.currentSheetId);
+    if (idx >= 0) state.sheets[idx] = data;
+    else state.sheets.push(data);
+  }
 
   // Recipe-based inventory auto-consume (shared with the DPR / Record-Work path).
   const autoConsumptionCount = rebuildSheetConsumption(data);

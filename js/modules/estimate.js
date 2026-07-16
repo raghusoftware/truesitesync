@@ -109,7 +109,10 @@ export function saveEstimate() {
   const prev = state.currentEstimateId ? state.estimates.find(e => e.id === state.currentEstimateId) : null;
   const data = { id: state.currentEstimateId || 'est_' + Date.now(), estNum: document.getElementById('estNum').value, clientId: cId, date: document.getElementById('estDate').value, items: estItems, total, terms: document.getElementById('estTerms').value, notes: document.getElementById('estNotes').value,
     saleOrderId: prev?.saleOrderId || null, projectId: prev?.projectId || null, orderedMaterials: prev?.orderedMaterials || [], recipeMap: prev?.recipeMap || {} };
-  if (state.currentEstimateId) state.estimates[state.estimates.findIndex(e => e.id === state.currentEstimateId)] = data;
+  // findIndex can be -1 if a cloud pull replaced state.estimates mid-edit;
+  // assigning to [-1] would silently discard the save. Re-add instead.
+  const idx = state.currentEstimateId ? state.estimates.findIndex(e => e.id === state.currentEstimateId) : -1;
+  if (idx >= 0) state.estimates[idx] = data;
   else state.estimates.push(data);
   saveAllData(); showToast('Estimate Saved'); closeEstimateEditor(); renderEstimatesList();
 }
