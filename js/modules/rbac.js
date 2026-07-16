@@ -44,7 +44,7 @@ export const ACCESS_MODULES = [
   { id: 'partiesLedgerView', label: 'Parties Ledger', group: 'Finance' },
   { id: 'accountsManagerView', label: 'Bank & Cash', group: 'Finance' },
   { id: 'accountingView', label: 'P&L Report', group: 'Finance' },
-  { id: 'itemsMasterView', label: 'Items Master', group: 'System' },
+  { id: 'itemsMasterView', label: 'Items', group: 'System' },
   { id: 'masterData', label: 'Master Data', group: 'System' },
   { id: 'settingsView', label: 'Backup', group: 'System' },
   { id: 'companyProfileView', label: 'Company', group: 'System' },
