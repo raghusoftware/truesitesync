@@ -20,7 +20,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.5.1">
-    <script type="module" src="js/app.js?v=1.5.29"></script>
+    <script type="module" src="js/app.js?v=1.5.30"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -195,12 +195,9 @@
         <button onclick="switchView('cashFlowView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="cashFlowView"><span style="font-size:13px">&#128200;</span> Cash Flow</button>
         <button onclick="switchView('costProfitView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="costProfitView"><span style="font-size:13px">&#128202;</span> Cost &amp; Profit</button>
 
-        <!-- ── Masters ── -->
-        <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">Masters</p>
-        <button onclick="switchView('itemsMasterView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="itemsMasterView"><span style="font-size:13px">&#127991;</span> Items Master</button>
-
         <!-- ── System ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
+        <button onclick="switchView('itemsMasterView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="itemsMasterView"><span style="font-size:13px">&#127991;</span> Items Master</button>
         <button onclick="switchView('masterData')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="masterData"><span style="font-size:13px">&#128101;</span> Users & Roles</button>
         <button onclick="switchView('planBillingView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="planBillingView"><span style="font-size:13px">&#128179;</span> Plan &amp; Billing</button>
         <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#9881;</span> Settings &amp; Config</button>
