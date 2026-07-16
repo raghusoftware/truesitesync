@@ -72,7 +72,46 @@ export function materialUnitOptions(material, selected) {
   ).join('');
 }
 
+// ─── Shared "1 <alt> = <factor> <base>" row editor ───
+// Used by both the raw-material modal and the Items modal.
+
+/** Append one alternate-unit row to `containerId`, reading the base from `baseElId`. */
+export function addAltUnitRowTo(containerId, baseElId, unit = '', factor = '') {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const base = (document.getElementById(baseElId) || {}).value || 'base';
+  const row = document.createElement('div');
+  row.className = 'alt-unit-row flex items-center gap-2 mb-2';
+  row.innerHTML =
+    `<span class="text-xs text-slate-500 shrink-0">1</span>` +
+    `<select class="alt-unit-name flex-1 p-2 border rounded text-sm">${unitMasterOptions(unit)}</select>` +
+    `<span class="text-xs text-slate-500 shrink-0">=</span>` +
+    `<input type="number" step="any" class="alt-unit-factor w-20 p-2 border rounded text-sm" placeholder="qty" value="${factor}">` +
+    `<span class="alt-unit-base text-xs font-bold text-slate-600 shrink-0">${base}</span>` +
+    `<button type="button" class="text-red-500 font-bold px-1" onclick="this.parentElement.remove()">✕</button>`;
+  box.appendChild(row);
+}
+
+/** Refresh the trailing base-unit labels after the base unit changes. */
+export function syncAltBaseLabels(containerId, baseElId) {
+  const base = (document.getElementById(baseElId) || {}).value || 'base';
+  document.querySelectorAll('#' + containerId + ' .alt-unit-base').forEach(el => el.textContent = base);
+}
+
+/** Read the rows back as [{unit, factor}], dropping blanks/dupes/same-as-base. */
+export function readAltUnitRows(containerId, baseUnit) {
+  const out = [];
+  document.querySelectorAll('#' + containerId + ' .alt-unit-row').forEach(r => {
+    const u = r.querySelector('.alt-unit-name').value.trim();
+    const f = parseFloat(r.querySelector('.alt-unit-factor').value);
+    if (u && u !== String(baseUnit).trim() && isFinite(f) && f > 0 && !out.some(a => a.unit === u)) out.push({ unit: u, factor: f });
+  });
+  return out;
+}
+
 if (typeof window !== 'undefined') {
+  window.addAltUnitRowTo = addAltUnitRowTo;
+  window.syncAltBaseLabels = syncAltBaseLabels;
   window.getUnits = getUnits;
   window.unitMasterOptions = unitMasterOptions;
   window.materialUnits = materialUnits;

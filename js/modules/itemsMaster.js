@@ -1,32 +1,57 @@
 /**
  * ═══════════════════════════════════════════════════════════
- * True Site Sync — Items Master (Vyapar-style, category-wise)
+ * True Site Sync — Items (Vyapar-style, category-wise master)
  * ───────────────────────────────────────────────────────────
- * One master database for every item the business buys, sells, owns or bills:
- *   • state.itemsMaster    = the items themselves. This array ALREADY existed —
- *     sale invoices auto-capture items into it and read it back for the item
- *     autocomplete. We extend the same records (rather than start a parallel
- *     list) so an item typed on an invoice and an item added here are the same
- *     row. Legacy records only have {name, hsn, defaultRate, unit, usageCount},
- *     so every read goes through normalizeItem() for the newer fields.
- *   • state.itemCategories = the category master (seeded with the standard four,
- *     users add their own). Categories are stored on the item by NAME.
+ * ONE screen over the TWO item stores the app has always had:
  *
- * Rate lives in `defaultRate` because saleInvoice.js reads that field.
- * Units come from the shared unit master (units.js) so the two stay in sync.
+ *   • state.rawMaterials — stock-tracked things. Inventory transactions,
+ *     recipes, GRNs and purchases all reference these by id, so these records
+ *     must stay in this array. Their `type` field ('Raw Material' | 'Tools' |
+ *     'Miscellaneous') drives inventory behaviour, and is what we surface as
+ *     the item's Category.
+ *   • state.itemsMaster — non-stock things (services, sale lines). Sale
+ *     invoices auto-capture into this array and read it back for autocomplete.
+ *
+ * Merging the arrays would orphan every inventoryTx.rawMaterialId, so instead
+ * we present a unified list and route each save/delete back to the store the
+ * record belongs to. STOCK_CATEGORY_TYPE is the bridge: picking one of those
+ * categories puts the item in rawMaterials (and it shows in Inventory);
+ * anything else puts it in itemsMaster.
+ *
+ * Both stores support `altUnits` (second unit + conversion) via units.js.
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
-import { unitMasterOptions } from './units.js';
+import { unitMasterOptions, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows } from './units.js';
 
-export const DEFAULT_ITEM_CATEGORIES = ['Purchase Materials', 'Sales Items', 'Tools & Equipment', 'Services'];
+/** Categories that live in rawMaterials → the rawMaterial.type they map to. */
+export const STOCK_CATEGORY_TYPE = {
+  'Raw Material': 'Raw Material',
+  'Tools & Equipment': 'Tools',
+  'Miscellaneous': 'Miscellaneous',
+};
+const TYPE_TO_CATEGORY = Object.fromEntries(Object.entries(STOCK_CATEGORY_TYPE).map(([c, t]) => [t, c]));
 
-/** The category master (seed the standard set if empty). */
+export const DEFAULT_ITEM_CATEGORIES = [
+  'Raw Material', 'Purchase Materials', 'Sales Items', 'Tools & Equipment', 'Services', 'Miscellaneous',
+];
+
+export function isStockCategory(cat) { return Object.prototype.hasOwnProperty.call(STOCK_CATEGORY_TYPE, cat); }
+
+/** The category master. Standard categories are always present (self-healing). */
 export function getItemCategories() {
-  if (!Array.isArray(state.itemCategories) || !state.itemCategories.length) {
-    state.itemCategories = [...DEFAULT_ITEM_CATEGORIES];
-  }
+  if (!Array.isArray(state.itemCategories)) state.itemCategories = [];
+  // Existing workspaces were seeded before Raw Material/Miscellaneous existed.
+  DEFAULT_ITEM_CATEGORIES.forEach(c => { if (!state.itemCategories.includes(c)) state.itemCategories.push(c); });
+  // Keep the standard categories in their canonical order, customs after.
+  state.itemCategories.sort((a, b) => {
+    const ia = DEFAULT_ITEM_CATEGORIES.indexOf(a), ib = DEFAULT_ITEM_CATEGORIES.indexOf(b);
+    if (ia < 0 && ib < 0) return 0;
+    if (ia < 0) return 1;
+    if (ib < 0) return -1;
+    return ia - ib;
+  });
   return state.itemCategories;
 }
 
@@ -40,7 +65,7 @@ export function addItemCategory(name) {
   return true;
 }
 
-/** Remove a category. Items in it fall back to Uncategorized (never deleted). */
+/** Remove a custom category. Its items survive as Uncategorized. */
 export function deleteItemCategory(name) {
   if (DEFAULT_ITEM_CATEGORIES.includes(name)) return showToast('Standard categories cannot be removed', 'error');
   const inUse = (state.itemsMaster || []).filter(i => i.category === name).length;
@@ -53,26 +78,48 @@ export function deleteItemCategory(name) {
   showToast('Category removed', 'success');
 }
 
-/** Fill in fields legacy (invoice-captured) records never had. */
-function normalizeItem(i) {
+// ─── Unified read: normalize both stores into one row shape ───
+
+function fromRawMaterial(rm) {
   return {
-    id: i.id,
-    name: i.name || '',
-    description: i.description || '',
-    unit: i.unit || 'Nos',
-    category: i.category || '',
-    hsn: i.hsn || '',
-    rate: parseFloat(i.defaultRate) || 0,
-    status: i.status || 'Active',
-    usageCount: i.usageCount || 0,
+    id: rm.id, source: 'rm', stock: true,
+    name: rm.name || '', description: rm.description || '',
+    unit: rm.unit || '', altUnits: rm.altUnits || [],
+    category: TYPE_TO_CATEGORY[rm.type] || 'Raw Material',
+    hsn: rm.hsn || '', rate: parseFloat(rm.rate) || 0,
+    status: rm.status || 'Active', minStock: rm.minStock || 0,
   };
 }
 
-export function getMasterItems() {
-  return (state.itemsMaster || []).map(normalizeItem);
+function fromMasterItem(i) {
+  return {
+    id: i.id, source: 'im', stock: false,
+    name: i.name || '', description: i.description || '',
+    unit: i.unit || 'Nos', altUnits: i.altUnits || [],
+    category: i.category || '',
+    hsn: i.hsn || '', rate: parseFloat(i.defaultRate) || 0,
+    status: i.status || 'Active', usageCount: i.usageCount || 0,
+  };
 }
 
-// ─── View state (category filter + search) ───
+/** Every item from both stores, as one list. */
+export function getAllItems() {
+  return [
+    ...(state.rawMaterials || []).map(fromRawMaterial),
+    ...(state.itemsMaster || []).map(fromMasterItem),
+  ];
+}
+
+/** Locate a record in whichever store holds it. */
+function findRecord(id) {
+  const rm = (state.rawMaterials || []).find(x => x.id === id);
+  if (rm) return { rec: rm, source: 'rm' };
+  const im = (state.itemsMaster || []).find(x => x.id === id);
+  if (im) return { rec: im, source: 'im' };
+  return null;
+}
+
+// ─── View state ───
 let _activeCat = '__all';
 let _search = '';
 
@@ -82,9 +129,8 @@ export function setItemSearch(v) { _search = String(v || '').toLowerCase().trim(
 function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function _q(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
-/** Items after the active category + search filters. */
 function _filtered() {
-  return getMasterItems().filter(i => {
+  return getAllItems().filter(i => {
     if (_activeCat === '__uncat' ? i.category : (_activeCat !== '__all' && i.category !== _activeCat)) return false;
     if (!_search) return true;
     return (i.name + ' ' + i.description + ' ' + i.hsn).toLowerCase().includes(_search);
@@ -95,13 +141,13 @@ export function renderItemsMasterView() {
   const box = document.getElementById('itemsMasterContent');
   if (!box) return;
   const cats = getItemCategories();
-  const all = getMasterItems();
+  const all = getAllItems();
   const count = c => c === '__all' ? all.length : (c === '__uncat' ? all.filter(i => !i.category).length : all.filter(i => i.category === c).length);
   const uncat = count('__uncat');
 
   const catRow = (id, label, removable) => `
     <div onclick="setItemCategoryFilter('${_q(id)}')" class="group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition ${_activeCat === id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50 border border-transparent'}">
-      <span class="text-sm font-medium ${_activeCat === id ? 'text-blue-700' : 'text-slate-700'}">${_esc(label)}</span>
+      <span class="text-sm font-medium ${_activeCat === id ? 'text-blue-700' : 'text-slate-700'}">${_esc(label)}${isStockCategory(id) ? ' <span class="text-[9px] text-slate-400">stock</span>' : ''}</span>
       <span class="flex items-center gap-1">
         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${_activeCat === id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}">${count(id)}</span>
         ${removable ? `<button onclick="event.stopPropagation();window._deleteItemCategory('${_q(id)}')" class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 font-bold text-xs px-1" title="Remove category">✕</button>` : ''}
@@ -122,6 +168,7 @@ export function renderItemsMasterView() {
             <input type="text" id="newItemCatName" placeholder="New category" class="flex-1 p-2 border rounded text-sm min-w-0" onkeydown="if(event.key==='Enter')window._addItemCategory()">
             <button onclick="window._addItemCategory()" class="px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold hover:bg-slate-700 shrink-0">Add</button>
           </div>
+          <p class="text-[10px] text-slate-400 mt-3 leading-relaxed">Items in a <b>stock</b> category are tracked in Inventory. Everything else (services, sale lines) is billing-only.</p>
         </div>
       </div>
       <div class="lg:col-span-3">
@@ -137,7 +184,7 @@ export function renderItemsMasterView() {
                   <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase text-[10px]">Item Name</th>
                   <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase text-[10px]">Description</th>
                   <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase text-[10px]">Category</th>
-                  <th class="px-4 py-2.5 text-center font-bold text-slate-600 uppercase text-[10px]">Unit</th>
+                  <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase text-[10px]">Unit</th>
                   <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase text-[10px]">HSN</th>
                   <th class="px-4 py-2.5 text-right font-bold text-slate-600 uppercase text-[10px]">Rate</th>
                   <th class="px-4 py-2.5 text-center font-bold text-slate-600 uppercase text-[10px]">Status</th>
@@ -162,14 +209,19 @@ export function renderItemsMasterTable() {
     tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-12 text-center text-slate-400 text-sm">${_search ? 'No items match your search.' : 'No items yet. Click <b>Add Item</b> to create your first one.'}</td></tr>`;
     return;
   }
-  const catColor = c => c === 'Sales Items' ? 'bg-green-100 text-green-800' : c === 'Purchase Materials' ? 'bg-blue-100 text-blue-800'
-    : c === 'Tools & Equipment' ? 'bg-purple-100 text-purple-800' : c === 'Services' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600';
-  tbody.innerHTML = rows.map(i => `
+  const catColor = c => c === 'Raw Material' ? 'bg-emerald-100 text-emerald-800' : c === 'Sales Items' ? 'bg-green-100 text-green-800'
+    : c === 'Purchase Materials' ? 'bg-blue-100 text-blue-800' : c === 'Tools & Equipment' ? 'bg-purple-100 text-purple-800'
+    : c === 'Services' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600';
+  tbody.innerHTML = rows.map(i => {
+    // Second units, one compact line each: "1 Tonne = 1000 Kg"
+    const alts = (i.altUnits || []).filter(a => a && a.unit)
+      .map(a => `<div>1 ${_esc(a.unit)} = ${a.factor} ${_esc(i.unit)}</div>`).join('');
+    return `
     <tr class="hover:bg-slate-50 ${i.status === 'Inactive' ? 'opacity-60' : ''}">
-      <td class="px-4 py-3 font-bold text-slate-800">${_esc(i.name)}</td>
-      <td class="px-4 py-3 text-slate-500 max-w-[220px] truncate" title="${_esc(i.description)}">${_esc(i.description) || '—'}</td>
+      <td class="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">${_esc(i.name)}${i.stock ? ' <span class="text-[9px] text-emerald-600 font-bold" title="Tracked in Inventory">◆</span>' : ''}</td>
+      <td class="px-4 py-3 text-slate-500 max-w-[200px] truncate" title="${_esc(i.description)}">${_esc(i.description) || '—'}</td>
       <td class="px-4 py-3"><span class="${catColor(i.category)} text-[10px] px-2 py-0.5 rounded font-bold uppercase">${_esc(i.category || 'Uncategorized')}</span></td>
-      <td class="px-4 py-3 text-center font-medium">${_esc(i.unit)}</td>
+      <td class="px-4 py-3 whitespace-nowrap"><span class="font-medium">${_esc(i.unit)}</span>${alts ? `<div class="text-[10px] text-slate-400 leading-tight mt-0.5">${alts}</div>` : ''}</td>
       <td class="px-4 py-3 font-mono text-xs text-slate-500">${_esc(i.hsn) || '—'}</td>
       <td class="px-4 py-3 text-right font-bold text-orange-600">${cur}${i.rate.toFixed(2)}</td>
       <td class="px-4 py-3 text-center">
@@ -179,13 +231,22 @@ export function renderItemsMasterTable() {
         <button onclick="openItemMasterModal('${_q(i.id)}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-3 py-1.5 rounded mr-1">Edit</button>
         <button onclick="window._deleteMasterItem('${_q(i.id)}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-3 py-1.5 rounded">Delete</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ─── Add / Edit modal ───
+
+/** Show/hide the Min-Stock field — only stock categories use it. */
+export function onItemCategoryChange() {
+  const stock = isStockCategory(document.getElementById('imCategory').value);
+  document.getElementById('imMinStockWrap').style.display = stock ? '' : 'none';
+  document.getElementById('imStockHint').style.display = stock ? '' : 'none';
+}
+
 export function openItemMasterModal(id) {
-  const raw = id ? (state.itemsMaster || []).find(x => x.id === id) : null;
-  const it = raw ? normalizeItem(raw) : null;
+  const found = id ? findRecord(id) : null;
+  const it = found ? (found.source === 'rm' ? fromRawMaterial(found.rec) : fromMasterItem(found.rec)) : null;
   document.getElementById('itemMasterModal').classList.remove('hidden');
   document.getElementById('imId').value = it ? it.id : '';
   document.getElementById('imModalTitle').textContent = it ? 'Edit Item' : 'Add Item';
@@ -193,44 +254,92 @@ export function openItemMasterModal(id) {
   document.getElementById('imDesc').value = it ? it.description : '';
   document.getElementById('imHsn').value = it ? it.hsn : '';
   document.getElementById('imRate').value = it ? (it.rate || '') : '';
-  document.getElementById('imUnit').innerHTML = unitMasterOptions(it ? it.unit : 'Nos');
-  // Default a brand-new item to the category currently being browsed.
+  document.getElementById('imMinStock').value = it ? (it.minStock || '') : '';
+  document.getElementById('imStatus').value = it ? it.status : 'Active';
+
+  const unitSel = document.getElementById('imUnit');
+  unitSel.innerHTML = unitMasterOptions(it ? it.unit : 'Nos');
+  unitSel.onchange = () => syncAltBaseLabels('imAltUnitRows', 'imUnit');
+
   const preset = it ? it.category : (['__all', '__uncat'].includes(_activeCat) ? '' : _activeCat);
   document.getElementById('imCategory').innerHTML = `<option value="">Uncategorized</option>` +
-    getItemCategories().map(c => `<option value="${_esc(c)}" ${preset === c ? 'selected' : ''}>${_esc(c)}</option>`).join('');
-  document.getElementById('imStatus').value = it ? it.status : 'Active';
+    getItemCategories().map(c => `<option value="${_esc(c)}" ${preset === c ? 'selected' : ''}>${_esc(c)}${isStockCategory(c) ? ' (stock)' : ''}</option>`).join('');
+
+  document.getElementById('imAltUnitRows').innerHTML = '';
+  (it ? it.altUnits : []).forEach(a => addAltUnitRowTo('imAltUnitRows', 'imUnit', a.unit, a.factor));
+  onItemCategoryChange();
 }
 
 export function saveItemMasterItem() {
   const id = document.getElementById('imId').value;
   const name = document.getElementById('imName').value.trim();
   if (!name) return showToast('Item Name is required', 'error');
+  const category = document.getElementById('imCategory').value;
+  const unit = document.getElementById('imUnit').value;
+  if (!unit) return showToast('Unit is required', 'error');
+
   if (!state.itemsMaster) state.itemsMaster = [];
-  // Name is the identity used by the invoice autocomplete — keep it unique.
-  const dupe = state.itemsMaster.some(m => m.id !== id && (m.name || '').toLowerCase().trim() === name.toLowerCase());
+  if (!state.rawMaterials) state.rawMaterials = [];
+
+  // Name is the identity the invoice autocomplete matches on — keep it unique
+  // across BOTH stores.
+  const dupe = getAllItems().some(i => i.id !== id && i.name.toLowerCase().trim() === name.toLowerCase());
   if (dupe) return showToast('An item with this name already exists', 'error');
-  const fields = {
+
+  const toStock = isStockCategory(category);
+  const found = id ? findRecord(id) : null;
+
+  // Changing an item across the stock boundary means physically moving it
+  // between stores. Block it when inventory history would be orphaned.
+  if (found && ((found.source === 'rm') !== toStock)) {
+    if (found.source === 'rm' && _rawMaterialInUse(id)) {
+      return showToast('This item has inventory history — it must stay in a stock category', 'error');
+    }
+    window.recycleDelete && window.recycleDelete(found.source === 'rm' ? 'rawMaterials' : 'itemsMaster', id, 'Item', name);
+  }
+
+  const common = {
     name,
     description: document.getElementById('imDesc').value.trim(),
-    unit: document.getElementById('imUnit').value,
-    category: document.getElementById('imCategory').value,
+    unit,
+    altUnits: readAltUnitRows('imAltUnitRows', unit),
     hsn: document.getElementById('imHsn').value.trim(),
-    defaultRate: parseFloat(document.getElementById('imRate').value) || 0,
     status: document.getElementById('imStatus').value,
   };
-  const existing = id ? state.itemsMaster.find(x => x.id === id) : null;
-  if (existing) {
-    Object.assign(existing, fields);
+  const rate = parseFloat(document.getElementById('imRate').value) || 0;
+  const minStock = parseFloat(document.getElementById('imMinStock').value) || 0;
+
+  const sameStore = found && ((found.source === 'rm') === toStock);
+  if (toStock) {
+    const rec = sameStore ? found.rec : { id: 'rm_' + Date.now(), projectId: state.rawMaterials[0]?.projectId };
+    Object.assign(rec, common, { type: STOCK_CATEGORY_TYPE[category], rate, minStock });
+    if (!sameStore) state.rawMaterials.push(rec);
   } else {
-    state.itemsMaster.push({
-      id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      ...fields, usageCount: 0, createdAt: new Date().toISOString(),
-    });
+    const rec = sameStore ? found.rec : { id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), usageCount: 0, createdAt: new Date().toISOString() };
+    Object.assign(rec, common, { category, defaultRate: rate });
+    if (!sameStore) state.itemsMaster.push(rec);
   }
+
   saveAllData();
   document.getElementById('itemMasterModal').classList.add('hidden');
   renderItemsMasterView();
-  showToast(existing ? 'Item Updated' : 'Item Saved', 'success');
+  // Stock items surface in Inventory + purchase dropdowns.
+  window.populateDropdowns?.();
+  window.refreshPurchaseDropdowns?.();
+  window.renderLiveInventory?.();
+  showToast(found ? 'Item Updated' : 'Item Saved', 'success');
+}
+
+/** True if a raw material is referenced by inventory/purchase/recipe history. */
+function _rawMaterialInUse(id) {
+  if ((state.inventoryTx || []).some(tx => tx.rawMaterialId === id)) return true;
+  if ((state.vendorMaterials || []).some(m => m?.items?.some(i => i.rawMatId === id))) return true;
+  for (const c in (state.recipes || {})) {
+    for (const i in state.recipes[c]) {
+      if (state.recipes[c][i]?.ingredients?.some(ing => ing.rawMatId === id)) return true;
+    }
+  }
+  return false;
 }
 
 if (typeof window !== 'undefined') {
@@ -238,9 +347,11 @@ if (typeof window !== 'undefined') {
   window.renderItemsMasterTable = renderItemsMasterTable;
   window.openItemMasterModal = openItemMasterModal;
   window.saveItemMasterItem = saveItemMasterItem;
+  window.onItemCategoryChange = onItemCategoryChange;
   window.setItemCategoryFilter = setItemCategoryFilter;
   window.setItemSearch = setItemSearch;
   window.getItemCategories = getItemCategories;
+  window.getAllItems = getAllItems;
 
   window._addItemCategory = function () {
     const el = document.getElementById('newItemCatName');
@@ -256,20 +367,27 @@ if (typeof window !== 'undefined') {
   window._deleteItemCategory = deleteItemCategory;
 
   window._toggleItemStatus = function (id) {
-    const it = (state.itemsMaster || []).find(x => x.id === id);
-    if (!it) return;
-    it.status = (it.status || 'Active') === 'Active' ? 'Inactive' : 'Active';
+    const found = findRecord(id);
+    if (!found) return;
+    found.rec.status = (found.rec.status || 'Active') === 'Active' ? 'Inactive' : 'Active';
     saveAllData();
     renderItemsMasterTable();
   };
 
   window._deleteMasterItem = function (id) {
-    const it = (state.itemsMaster || []).find(x => x.id === id);
-    if (!it) return;
-    const used = it.usageCount > 0;
-    const msg = used
+    const found = findRecord(id);
+    if (!found) return;
+    // Stock items go through the raw-material delete, which has the full
+    // in-use integrity checks (inventory, purchases, recipes, transfers).
+    if (found.source === 'rm') {
+      window.deleteRawMaterial?.(id);
+      renderItemsMasterView();
+      return;
+    }
+    const it = found.rec;
+    const msg = it.usageCount > 0
       ? `⚠️ "${it.name}" has been used on ${it.usageCount} document(s).\n\nDeleting it only removes it from the master list — past invoices keep their own copy of the item and are unaffected.\n\nDelete anyway?`
-      : `Delete "${it.name}" from the items master?`;
+      : `Delete "${it.name}" from Items?`;
     if (!confirm(msg)) return;
     // Tombstoned delete so the removal syncs to other devices (never raw filter).
     window.recycleDelete && window.recycleDelete('itemsMaster', id, 'Item');

@@ -463,7 +463,7 @@ function _renderForKeys(keys) {
     accounts: ['renderAccounts'],
     expenses: ['renderExpenseCategories'],
     issues: ['renderIssues'],
-    rawMaterials: ['renderLiveInventory'],
+    rawMaterials: ['renderLiveInventory', 'renderItemsMasterView'],
     inventoryTx: ['renderLiveInventory'],
     equipmentList: ['renderEquipmentView'],
     itemsMaster: ['renderItemsMasterView'],

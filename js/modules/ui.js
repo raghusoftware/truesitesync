@@ -1469,31 +1469,13 @@ export function updatePurRowNums() {
 // ==========================================
 // INVENTORY
 // ==========================================
-import { unitMasterOptions, materialUnitOptions, toBaseQty } from './units.js';
+import { unitMasterOptions, materialUnitOptions, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows } from './units.js';
 
 // Build one "1 <alt> = <factor> <base>" row inside the material modal.
 export function addAltUnitRow(unit = '', factor = '') {
-  const box = document.getElementById('altUnitRows');
-  if (!box) return;
-  const base = (document.getElementById('modalRawUnit').value || 'base');
-  const row = document.createElement('div');
-  row.className = 'alt-unit-row flex items-center gap-2 mb-2';
-  row.innerHTML = `
-    <span class="text-xs text-slate-500 shrink-0">1</span>
-    <select class="alt-unit-name flex-1 p-2 border rounded text-sm">${unitMasterOptions(unit)}</select>
-    <span class="text-xs text-slate-500 shrink-0">=</span>
-    <input type="number" step="any" class="alt-unit-factor w-20 p-2 border rounded text-sm" placeholder="qty" value="${factor}">
-    <span class="alt-unit-base text-xs font-bold text-slate-600 shrink-0">${base}</span>
-    <button type="button" class="text-red-500 font-bold px-1" onclick="this.parentElement.remove()">✕</button>`;
-  box.appendChild(row);
+  addAltUnitRowTo('altUnitRows', 'modalRawUnit', unit, factor);
 }
 window.addAltUnitRow = addAltUnitRow;
-
-// Keep the "= X base" labels in sync when base unit changes.
-function syncAltBaseLabels() {
-  const base = document.getElementById('modalRawUnit').value || 'base';
-  document.querySelectorAll('#altUnitRows .alt-unit-base').forEach(el => el.textContent = base);
-}
 
 export function openRawMaterialModal(id) {
   const rm = id ? state.rawMaterials.find(x => x.id === id) : null;
@@ -1504,7 +1486,7 @@ export function openRawMaterialModal(id) {
   document.getElementById('modalRawType').value = rm ? (rm.type || 'Raw Material') : 'Raw Material';
   const unitSel = document.getElementById('modalRawUnit');
   unitSel.innerHTML = unitMasterOptions(rm ? rm.unit : '');
-  unitSel.onchange = syncAltBaseLabels;
+  unitSel.onchange = () => syncAltBaseLabels('altUnitRows', 'modalRawUnit');
   document.getElementById('modalRawMinStock').value = rm ? (rm.minStock || '') : '';
   document.getElementById('altUnitRows').innerHTML = '';
   if (rm && Array.isArray(rm.altUnits)) rm.altUnits.forEach(a => addAltUnitRow(a.unit, a.factor));
@@ -1518,13 +1500,7 @@ export function saveRawMaterial() {
   if (!name || !unit) return showToast('Name and Unit required', 'error');
   const conflict = isNameTaken(name, id);
   if (conflict) return showToast(`Cannot add! ${conflict}`, 'error');
-  // Collect alternate-unit conversions (skip blanks / non-positive / same-as-base).
-  const altUnits = [];
-  document.querySelectorAll('#altUnitRows .alt-unit-row').forEach(r => {
-    const u = r.querySelector('.alt-unit-name').value.trim();
-    const f = parseFloat(r.querySelector('.alt-unit-factor').value);
-    if (u && u !== unit.trim() && isFinite(f) && f > 0 && !altUnits.some(a => a.unit === u)) altUnits.push({ unit: u, factor: f });
-  });
+  const altUnits = readAltUnitRows('altUnitRows', unit);
   const minStock = parseFloat(document.getElementById('modalRawMinStock').value) || 0;
   const existing = id ? state.rawMaterials.find(x => x.id === id) : null;
   if (existing) {
@@ -1539,6 +1515,7 @@ export function saveRawMaterial() {
   document.getElementById('rawMatModal').classList.add('hidden');
   renderLiveInventory();
   window.renderRawMaterialTable?.();
+  window.renderItemsMasterView?.();
   showToast(existing ? 'Material Updated' : 'Saved Successfully');
 }
 
