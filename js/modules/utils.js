@@ -18,11 +18,13 @@ export function showToast(msg, type = 'success') {
 export function getAllLocations() {
   const combined = [];
   
-  // 1. STRICTLY Active Projects, formatted as "Client Name — Project Name"
+  // 1. STRICTLY Active Projects, labelled with the CLIENT name only.
+  // Every site/location dropdown in the app renders `name`, so this is the one
+  // place that decides how they all read.
   (state.projects || []).forEach(p => {
     const client = (state.clients || []).find(c => c.id === p.clientId);
     const cName = client ? client.name : (p.clientName || 'Unknown Client');
-    combined.push({ id: p.id, name: `${cName} — ${p.name}`, type: 'Project' });
+    combined.push({ id: p.id, name: cName, projectName: p.name, type: 'Project' });
   });
 
   // 2. Real warehouse/site locations (if you have created any dedicated warehouses)
