@@ -86,11 +86,14 @@ export async function loadUserOrg() {
   if (!user) { try { const { data } = await sb.auth.getUser(); user = data?.user || null; } catch {} }
   if (!user) return null;
 
-  // Get user's org membership
+  // Get user's org membership. ORDER BY joined_at must match sync.js/_resolveOrg
+  // and accept_pending_invites(), or the org shown in the UI can differ from the
+  // org data is actually written to.
   const { data: memberships } = await sb.from('org_members')
     .select('org_id, role, organizations(*)')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .order('joined_at', { ascending: true })
     .limit(1);
 
   if (memberships?.length) {

@@ -281,8 +281,14 @@ async function _resolveOrg() {
       } catch (e) { console.warn('[sync] accept invite failed:', e); }
 
       if (!_orgId) {
+        // ORDER BY joined_at is load-bearing: without it Postgres may return any
+        // row, so a user with two active memberships could resolve a DIFFERENT
+        // org here than organization.js does — the UI would name one company
+        // while data synced into another, and it could flip between sessions.
+        // Matches the ordering accept_pending_invites() uses.
         const { data } = await sb.from('org_members')
-          .select('org_id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle();
+          .select('org_id').eq('user_id', userId).eq('is_active', true)
+          .order('joined_at', { ascending: true }).limit(1).maybeSingle();
         if (data && data.org_id) _orgId = data.org_id;
       }
 
