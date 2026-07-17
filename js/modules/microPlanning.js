@@ -2263,8 +2263,9 @@ function _recipeUnitCost(code, pid) {
   });
   return cost;
 }
-/** Measured qty + BOQ rate per code across the whole project (all locations). */
-function _measuredByCode(pid) {
+/** Measured qty + BOQ rate per code across the whole project (all locations).
+ *  `range` (optional) limits to measurement sheets dated within it. */
+function _measuredByCode(pid, range) {
   pid = pid || _pid();
   const proj = (state.projects || []).find(p => p.id === pid);
   const boqRate = {};
@@ -2272,7 +2273,7 @@ function _measuredByCode(pid) {
     const code = it.code || it.itemNo; if (code) boqRate[code] = { rate: parseFloat(it.rate) || 0, description: it.description || it.name || code, uom: it.uom || it.unit || '' };
   }));
   const map = {};
-  (state.sheets || []).filter(s => s.projectId === pid).forEach(s => {
+  (state.sheets || []).filter(s => s.projectId === pid && _inCostRange(s.date, range)).forEach(s => {
     (s.entries || []).forEach(e => {
       if (!e.code) return;
       if (!map[e.code]) map[e.code] = { code: e.code, description: boqRate[e.code]?.description || e.description || e.code, uom: boqRate[e.code]?.uom || e.uom || '', rate: boqRate[e.code]?.rate || parseFloat(e.rate) || 0, qty: 0 };
@@ -2281,8 +2282,9 @@ function _measuredByCode(pid) {
   });
   return map;
 }
-/** Total attendance-accrued labour cost for a project's workers. */
-function _projectLabourCost(pid) {
+/** Total attendance-accrued labour cost for a project's workers.
+ *  `range` (optional) limits to attendance dated within it. */
+function _projectLabourCost(pid, range) {
   pid = pid || _pid();
   const workers = (state.labourMaster || []).filter(w => !w.projectId || w.projectId === pid);
   const ids = new Set(workers.map(w => w.id));
@@ -2291,6 +2293,7 @@ function _projectLabourCost(pid) {
   (state.attendanceLogs || []).forEach(a => {
     if (!ids.has(a.labourId)) return;
     if (a.siteId && a.siteId !== pid) return; // attendance marked under this project
+    if (!_inCostRange(a.date, range)) return;
     const dr = rateOf[a.labourId] || 0;
     if (a.status === 'P') cost += dr;
     else if (a.status === 'H') cost += dr * 0.5;
@@ -2298,10 +2301,11 @@ function _projectLabourCost(pid) {
   });
   return Math.round(cost);
 }
-/** Billed value so far (from RA bills) — to split earned into billed vs WIP. */
-function _billedValue(pid) {
+/** Billed value so far (from RA bills) — to split earned into billed vs WIP.
+ *  `range` (optional) limits to RA bills dated within it. */
+function _billedValue(pid, range) {
   pid = pid || _pid();
-  return (state.raBills || []).filter(b => b.projectId === pid).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
+  return (state.raBills || []).filter(b => b.projectId === pid && _inCostRange(b.date, range)).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
 }
 
 /**
@@ -2311,11 +2315,11 @@ function _billedValue(pid) {
  * @returns {{projectId, projectName, earned, billed, wip, material, labour,
  *   other, totalCost, profit, marginPct, noRecipe, byItem:[], leakage:{}}}
  */
-export function computeProjectPnL(pid) {
+export function computeProjectPnL(pid, range) {
   const proj = (state.projects || []).find(p => p.id === pid);
   const empty = { projectId: pid, projectName: proj?.name || '', earned: 0, billed: 0, wip: 0, material: 0, labour: 0, other: 0, totalCost: 0, profit: 0, marginPct: 0, noRecipe: 0, byItem: [], leakage: {} };
   if (!proj) return empty;
-  const meas = _measuredByCode(pid);
+  const meas = _measuredByCode(pid, range);
   const codes = Object.values(meas).filter(m => m.qty > 0);
   let earned = 0, material = 0, noRecipe = 0;
   const byItem = codes.map(m => {
@@ -2327,14 +2331,15 @@ export function computeProjectPnL(pid) {
     const marginPct = (matCost == null || value === 0) ? null : (itemMargin / value) * 100;
     return { ...m, value, matCost, itemMargin, marginPct };
   }).sort((a, b) => b.value - a.value);
-  const labour = _projectLabourCost(pid);
-  const other = (state.expenses || []).filter(e => e.projectId === pid).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-  const billed = _billedValue(pid);
+  const labour = _projectLabourCost(pid, range);
+  const other = (state.expenses || []).filter(e => e.projectId === pid && _inCostRange(e.date, range)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  const billed = _billedValue(pid, range);
   const wip = Math.max(0, earned - billed);
   // Non-BOQ overhead — sum the cost (and count) by category, plus a total. This
   // is the quantified cost leak, and it reduces profit.
   const leakage = {}; let overhead = 0;
   (state.sheets || []).filter(s => s.projectId === pid).forEach(s => (s.overheadEntries || []).forEach(o => {
+    if (!_inCostRange(o.date || s.date, range)) return;
     const c = parseFloat(o.cost) || 0; overhead += c;
     const cat = o.category || o.type || 'Other';
     if (!leakage[cat]) leakage[cat] = { count: 0, cost: 0 };
@@ -2355,10 +2360,60 @@ let _costProject;
 window._costSetClient = function(v) { _costClient = v || ''; _costProject = ''; renderCostLedger(); };
 window._costSetProject = function(v) { _costProject = v || ''; renderCostLedger(); };
 
+// Cost & Profit DATE filter: all | today | month | quarter | custom.
+let _costRange = 'all';
+let _costFrom = '', _costTo = '';
+window._costSetRange = function(r) {
+  _costRange = r || 'all';
+  if (_costRange !== 'custom') { _costFrom = ''; _costTo = ''; }
+  renderCostLedger();
+};
+window._costSetFrom = function(v) { _costFrom = v || ''; _costRange = 'custom'; renderCostLedger(); };
+window._costSetTo = function(v) { _costTo = v || ''; _costRange = 'custom'; renderCostLedger(); };
+
+/** Local (not UTC) YYYY-MM-DD — avoids a day shift for IST users near midnight. */
+function _ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** Resolve the active preset into {from,to} YYYY-MM-DD, or null for "all dates". */
+function _costDateRange() {
+  const now = new Date();
+  if (_costRange === 'today') { const t = _ymd(now); return { from: t, to: t }; }
+  if (_costRange === 'month') {
+    return { from: _ymd(new Date(now.getFullYear(), now.getMonth(), 1)),
+             to: _ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+  }
+  if (_costRange === 'quarter') {
+    const q = Math.floor(now.getMonth() / 3);
+    return { from: _ymd(new Date(now.getFullYear(), q * 3, 1)),
+             to: _ymd(new Date(now.getFullYear(), q * 3 + 3, 0)) };
+  }
+  if (_costRange === 'custom' && (_costFrom || _costTo)) {
+    return { from: _costFrom || '0000-01-01', to: _costTo || '9999-12-31' };
+  }
+  return null; // all / empty custom → no date filtering
+}
+/** True if a record's date falls in the range. No range → always true; a dated
+ *  record is required once a range is active (undated can't be placed in a period). */
+function _inCostRange(dateStr, range) {
+  if (!range) return true;
+  if (!dateStr) return false;
+  const d = String(dateStr).slice(0, 10);
+  return d >= range.from && d <= range.to;
+}
+/** Human label for the active range, for the summary line + any export. */
+function _costRangeLabel(range) {
+  if (!range) return 'All time';
+  if (_costRange === 'today') return 'Today (' + range.from + ')';
+  if (_costRange === 'month') return 'This month';
+  if (_costRange === 'quarter') return 'This quarter';
+  return range.from + ' → ' + range.to;
+}
+
 /** Aggregate several projects' P&L into one object shaped like computeProjectPnL,
  *  so the same render handles a single project or a whole portfolio. */
-function _aggregatePnL(ids) {
-  const parts = ids.map(id => computeProjectPnL(id)).filter(p => p && p.projectName);
+function _aggregatePnL(ids, range) {
+  const parts = ids.map(id => computeProjectPnL(id, range)).filter(p => p && p.projectName);
   const sum = k => parts.reduce((s, p) => s + (p[k] || 0), 0);
   const itemMap = {};
   parts.forEach(p => (p.byItem || []).forEach(it => {
@@ -2377,10 +2432,10 @@ function _aggregatePnL(ids) {
 
 /** Owner "work done per labour": days worked, wages (cost) and the work-done
  *  value attributed to each worker by their man-day share of project earned. */
-function _labourOutputRows(pid) {
+function _labourOutputRows(pid, range) {
   const workers = (state.labourMaster || []).filter(l => l.projectId === pid);
-  const logs = (state.attendanceLogs || []).filter(a => a.siteId === pid);
-  const earned = computeProjectPnL(pid).earned;
+  const logs = (state.attendanceLogs || []).filter(a => a.siteId === pid && _inCostRange(a.date, range));
+  const earned = computeProjectPnL(pid, range).earned;
   const rows = workers.map(w => {
     const wl = logs.filter(a => a.labourId === w.id);
     const present = wl.filter(a => a.status === 'P').length;
@@ -2395,10 +2450,10 @@ function _labourOutputRows(pid) {
   rows.forEach(r => { r.output = Math.round(earned * (r.manDays / totalManDays)); r.ratio = r.wages > 0 ? r.output / r.wages : 0; });
   return rows.sort((a, b) => b.output - a.output);
 }
-function _labourOutputSection(pid) {
+function _labourOutputSection(pid, range) {
   const cur = getCurrencySymbol();
   const fmt = n => cur + Math.round(n).toLocaleString('en-IN');
-  const rows = _labourOutputRows(pid);
+  const rows = _labourOutputRows(pid, range);
   const body = rows.map(r => `<tr class="border-b hover:bg-slate-50">
     <td class="px-2 py-1.5 font-semibold text-slate-700">${_esc(r.name)}</td>
     <td class="px-2 py-1.5 text-slate-500">${_esc(r.trade)}</td>
@@ -2435,17 +2490,30 @@ export function renderCostLedger() {
   if (_costProject && !allProjects.some(p => p.id === _costProject)) _costProject = '';
   const scopeIds = _costProject ? [_costProject] : scopeProjects.map(p => p.id);
   const single = scopeIds.length === 1;
-  const pnl = single ? computeProjectPnL(scopeIds[0]) : _aggregatePnL(scopeIds);
+  const range = _costDateRange();
+  const pnl = single ? computeProjectPnL(scopeIds[0], range) : _aggregatePnL(scopeIds, range);
 
   // ── Filter bar ──
   const clientName = (cid) => { const cl = (state.clients || []).find(c => c.id === cid); return cl ? cl.name : 'Unknown'; };
   const clientOpts = '<option value="">All clients</option>' + (state.clients || []).map(cl => `<option value="${cl.id}" ${_costClient === cl.id ? 'selected' : ''}>${_esc(cl.name)}</option>`).join('');
   const projOpts = '<option value="">All projects</option>' + scopeProjects.map(p => `<option value="${p.id}" ${_costProject === p.id ? 'selected' : ''}>${_esc(p.name)}${p.clientId ? ' — ' + _esc(clientName(p.clientId)) : ''}</option>`).join('');
-  const filterBar = `<div class="flex flex-wrap items-center gap-2 mb-4 bg-white border rounded-xl p-3">
-    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Scope</span>
-    <select onchange="window._costSetClient(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${clientOpts}</select>
-    <select onchange="window._costSetProject(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${projOpts}</select>
-    <span class="text-[11px] text-slate-400 ml-auto">${single ? '1 project' : scopeIds.length + ' projects (all sites)'}</span>
+  const rangeBtn = (id, label) => `<button onclick="window._costSetRange('${id}')" class="text-xs px-2.5 py-1.5 rounded-lg font-bold border ${_costRange === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">${label}</button>`;
+  const filterBar = `<div class="bg-white border rounded-xl p-3 mb-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Scope</span>
+      <select onchange="window._costSetClient(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${clientOpts}</select>
+      <select onchange="window._costSetProject(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${projOpts}</select>
+      <span class="text-[11px] text-slate-400 ml-auto">${single ? '1 project' : scopeIds.length + ' projects (all sites)'}</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t">
+      <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Period</span>
+      ${rangeBtn('all', 'All time')}${rangeBtn('today', 'Today')}${rangeBtn('month', 'This month')}${rangeBtn('quarter', 'This quarter')}${rangeBtn('custom', 'Custom')}
+      ${_costRange === 'custom' ? `<span class="flex items-center gap-1 text-xs">
+        <input type="date" value="${_esc(_costFrom)}" onchange="window._costSetFrom(this.value)" class="border rounded-lg px-2 py-1.5 text-xs">
+        <span class="text-slate-400">→</span>
+        <input type="date" value="${_esc(_costTo)}" onchange="window._costSetTo(this.value)" class="border rounded-lg px-2 py-1.5 text-xs"></span>` : ''}
+      <span class="text-[11px] text-slate-400 ml-auto">${_esc(_costRangeLabel(range))}</span>
+    </div>
   </div>`;
 
   const rows = pnl.byItem;
@@ -2528,7 +2596,7 @@ export function renderCostLedger() {
           : '<p class="text-xs text-slate-400">No non-BOQ / overhead logged yet.</p>'}
       </div>
     </div>
-    ${single ? _labourOutputSection(scopeIds[0]) : ''}
+    ${single ? _labourOutputSection(scopeIds[0], range) : ''}
     <p class="text-[10px] text-slate-400 mt-3">Material cost = mix-design recipe × latest purchase rate of each ingredient. Labour = attendance wages (present + ½ half-day + 1.5× OT). Earned = measured value (billed + work-in-progress).</p>`;
 }
 window.renderCostLedger = renderCostLedger;
