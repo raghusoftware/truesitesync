@@ -87,6 +87,21 @@ let _rtApplyFn = null;
 let _rtTries = 0;
 let _rtAuthWired = false;   // one-time onAuthStateChange listener installed?
 let _rtTearingDown = false; // guard: removeChannel() re-fires the status callback
+
+/**
+ * removeChannel() is ASYNC and dereferences the channel internally
+ * (channel.unsubscribe()). Passing null therefore rejects the returned promise
+ * rather than throwing — a plain try/catch does NOT catch that, so it surfaced
+ * as the unhandled "Cannot read properties of null (reading 'unsubscribe')"
+ * rejection. Guard the null and swallow the rejection.
+ */
+function _removeChannelSafely(sb, ch) {
+  if (!sb || !ch) return;
+  try {
+    const p = sb.removeChannel(ch);
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch {}
+}
 // Diagnostics (surfaced by the Sync Doctor panel)
 let _rtLastStatus = 'not started';
 let _rtLastStatusAt = 0;
@@ -116,7 +131,7 @@ function _wireRealtimeAuth() {
     // On token refresh / re-sign-in, rebuild the channel so the new token is used
     // for the subscription's RLS checks.
     if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-      try { if (_rtChannel) { sb.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
+      { const dead = _rtChannel; _rtChannel = null; _removeChannelSafely(sb, dead); }
       setTimeout(() => startRealtime(_rtApplyFn), 200);
     }
   });
@@ -168,7 +183,13 @@ export async function startRealtime(applyFn) {
   console.log('[rt] subscribing to realtime for org_id =', orgId);
 
   try {
-    _rtChannel = sb.channel('rt_module_data_' + orgId)
+    // Build and ASSIGN the channel before subscribing. subscribe() can invoke its
+    // status callback synchronously, so assigning the result of .subscribe() would
+    // leave _rtChannel still null while that callback runs — the callback then
+    // tore down a null channel and, worse, the dead channel landed in _rtChannel
+    // a moment later, making every retry short-circuit on `if (_rtChannel) return`
+    // and killing sync until a reload.
+    const ch = sb.channel('rt_module_data_' + orgId)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'module_data', filter: `organization_id=eq.${orgId}` },
         (payload) => {
@@ -190,24 +211,25 @@ export async function startRealtime(applyFn) {
             _setLocalTs(key, Date.parse(row.updated_at) || Date.now());
             if (typeof _rtApplyFn === 'function') _rtApplyFn(key, row.payload);
           } catch (e) { console.warn('[rt] apply error:', e); }
-        })
-      .subscribe((status) => {
-        console.log('[rt] channel status:', status);
-        _rtLastStatus = status; _rtLastStatusAt = Date.now();
-        if (status === 'SUBSCRIBED') { _rtTries = 0; return; }
-        // Auto-recover from a dropped/errored socket. CRITICAL: removeChannel() makes
-        // the channel "leave", which RE-FIRES this very callback with CLOSED — calling
-        // removeChannel again re-entrantly recurses to "Maximum call stack size
-        // exceeded", which crashes realtime and the sync path. Guard against re-entry.
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          if (_rtTearingDown) return;      // already handling a teardown — ignore the echo
-          _rtTearingDown = true;
-          const ch = _rtChannel; _rtChannel = null;
-          try { sb.removeChannel(ch); } catch {}
-          _rtTearingDown = false;
-          setTimeout(() => startRealtime(_rtApplyFn), 2000);
-        }
-      });
+        });
+    _rtChannel = ch;
+    ch.subscribe((status) => {
+      console.log('[rt] channel status:', status);
+      _rtLastStatus = status; _rtLastStatusAt = Date.now();
+      if (status === 'SUBSCRIBED') { _rtTries = 0; return; }
+      // Auto-recover from a dropped/errored socket. CRITICAL: removeChannel() makes
+      // the channel "leave", which RE-FIRES this very callback with CLOSED — calling
+      // removeChannel again re-entrantly recurses to "Maximum call stack size
+      // exceeded", which crashes realtime and the sync path. Guard against re-entry.
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (_rtTearingDown) return;      // already handling a teardown — ignore the echo
+        _rtTearingDown = true;
+        const dead = _rtChannel; _rtChannel = null;
+        _removeChannelSafely(sb, dead);
+        _rtTearingDown = false;
+        setTimeout(() => startRealtime(_rtApplyFn), 2000);
+      }
+    });
   } catch (e) {
     console.warn('[rt] start failed:', e);
     _rtChannel = null;
@@ -215,7 +237,8 @@ export async function startRealtime(applyFn) {
   }
 }
 export function stopRealtime() {
-  try { if (_rtChannel) { getSupabase()?.removeChannel(_rtChannel); _rtChannel = null; } } catch {}
+  const dead = _rtChannel; _rtChannel = null;
+  _removeChannelSafely(getSupabase(), dead);
 }
 if (typeof window !== 'undefined') { window.startRealtime = startRealtime; window.stopRealtime = stopRealtime; window.flushPendingSaves = flushPendingSaves; }
 
