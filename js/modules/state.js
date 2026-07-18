@@ -45,6 +45,7 @@ const STORAGE_KEYS = {
   projects: 'mes_projects',
   bbsData: 'mes_bbs_data',
   sheetAttachments: 'mes_sheet_attachments',
+  projectDocs: 'mes_project_docs',
   leads: 'mes_leads',
   tenders: 'mes_tenders',
   cubeTests: 'mes_cube_tests',
@@ -148,6 +149,7 @@ export const state = {
   projects: load(STORAGE_KEYS.projects, []),
   bbsData: load(STORAGE_KEYS.bbsData, {}),
   sheetAttachments: load(STORAGE_KEYS.sheetAttachments, {}),
+  projectDocs: load(STORAGE_KEYS.projectDocs, {}),
   leads: load(STORAGE_KEYS.leads, []),
   tenders: load(STORAGE_KEYS.tenders, []),
   cubeTests: load(STORAGE_KEYS.cubeTests, []),
@@ -468,6 +470,7 @@ function _renderForKeys(keys) {
     equipmentList: ['renderEquipmentView'],
     itemsMaster: ['renderItemsMasterView'],
     itemCategories: ['renderItemsMasterView'],
+    projectDocs: ['renderProjectDocs'],
   };
   const seen = new Set();
   keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));

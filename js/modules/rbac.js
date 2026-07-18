@@ -25,6 +25,7 @@ export const ACCESS_MODULES = [
   { id: 'assetsView', label: 'Tools & Assets', group: 'Project' },
   { id: 'measurementListView', label: 'Measurement', group: 'Project' },
   { id: 'abstractsView', label: 'Abstracts', group: 'Project' },
+  { id: 'documentsView', label: 'Documents', group: 'Project' },
   { id: 'reportsView', label: 'Reports', group: 'General' },
   { id: 'salesLedgerView', label: 'Sale Invoices', group: 'Sale' },
   { id: 'saleOrderView', label: 'Sale Orders', group: 'Sale' },

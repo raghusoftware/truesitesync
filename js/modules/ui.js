@@ -23,6 +23,7 @@ const MODULE_CARDS = [
   { id: 'assetsView', icon: '&#128295;', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
   { id: 'measurementListView', icon: '&#128208;', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
   { id: 'abstractsView', icon: '&#128209;', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
+  { id: 'documentsView', icon: '&#128193;', label: 'Documents', desc: 'Drawings & files, in folders', color: '#0284c7', stateKey: 'projectDocs' },
 ];
 
 // Re-render the active view (used by realtime sync). Skips while the user is
@@ -1205,6 +1206,7 @@ export function switchView(viewId) {
   if (viewId === 'costProfitView') window.renderCostLedger?.();
   if (viewId === 'recycleBinView') window.renderRecycleBin?.();
   if (viewId === 'itemsMasterView') window.renderItemsMasterView?.();
+  if (viewId === 'documentsView') window.renderProjectDocs?.();
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
   if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
