@@ -92,7 +92,7 @@ import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentO
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.0.1';
 import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.1';
 import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.3.30';
-import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.0.7';
+import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.0.8';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
@@ -713,7 +713,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.42';
+const APP_VERSION = '1.5.43';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

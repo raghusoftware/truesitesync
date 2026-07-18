@@ -218,6 +218,14 @@ export function onMeasureItemInput(input) {
     return;
   }
 
+  // Exact code match → fill the description/UOM straight away, no click needed.
+  // A partial code (e.g. "PC" while codes are "PCC1"/"PCC2") still just lists.
+  const exact = matches.filter(it => (it.code || '').toLowerCase() === val);
+  if (exact.length === 1) {
+    _fillRowDescFromBOQ(input.closest('tr'), exact[0]);
+    if (matches.length === 1) { closeBoqDropdowns(); return; } // nothing left to pick
+  }
+
   const dd = document.createElement('div');
   dd.className = 'boq-dropdown';
   dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
@@ -321,6 +329,23 @@ export function onMeasureDescInput(input) {
 }
 
 /** Fill measurement row when a BOQ item is selected (works from any input in the row) */
+/**
+ * Fill a measurement row's description / UOM / BOQ-ref from a BOQ item, WITHOUT
+ * touching the code input — used for live auto-fill while the user is still
+ * typing the code, so the caret doesn't jump. Does not close the dropdown.
+ */
+function _fillRowDescFromBOQ(tr, item) {
+  if (!tr) return;
+  const descInput = tr.querySelector('.desc-input');
+  if (descInput) descInput.value = item.description || '';
+  const uomInput = tr.querySelector('.uom-input');
+  if (uomInput) uomInput.value = item.uom || '';
+  const uomDisplay = tr.querySelector('.uom-display');
+  if (uomDisplay) uomDisplay.textContent = item.uom || '—';
+  const boqIdxInput = tr.querySelector('.boq-index-input');
+  if (boqIdxInput) boqIdxInput.value = item._boqRef || item._idx;
+}
+
 function _selectBOQItemFromRow(tr, item) {
   closeBoqDropdowns();
   if (!tr) return;
