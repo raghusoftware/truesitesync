@@ -2248,19 +2248,141 @@ export function generateAbstractFromSheet() {
 
 export function confirmAndSaveAbstract() {
   if (!state.pendingAbstractData) return;
-  state.abstracts.push(state.pendingAbstractData);
-  const sheetIdx = state.sheets.findIndex(s => s.id === state.pendingAbstractData.sheetId);
-  if (sheetIdx > -1) { state.sheets[sheetIdx].isBilled = true; state.sheets[sheetIdx].linkedAbstract = state.pendingAbstractData.abstractNum; }
+  const data = state.pendingAbstractData;
+  state.abstracts.push(data);
+  // Mark every sheet on this abstract as billed. sheetIds is the multi-select
+  // list; fall back to the single sheetId for the classic per-sheet flow.
+  const ids = (data.sheetIds && data.sheetIds.length) ? data.sheetIds : (data.sheetId ? [data.sheetId] : []);
+  ids.forEach(sid => {
+    const idx = state.sheets.findIndex(s => s.id === sid);
+    if (idx > -1) { state.sheets[idx].isBilled = true; state.sheets[idx].linkedAbstract = data.abstractNum; }
+  });
   saveAllData();
   document.getElementById('abstractModal').classList.add('hidden');
   showToast('Abstract Created');
-  document.getElementById('btnGenerateAbstract').classList.add('hide');
-  document.getElementById('sheetStatusText').textContent = `Billed -> Abstract: ${state.pendingAbstractData.abstractNum}`;
+  // These DOM updates belong to the open measurement sheet — guard them so the
+  // Abstracts-view multi-select path (no open sheet) doesn't throw.
+  const btn = document.getElementById('btnGenerateAbstract'); if (btn) btn.classList.add('hide');
+  const st = document.getElementById('sheetStatusText'); if (st) st.textContent = `Billed -> Abstract: ${data.abstractNum}`;
   state.pendingAbstractData = null;
-  setTimeout(() => { if (confirm("Start new sheet?")) window.createNewSheet?.(); }, 300);
+  window.renderAbstractsList?.();
+  window.renderSavedSheets?.();
+  window.renderMeasurementList?.();
+  // Only offer "start new sheet" in the single open-sheet flow.
+  if (state.currentSheetId && ids.length === 1 && ids[0] === state.currentSheetId) {
+    setTimeout(() => { if (confirm("Start new sheet?")) window.createNewSheet?.(); }, 300);
+  }
 }
 
+// ── Multi-sheet abstract: tick several pending measurements → one abstract ──
+
+/** Aggregate entries across several sheets, grouped by code, with BOQ rates. */
+function _absGroupFromSheets(sheets, proj, cItems) {
+  const grouped = {};
+  sheets.forEach(sheet => {
+    (sheet.entries || []).forEach(e => {
+      const key = e.code || e.description;
+      if (!key || !(e.qty > 0)) return;
+      let rate = 0;
+      const boqItem = _lookupBoqItem(proj, e.boqIndex);
+      if (boqItem) rate = parseFloat(boqItem.rate) || 0;
+      else if (cItems[e.code]) rate = parseFloat(cItems[e.code].rate) || 0;
+      if (grouped[key]) { grouped[key].qty += e.qty; grouped[key]._refs.add(sheet.sheetNum); }
+      else grouped[key] = { code: e.code, desc: e.description, uom: e.uom, qty: e.qty, rate, _refs: new Set([sheet.sheetNum]), boqIndex: e.boqIndex };
+    });
+  });
+  return grouped;
+}
+
+/** Measurement sheets in this project that can still be put on an abstract. */
+function _pendingAbstractSheets() {
+  const pid = state.currentProjectId;
+  return (state.sheets || []).filter(s =>
+    (!pid || s.projectId === pid) && !s.isBilled && !s._running && !s.locationId &&
+    (s.entries || []).some(e => (e.code || e.description) && e.qty > 0)
+  ).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+}
+
+function _renderPendingMeasPanel() {
+  const box = document.getElementById('pendingMeasPanel');
+  if (!box) return;
+  const pending = _pendingAbstractSheets();
+  if (!pending.length) { box.innerHTML = ''; return; }
+  const rows = pending.map(s => {
+    const items = (s.entries || []).filter(e => e.code || e.description).length;
+    return `<label class="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100">
+      <input type="checkbox" class="pendmeas-cb w-4 h-4 accent-green-600" value="${s.id}" onchange="window._updateAbsSelCount()">
+      <span class="flex-1 min-w-0">
+        <span class="font-bold text-slate-800 text-sm">${s.sheetNum || '—'}</span>
+        <span class="text-xs text-slate-400 ml-2">${[s.area, s.date, items + ' item' + (items === 1 ? '' : 's')].filter(Boolean).join(' · ')}</span>
+      </span>
+    </label>`;
+  }).join('');
+  box.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-3 border-b bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
+        <h3 class="font-bold text-slate-800 text-sm">📏 Pending measurements <span class="text-xs text-slate-400 font-medium">— tick to combine into one abstract</span></h3>
+        <label class="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" id="pendmeasAll" class="w-4 h-4 accent-green-600" onchange="window._toggleAllPendMeas(this)"> Select all</label>
+      </div>
+      <div class="max-h-56 overflow-y-auto">${rows}</div>
+      <div class="p-3 border-t flex items-center justify-between gap-3">
+        <span class="text-xs text-slate-400" id="absSelCount">0 selected</span>
+        <button onclick="window._createAbstractFromSelected()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm">Create Abstract from Selected</button>
+      </div>
+    </div>`;
+}
+
+window._updateAbsSelCount = function () {
+  const n = document.querySelectorAll('.pendmeas-cb:checked').length;
+  const el = document.getElementById('absSelCount');
+  if (el) el.textContent = n + ' selected';
+  const all = document.getElementById('pendmeasAll');
+  const total = document.querySelectorAll('.pendmeas-cb').length;
+  if (all) all.checked = n > 0 && n === total;
+};
+window._toggleAllPendMeas = function (cb) {
+  document.querySelectorAll('.pendmeas-cb').forEach(x => { x.checked = cb.checked; });
+  window._updateAbsSelCount();
+};
+window._createAbstractFromSelected = function () {
+  const ids = [...document.querySelectorAll('.pendmeas-cb:checked')].map(cb => cb.value);
+  if (!ids.length) return showToast('Tick at least one measurement', 'error');
+  const sheets = ids.map(id => state.sheets.find(s => s.id === id)).filter(Boolean);
+  // An abstract bills ONE client — refuse a mixed selection.
+  const clientIds = [...new Set(sheets.map(s => s.clientId || ''))];
+  if (clientIds.length > 1) return showToast('Those sheets belong to different clients — pick one client', 'error');
+  const cId = clientIds[0];
+  const proj = state.projects.find(p => p.id === sheets[0].projectId);
+  const cItems = state.items[cId] || {};
+  const grouped = _absGroupFromSheets(sheets, proj, cItems);
+  if (!Object.keys(grouped).length) return showToast('No billable items in the selected measurements', 'error');
+
+  const client = state.clients.find(c => c.id === cId);
+  const clientName = client?.name || proj?.clientName || proj?.name || 'Client';
+  const combinedRef = sheets.map(s => s.sheetNum).filter(Boolean).join(', ');
+  document.getElementById('absModalClient').textContent = clientName;
+  document.getElementById('absModalRef').textContent = combinedRef;
+  const tbody = document.getElementById('absModalBody');
+  tbody.innerHTML = '';
+  let totalAmt = 0; const finalItems = [];
+  for (const k in grouped) {
+    const d = grouped[k]; const ref = [...d._refs].join(', '); const amt = d.qty * d.rate; totalAmt += amt;
+    finalItems.push({ code: d.code, desc: d.desc, uom: d.uom, qty: d.qty, rate: d.rate, ref, boqIndex: d.boqIndex, amount: amt });
+    tbody.innerHTML += `<tr><td class="p-2 border font-mono">${d.code || '-'}</td><td class="p-2 border">${d.desc}</td><td class="p-2 border text-slate-400 text-xs">${ref}</td><td class="p-2 border text-right">${d.qty.toFixed(3)} ${d.uom || ''}</td><td class="p-2 border text-right">${getCurrencySymbol()}${d.rate.toFixed(2)}</td><td class="p-2 border text-right font-bold">${getCurrencySymbol()}${amt.toFixed(2)}</td></tr>`;
+  }
+  document.getElementById('absModalTotal').textContent = getCurrencySymbol() + totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  state.pendingAbstractData = {
+    id: 'A_' + Date.now(), abstractNum: `ABS-${Date.now().toString().slice(-4)}`,
+    clientId: cId, projectId: sheets[0].projectId,
+    sheetIds: ids, sheetId: ids[0], sheetNum: combinedRef,
+    date: new Date().toISOString().slice(0, 10),
+    area: [...new Set(sheets.map(s => s.area).filter(Boolean))].join(', ') || 'N/A',
+    totalAmount: totalAmt, items: finalItems, isInvoiced: false, linkedInvoice: null,
+  };
+  document.getElementById('abstractModal').classList.remove('hidden');
+};
+
 export function renderAbstractsList() {
+  _renderPendingMeasPanel();
   const container = document.getElementById('abstractsCardsContainer');
   const emptyState = document.getElementById('abstractsEmptyState');
   container.innerHTML = '';
