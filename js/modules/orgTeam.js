@@ -8,6 +8,33 @@ import { showToast } from './utils.js';
 
 const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// Where teammates open the app. Always the production URL, never localhost/file://,
+// since the link is shared to someone else's device.
+const APP_URL = 'https://truesitesync.com/app.html';
+
+/** Build the shareable invite link. The join itself happens by email-match
+ *  (accept_pending_invites) on sign-in; the params just pre-fill the email and
+ *  show which company invited them. */
+function _inviteLink(email) {
+  const orgId = (typeof window.getSyncOrgId === 'function') ? window.getSyncOrgId() : '';
+  const orgName = (window.getCurrentOrg && window.getCurrentOrg()?.name) || '';
+  const q = new URLSearchParams({ invite: orgId || '1', e: email });
+  if (orgName) q.set('n', orgName);
+  return `${APP_URL}?${q.toString()}`;
+}
+function _inviteMessage(email) {
+  const orgName = (window.getCurrentOrg && window.getCurrentOrg()?.name) || 'our team';
+  return `You've been invited to join ${orgName} on True Site Sync.\n\nOpen this link and sign in with ${email} to join:\n${_inviteLink(email)}`;
+}
+
+window._orgCopyInvite = async function (email) {
+  try { await navigator.clipboard.writeText(_inviteMessage(email)); showToast('Invite link copied — paste it to your teammate', 'success'); }
+  catch { window.prompt('Copy this invite link:', _inviteLink(email)); }
+};
+window._orgShareInviteWA = function (email) {
+  window.open('https://wa.me/?text=' + encodeURIComponent(_inviteMessage(email)), '_blank');
+};
+
 export async function renderOrgTeam() {
   const el = document.getElementById('orgTeamSection');
   if (!el) return;
@@ -41,12 +68,16 @@ export async function renderOrgTeam() {
   }).join('') || '<p class="text-xs text-slate-400 py-3">No members yet.</p>';
 
   const inviteRows = invites.map(i => `
-    <div class="flex items-center justify-between py-2 px-1 border-b border-slate-100">
+    <div class="flex items-center justify-between py-2 px-1 border-b border-slate-100 gap-2">
       <div class="min-w-0">
         <div class="text-sm font-semibold text-slate-700 truncate">${_esc(i.email)}</div>
         <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wide">Pending · ${_esc(i.role)}</div>
       </div>
-      <button onclick="_orgRevokeInvite('${i.id}')" class="text-[11px] font-bold text-slate-500 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded">Revoke</button>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="_orgCopyInvite('${_esc(i.email)}')" class="text-[11px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-200 px-2.5 py-1 rounded" title="Copy invite link">🔗 Copy link</button>
+        <button onclick="_orgShareInviteWA('${_esc(i.email)}')" class="text-[11px] font-bold text-green-600 hover:bg-green-50 border border-green-200 px-2 py-1 rounded" title="Share on WhatsApp">WhatsApp</button>
+        <button onclick="_orgRevokeInvite('${i.id}')" class="text-[11px] font-bold text-slate-500 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded">Revoke</button>
+      </div>
     </div>`).join('');
 
   el.innerHTML = `
@@ -86,7 +117,9 @@ window._orgInvite = async function () {
     .upsert({ org_id: orgId, email, role, invited_by: me, status: 'pending', accepted_at: null }, { onConflict: 'org_id,email' });
   if (error) { showToast('Invite failed: ' + error.message, 'error'); return; }
   if (emailEl) emailEl.value = '';
-  showToast('✅ Invitation created for ' + email + ' — they join when they sign in with this email', 'success');
+  // Auto-copy the shareable link so the inviter can paste it straight to the teammate.
+  try { await navigator.clipboard.writeText(_inviteMessage(email)); showToast('✅ Invite created — link copied. Paste it to ' + email, 'success'); }
+  catch { showToast('✅ Invite created for ' + email + ' — use “Copy link” to share', 'success'); }
   renderOrgTeam();
 };
 

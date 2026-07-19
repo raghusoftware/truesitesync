@@ -536,7 +536,32 @@ function _upgradeLoginForm() {
     </div>
     <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
   `;
+  _applyInviteContext();
 }
+
+/**
+ * If the page was opened from a shared invite link
+ * (…/app.html?invite=<org>&e=<email>&n=<orgName>), show a welcome banner and
+ * pre-fill the email so the teammate signs in with the invited address — which
+ * is what accept_pending_invites() matches on to join them to the org.
+ */
+function _applyInviteContext() {
+  let p;
+  try { p = new URLSearchParams(window.location.search); } catch { return; }
+  if (!p.get('invite')) return;
+  const email = (p.get('e') || '').trim();
+  const orgName = (p.get('n') || '').trim();
+  const emailEl = document.getElementById('loginEmail');
+  if (email && emailEl) emailEl.value = email;
+  const sub = document.getElementById('loginSubtitle');
+  if (sub) sub.innerHTML = `You've been invited to join <b>${_escLogin(orgName || 'a team')}</b>`;
+  const ok = document.getElementById('loginSuccess');
+  if (ok) {
+    ok.style.display = 'block';
+    ok.innerHTML = `🎉 Sign in${email ? ' with <b>' + _escLogin(email) + '</b>' : ''} to join ${_escLogin(orgName || 'the team')} and share their live data.`;
+  }
+}
+function _escLogin(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 let _isSignupMode = false;
 
