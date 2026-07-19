@@ -53,6 +53,8 @@ export function exportSimpleMeasurementPdf(id) {
   // User-selectable measurement PDF colours (Settings → Print)
   const accent = _rgb(state.printSettings?.measurementColor, [249, 115, 22]);
   const tint = accent.map(ch => Math.round(ch + (255 - ch) * 0.88));
+  // Item-name / section heading row — its OWN colour (was derived from `tint`).
+  const itemLineFill = _rgb(state.printSettings?.measurementItemLineColor, tint);
   const totalFill = _rgb(state.printSettings?.measurementTotalColor, [254, 243, 199]);
   const border = _rgb(state.printSettings?.measurementBorderColor, [226, 232, 240]);
   const fontCol = _rgb(state.printSettings?.measurementFontColor, [15, 23, 42]);
@@ -83,7 +85,7 @@ export function exportSimpleMeasurementPdf(id) {
     const title = (first.code ? first.code + ' — ' : '') + (first.description || first.code || '');
     rows.push([
       { content: itemNum, styles: { fontStyle: 'bold' } },
-      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: tint, textColor: accent } }
+      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: itemLineFill, textColor: accent } }
     ]);
     let total = 0;
     lines.forEach(e => {

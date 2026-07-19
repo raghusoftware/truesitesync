@@ -143,12 +143,12 @@ window._setAbstractColor = function(hex) {
 //  existing keys for back-compat; border & font are new.
 // ═══════════════════════════════════════════════════════════
 const DOC_COLOR_KEYS = {
-  measurement: { title: 'measurementTitleColor', header: 'measurementColor', headerText: 'measurementHeaderTextColor', highlight: 'measurementTotalColor', border: 'measurementBorderColor', font: 'measurementFontColor' },
+  measurement: { title: 'measurementTitleColor', header: 'measurementColor', headerText: 'measurementHeaderTextColor', itemLine: 'measurementItemLineColor', highlight: 'measurementTotalColor', border: 'measurementBorderColor', font: 'measurementFontColor' },
   abstract:    { title: 'abstractTitleColor',    header: 'abstractColor',    headerText: 'abstractHeaderTextColor',    highlight: 'abstractHighlightColor', border: 'abstractBorderColor', font: 'abstractFontColor' },
   invoice:     { title: 'invoiceTitleColor',     header: 'invoiceColor',     headerText: 'invoiceHeaderTextColor',     highlight: 'invoiceHighlightColor', border: 'invoiceBorderColor', font: 'invoiceFontColor' },
 };
 const DOC_COLOR_DEFAULTS = {
-  measurement: { title: '#0f172a', header: '#f97316', headerText: '#ffffff', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
+  measurement: { title: '#0f172a', header: '#f97316', headerText: '#ffffff', itemLine: '#feeee3', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
   abstract:    { title: '#1e3a8a', header: '#1e3a8a', headerText: '#ffffff', highlight: '#fef3c7', border: '#111827', font: '#0f172a' },
   invoice:     { title: '#1e3a8a', header: '#1e3a8a', headerText: '#ffffff', highlight: '#fef3c7', border: '#e2e8f0', font: '#0f172a' },
 };
@@ -186,19 +186,23 @@ function _refreshDocColorPreview(docType) {
 function _docColorPreviewInner(docType) {
   const T = getDocColor(docType, 'title'), H = getDocColor(docType, 'header'), HT = getDocColor(docType, 'headerText'),
         B = getDocColor(docType, 'border'), F = getDocColor(docType, 'font'), L = getDocColor(docType, 'highlight');
+  const IL = DOC_COLOR_KEYS[docType].itemLine ? getDocColor(docType, 'itemLine') : null;
   const titleTxt = { measurement: 'MEASUREMENT SHEET', abstract: 'ABSTRACT (RA BILL)', invoice: 'TAX INVOICE' }[docType];
   // NOTE: colour is set on every th/td explicitly (not just the row) because a
   // global `th`/`td` CSS rule would otherwise override the inherited colour.
   const th = `border:1px solid ${B};padding:4px 8px;color:${HT} !important;background:${H} !important;`;
   const td = `border:1px solid ${B};padding:4px 8px;color:${F} !important;`;
+  // Item-name / section heading row (measurement only) — its own colour.
+  const itemRow = IL ? `<tr style="font-weight:700;"><td style="${td}background:${IL} !important;color:${H} !important;" colspan="3">43 — Brick Work &amp; Plaster</td></tr>` : '';
   return `<div style="border:2px solid ${B};border-radius:8px;overflow:hidden;max-width:340px;">
     <div style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:${T} !important;background:#fff;">${titleTxt}</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
       <thead><tr><th style="${th}text-align:left;">Code</th><th style="${th}text-align:left;">Description</th><th style="${th}text-align:right;">Qty</th></tr></thead>
       <tbody>
+        ${itemRow}
         <tr><td style="${td}font-weight:700;">4.2</td><td style="${td}">RCC Slab M25</td><td style="${td}text-align:right;">10.00</td></tr>
         <tr><td style="${td}font-weight:700;">5.1</td><td style="${td}">Plaster 12mm</td><td style="${td}text-align:right;">42.50</td></tr>
-        <tr style="font-weight:800;"><td style="${td}background:${L} !important;" colspan="2">Total</td><td style="${td}background:${L} !important;text-align:right;">52.50</td></tr>
+        <tr style="font-weight:800;"><td style="${td}background:${L} !important;" colspan="2">${IL ? 'Total Quantity' : 'Total'}</td><td style="${td}background:${L} !important;text-align:right;">52.50</td></tr>
       </tbody>
     </table>
   </div>`;
@@ -230,9 +234,10 @@ export function docColorsPanelHTML() {
           ${swatch('title', 'Title text', 'the document title (e.g. “MEASUREMENT SHEET”)')}
           ${swatch('header', 'Header bar', 'the table header row background')}
           ${swatch('headerText', 'Header text', 'text colour on the header bar')}
+          ${DOC_COLOR_KEYS[docType].itemLine ? swatch('itemLine', 'Item name line', 'the item / section heading row') : ''}
           ${swatch('border', 'Table borders', 'the grid lines around cells')}
           ${swatch('font', 'Text / font', 'the body text colour')}
-          ${swatch('highlight', 'Highlight', 'totals & emphasis rows')}
+          ${swatch('highlight', DOC_COLOR_KEYS[docType].itemLine ? 'Total row' : 'Highlight', DOC_COLOR_KEYS[docType].itemLine ? 'the per-item total quantity row' : 'totals & emphasis rows')}
           <button onclick="window._resetDocColors('${docType}')" class="mt-1 text-[11px] font-bold text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-100">↺ Reset to default</button>
         </div>
         <div>
