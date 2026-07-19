@@ -10,6 +10,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
+import { materialUnitOptions, toBaseQty } from './units.js';
 
 export function renderPurchaseLedger() {
   const vFilterEl = document.getElementById('plFilterVendor');
@@ -183,9 +184,16 @@ export function closePurchaseFormPanel() {
 }
 
 const _rmOptionsHtml = () => {
+  // Unit is chosen in the per-row unit picker, not baked into the label.
   let o = '<option value="">-- Select Material / Asset --</option>';
-  (state.rawMaterials || []).forEach(rm => o += `<option value="${rm.id}" data-unit="${rm.unit || ''}">${rm.name} (${rm.unit}) [${rm.type}]</option>`);
+  (state.rawMaterials || []).forEach(rm => o += `<option value="${rm.id}" data-unit="${rm.unit || ''}">${rm.name} [${rm.type}]</option>`);
   return o;
+};
+/** <option>s of a material's entry units (base + alternates) for the unit cell. */
+const _purUnitOptions = (rmId, selected) => {
+  const rm = (state.rawMaterials || []).find(r => r.id === rmId);
+  if (!rm) return `<option value="${selected || ''}">${selected || ''}</option>`;
+  return materialUnitOptions(rm, selected != null ? selected : rm.unit);
 };
 
 /** Build one purchase line row (optionally prefilled from an item record). */
@@ -203,7 +211,7 @@ function _addPurRow(data) {
     + `<td class="p-1 border"><select class="table-input pur-mat font-bold" onchange="window._purMatChanged(this)">${_rmOptionsHtml()}</select></td>`
     + `<td class="p-1 border"><input type="text" class="table-input pur-hsn" value="${data?.hsn || ''}"></td>`
     + `<td class="p-1 border"><input type="number" class="table-input pur-qty" value="${data?.qty ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
-    + `<td class="p-1 border"><input type="text" class="table-input pur-unit" value="${data?.unit || ''}"></td>`
+    + `<td class="p-1 border"><select class="table-input pur-unit" title="Purchase unit — stock stores in the base unit">${_purUnitOptions(data?.rawMatId, data?.unit)}</select></td>`
     + `<td class="p-1 border"><input type="number" class="table-input pur-rate" value="${data?.rate ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
     + `<td class="p-1 border"><input type="number" class="table-input pur-disc" value="${data?.discPct ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
     + `<td class="p-1 border"><input type="number" class="table-input pur-tax" value="${tax}" oninput="calcPanelPurchaseTotal()"></td>`
@@ -214,10 +222,11 @@ function _addPurRow(data) {
   // GRN) so save() links to that GRN instead of creating a duplicate.
   if (data && data.grnId) tr.dataset.grnId = data.grnId;
   tbody.appendChild(tr);
-  // Prefill the material select + unit if editing.
+  // Prefill the material select + unit picker if editing.
   if (data && data.rawMatId) {
     const sel = tr.querySelector('.pur-mat'); if (sel) sel.value = data.rawMatId;
-    if (!data.unit) { const rm = (state.rawMaterials || []).find(r => r.id === data.rawMatId); if (rm) tr.querySelector('.pur-unit').value = rm.unit || ''; }
+    const uSel = tr.querySelector('.pur-unit');
+    if (uSel) { uSel.innerHTML = _purUnitOptions(data.rawMatId, data.unit); }
   }
   updatePanelRowNums();
 }
@@ -227,12 +236,11 @@ export function addPurchaseRowToPanel(count = 1) {
   updatePanelRowNums();
 }
 
-/** Auto-fill the unit cell from the selected material. */
+/** Repopulate the row's unit picker with the chosen material's units. */
 window._purMatChanged = function(sel) {
-  const opt = sel.selectedOptions?.[0];
-  const unit = opt?.dataset?.unit || '';
+  const rmId = sel.value;
   const unitEl = sel.closest('tr')?.querySelector('.pur-unit');
-  if (unitEl && unit && !unitEl.value) unitEl.value = unit;
+  if (unitEl) unitEl.innerHTML = _purUnitOptions(rmId);
 };
 
 /** Unbilled GRNs for a vendor = physically received (manual GRN), not yet
@@ -450,12 +458,20 @@ export function savePanelPurchaseBill() {
       if (g) { g.billed = true; g.billedByBillId = billId; }
       return; // stock + GRN already exist — nothing more to create
     }
+    // The bill line keeps the ENTERED unit/qty (that's the document), but stock
+    // is always tracked in the material's BASE unit — convert, and restate the
+    // rate per base unit so stock valuation still equals the line amount.
+    const mat = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
+    const entryRate = it.netRate != null ? it.netRate : it.rate;
+    const baseQty = toBaseQty(mat, it.qty, it.unit);
+    const baseRate = (baseQty > 0) ? (it.qty * entryRate) / baseQty : entryRate;
+    const unitNote = (mat && it.unit && it.unit !== mat.unit) ? ` (${it.qty} ${it.unit})` : '';
     const txId = 'tx_in_' + Date.now() + '_' + i + Math.random().toString(36).substr(2, 4);
     state.inventoryTx.push({
       id: txId,
       date, siteId, type: 'IN', rawMaterialId: it.rawMatId,
-      qty: it.qty, rate: it.netRate != null ? it.netRate : it.rate,
-      ref: `Purchase Bill: ${billNo}`, refBillId: billId,
+      qty: baseQty, rate: baseRate,
+      ref: `Purchase Bill: ${billNo}${unitNote}`, refBillId: billId,
       projectId
     });
     // Auto-GRN — keeps GRN as the single physical-receipt record even when entry
@@ -465,8 +481,9 @@ export function savePanelPurchaseBill() {
       id: 'grn_pb_' + Date.now() + '_' + i,
       grnNo: `${billNo}-${i + 1}`,
       date, receivedAt: new Date().toISOString(),
-      siteId, matId: it.rawMatId, category: '', qty: it.qty,
-      expectedQty: 0, rate: it.netRate != null ? it.netRate : it.rate, amount: it.amount,
+      siteId, matId: it.rawMatId, category: '', qty: baseQty,
+      expectedQty: 0, rate: baseRate, amount: it.amount,
+      enteredQty: it.qty, entryUnit: it.unit,
       challanNo: billNo, supplierId: vendorId, vehicleNo: '', driver: '',
       projectId,
       challanPhoto: null, condPhoto: null,
