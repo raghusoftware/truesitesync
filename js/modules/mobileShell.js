@@ -91,12 +91,16 @@ export function goBackView() {
 
 /* ───────────────────────── Bottom navigation ───────────────────────── */
 
+// Site-first bottom bar: the four things used most on-site, with a raised
+// centre "+" that opens the full menu drawer (every other module lives there).
+// Icons are EMOJI (not FontAwesome) — app.html never loads FA, and the APK runs
+// offline, so emoji are the only glyphs guaranteed to render.
 const BOTTOM_NAV = [
-  { id: 'home',     label: 'Home',     icon: 'fa-house',          action: () => navTo('projectsHome') },
-  { id: 'sales',    label: 'Sales',    icon: 'fa-file-invoice',   action: () => navTo('salesLedgerView') },
-  { id: 'purchase', label: 'Purchase', icon: 'fa-cart-shopping',  action: () => navTo('purchaseBillsView') },
-  { id: 'reports',  label: 'Reports',  icon: 'fa-chart-column',   action: () => navTo('reportsView') },
-  { id: 'menu',     label: 'Menu',     icon: 'fa-bars',           action: () => openDrawer() },
+  { id: 'home',      label: 'Home',      icon: '🏠', action: () => navTo('projectsHome') },
+  { id: 'labour',    label: 'Labour',    icon: '👷', action: () => navTo('labourView') },
+  { id: 'add',       label: 'Menu',      icon: '+',  fab: true, action: () => openDrawer() },
+  { id: 'inventory', label: 'Inventory', icon: '📦', action: () => navTo('inventoryView') },
+  { id: 'equipment', label: 'Equipment', icon: '🚚', action: () => navTo('equipmentView') },
 ];
 
 function navTo(viewId) {
@@ -113,9 +117,13 @@ function buildBottomNav() {
   nav.id = 'mobileBottomNav';
   nav.className = 'mobile-bottom-nav no-print';
   nav.innerHTML = BOTTOM_NAV.map(item =>
-    `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
-       <i class="fa-solid ${item.icon}"></i><span>${item.label}</span>
-     </button>`).join('');
+    item.fab
+      ? `<button type="button" class="mbn-item mbn-fab" data-nav="${item.id}" aria-label="${item.label}">
+           <span class="mbn-fab-circle">${item.icon}</span>
+         </button>`
+      : `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
+           <span class="mbn-ico">${item.icon}</span><span>${item.label}</span>
+         </button>`).join('');
   document.body.appendChild(nav);
   nav.querySelectorAll('.mbn-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -131,9 +139,9 @@ function highlightBottomNav() {
   const v = window.__currentViewId || '';
   const map = {
     home: ['projectsHome', 'projectDashboard'],
-    sales: ['salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','billingView'],
-    purchase: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView','vendorView'],
-    reports: ['reportsView','analyticsView'],
+    labour: ['labourView'],
+    inventory: ['inventoryView'],
+    equipment: ['equipmentView'],
   };
   document.querySelectorAll('#mobileBottomNav .mbn-item').forEach(btn => {
     const ids = map[btn.dataset.nav] || [];
