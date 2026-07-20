@@ -91,17 +91,38 @@ export function goBackView() {
 
 /* ───────────────────────── Bottom navigation ───────────────────────── */
 
-// Site-first bottom bar: the four things used most on-site, with a raised
-// centre "+" that opens the full menu drawer (every other module lives there).
-// Icons are EMOJI (not FontAwesome) — app.html never loads FA, and the APK runs
-// offline, so emoji are the only glyphs guaranteed to render.
-const BOTTOM_NAV = [
+// The bottom bar is CONTEXT-AWARE. Icons are EMOJI (not FontAwesome) — app.html
+// never loads FA and the APK runs offline, so emoji are the only glyphs that
+// always render.
+//
+// Inside an open project → project modules (Labour/Inventory/Equipment need a
+// project). Everywhere else (home / all-projects / business ledgers) → the
+// business-level shortcuts, so the project items never sit dead on a screen
+// with no project.
+const PROJECT_NAV = [
   { id: 'home',      label: 'Home',      icon: '🏠', action: () => navTo('projectsHome') },
   { id: 'labour',    label: 'Labour',    icon: '👷', action: () => navTo('labourView') },
   { id: 'add',       label: 'Menu',      icon: '+',  fab: true, action: () => openDrawer() },
   { id: 'inventory', label: 'Inventory', icon: '📦', action: () => navTo('inventoryView') },
   { id: 'equipment', label: 'Equipment', icon: '🚚', action: () => navTo('equipmentView') },
 ];
+const GLOBAL_NAV = [
+  { id: 'home',     label: 'Home',     icon: '🏠', action: () => navTo('projectsHome') },
+  { id: 'sales',    label: 'Sales',    icon: '🧾', action: () => navTo('salesLedgerView') },
+  { id: 'add',      label: 'Menu',     icon: '+',  fab: true, action: () => openDrawer() },
+  { id: 'purchase', label: 'Purchase', icon: '🛒', action: () => navTo('purchaseBillsView') },
+  { id: 'reports',  label: 'Reports',  icon: '📊', action: () => navTo('reportsView') },
+];
+
+// Views that live INSIDE a project → show the project bar.
+const PROJECT_VIEWS = new Set([
+  'projectDashboard','planningView','microPlanView','issuesView','executionView',
+  'labourView','equipmentView','inventoryView','recipeView','assetsView',
+  'measurementListView','abstractsView','pettyCashView','documentsView','entrySheet',
+]);
+function currentNav() {
+  return PROJECT_VIEWS.has(window.__currentViewId || '') ? PROJECT_NAV : GLOBAL_NAV;
+}
 
 function navTo(viewId) {
   if (typeof window.switchView === 'function') window.switchView(viewId);
@@ -111,12 +132,17 @@ function openDrawer() {
   document.getElementById('mobileOverlay')?.classList.add('active');
 }
 
+let _navMode = null; // 'project' | 'global' — which item set is currently rendered
 function buildBottomNav() {
-  if (document.getElementById('mobileBottomNav')) return;
-  const nav = document.createElement('nav');
+  const items = currentNav();
+  const mode = items === PROJECT_NAV ? 'project' : 'global';
+  const existing = document.getElementById('mobileBottomNav');
+  if (existing && _navMode === mode) return; // right bar already up
+  _navMode = mode;
+  const nav = existing || document.createElement('nav');
   nav.id = 'mobileBottomNav';
   nav.className = 'mobile-bottom-nav no-print';
-  nav.innerHTML = BOTTOM_NAV.map(item =>
+  nav.innerHTML = items.map(item =>
     item.fab
       ? `<button type="button" class="mbn-item mbn-fab" data-nav="${item.id}" aria-label="${item.label}">
            <span class="mbn-fab-circle">${item.icon}</span>
@@ -124,24 +150,28 @@ function buildBottomNav() {
       : `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
            <span class="mbn-ico">${item.icon}</span><span>${item.label}</span>
          </button>`).join('');
-  document.body.appendChild(nav);
+  if (!existing) document.body.appendChild(nav);
   nav.querySelectorAll('.mbn-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      const item = BOTTOM_NAV.find(i => i.id === btn.dataset.nav);
+      const item = items.find(i => i.id === btn.dataset.nav);
       item?.action();
       highlightBottomNav();
     });
   });
 }
 
-/** Reflect the current view in the bottom-nav active state. */
+/** Swap the bar to the right context, then mark the active item. */
 function highlightBottomNav() {
+  buildBottomNav(); // rebuilds if the project↔global context changed
   const v = window.__currentViewId || '';
   const map = {
     home: ['projectsHome', 'projectDashboard'],
     labour: ['labourView'],
     inventory: ['inventoryView'],
     equipment: ['equipmentView'],
+    sales: ['salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','billingView'],
+    purchase: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView','vendorView'],
+    reports: ['reportsView','analyticsView'],
   };
   document.querySelectorAll('#mobileBottomNav .mbn-item').forEach(btn => {
     const ids = map[btn.dataset.nav] || [];
