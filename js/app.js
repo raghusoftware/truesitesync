@@ -694,10 +694,9 @@ window._onSyncBatch = function ({ ok, errCount }) {
     _lastSyncToast = now;
     return;
   }
-  // Throttle success confirmations so rapid edits don't spam (max once / 4s).
-  if (now - _lastSyncToast < 4000) return;
+  // Routine successful sync is silent — the header ☁️ badge already reflects it.
+  // (Failures above still toast so the user knows their change is device-only.)
   _lastSyncToast = now;
-  if (typeof window.showToast === 'function') window.showToast('☁️ Saved & synced to cloud', 'success');
 };
 
 // Manual "Sync Now" — click the header badge to force a cloud pull + flush.
@@ -720,7 +719,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.55';
+const APP_VERSION = '1.5.56';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

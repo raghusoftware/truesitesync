@@ -530,7 +530,7 @@ export async function pullRemoteUpdates() {
     if (applied && typeof window !== 'undefined') {
       reconcileRecycleBin();     // re-strip binned items a stale device may have re-pushed
       if (typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
-      if (typeof window.showToast === 'function') window.showToast('Synced latest data', 'info');
+      // Silent: data refreshes in place; no popup for routine background pulls.
     }
     return applied;
   } catch (e) {
