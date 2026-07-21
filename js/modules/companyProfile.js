@@ -6,7 +6,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { state } from './state.js';
+import { state, saveAllData } from './state.js';
 import { showToast } from './utils.js';
 
 export function loadCompanyProfile() {
@@ -34,7 +34,7 @@ export function saveCompanyProfile() {
     const el = document.getElementById(elId);
     if (el) state.companyProfile[key] = el.value;
   }
-  localStorage.setItem('mes_companyProfile', JSON.stringify(state.companyProfile));
+  saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
   updateProfilePreview();
   showToast('Company Profile Saved Successfully!', 'success');
 }
@@ -53,7 +53,7 @@ export function handleLogoUpload(event) {
     if (img) { img.src = base64; img.style.display = 'block'; }
     if (pdfImg) { pdfImg.src = base64; pdfImg.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
-    localStorage.setItem('mes_companyProfile', JSON.stringify(state.companyProfile));
+    saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
     showToast('Logo Uploaded!', 'success');
   };
   reader.readAsDataURL(file);
@@ -61,7 +61,7 @@ export function handleLogoUpload(event) {
 
 export function removeCompanyLogo() {
   state.companyProfile.logo = null;
-  localStorage.setItem('mes_companyProfile', JSON.stringify(state.companyProfile));
+  saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
   const img = document.getElementById('companyLogoPreview');
   const pdfImg = document.getElementById('pdfLogoPreview');
   const placeholder = document.getElementById('logoPlaceholder');
