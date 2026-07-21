@@ -100,8 +100,8 @@ function drawCompanyHeader(doc, m, _style) {
   if (hs.showCompanyName) {
     doc.setFontSize(hs.companyNameSize); doc.setFont(hs.companyNameFont, hs.companyNameStyle);
     doc.setTextColor(nc[0], nc[1], nc[2]);
-    if (hasLogoLeft) { doc.text(cp.CompanyName || 'YOUR COMPANY NAME', textX, y + 6); }
-    else { doc.text(cp.CompanyName || 'YOUR COMPANY NAME', nX, y + 2, {align: nAlign}); }
+    if (hasLogoLeft) { doc.text(cp.CompanyName || '', textX, y + 6); }
+    else { doc.text(cp.CompanyName || '', nX, y + 2, {align: nAlign}); }
     y += hs.companyNameSize * 0.4 + 2;
   }
 
@@ -330,7 +330,7 @@ const MEASUREMENT_THEMES = {
         doc.setFillColor(15, 23, 42); doc.rect(0, 0, pw, 22, 'F');
         if (hs5.showLogo && cp.logo) { try { doc.addImage(cp.logo, 'PNG', m.left, 2, 18, 18); } catch(e){} }
         const lOff = hs5.showLogo && cp.logo ? m.left + 22 : m.left;
-        if (hs5.showCompanyName) { doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(255); doc.text(cp.CompanyName || 'COMPANY', lOff, 10); }
+        if (hs5.showCompanyName) { doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(255); doc.text(cp.CompanyName || '', lOff, 10); }
         doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(255);
         doc.text('Sheet: ' + (data.sheetNum||'') + '  |  Date: ' + (data.date||''), pw - m.right, 10, {align:'right'});
         doc.text('Project: ' + (data.projectName||'') + '  |  Area: ' + (data.area||''), pw - m.right, 16, {align:'right'});
@@ -571,7 +571,7 @@ const INVOICE_THEMES = {
       // Company block
       const hsR = _getHS();
       if (hsR.showHeader) {
-        if (hsR.showCompanyName) { doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(0); doc.text(cp.CompanyName || 'COMPANY NAME', m.left, y+5); y+=7; }
+        if (hsR.showCompanyName) { doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(0); doc.text(cp.CompanyName || '', m.left, y+5); y+=7; }
         doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(60);
         if (hsR.showAddress && cp.Address) { doc.text(cp.Address, m.left, y+2); y+=4; }
         const cParts = []; if (hsR.showPhone && cp.Phone) cParts.push('Ph: '+cp.Phone); if (hsR.showEmail && cp.Email) cParts.push('Email: '+cp.Email);
@@ -648,7 +648,7 @@ const INVOICE_THEMES = {
         doc.setFillColor(30,58,138); doc.rect(0, 0, pw, 20, 'F');
         if (hsE.showLogo && cp.logo) { try { doc.addImage(cp.logo, 'PNG', m.left, 1, 18, 18); } catch(e){} }
         const eOff = hsE.showLogo && cp.logo ? m.left+22 : m.left;
-        if (hsE.showCompanyName) { doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(255); doc.text(cp.CompanyName || 'COMPANY', eOff, 9); }
+        if (hsE.showCompanyName) { doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(255); doc.text(cp.CompanyName || '', eOff, 9); }
         doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(255);
         if (hsE.showGST && cp.GST) doc.text('GSTIN: '+cp.GST, eOff, 15);
         doc.text('TAX INVOICE', pw-m.right, 9, {align:'right'});

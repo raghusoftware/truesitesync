@@ -248,7 +248,7 @@ export function printReport(elemId, title) {
       headerHtml += `<img src="${cp.logo}" style="height:${hs.logoHeight * 2}px;margin:${align === 'center' ? '0 auto 8px' : align === 'right' ? '0 0 8px auto' : '0 auto 8px 0'};display:block;">`;
     }
     if (hs.showCompanyName) {
-      headerHtml += `<h1 style="color:${hs.companyNameColor};font-size:${hs.companyNameSize}px;font-weight:${hs.companyNameStyle === 'bold' ? '800' : '400'};font-family:${hs.companyNameFont},sans-serif;margin-bottom:4px;text-transform:uppercase;text-align:${align};">${cp.CompanyName || 'True Site Sync'}</h1>`;
+      headerHtml += `<h1 style="color:${hs.companyNameColor};font-size:${hs.companyNameSize}px;font-weight:${hs.companyNameStyle === 'bold' ? '800' : '400'};font-family:${hs.companyNameFont},sans-serif;margin-bottom:4px;text-transform:uppercase;text-align:${align};">${cp.CompanyName || ''}</h1>`;
     }
     const detailLines = [];
     if (hs.showAddress && cp.Address) detailLines.push(cp.Address);
@@ -289,7 +289,7 @@ export function getSimpleHeaderForPDF(doc, opts = {}) {
   let y = 14, textX = ml;
   if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, y, 22, 22); textX = ml + 27; } catch {} }
   doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text(cp.CompanyName || 'YOUR COMPANY', textX, y + 6);
+  doc.text(cp.CompanyName || '', textX, y + 6);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(70, 70, 70);
   const hp = [];
   if (cp.Address) hp.push(cp.Address);
@@ -387,9 +387,9 @@ export function getCompanyHeaderForPDF(doc) {
     doc.setFont(hs.companyNameFont, hs.companyNameStyle);
     doc.setTextColor(nameColor[0], nameColor[1], nameColor[2]);
     if (hasLogoLeft) {
-      doc.text(cp.CompanyName || 'YOUR COMPANY NAME', textXOff, y + 2);
+      doc.text(cp.CompanyName || '', textXOff, y + 2);
     } else {
-      doc.text(cp.CompanyName || 'YOUR COMPANY NAME', nameX, y + 2, { align: nameAlign });
+      doc.text(cp.CompanyName || '', nameX, y + 2, { align: nameAlign });
     }
     y += hs.companyNameSize * 0.4 + 2;
   }
