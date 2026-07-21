@@ -1,6 +1,7 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud } from './modules/state.js';
 import { getSupabase } from './database/supabase.js';
 import { installErrorMonitor } from './database/errorMonitor.js';
+import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.3.14';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js';
@@ -339,6 +340,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     installErrorMonitor();
   } catch (e) {
     console.error('[boot] installErrorMonitor failed:', e);
+  }
+
+  try {
+    installPdfMonochrome();
+  } catch (e) {
+    console.error('[boot] installPdfMonochrome failed:', e);
   }
 
   try {
@@ -713,7 +720,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.51';
+const APP_VERSION = '1.5.54';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
