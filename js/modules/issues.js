@@ -275,7 +275,7 @@ window._isOpenForm = function (editId) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div><label style="${_lbl}">Category</label><select id="isCategory" style="${_inp}">${catOpts}</select></div>
-        <div><label style="${_lbl}">Location Details</label><input id="isLocation" placeholder="e.g. Block A, 2nd floor" value="${iss ? _esc(iss.location) : ''}" style="${_inp}"></div>
+        <div><label style="${_lbl}">Location Details</label><input id="isLocation" placeholder="" value="${iss ? _esc(iss.location) : ''}" style="${_inp}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div><label style="${_lbl}">Related BOQ / PO item</label><select id="isBoq" style="${_inp}">${boqOpts}</select></div>

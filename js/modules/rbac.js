@@ -1053,11 +1053,11 @@ export function openUserForm(userId) {
           <div class="ef-grid">
             <div class="ef-field ef-field-full">
               <label class="ef-label">Full Name *</label>
-              <input type="text" id="rbacUserName" class="ef-input" value="${(existing ? existing.name : '') || ''}" placeholder="e.g. Rajesh Kumar">
+              <input type="text" id="rbacUserName" class="ef-input" value="${(existing ? existing.name : '') || ''}" placeholder="">
             </div>
             <div class="ef-field">
               <label class="ef-label">Email / Username *</label>
-              <input type="text" id="rbacUserUsername" class="ef-input" value="${(existing ? (existing.email || existing.username) : '') || ''}" placeholder="e.g. user@company.com" ${(existing && existing.id === 'usr_admin') ? 'disabled' : ''}>
+              <input type="text" id="rbacUserUsername" class="ef-input" value="${(existing ? (existing.email || existing.username) : '') || ''}" placeholder="" ${(existing && existing.id === 'usr_admin') ? 'disabled' : ''}>
             </div>
             <div class="ef-field">
               <label class="ef-label">Role *</label>

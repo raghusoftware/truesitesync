@@ -40,7 +40,7 @@ window._openAddTool = function () {
     <div class="ef-modal" style="max-width:440px;">
       <div class="ef-header"><h3 class="ef-title">➕ Add Tool</h3><button onclick="document.getElementById('addToolModal').remove()" class="ef-close">&times;</button></div>
       <div class="ef-body" style="display:flex;flex-direction:column;gap:12px;">
-        <div><label class="ef-label">Tool / Asset name</label><input id="at_name" class="ef-input" placeholder="e.g. Needle vibrator, Scaffolding pipe"></div>
+        <div><label class="ef-label">Tool / Asset name</label><input id="at_name" class="ef-input" placeholder=""></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div><label class="ef-label">Unit</label><input id="at_unit" class="ef-input" value="Nos"></div>
           <div><label class="ef-label">Opening qty</label><input id="at_qty" type="text" inputmode="numeric" class="ef-input" placeholder="0"></div>
@@ -490,7 +490,7 @@ window._fuelReceipt = function(storageId) {
   const supplierOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
   const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
   _fuelModal('Bulk Fuel Receipt (Tanker)', `
-    <label class="fm-l">Quantity delivered (L)</label><input id="frQty" type="number" class="fm-i" placeholder="e.g. 5000">
+    <label class="fm-l">Quantity delivered (L)</label><input id="frQty" type="number" class="fm-i" placeholder="">
     <label class="fm-l">Total cost (₹)</label><input id="frAmount" type="number" class="fm-i" placeholder="₹">
     <label class="fm-l">Supplier</label><select id="frSupplier" class="fm-i"><option value="">-- Supplier --</option>${supplierOpts}</select>
     <label class="fm-l">Invoice No</label><input id="frInvoice" class="fm-i" placeholder="invoice #">

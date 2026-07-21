@@ -99,11 +99,11 @@ export function mpOpenTaskForm(editId) {
           <div class="ef-grid">
             <div class="ef-field ef-field-full">
               <label class="ef-label">Task Name *</label>
-              <input type="text" id="mpt_name" class="ef-input" value="${_esc(existing?.name || '')}" placeholder="e.g. RCC Slab Casting Block-B">
+              <input type="text" id="mpt_name" class="ef-input" value="${_esc(existing?.name || '')}" placeholder="">
             </div>
             <div class="ef-field ef-field-full">
               <label class="ef-label">Location / Area</label>
-              <input type="text" id="mpt_area" class="ef-input" value="${_esc(existing?.area || '')}" placeholder="e.g. Building A, 2nd Floor">
+              <input type="text" id="mpt_area" class="ef-input" value="${_esc(existing?.area || '')}" placeholder="">
             </div>
             <div class="ef-field">
               <label class="ef-label">Start Date *</label>
@@ -115,7 +115,7 @@ export function mpOpenTaskForm(editId) {
             </div>
             <div class="ef-field">
               <label class="ef-label">Total Hours Required *</label>
-              <input type="number" id="mpt_hours" class="ef-input" value="${existing?.totalEffortHours || ''}" placeholder="e.g. 48" min="1">
+              <input type="number" id="mpt_hours" class="ef-input" value="${existing?.totalEffortHours || ''}" placeholder="" min="1">
             </div>
             <div class="ef-field">
               <label class="ef-label">Priority</label>
@@ -132,7 +132,7 @@ export function mpOpenTaskForm(editId) {
             </div>
             <div class="ef-field">
               <label class="ef-label">Quantity (optional)</label>
-              <input type="number" id="mpt_qty" class="ef-input" value="${existing?.quantity || ''}" placeholder="e.g. 500 sqft">
+              <input type="number" id="mpt_qty" class="ef-input" value="${existing?.quantity || ''}" placeholder="">
             </div>
           </div>
 
@@ -168,7 +168,7 @@ export function mpOpenTaskForm(editId) {
           <!-- REASON FOR CHANGES BEYOND PLAN -->
           <div class="mt-4">
             <label class="ef-label">Reason for extra labour / material (beyond the plan)</label>
-            <textarea id="mpt_changeReason" class="ef-input ef-textarea" rows="2" placeholder="e.g. 2 extra masons + 10 bags cement needed because slab area increased on site">${_esc(existing?.changeReason || '')}</textarea>
+            <textarea id="mpt_changeReason" class="ef-input ef-textarea" rows="2" placeholder="">${_esc(existing?.changeReason || '')}</textarea>
           </div>
 
           <!-- REMARKS -->
@@ -1299,7 +1299,7 @@ function _showLabourGate(messages) {
           <p style="font-size:13px;color:#475569;margin-bottom:8px;">This plan can't be generated as-is — the required labour exceeds the workers available in this project:</p>
           <ul style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px 10px 28px;margin-bottom:14px;max-height:160px;overflow:auto;">${list}${more}</ul>
           <label class="ef-label">Do you have another source of labour (outside / contract)?</label>
-          <textarea id="mpOutsideNote" class="ef-input ef-textarea" rows="2" placeholder="e.g. 6 masons from XYZ contractor arranged for these days"></textarea>
+          <textarea id="mpOutsideNote" class="ef-input ef-textarea" rows="2" placeholder=""></textarea>
           <p style="font-size:11px;color:#94a3b8;margin-top:6px;">Add labour in the <b>Labour</b> module for a permanent fix, or confirm outside labour to proceed.</p>
         </div>
         <div class="ef-footer">
@@ -1687,9 +1687,9 @@ export function renderSiteLocations() {
       <h3 class="font-bold text-sm text-slate-800 mb-1">📍 Site Locations</h3>
       <p class="text-[11px] text-slate-400 mb-3">Define where work happens (Block / Floor / Unit). Daily measurements & RA bills are organised by location.</p>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Block / Tower</label><input id="locBlock" placeholder="e.g. Block A" class="w-full p-2 border rounded-lg text-sm"></div>
-        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Floor / Level</label><input id="locFloor" placeholder="e.g. 2nd Floor" class="w-full p-2 border rounded-lg text-sm"></div>
-        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Unit / Flat / Grid</label><input id="locUnit" placeholder="e.g. Flat 203" class="w-full p-2 border rounded-lg text-sm"></div>
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Block / Tower</label><input id="locBlock" placeholder="" class="w-full p-2 border rounded-lg text-sm"></div>
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Floor / Level</label><input id="locFloor" placeholder="" class="w-full p-2 border rounded-lg text-sm"></div>
+        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Unit / Flat / Grid</label><input id="locUnit" placeholder="" class="w-full p-2 border rounded-lg text-sm"></div>
         <button onclick="window._addSiteLocation()" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700">+ Add Location</button>
       </div>
     </div>
@@ -1788,7 +1788,7 @@ function _mpBoqRowHtml() {
 function _mpOverheadRowHtml() {
   const cats = ['Material Handling', 'Housekeeping / Cleaning', 'Rework', 'Dewatering', 'Scaffolding', 'Curing', 'Idle / Standby', 'Safety', 'Mobilization', 'Other'];
   return `<tr>
-    <td class="p-1"><input class="oh-act w-full p-1.5 border rounded text-xs" placeholder="e.g. Shift cement to 3rd floor"></td>
+    <td class="p-1"><input class="oh-act w-full p-1.5 border rounded text-xs" placeholder=""></td>
     <td class="p-1"><select class="oh-cat w-full p-1.5 border rounded text-xs">${cats.map(c => `<option>${c}</option>`).join('')}</select></td>
     <td class="p-1"><input class="oh-qty w-full p-1.5 border rounded text-xs text-right" type="number" min="0" step="0.01" placeholder="0"></td>
     <td class="p-1"><input class="oh-uom w-16 p-1.5 border rounded text-xs" placeholder="unit"></td>

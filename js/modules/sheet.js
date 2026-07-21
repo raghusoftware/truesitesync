@@ -992,7 +992,7 @@ export function addBBSRow(count = 1) {
     const tr = document.createElement('tr');
     const n = sn + i + 1;
     tr.innerHTML = `<td class="p-1 border text-center text-xs text-slate-400 font-bold bbs-sn">${n}</td>
-      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder="e.g. Main Bar"></td>
+      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder=""></td>
       <td class="p-1 border"><select class="table-input bbs-dia" onchange="calcBBSRow(this)" style="padding:0.35rem;min-width:50px;text-align:center;font-weight:700;">
         <option value="">--</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option><option value="20">20</option><option value="25">25</option><option value="28">28</option><option value="32">32</option></select></td>
       <td class="p-1 border"><input type="number" class="table-input bbs-nobar text-center" oninput="calcBBSRow(this)"></td>
@@ -1403,7 +1403,7 @@ function _gLineHTML(d) {
   const inp = 'w-full px-2 border border-slate-200 rounded-md text-sm bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
   const sty = 'style="height:34px;"';
   return `<tr class="g-line even:bg-slate-50/60 hover:bg-blue-50/50 transition-colors">
-    <td class="px-1.5 py-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="e.g. Footing F-1" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
+    <td class="px-1.5 py-1"><input type="text" ${sty} class="g-label ${inp}" placeholder="" value="${(d.remarks || '').replace(/"/g,'&quot;')}"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-nos ${inp} text-center" value="${d.nos || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-l ${inp} text-center" value="${d.l || ''}" oninput="calcGroupedLine(this)"></td>
     <td class="px-1.5 py-1"><input type="number" ${sty} class="g-b ${inp} text-center" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
@@ -1480,7 +1480,7 @@ export function addGroupedItem(data) {
     <div class="flex flex-wrap gap-3 items-end px-4 py-3 border-b border-slate-100" style="background:linear-gradient(180deg,#f8fafc,#ffffff);">
       <div class="g-num flex items-center justify-center font-extrabold text-white rounded-lg" style="width:30px;height:30px;background:#1e3a8a;font-size:13px;flex-shrink:0;">#</div>
       <div style="width:130px;position:relative;"><label class="${lbl}">Item Code</label><input type="text" autocomplete="off" class="g-code ${hInp} font-mono font-bold text-blue-700 uppercase" value="${(data.code || '').replace(/"/g,'&quot;')}" placeholder="Type code…" oninput="window._gItemInput(this)"></div>
-      <div class="flex-1" style="min-width:220px;position:relative;"><label class="${lbl}">Description <span class="text-slate-300 normal-case font-normal">(type to search BOQ)</span></label><input type="text" autocomplete="off" class="g-desc ${hInp} font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="e.g. Excavation up to 1.5 m depth" oninput="window._gItemInput(this)"></div>
+      <div class="flex-1" style="min-width:220px;position:relative;"><label class="${lbl}">Description <span class="text-slate-300 normal-case font-normal">(type to search BOQ)</span></label><input type="text" autocomplete="off" class="g-desc ${hInp} font-semibold" value="${(data.description || '').replace(/"/g,'&quot;')}" placeholder="" oninput="window._gItemInput(this)"></div>
       <div style="width:74px;"><label class="${lbl}">Unit</label><input type="text" class="g-uom ${hInp} text-center" value="${(data.uom || '').replace(/"/g,'&quot;')}" placeholder="CuM" oninput="window._gItemUomChanged(this)"></div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <div class="ml-auto self-center flex gap-1.5">

@@ -920,7 +920,7 @@ window._addPaymentTxn = function(dir) {
     const vOpts = (state.vendors || []).filter(v => !v.projectId || v.projectId === state.currentProjectId).map(v => `<option value="vendor:${v.id}">Vendor: ${v.name}</option>`).join('');
     const lOpts = (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId).map(l => `<option value="labour:${l.id}">Labour: ${l.name}</option>`).join('');
     partyField = `<label class="fm-l">Pay To</label><select id="ptxParty" class="fm-i"><option value="">— General Expense —</option>${vOpts}${lOpts}</select>`;
-    catField = `<label class="fm-l">Category</label><input id="ptxCat" class="fm-i" placeholder="e.g. Site, Transport" value="General">`;
+    catField = `<label class="fm-l">Category</label><input id="ptxCat" class="fm-i" placeholder="" value="General">`;
   }
   _fuelModalLike('Add ' + (dir === 'in' ? 'Payment In' : 'Payment Out'), `
     ${partyField}
@@ -3881,7 +3881,7 @@ window._bulkLabourPayment = function() {
 
   _payrollModal('Bulk Payment', `
     <label class="pm-l">Amount per worker (₹)</label>
-    <input type="number" id="bpAmount" class="pm-i" placeholder="e.g. 500" oninput="window._bpRecalc()">
+    <input type="number" id="bpAmount" class="pm-i" placeholder="" oninput="window._bpRecalc()">
     <label class="pm-l">Pay from account</label>
     <select id="pmAccount" class="pm-i">${accOpts}</select>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px;">

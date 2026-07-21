@@ -286,7 +286,7 @@ function renderPrintConfigTab() {
         <span class="text-base">&#9997;</span>
         <h4 class="font-bold text-sm text-slate-800">Name of Authority (Measurement & Abstract)</h4>
       </div>
-      <input type="text" value="${(state.printSettings?.authorityName || '').replace(/"/g,'&quot;')}" onchange="window._setAuthorityName(this.value)" placeholder="e.g. Executive Engineer / Authorized Signatory name" class="w-full border rounded-lg px-3 py-2 text-sm">
+      <input type="text" value="${(state.printSettings?.authorityName || '').replace(/"/g,'&quot;')}" onchange="window._setAuthorityName(this.value)" placeholder="" class="w-full border rounded-lg px-3 py-2 text-sm">
       <p class="text-[10px] text-slate-400 mt-2">Printed as &ldquo;Name of Authority&rdquo; on measurement sheets, RA bills & abstracts. Leave blank to use the company name.</p>
     </div>
 

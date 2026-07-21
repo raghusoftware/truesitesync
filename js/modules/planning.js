@@ -472,11 +472,11 @@ export function openTaskForm(taskId) {
           <div class="ef-grid">
             <div class="ef-field ef-field-full">
               <label class="ef-label">Task Name *</label>
-              <input type="text" id="pt_name" class="ef-input" value="${existing?.name || ''}" placeholder="e.g. Column Casting Block-A" required>
+              <input type="text" id="pt_name" class="ef-input" value="${existing?.name || ''}" placeholder="" required>
             </div>
             <div class="ef-field ef-field-full">
               <label class="ef-label">Area / Location *</label>
-              <input type="text" id="pt_area" class="ef-input" list="pt_area_list" value="${existing?.area || ''}" placeholder="e.g. Office Building, Block A, Site Infrastructure">
+              <input type="text" id="pt_area" class="ef-input" list="pt_area_list" value="${existing?.area || ''}" placeholder="">
               <datalist id="pt_area_list">
                 ${_getExistingAreas(pid).map(a => `<option value="${a}">`).join('')}
               </datalist>
@@ -920,7 +920,7 @@ export function addTaskMaterial(taskId) {
             </div>
             <div id="pm_customNameWrap" class="ef-field ef-field-full hidden">
               <label class="ef-label">Material Name *</label>
-              <input type="text" id="pm_customName" class="ef-input" placeholder="e.g. 20mm Aggregate">
+              <input type="text" id="pm_customName" class="ef-input" placeholder="">
             </div>
             <div class="ef-field">
               <label class="ef-label">Quantity Required *</label>
@@ -1039,7 +1039,7 @@ export function addTaskEquipment(taskId) {
             </div>
             <div class="ef-field ef-field-full">
               <label class="ef-label">Remarks</label>
-              <input type="text" id="pe_remarks" class="ef-input" placeholder="e.g. With operator">
+              <input type="text" id="pe_remarks" class="ef-input" placeholder="">
             </div>
           </div>
         </div>

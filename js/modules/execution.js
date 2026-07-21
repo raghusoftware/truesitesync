@@ -281,7 +281,7 @@ window._dprOhRow = function (o) {
     <td style="padding:4px;"><input class="oh-qty" type="number" min="0" step="0.01" value="${_esc(qty)}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
     <td style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
     <td style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
-    <td style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="e.g. site prep" style="${_DPR_INP}width:130px;"></td>
+    <td style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="" style="${_DPR_INP}width:130px;"></td>
     <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
@@ -317,15 +317,15 @@ window._exDprForm = function (id) {
   _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Date</label><input id="dpDate" type="date" value="${d ? _esc(d.date) : _today()}" style="${_inp}"></div>
-      <div><label style="${_lbl}">Weather</label><input id="dpWeather" placeholder="e.g. Clear / Rainy" value="${d ? _esc(d.weather) : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Weather</label><input id="dpWeather" placeholder="" value="${d ? _esc(d.weather) : ''}" style="${_inp}"></div>
     </div>
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Area / Location</label><input id="dpArea" placeholder="e.g. Block A, 2nd floor" value="${d ? _esc(d.area) : ''}" style="${_inp}"></div>
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Area / Location</label><input id="dpArea" placeholder="" value="${d ? _esc(d.area) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Work Done Today</label><textarea id="dpWork" rows="3" placeholder="Describe today's progress…" style="${_inp}resize:vertical;">${d ? _esc(d.workDone) : ''}</textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Manpower — Skilled</label><input id="dpSkilled" type="number" value="${d ? d.manpowerSkilled || '' : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">Manpower — Unskilled</label><input id="dpUnskilled" type="number" value="${d ? d.manpowerUnskilled || '' : ''}" style="${_inp}"></div>
     </div>
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Equipment Deployed</label><input id="dpEquip" placeholder="e.g. 1 JCB, 2 mixers" value="${d ? _esc(d.equipment) : ''}" style="${_inp}"></div>
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Equipment Deployed</label><input id="dpEquip" placeholder="" value="${d ? _esc(d.equipment) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Hindrances / Delays</label><input id="dpHindrance" placeholder="Any blockers" value="${d ? _esc(d.hindrance) : ''}" style="${_inp}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('dpTask', d?.taskId)}</div>
@@ -454,7 +454,7 @@ window._exPourForm = function (id) {
       <div><label style="${_lbl}">Grade</label><select id="cpGrade" style="${_inp}">${sel(GRADES, p?.grade || 'M25')}</select></div>
       <div><label style="${_lbl}">Volume (m³)</label><input id="cpVolume" type="number" step="any" value="${p ? p.volume || '' : ''}" style="${_inp}"></div>
     </div>
-    <div style="margin-bottom:12px;"><label style="${_lbl}">Location / Grid</label><input id="cpLocation" placeholder="e.g. Grid A1–A3, Footing F1" value="${p ? _esc(p.location) : ''}" style="${_inp}"></div>
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Location / Grid</label><input id="cpLocation" placeholder="" value="${p ? _esc(p.location) : ''}" style="${_inp}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Start Time</label><input id="cpStart" type="time" value="${p ? _esc(p.startTime) : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">End Time</label><input id="cpEnd" type="time" value="${p ? _esc(p.endTime) : ''}" style="${_inp}"></div>
@@ -676,10 +676,10 @@ window._exQForm = function (id) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Element / Location</label><input id="qElement" value="${q ? _esc(q.element) : ''}" style="${_inp}"></div>
-      <div><label style="${_lbl}">Grade / Spec</label><input id="qGrade" placeholder="e.g. M25 / 28-day" value="${q ? _esc(q.grade) : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Grade / Spec</label><input id="qGrade" placeholder="" value="${q ? _esc(q.grade) : ''}" style="${_inp}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div><label style="${_lbl}">Result / Value</label><input id="qResult" placeholder="e.g. 32 MPa" value="${q ? _esc(q.result) : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Result / Value</label><input id="qResult" placeholder="" value="${q ? _esc(q.result) : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">Status</label><select id="qStatus" style="${_inp}">${sel(['Open', 'Pass', 'Fail', 'Closed'], q?.status || 'Open')}</select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
