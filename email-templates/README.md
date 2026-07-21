@@ -26,5 +26,7 @@ you see in a browser preview is replaced with the real link/email when Supabase 
 ## Notes
 - These only render correctly **once SMTP is working**. Fix the GoDaddy `535 Authentication
   Failed` first (correct mailbox password, or switch to Microsoft 365 host / Resend).
-- Design tokens: primary `#2563eb→#1d4ed8`, accent `#f59e0b`, ink `#0f172a`, 20px cards.
+- Brand tokens: green `#16a34a→#15803d` (button), gold accent `#c99a2e`, ink `#0f172a`, 20px cards.
+- Logo: pulled live from `https://truesitesync.com/assets/logo.png` in a white tile (works in
+  light + dark inboxes). If you move the logo, update the `<img src>` in each file.
 - After pasting, use **Send test email** in Supabase to confirm rendering in your inbox.

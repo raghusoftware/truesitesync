@@ -20,7 +20,7 @@
     table,td { mso-table-lspace:0; mso-table-rspace:0; }
     img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
     body { margin:0; padding:0; width:100%!important; height:100%!important; }
-    a { color:#2563eb; }
+    a { color:#15803d; }
     @media (prefers-color-scheme: dark) {
       .email-bg { background:#080d18 !important; }
       .card { background:#111a2e !important; border-color:#1e293b !important; }
@@ -29,7 +29,7 @@
       .muted { color:#64748b !important; }
       .divider { border-color:#1e293b !important; }
       .link-box { background:#0b1220 !important; border-color:#1e293b !important; }
-      .link-box a { color:#60a5fa !important; }
+      .link-box a { color:#4ade80 !important; }
       .feat { color:#cbd5e1 !important; }
     }
     @media only screen and (max-width:620px) {
@@ -47,7 +47,7 @@
         <tr><td align="center" style="padding:0 0 24px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
             <td style="vertical-align:middle;padding-right:12px;">
-              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);text-align:center;line-height:44px;font-size:22px;">🏗️</div>
+              <a href="https://truesitesync.com" target="_blank" style="text-decoration:none;"><div style="width:46px;height:46px;border-radius:12px;background:#ffffff;border:1px solid #e8edf5;text-align:center;line-height:46px;"><img src="https://truesitesync.com/assets/logo.png" width="34" height="34" alt="True Site Sync" style="display:inline-block;vertical-align:middle;border-radius:6px;"></div></a>
             </td>
             <td style="vertical-align:middle;">
               <span class="ink" style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-.3px;">True Site Sync</span>
@@ -57,9 +57,9 @@
 
         <tr><td class="card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 6px 24px rgba(15,23,42,.06);overflow:hidden;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr><td style="height:6px;background:linear-gradient(90deg,#2563eb,#3b82f6,#f59e0b);"></td></tr>
+            <tr><td style="height:6px;background:linear-gradient(90deg,#166534,#16a34a,#c99a2e);"></td></tr>
             <tr><td class="px" style="padding:44px 48px 8px;">
-              <div style="width:56px;height:56px;border-radius:16px;background:#eff6ff;text-align:center;line-height:56px;font-size:28px;margin-bottom:24px;">🤝</div>
+              <div style="width:56px;height:56px;border-radius:16px;background:#ecfdf5;text-align:center;line-height:56px;font-size:28px;margin-bottom:24px;">🤝</div>
               <h1 class="ink" style="margin:0 0 12px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#0f172a;letter-spacing:-.4px;">You've been invited</h1>
               <p class="body-text" style="margin:0 0 24px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#475569;">
                 Your team has invited you to collaborate on True Site Sync. Accept below to set your password and join your projects.
@@ -73,10 +73,10 @@
             </td></tr>
 
             <tr><td class="px" align="center" style="padding:20px 48px 8px;">
-              <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:52px;v-text-anchor:middle;width:300px;" arcsize="24%" fillcolor="#2563eb" stroke="f"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:bold;">Accept invitation &rarr;</center></v:roundrect><![endif]-->
+              <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:52px;v-text-anchor:middle;width:300px;" arcsize="24%" fillcolor="#15803d" stroke="f"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:bold;">Accept invitation &rarr;</center></v:roundrect><![endif]-->
               <!--[if !mso]><!-->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
-                <td style="border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 6px 16px rgba(37,99,235,.35);">
+                <td style="border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 6px 16px rgba(21,128,61,.30);">
                   <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:16px 44px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">Accept invitation &rarr;</a>
                 </td>
               </tr></table>
@@ -86,7 +86,7 @@
             <tr><td class="px" style="padding:24px 48px 8px;">
               <p class="muted" style="margin:0 0 8px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#94a3b8;">Or paste this link into your browser:</p>
               <div class="link-box" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;word-break:break-all;">
-                <a href="{{ .ConfirmationURL }}" target="_blank" style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#2563eb;text-decoration:none;">{{ .ConfirmationURL }}</a>
+                <a href="{{ .ConfirmationURL }}" target="_blank" style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#15803d;text-decoration:none;">{{ .ConfirmationURL }}</a>
               </div>
             </td></tr>
 
