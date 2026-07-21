@@ -10,7 +10,7 @@
 
 import { getSupabase } from './supabase.js';
 
-const APP_VERSION = '1.5.50';
+const APP_VERSION = '1.5.51';
 const MAX_REPORTS_PER_SESSION = 25;
 let _reportCount = 0;
 const _recent = new Set(); // de-dupe identical messages within a short window

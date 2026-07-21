@@ -443,17 +443,15 @@ async function _pushKey(dataKey, value) {
   if (!orgId || !userId) { _dirtyKeys.add(dataKey); _inFlight.delete(dataKey); _reportPush(false); return false; }
 
   try {
-    // Org-shared store: one row per (org, module key). Everyone in the company
-    // reads/writes the same row, so data syncs across all their devices.
-    const { error } = await sb
-      .from('module_data')
-      .upsert({
-        organization_id: orgId,
-        module_name: dataKey,
-        record_id: dataKey,
-        payload: value,
-        updated_by: userId
-      }, { onConflict: 'organization_id,module_name,record_id' });
+    // MERGE-ON-PUSH: instead of overwriting the org's whole-array row, the server
+    // UNIONS our copy into the cloud copy (add records both sides have, incoming
+    // wins on id clash, deletes honoured via tombstones). This is what stops one
+    // device's save from wiping records another device added — the shared-org
+    // "data vanishes, only somewhat stays" bug. Falls back to nothing destructive
+    // on error (key stays dirty, retried).
+    const { data: merged, error } = await sb.rpc('push_module_merged', {
+      p_module: dataKey, p_payload: value, p_org: orgId
+    });
 
     if (error) {
       console.warn(`[sync] push ${dataKey} failed:`, error.message);
@@ -461,6 +459,18 @@ async function _pushKey(dataKey, value) {
       _reportPush(false);
       return false;
     }
+    // The cloud may have had records we lacked (another device). Adopt the merged
+    // result so THIS device converges immediately — but only if we haven't edited
+    // this key again in the meantime.
+    try {
+      if (merged != null && !_dirtyKeys.has(dataKey) && typeof _rtApplyFn === 'function') {
+        const mergedJson = JSON.stringify(merged);
+        if (mergedJson !== JSON.stringify(value)) {
+          _lastJson[dataKey] = mergedJson;   // pre-seed so realtime echo is ignored
+          _rtApplyFn(dataKey, merged);
+        }
+      }
+    } catch {}
     _dirtyKeys.delete(dataKey);
     _reportPush(true);
     return true;
@@ -713,17 +723,17 @@ export async function syncPushAll(stateObj, storageKeys) {
   }
   if (skipped) console.warn('[sync] pushAll: skipped ' + skipped + ' key(s) that are newer in the cloud (anti-clobber)');
 
-  // Upsert in batches of 20 to avoid payload limits
-  const BATCH = 20;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH);
+  // MERGE-ON-PUSH per key (not a raw batch upsert) so even a full bulk upload from
+  // a stale device can only ADD records, never wipe the org's data. Sequential to
+  // keep it gentle; payloads are small.
+  for (const row of rows) {
     try {
-      const { error } = await sb
-        .from('module_data')
-        .upsert(batch, { onConflict: 'organization_id,module_name,record_id' });
-      if (error) console.warn('[sync] pushAll batch error:', error.message);
+      const { error } = await sb.rpc('push_module_merged', {
+        p_module: row.module_name, p_payload: row.payload, p_org: orgId
+      });
+      if (error) console.warn('[sync] pushAll merge error for', row.module_name, ':', error.message);
     } catch (e) {
-      console.warn('[sync] pushAll batch exception:', e);
+      console.warn('[sync] pushAll merge exception:', e);
     }
   }
   _dirtyKeys.clear();
