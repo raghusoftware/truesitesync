@@ -120,7 +120,7 @@ jobs:
         working-directory: android
         run: |
           AAB=app/build/outputs/bundle/release/app-release.aab
-          jarsigner -keystore app/upload.keystore \
+          jarsigner -keystore app/upload.keystore -storetype pkcs12 \
             -storepass "$KS_PASS" -keypass "$KEY_PASS" \
             -sigalg SHA256withRSA -digestalg SHA-256 \
             "$AAB" "$KEY_ALIAS"
