@@ -25,6 +25,11 @@
       "backgroundColor": "#0a0f1a",
       "showSpinner": false,
       "launchAutoHide": true
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "GOOGLE_WEB_CLIENT_ID_PLACEHOLDER",
+      "forceCodeForRefreshToken": true
     }
   }
 }

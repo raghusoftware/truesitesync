@@ -380,8 +380,29 @@ export async function loginWithGoogle() {
   const sb = getSupabase();
   if (!sb) { showToast('Supabase not initialized', 'error'); return; }
 
+  // NATIVE ANDROID: show the OS "Choose an account" picker (the phone's saved
+  // Google accounts) → hand the id-token to Supabase. No browser, one tap.
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const GoogleAuth = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
+  if (isNative && GoogleAuth) {
+    try {
+      try { await GoogleAuth.initialize(); } catch (_) {}
+      const res = await GoogleAuth.signIn();
+      const idToken = (res && (res.authentication?.idToken || res.idToken)) || null;
+      if (!idToken) { showToast('Google sign-in cancelled', 'error'); return; }
+      const { error } = await sb.auth.signInWithIdToken({ provider: 'google', token: idToken });
+      if (error) { showToast('Google sign-in failed: ' + error.message, 'error'); return; }
+      return; // onAuthStateChange(SIGNED_IN) loads data + boots the app
+    } catch (e) {
+      const msg = String((e && e.message) || e || '');
+      if (/cancel|popup_closed|12501/i.test(msg)) return; // user backed out — stay on login
+      console.warn('[auth] native Google sign-in failed, falling back to web:', e);
+      // fall through to the browser OAuth flow below
+    }
+  }
+
   const isDesktop = window.location.protocol === 'file:';
-  const isCapacitor = window.location.protocol === 'https:' && navigator.userAgent.includes('TrueSiteSync-Android');
+  const isCapacitor = navigator.userAgent.includes('TrueSiteSync-Android');
 
   const opts = { provider: 'google' };
   if (isCapacitor) {
