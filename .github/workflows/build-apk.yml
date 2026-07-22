@@ -36,6 +36,13 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Target Android 15 (API 35)
+        run: |
+          sed -i -E 's/(compileSdkVersion = )[0-9]+/\135/' android/variables.gradle
+          sed -i -E 's/(targetSdkVersion = )[0-9]+/\135/' android/variables.gradle
+          echo "android.suppressUnsupportedCompileSdk=35" >> android/gradle.properties
+          echo "----- android/variables.gradle -----"; cat android/variables.gradle
+
       - name: Sync web assets
         run: npx cap sync android
 
