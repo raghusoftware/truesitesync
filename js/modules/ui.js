@@ -1758,7 +1758,7 @@ function _renderGRN() {
     </div>
     <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent GRNs</div>
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}</td></tr>`;}).join('')||'<tr><td colspan="9" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
+      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||'<tr><td colspan="9" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
       </tbody></table></div></div>`;
   syncUnitPicker('grnMat', 'grnQtyUnit');
 }
@@ -1783,6 +1783,22 @@ function _grnLinkedQc(g) {
   return (state.qualityChecks || []).find(q => q.grnId === g.id) ||
     (state.qualityChecks || []).find(q => typeof q.result === 'string' && g.grnNo && q.result.includes(g.grnNo));
 }
+
+/** Delete a GRN — reverses the stock it added + any pending QC check (soft-delete). */
+window._grnDelete = function (id) {
+  const g = (state.grnRecords || []).find(x => x.id === id);
+  if (!g) return;
+  if (g.billed) { showToast("This GRN is billed — unbill it first, then delete.", 'error'); return; }
+  if (!confirm(`Delete GRN ${g.grnNo || ''}?\n\nThis also removes the stock it added to inventory. You can restore it from the Recycle Bin.`)) return;
+  if (_grnEditingId === id) { try { window._grnCancelEdit && window._grnCancelEdit(); } catch {} }
+  const tx = _grnLinkedTx(g);
+  if (tx) window.recycleDelete && window.recycleDelete('inventoryTx', tx.id, 'Stock (GRN)');
+  const qc = _grnLinkedQc(g);
+  if (qc) window.recycleDelete && window.recycleDelete('qualityChecks', qc.id, 'QC check');
+  window.recycleDelete && window.recycleDelete('grnRecords', id, 'GRN'); // saveAllData() runs inside
+  _renderGRN(); renderLiveInventory();
+  showToast(`GRN ${g.grnNo || ''} deleted`, 'warning');
+};
 
 /** Load an existing GRN back into the form for editing. */
 window._grnEdit = function (id) {
