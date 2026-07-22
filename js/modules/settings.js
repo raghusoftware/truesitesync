@@ -800,8 +800,44 @@ function renderBackupTab() {
         <input type="file" id="settBackupFileInput" accept=".json" class="w-full mb-4 p-2 border rounded bg-slate-50">
         <button onclick="restoreJSONBackupFromSettings()" class="bg-[#f97316] text-white px-4 py-3 rounded-lg w-full font-bold">Restore from File</button>
       </div>
+    </div>
+
+    <!-- Danger Zone — account deletion (required by Google Play policy) -->
+    <div class="mt-8 max-w-3xl bg-white border border-red-200 rounded-xl p-6">
+      <h3 class="font-bold text-lg mb-1 text-red-700">Delete My Account</h3>
+      <p class="text-sm text-slate-500 mb-4">Permanently delete your account and the data associated with it. This sends a deletion request and signs you out; we complete verified requests within 30 days. This cannot be undone. <a href="https://truesitesync.com/delete-account.html" target="_blank" class="text-red-600 font-semibold underline">What gets deleted</a>.</p>
+      <button onclick="_requestAccountDeletion()" class="bg-red-600 text-white px-5 py-3 rounded-lg font-bold hover:bg-red-700 transition">Delete My Account</button>
     </div>`;
 }
+
+// Account-deletion request — in-app path required by Google Play. Sends a
+// prefilled deletion email to support; deletion is completed within 30 days.
+window._requestAccountDeletion = async function () {
+  let email = '';
+  try {
+    const sb = window.getSupabase && window.getSupabase();
+    if (sb) { const { data } = await sb.auth.getUser(); email = data?.user?.email || ''; }
+  } catch {}
+  if (!email) { try { email = window.getCurrentUser && window.getCurrentUser()?.email || ''; } catch {} }
+
+  const ok = confirm(
+    'Delete your True Site Sync account?\n\n' +
+    'This sends a request to permanently delete your account and associated data. ' +
+    'Verified requests are completed within 30 days and cannot be undone.\n\n' +
+    'Continue to send your deletion request?'
+  );
+  if (!ok) return;
+
+  const subject = encodeURIComponent('Account Deletion Request');
+  const body = encodeURIComponent(
+    'Please permanently delete my True Site Sync account and associated data.\n\n' +
+    'Account email: ' + (email || '(please write your account email here)') + '\n'
+  );
+  try { window.location.href = 'mailto:info@truesitesync.com?subject=' + subject + '&body=' + body; } catch {}
+  if (window.showToast) {
+    window.showToast('Deletion request started — send the email to confirm. We complete verified requests within 30 days.', 'warning');
+  }
+};
 
 export function restoreJSONBackupFromSettings() {
   // redirect file input for the settings backup
