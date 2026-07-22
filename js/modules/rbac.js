@@ -882,7 +882,7 @@ export async function handleLogin() {
       // (bulk push) when nothing came back, i.e. this is a brand-new org.
       let joinedExisting = false;
       try {
-        joinedExisting = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 6000))]);
+        joinedExisting = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 10000))]);
       } catch (e) { console.warn('[auth] cloud load failed:', e); }
       if (!joinedExisting) {
         if (syncText) syncText.textContent = 'Creating your workspace...';
@@ -906,7 +906,7 @@ export async function handleLogin() {
 
       // Pull cloud data — but never hang the login if org resolution stalls.
       let hadCloud = false;
-      try { hadCloud = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
+      try { hadCloud = await Promise.race([loadFromCloud(), new Promise(r => setTimeout(() => r(false), 10000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
       if (hadCloud) {
         const syncText = document.getElementById('syncStatusText');
         if (syncText) syncText.textContent = 'Data loaded from cloud!';

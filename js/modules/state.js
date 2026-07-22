@@ -323,6 +323,12 @@ export async function loadFromCloud() {
     }
     console.log(`[sync] Loaded ${merged} keys from cloud (kept ${kept} newer-local)`);
     markSyncReady();
+    // If login booted the app before this slow cloud pull finished, the current
+    // view was rendered from empty state (the "Add Client" screen). Now that the
+    // real data is in, refresh the view so it appears without the user navigating.
+    if (merged > 0 && typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') {
+      try { window.refreshCurrentView(); } catch {}
+    }
     return merged > 0;
   } catch (e) {
     console.warn('[sync] loadFromCloud failed:', e);
