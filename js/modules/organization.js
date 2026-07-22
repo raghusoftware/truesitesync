@@ -311,8 +311,43 @@ export async function cancelInvite(inviteId) {
 // BILLING / RAZORPAY
 // ══════════════════════════════════════════
 
+// Google Play forbids third-party billing (Razorpay) for in-app digital
+// subscriptions. In the Android app we hide the in-app plan/billing UI and send
+// users to buy on the website instead. Detect the native Android build.
+function _isNativeAndroid() {
+  try {
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return true;
+  } catch (_) {}
+  return typeof navigator !== 'undefined' && /TrueSiteSync-Android/.test(navigator.userAgent || '');
+}
+
+function _openPricingWebsite() {
+  const url = 'https://truesitesync.com/pricing.html';
+  try { window.open(url, '_blank'); } catch (_) { try { window.location.href = url; } catch (__) {} }
+}
+
+// "Buy from website" panel shown in place of the plan cards in the Android app.
+function _buyFromWebsiteHtml(org) {
+  const plan = (org && org.plan) || 'free';
+  const trialDays = org && org.trial_ends_at ? Math.max(0, Math.ceil((new Date(org.trial_ends_at) - Date.now()) / 86400000)) : 0;
+  const status = plan === 'free'
+    ? (trialDays > 0 ? `Free trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left` : 'Free trial ended')
+    : `Current plan: ${plan}`;
+  return `
+    <div style="max-width:520px;margin:0 auto;text-align:center;padding:12px 4px;">
+      <div style="width:64px;height:64px;border-radius:18px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">🌐</div>
+      <h3 style="font-size:19px;font-weight:800;color:#0f172a;margin:0 0 8px;">Manage your plan on our website</h3>
+      <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 6px;">Plans and billing for True Site Sync are purchased on our website. Sign in with the same account and your plan applies everywhere — web, desktop and this app.</p>
+      <p style="font-size:12px;color:#94a3b8;margin:0 0 20px;font-weight:600;">${status}</p>
+      <button onclick="_openPricingWebsite()" style="padding:14px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(21,128,61,.28);">View Plans &amp; Buy on Website →</button>
+      <p style="font-size:12px;color:#94a3b8;margin:16px 0 0;">truesitesync.com/pricing</p>
+    </div>`;
+}
+window._openPricingWebsite = _openPricingWebsite;
+
 /** Open Razorpay checkout for plan upgrade */
 export async function upgradePlan(planId) {
+  if (_isNativeAndroid()) { _openPricingWebsite(); return; }
   const sb = getSupabase();
   if (!sb || !_currentOrg) return;
 
@@ -338,6 +373,7 @@ export async function upgradePlan(planId) {
 
 /** Buy extra seats */
 export async function buyExtraSeats(count) {
+  if (_isNativeAndroid()) { _openPricingWebsite(); return; }
   const sb = getSupabase();
   if (!sb || !_currentOrg) return;
 
@@ -566,6 +602,8 @@ export function renderBillingPanel() {
   const container = document.getElementById('orgTabContent');
   if (!container || !_currentOrg) return;
 
+  if (_isNativeAndroid()) { container.innerHTML = _buyFromWebsiteHtml(_currentOrg); return; }
+
   const currentPlan = _currentOrg.plan || 'free';
 
   let html = `
@@ -705,6 +743,7 @@ export function renderPlanBilling() {
   const container = document.getElementById('planBillingContent');
   if (!container) return;
   let org = _currentOrg || hydrateOrgFromCache();
+  if (_isNativeAndroid()) { container.innerHTML = _buyFromWebsiteHtml(org); return; }
   // Rendered instantly from cache → refresh once in the background for fresh plan/trial.
   if (org && org._fromCache && !_planBillingRefreshed) {
     _planBillingRefreshed = true;
