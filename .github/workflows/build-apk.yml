@@ -46,6 +46,14 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Generate app launcher icon from logo (assets/icon.png)
+        run: |
+          npm install --no-save @capacitor/assets@3 || true
+          npx @capacitor/assets generate --android \
+            --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff' || echo "::warning::icon generation failed — falling back to default icon"
+          echo "----- generated launcher icons -----"
+          find android/app/src/main/res -path '*mipmap*ic_launcher*' | head -20 || true
+
       - name: Configure Android to keep links in-app
         run: |
           # Override AndroidManifest to handle all links inside WebView
