@@ -376,6 +376,21 @@ export async function logoutUser() {
 /**
  * Google OAuth sign in
  */
+// Log a Google-sign-in diagnostic to client_errors so it can be read remotely.
+async function _reportGoogle(m) {
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.from('client_errors').insert({
+      message: ('[google-signin] ' + m).slice(0, 1000),
+      source: 'google-signin',
+      app_version: '1.5.76',
+      user_agent: (navigator.userAgent || '').slice(0, 500),
+      url: (location.href || '').slice(0, 500)
+    });
+  } catch (_) {}
+}
+
 export async function loginWithGoogle() {
   const sb = getSupabase();
   if (!sb) { showToast('Supabase not initialized', 'error'); return; }
@@ -389,15 +404,25 @@ export async function loginWithGoogle() {
       try { await GoogleAuth.initialize(); } catch (_) {}
       const res = await GoogleAuth.signIn();
       const idToken = (res && (res.authentication?.idToken || res.idToken)) || null;
-      if (!idToken) { showToast('Google sign-in cancelled', 'error'); return; }
+      if (!idToken) {
+        _reportGoogle('signIn ok but no idToken; keys=' + Object.keys(res || {}).join(','));
+        showToast('Google: no token returned (server client ID?)', 'error');
+        return;
+      }
       const { error } = await sb.auth.signInWithIdToken({ provider: 'google', token: idToken });
-      if (error) { showToast('Google sign-in failed: ' + error.message, 'error'); return; }
+      if (error) {
+        _reportGoogle('signInWithIdToken rejected: ' + error.message);
+        showToast('Login rejected: ' + error.message, 'error');
+        return;
+      }
       return; // onAuthStateChange(SIGNED_IN) loads data + boots the app
     } catch (e) {
-      const msg = String((e && e.message) || e || '');
-      if (/cancel|popup_closed|12501/i.test(msg)) return; // user backed out — stay on login
-      console.warn('[auth] native Google sign-in failed, falling back to web:', e);
-      // fall through to the browser OAuth flow below
+      const msg = String((e && (e.message || e.code || e.error)) || JSON.stringify(e || {}) || '');
+      _reportGoogle('native signIn threw: ' + msg);
+      // Surface the real error (12501/10/etc.) instead of dumping into a browser
+      // flow that can't return to the app.
+      showToast('Google sign-in error: ' + (msg || 'unknown'), 'error');
+      return;
     }
   }
 
