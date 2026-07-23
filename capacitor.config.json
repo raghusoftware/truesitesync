@@ -28,7 +28,7 @@
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
-      "serverClientId": "GOOGLE_WEB_CLIENT_ID_PLACEHOLDER",
+      "serverClientId": "375415649762-51td899to247uffikbhrjea8kfoaa4ok.apps.googleusercontent.com",
       "forceCodeForRefreshToken": true
     }
   }
