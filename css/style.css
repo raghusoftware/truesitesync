@@ -2214,3 +2214,34 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
     background:#F3F0FD !important; color:#5B34D9 !important; font-weight:800 !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SALES INVOICE FORM — Vyapar-inspired clean mobile layout
+   ═══════════════════════════════════════════════════════════ */
+.si-mobile-savebar { display:none; }
+@media (max-width: 768px) {
+  /* Sticky bottom Save bar (Save & New | Save) */
+  .si-mobile-savebar {
+    display:flex !important; position:absolute; left:0; right:0; bottom:0; z-index:60;
+    background:#fff; border-top:1px solid #ECE7F7; box-shadow:0 -8px 22px -14px rgba(70,40,160,.45);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .si-mobile-savebar button { flex:1; border:none; padding:18px; font-size:16px; font-weight:800; cursor:pointer; }
+  .si-mobile-savebar .sn { background:#fff; color:#241E45; }
+  .si-mobile-savebar .sv { background:linear-gradient(135deg,#6D4AFF,#5B34D9); color:#fff; }
+  /* Hide the tiny top Save (the bottom bar replaces it) */
+  #saleInvoiceFormPanel .flex-shrink-0 button[onclick*="saveSaleInvoiceForm"] { display:none !important; }
+
+  /* Soft lilac page, clean single-column field groups, room for the save bar */
+  #siFormScrollArea { background:#F5F3FB !important; }
+  #siFormScrollArea > div { padding:14px 14px 96px !important; }
+  #saleInvoiceFormPanel [style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; gap:12px !important; }
+  #saleInvoiceFormPanel .bg-white { border-radius:16px !important; box-shadow:0 8px 20px -16px rgba(70,40,160,.35) !important; }
+  #saleInvoiceFormPanel .si-field {
+    min-height:52px !important; font-size:16px !important; border-radius:13px !important;
+    border:1.5px solid #E9E6F2 !important; background:#fff !important; padding:13px 14px !important;
+  }
+  #saleInvoiceFormPanel .si-lbl { font-size:12px !important; font-weight:700 !important; color:#8A86A0 !important; }
+  /* Credit/Cash toggle: green active like the reference */
+  #siToggleCredit.bg-blue-500, #siToggleCash.bg-blue-500 { background:#15A34A !important; }
+}
