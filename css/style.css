@@ -1985,3 +1985,75 @@ tbody tr:hover td { background: #f7f9f8 !important; }
 /* ── Scrollbar — even quieter on light sidebar ── */
 aside ::-webkit-scrollbar-thumb { background: rgba(13,40,28,.08) !important; }
 aside ::-webkit-scrollbar-thumb:hover { background: rgba(13,40,28,.16) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   FILOO PURPLE THEME — hub grids (dashboard modules, Equipment,
+   Labour, Inventory, Settings). Soft lilac ground, white rounded
+   cards with purple-tinted shadow, colourful gradient icon tiles.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Soft lilac page ground so the white cards float (Filoo look) */
+#appContainer main { background: linear-gradient(180deg,#F4F1FD 0%,#F7F5FE 60%) !important; }
+
+/* ── Hub cards ── */
+#moduleCardsGrid > div,
+#equipGrid > div,
+#labourGrid > div,
+#invGrid > div,
+#settingsHomeGrid > div {
+  border: none !important;
+  border-radius: 20px !important;
+  box-shadow: 0 14px 28px -18px rgba(91,52,217,.5) !important;
+}
+#moduleCardsGrid > div:hover,
+#equipGrid > div:hover,
+#labourGrid > div:hover,
+#invGrid > div:hover,
+#settingsHomeGrid > div:hover {
+  border: none !important;
+  box-shadow: 0 18px 34px -16px rgba(91,52,217,.6) !important;
+}
+
+/* ── Icon tiles → white glyph on a gradient (border removed) ── */
+#equipGrid > div > div:first-child,
+#labourGrid > div > div:first-child,
+#invGrid > div > div:first-child,
+#settingsHomeGrid > div > div:first-child,
+#moduleCardsGrid > div > div > div:first-child {
+  border: none !important;
+  color: #fff !important;
+}
+
+/* ── Gradient rotation (pink · teal · blue · amber · green) ── */
+#equipGrid > div:nth-child(5n+1) > div:first-child,
+#labourGrid > div:nth-child(5n+1) > div:first-child,
+#invGrid > div:nth-child(5n+1) > div:first-child,
+#settingsHomeGrid > div:nth-child(5n+1) > div:first-child,
+#moduleCardsGrid > div:nth-child(5n+1) > div > div:first-child { background: linear-gradient(135deg,#FF6FA5,#FF4E7D) !important; }
+
+#equipGrid > div:nth-child(5n+2) > div:first-child,
+#labourGrid > div:nth-child(5n+2) > div:first-child,
+#invGrid > div:nth-child(5n+2) > div:first-child,
+#settingsHomeGrid > div:nth-child(5n+2) > div:first-child,
+#moduleCardsGrid > div:nth-child(5n+2) > div > div:first-child { background: linear-gradient(135deg,#37D6C4,#17A8A0) !important; }
+
+#equipGrid > div:nth-child(5n+3) > div:first-child,
+#labourGrid > div:nth-child(5n+3) > div:first-child,
+#invGrid > div:nth-child(5n+3) > div:first-child,
+#settingsHomeGrid > div:nth-child(5n+3) > div:first-child,
+#moduleCardsGrid > div:nth-child(5n+3) > div > div:first-child { background: linear-gradient(135deg,#5E8BFF,#3B63F0) !important; }
+
+#equipGrid > div:nth-child(5n+4) > div:first-child,
+#labourGrid > div:nth-child(5n+4) > div:first-child,
+#invGrid > div:nth-child(5n+4) > div:first-child,
+#settingsHomeGrid > div:nth-child(5n+4) > div:first-child,
+#moduleCardsGrid > div:nth-child(5n+4) > div > div:first-child { background: linear-gradient(135deg,#FFC64D,#F79A1E) !important; }
+
+#equipGrid > div:nth-child(5n+5) > div:first-child,
+#labourGrid > div:nth-child(5n+5) > div:first-child,
+#invGrid > div:nth-child(5n+5) > div:first-child,
+#settingsHomeGrid > div:nth-child(5n+5) > div:first-child,
+#moduleCardsGrid > div:nth-child(5n+5) > div > div:first-child { background: linear-gradient(135deg,#3BD07A,#1EA85B) !important; }
+
+/* Section headings a touch bolder to match the concept */
+#moduleCardsGrid ~ * h2, .filoo-hd { letter-spacing: -.2px; }
