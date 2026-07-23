@@ -2060,6 +2060,11 @@ aside ::-webkit-scrollbar-thumb:hover { background: rgba(13,40,28,.16) !importan
 
 /* ═══ Filoo mobile home (greeting · hero · tiles · recent) ═══ */
 #filooHome{ display:none; }
+/* On the Filoo home, hide the app header chips (breadcrumb / sync / user / logout)
+   — the greeting + avatar replace them — and pad the top for the status bar. */
+body.filoo-home #breadcrumbBar { display:none !important; }
+body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important; }
+#filooHome .fh-av{ cursor:pointer; }
 .g-pink{ background:linear-gradient(135deg,#FF6FA5,#FF4E7D) !important; }
 .g-teal{ background:linear-gradient(135deg,#37D6C4,#17A8A0) !important; }
 .g-blue{ background:linear-gradient(135deg,#5E8BFF,#3B63F0) !important; }

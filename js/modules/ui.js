@@ -91,6 +91,57 @@ window._filooGo = function(view){
   else if (typeof projHomeAction === 'function') { projHomeAction(); }
 };
 
+// Hero → bottom-sheet list of all projects; pick one to make it the active project.
+window._filooPickProject = function(){
+  const projects = state.projects || [];
+  if (!projects.length) { if (typeof projHomeAction === 'function') projHomeAction(); return; }
+  const rows = projects.map(p => {
+    const c = (state.clients||[]).find(x => x.id === p.clientId);
+    const active = p.id === state.currentProjectId;
+    return `<div onclick="window._filooSelectProject('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;margin-bottom:8px;background:${active?'#F3F0FD':'#fff'};border:1px solid ${active?'#C9BEF6':'#EEEAF7'};cursor:pointer;">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7C5CFC,#5B34D9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">${_fhEsc(String(p.name||'P').charAt(0).toUpperCase())}</div>
+      <div style="flex:1;min-width:0;"><div style="font-weight:700;color:#241E45;">${_fhEsc(p.name||'Project')}</div><div style="font-size:12px;color:#8B86A8;">${_fhEsc(c?.name || p.clientName || '')}</div></div>
+      ${active ? '<span style="color:#7C5CFC;font-weight:900;font-size:16px;">✓</span>' : ''}
+    </div>`;
+  }).join('');
+  const html = `<div id="fhPick" style="position:fixed;inset:0;background:rgba(20,10,50,.45);z-index:100000;display:flex;align-items:flex-end;" onclick="if(event.target.id==='fhPick')this.remove()">
+    <div style="background:#fff;width:100%;max-height:80vh;overflow:auto;border-radius:24px 24px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));">
+      <div style="width:40px;height:4px;background:#E5E1F5;border-radius:3px;margin:0 auto 14px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="font-size:17px;font-weight:800;color:#241E45;margin:0;">Select project</h3>
+        <button onclick="document.getElementById('fhPick').remove(); if(typeof projHomeAction==='function')projHomeAction();" style="font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#7C5CFC,#5B34D9);border:none;padding:8px 14px;border-radius:20px;cursor:pointer;">+ New</button>
+      </div>
+      ${rows}
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+window._filooSelectProject = function(id){
+  const el = document.getElementById('fhPick'); if (el) el.remove();
+  state.currentProjectId = id;
+  try { if (window.saveAllData) window.saveAllData(); } catch(e){}
+  renderFilooHome();
+  const p = (state.projects||[]).find(x=>x.id===id);
+  showToast('Active project: ' + (p?.name || ''), 'success');
+};
+
+// Avatar → account sheet with logout.
+window._filooAccount = function(){
+  const u = (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) || {};
+  const full = u.name || u.username || 'Account';
+  const email = u.email || u.username || '';
+  const inits = String(full).split(' ').filter(Boolean).map(s=>s[0]).join('').slice(0,2).toUpperCase() || 'U';
+  const html = `<div id="fhAcct" style="position:fixed;inset:0;background:rgba(20,10,50,.45);z-index:100000;display:flex;align-items:flex-end;" onclick="if(event.target.id==='fhAcct')this.remove()">
+    <div style="background:#fff;width:100%;border-radius:24px 24px 0 0;padding:18px 20px calc(22px + env(safe-area-inset-bottom,0px));">
+      <div style="width:40px;height:4px;background:#E5E1F5;border-radius:3px;margin:0 auto 18px;"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#FFD27A,#FF8A5B);color:#5a2b00;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px;">${_fhEsc(inits)}</div>
+        <div style="min-width:0;"><div style="font-weight:800;color:#241E45;font-size:16px;">${_fhEsc(full)}</div><div style="font-size:12px;color:#8B86A8;overflow:hidden;text-overflow:ellipsis;">${_fhEsc(email)}</div></div>
+      </div>
+      <button onclick="document.getElementById('fhAcct').remove(); if(window._rbacLogout)window._rbacLogout();" style="width:100%;padding:15px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:16px;font-weight:800;font-size:15px;cursor:pointer;">Log out</button>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
 // Filoo-style mobile home: greeting, active-project hero, gradient quick tiles,
 // recent activity. Shown on the native app / narrow screens; hidden on desktop.
 function renderFilooHome(){
@@ -119,15 +170,15 @@ function renderFilooHome(){
     let value = Number(proj.contractValue) || 0;
     if (!value && Array.isArray(proj.boqs)) value = proj.boqs.reduce((s,g)=> s + (g.items||[]).reduce((a,it)=> a + (parseFloat(it.amount)||0),0), 0);
     const pct = value ? Math.min(100, Math.round(billed/value*100)) : 0;
-    hero = `<div class="fh-hero" onclick="openProject('${proj.id}')">
-      <div class="fh-open">Open</div>
-      <div class="fh-tag">Active project</div>
+    hero = `<div class="fh-hero" onclick="window._filooPickProject()">
+      <div class="fh-open" onclick="event.stopPropagation(); openProject('${proj.id}')">Open &rarr;</div>
+      <div class="fh-tag">Active project · tap to switch</div>
       <div class="fh-big">${_fhEsc(proj.name||'Project')}</div>
       <div class="fh-sub">${_fhEsc(client?.name || proj.clientName || 'Client')}</div>
       ${value ? `<div class="fh-bar"><i style="width:${pct}%"></i></div><div class="fh-row"><span>${pct}% billed</span><span>${cur}${_fhShort(billed)} / ${cur}${_fhShort(value)}</span></div>` : ''}
     </div>`;
   } else {
-    hero = `<div class="fh-hero" onclick="_filooGo('')">
+    hero = `<div class="fh-hero" onclick="window._filooPickProject()">
       <div class="fh-open">+</div>
       <div class="fh-tag">Get started</div>
       <div class="fh-big">Create your first project</div>
@@ -151,7 +202,7 @@ function renderFilooHome(){
   el.innerHTML = `
     <div class="fh-hd">
       <div><div class="fh-hi">${greet},</div><div class="fh-name">${_fhEsc(name)} 👋</div></div>
-      <div class="fh-av">${_fhEsc(initials)}</div>
+      <div class="fh-av" onclick="window._filooAccount()" title="Account">${_fhEsc(initials)}</div>
     </div>
     ${hero}
     <div class="fh-sec"><h3>Quick actions</h3><a onclick="_filooGo('projectDashboard')">Dashboard</a></div>
@@ -850,6 +901,12 @@ export function deleteProject(projId) {
 
 /** Update breadcrumb based on current context */
 function _updateBreadcrumb(viewId) {
+  // Mobile Filoo home has its own greeting + avatar, so hide the app header
+  // (breadcrumb / sync / user / logout chips) there and show it everywhere else.
+  try {
+    const mob = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) || window.innerWidth <= 900;
+    document.body.classList.toggle('filoo-home', mob && viewId === 'projectsHome');
+  } catch (e) {}
   const bc = document.getElementById('breadcrumbPath');
   if (!bc) return;
   const proj = state.currentProjectId ? (state.projects || []).find(p => p.id === state.currentProjectId) : null;
