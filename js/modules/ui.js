@@ -80,9 +80,95 @@ export function projHomeAction() {
 }
 
 /** Render the home landing page — clients list, or one client's projects */
+function _fhEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _fhShort(n){ n=Number(n)||0; if(n>=1e7) return (n/1e7).toFixed(1).replace(/\.0$/,'')+'Cr'; if(n>=1e5) return (n/1e5).toFixed(1).replace(/\.0$/,'')+'L'; if(n>=1e3) return Math.round(n/1e3)+'k'; return String(Math.round(n)); }
+
+// Quick-tile nav: make sure a project is active, then open the module.
+window._filooGo = function(view){
+  const projects = state.projects || [];
+  if (!state.currentProjectId && projects.length) { openProject(projects[projects.length-1].id); }
+  if (state.currentProjectId) { switchView(view); }
+  else if (typeof projHomeAction === 'function') { projHomeAction(); }
+};
+
+// Filoo-style mobile home: greeting, active-project hero, gradient quick tiles,
+// recent activity. Shown on the native app / narrow screens; hidden on desktop.
+function renderFilooHome(){
+  const el = document.getElementById('filooHome');
+  if (!el) return;
+  const isMobile = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) || window.innerWidth <= 900;
+  if (!isMobile) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+
+  const user = (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) || {};
+  const full = user.name || user.username || 'there';
+  const name = String(full).split(' ')[0];
+  const initials = String(full).split(' ').filter(Boolean).map(s=>s[0]).join('').slice(0,2).toUpperCase() || 'U';
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const cur = getCurrencySymbol();
+
+  const projects = state.projects || [];
+  const proj = projects.find(p => p.id === state.currentProjectId) || projects[projects.length-1] || null;
+
+  let hero;
+  if (proj) {
+    const client = (state.clients||[]).find(c => c.id === proj.clientId);
+    const invs = (state.invoices||[]).filter(i => (i.projectId === proj.id || (client && i.clientId === client.id)) && i.status !== 'Cancelled');
+    const billed = invs.reduce((s,i)=> s + (i.totalAmount || i.taxAmount || 0), 0);
+    let value = Number(proj.contractValue) || 0;
+    if (!value && Array.isArray(proj.boqs)) value = proj.boqs.reduce((s,g)=> s + (g.items||[]).reduce((a,it)=> a + (parseFloat(it.amount)||0),0), 0);
+    const pct = value ? Math.min(100, Math.round(billed/value*100)) : 0;
+    hero = `<div class="fh-hero" onclick="openProject('${proj.id}')">
+      <div class="fh-open">Open</div>
+      <div class="fh-tag">Active project</div>
+      <div class="fh-big">${_fhEsc(proj.name||'Project')}</div>
+      <div class="fh-sub">${_fhEsc(client?.name || proj.clientName || 'Client')}</div>
+      ${value ? `<div class="fh-bar"><i style="width:${pct}%"></i></div><div class="fh-row"><span>${pct}% billed</span><span>${cur}${_fhShort(billed)} / ${cur}${_fhShort(value)}</span></div>` : ''}
+    </div>`;
+  } else {
+    hero = `<div class="fh-hero" onclick="_filooGo('')">
+      <div class="fh-open">+</div>
+      <div class="fh-tag">Get started</div>
+      <div class="fh-big">Create your first project</div>
+      <div class="fh-sub">Add a client and project to begin</div>
+    </div>`;
+  }
+
+  const pid = proj ? proj.id : null;
+  const labourN = (state.labourMaster||[]).length;
+  const invN = (state.rawMaterials||[]).length;
+  const sheetN = (state.sheets||[]).filter(s=> !pid || s.projectId===pid).length;
+  const eqN = (state.equipmentList||[]).filter(e=> !pid || !e.projectId || e.projectId===pid).length;
+
+  const acts = [];
+  (state.invoices||[]).forEach(i=> acts.push({ d:i.date, ic:'g-blue', g:'🧾', t:`Invoice ${i.invoiceNum||''}`, s:'Tax invoice', a: cur+_fhShort(i.totalAmount||i.taxAmount||0) }));
+  (state.grnRecords||[]).forEach(g=> acts.push({ d:g.date, ic:'g-teal', g:'📥', t:`GRN ${g.grnNo||''}`, s:`${g.qty||''} received`, a:'✓' }));
+  acts.sort((x,y)=> String(y.d||'').localeCompare(String(x.d||'')));
+  const recent = acts.slice(0,3).map(a=> `<div class="fh-item"><div class="fh-ic ${a.ic}">${a.g}</div><div class="fh-m"><b>${_fhEsc(a.t)}</b><small>${_fhEsc(a.s)} · ${_fhEsc(a.d||'')}</small></div><div class="fh-amt">${_fhEsc(a.a)}</div></div>`).join('')
+    || '<div class="fh-item"><div class="fh-m"><b>No activity yet</b><small>Your recent work will show here</small></div></div>';
+
+  el.innerHTML = `
+    <div class="fh-hd">
+      <div><div class="fh-hi">${greet},</div><div class="fh-name">${_fhEsc(name)} 👋</div></div>
+      <div class="fh-av">${_fhEsc(initials)}</div>
+    </div>
+    ${hero}
+    <div class="fh-sec"><h3>Quick actions</h3><a onclick="_filooGo('projectDashboard')">Dashboard</a></div>
+    <div class="fh-tiles">
+      <div class="fh-tile" onclick="_filooGo('labourView')"><div class="fh-ic g-pink">👷</div><span>Labour</span><small>${labourN}</small></div>
+      <div class="fh-tile" onclick="_filooGo('inventoryView')"><div class="fh-ic g-teal">📦</div><span>Inventory</span><small>${invN} items</small></div>
+      <div class="fh-tile" onclick="_filooGo('measurementListView')"><div class="fh-ic g-blue">📐</div><span>Measure</span><small>${sheetN} sheets</small></div>
+      <div class="fh-tile" onclick="_filooGo('equipmentView')"><div class="fh-ic g-amber">🚜</div><span>Equipment</span><small>${eqN} assets</small></div>
+    </div>
+    <div class="fh-sec"><h3>Recent activity</h3></div>
+    <div class="fh-list">${recent}</div>`;
+}
+
 export function renderProjectsHome() {
   const grid = document.getElementById('projectsGrid');
   const empty = document.getElementById('projectsEmpty');
+  try { renderFilooHome(); } catch(e){ console.warn('[filooHome]', e); }
   if (!grid) return;
   const backBtn = document.getElementById('projHomeBack');
   const titleEl = document.getElementById('projHomeTitle');
