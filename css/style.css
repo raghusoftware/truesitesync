@@ -1888,7 +1888,7 @@ aside nav > p {
 /* ── Main body: more breathing room ── */
 main { background: #ffffff !important; }
 main > .p-4, main > div.p-4 { padding: 32px 40px !important; }
-#breadcrumbBar { border-bottom: 1px solid var(--sb-border) !important; padding: 12px 24px !important; }
+#breadcrumbBar { border-bottom: 1px solid var(--sb-border) !important; padding: calc(12px + env(safe-area-inset-top, 0px)) 24px 12px !important; }
 
 /* ── Cards: borders → soft tints, almost-invisible shadow ── */
 .bg-white {
