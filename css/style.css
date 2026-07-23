@@ -2099,3 +2099,53 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
 #filooHome .fh-item .fh-m b{ font-size:13.5px; font-weight:700; display:block; color:#241E45; }
 #filooHome .fh-item .fh-m small{ font-size:11px; color:#8B86A8; font-weight:600; }
 #filooHome .fh-item .fh-amt{ font-size:13px; font-weight:800; color:#5B34D9; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE-FRIENDLY FORMS — applies to every form (sales, purchase,
+   measurement, inventory, labour, …). Bigger tap targets, no
+   iOS zoom-on-focus, and multi-column field grids stack to one
+   column so fields are full-width and easy to fill on a phone.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* 16px stops iOS Safari/WebView zooming in when a field is focused. */
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not(.table-input),
+  select, textarea {
+    font-size: 16px !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
+    padding: 12px 14px !important;
+  }
+  select { background-position: right 12px center !important; }
+  textarea { min-height: 90px !important; }
+
+  /* Any grid that holds form fields collapses to a single column so each
+     field is full-width. Grids without inputs (stat tiles, card lists) are
+     untouched. :has is supported in modern Android WebView / Safari; older
+     engines simply ignore this rule (safe degradation). */
+  .grid:has(input),
+  .grid:has(select),
+  .grid:has(textarea) {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  /* Two side-by-side fields in a flex row also stack. */
+  .form-row, .field-row, .grid-cols-2:has(input), .grid-cols-2:has(select) {
+    display: block !important;
+  }
+  .form-row > *, .field-row > * { width: 100% !important; margin-bottom: 12px; }
+
+  /* Labels get a touch more room above their field. */
+  label { font-size: 13px !important; }
+
+  /* Primary save/add buttons inside modals & full-screen forms go full width
+     and tall so they're an easy thumb target. */
+  .fullscreen-sheet .actions button,
+  .fullscreen-form .form-actions button,
+  .modal-footer button,
+  .form-save-btn {
+    width: 100% !important;
+    min-height: 50px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+  }
+}
