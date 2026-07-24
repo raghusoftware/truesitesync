@@ -57,6 +57,20 @@ function _blankEstimate() {
   };
 }
 
+// ── Material master + recipe helpers ──
+function _estMatMaster() {
+  const out = [], seen = new Set();
+  (state.itemsMaster || []).forEach(i => { const n = i.name || i.description; if (n && !seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); out.push({ name: n, unit: i.unit || i.uom || '', rate: _n(i.rate) }); } });
+  (state.rawMaterials || []).forEach(rm => { const n = rm.name; if (n && !seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); out.push({ name: n, unit: rm.unit || '', rate: _n(rm.rate) }); } });
+  return out;
+}
+function _estMatLookup(name) { const n = String(name || '').trim().toLowerCase(); return _estMatMaster().find(m => m.name.toLowerCase() === n); }
+function _estRecipeList() {
+  const rs = [], recs = state.recipes || {};
+  Object.keys(recs).forEach(cId => { const cat = recs[cId] || {}; Object.keys(cat).forEach(code => { const r = cat[code]; if (r && Array.isArray(r.ingredients) && r.ingredients.length) { const item = (state.items && state.items[cId] && state.items[cId][code]) || {}; rs.push({ cId, code, name: item.description || item.desc || code, n: r.ingredients.length }); } }); });
+  return rs;
+}
+
 // ── Calculations ──
 function headSubtotal(rows) { return (rows || []).reduce((s, r) => s + _n(r.qty) * _n(r.rate) * (1 + _n(r.w) / 100), 0); }
 function itemBaseRate(item) { return HEADS.reduce((s, h) => s + headSubtotal(item.ra?.[h.key]), 0); }
@@ -272,12 +286,13 @@ function _raHeadTable(it, h) {
           </tr>`).join('') : `<tr><td colspan="9" style="padding:6px;color:#c4bfe0;font-size:12px;">No ${h.label.toLowerCase()} lines.</td></tr>`}</tbody>
       </table></div>
       <button onclick="window._estRAAdd('${h.key}')" style="margin-top:6px;font-size:11px;font-weight:800;color:#5B34D9;background:#F3F0FD;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">+ Add ${h.label} line</button>
+      ${h.key === 'material' ? `<button onclick="window._estAttachRecipe()" style="margin-top:6px;margin-left:6px;font-size:11px;font-weight:800;color:#15803d;background:#ecfdf5;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">📋 Attach Recipe</button>` : ''}
     </div>`;
 }
 function _suggestList(h) {
   let items = [];
   try {
-    if (h.master === 'itemsMaster') items = (state.itemsMaster || []).map(i => i.name || i.desc).filter(Boolean);
+    if (h.master === 'itemsMaster') items = _estMatMaster().map(m => m.name);
     else if (h.master === 'labourMaster') items = [...new Set((state.labourMaster || []).map(l => l.trade || l.role || l.name).filter(Boolean))];
     else if (h.master === 'equipmentList') items = (state.equipmentList || []).map(e => e.name).filter(Boolean);
   } catch {}
@@ -325,12 +340,44 @@ window._estCloseRA = function () {
   _cur_boq = null; _renderBOQBody(); _renderBudget();
 };
 window._estRAAdd = function (key) { if (!_cur_boq) return; (_cur_boq.ra[key] = _cur_boq.ra[key] || []).push({ name: '', unit: '', qty: 0, rate: 0, w: 0 }); _renderRA(); };
+window._estAttachRecipe = function () {
+  const list = _estRecipeList();
+  if (!list.length) { showToast('No saved recipes yet — build them in Recipe Master', 'warning'); return; }
+  let host = document.getElementById('estRecipePick'); if (!host) { host = document.createElement('div'); host.id = 'estRecipePick'; document.body.appendChild(host); }
+  host.innerHTML = `<div style="position:fixed;inset:0;background:rgba(20,10,50,.5);z-index:100001;display:flex;align-items:flex-end;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;width:100%;max-width:640px;margin:auto auto 0;max-height:72vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px;">
+      <div style="width:40px;height:4px;background:#E5E1F5;border-radius:3px;margin:0 auto 14px;"></div>
+      <h3 style="font-size:16px;font-weight:800;color:#241E45;margin-bottom:12px;">Attach a recipe</h3>
+      ${list.map(r => `<div onclick="window._estUseRecipe('${_esc(r.cId)}','${_esc(r.code)}')" style="padding:13px 14px;border:1px solid #ECE7F7;border-radius:12px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-weight:700;color:#241E45;">${_esc(r.name)}</span><span style="color:#8B86A8;font-size:12px;font-weight:700;">${r.n} materials →</span></div>`).join('')}
+    </div></div>`;
+};
+window._estUseRecipe = function (cId, code) {
+  const p = document.getElementById('estRecipePick'); if (p) p.remove();
+  if (!_cur_boq) return;
+  const cat = (state.recipes || {})[cId] || {};
+  const r = cat[code];
+  if (!r || !Array.isArray(r.ingredients)) return;
+  _cur_boq.ra.material = _cur_boq.ra.material || [];
+  r.ingredients.forEach(ing => {
+    const rm = (state.rawMaterials || []).find(x => x.id === ing.rawMatId) || {};
+    const name = rm.name || ing.name || '';
+    const m = _estMatLookup(name) || {};
+    _cur_boq.ra.material.push({ name, unit: rm.unit || m.unit || '', qty: _n(ing.qty), rate: _n(rm.rate) || _n(m.rate), w: 0 });
+  });
+  recalcItem(_cur_boq); _renderRA();
+  showToast('Recipe attached — ' + r.ingredients.length + ' materials added', 'success');
+};
 window._estRADel = function (key, i) { if (!_cur_boq) return; _cur_boq.ra[key].splice(i, 1); _renderRA(); };
 window._estRAField = function (key, i, field, val) {
   if (!_cur_boq) return; const r = _cur_boq.ra[key][i]; if (!r) return;
   r[field] = (['qty', 'rate', 'w'].includes(field)) ? _n(val) : val;
+  // Material picked from Item Master → auto-fill unit + rate so no re-typing.
+  if (key === 'material' && field === 'name') {
+    const m = _estMatLookup(val);
+    if (m) { if (m.unit) r.unit = m.unit; if (m.rate) r.rate = m.rate; recalcItem(_cur_boq); _renderRA(); return; }
+  }
   recalcItem(_cur_boq); _refreshRASummary();
-  // live-update just this head subtotal + the row amount without full re-render (keeps focus flow ok on blur)
 };
 window._estPct = function (field, val) { if (!_cur_boq) return; _cur_boq.ra[field] = _n(val); recalcItem(_cur_boq); _refreshRASummary(); };
 window._estRANotes = function (val) { if (_cur_boq) _cur_boq.ra.notes = val; };
