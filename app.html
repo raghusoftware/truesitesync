@@ -19,8 +19,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.5.9">
-    <script type="module" src="js/app.js?v=1.5.76"></script>
+    <link rel="stylesheet" href="css/style.css?v=1.6.0">
+    <script type="module" src="js/app.js?v=1.5.77"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -167,6 +167,7 @@
           <button onclick="switchView('proformaInvoiceView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="proformaInvoiceView"><span style="font-size:12px">&#128196;</span> Proforma Invoices</button>
           <button onclick="switchView('deliveryChallanView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="deliveryChallanView"><span style="font-size:12px">&#128666;</span> Delivery Challans</button>
           <button onclick="switchView('estimatesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="estimatesView"><span style="font-size:12px">&#128221;</span> Estimates</button>
+          <button onclick="switchView('estimationView'); if(window.renderEstimationView)window.renderEstimationView();" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="estimationView"><span style="font-size:12px">&#128207;</span> Estimation (Rate Analysis)</button>
           <button onclick="switchView('paymentInView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="paymentInView"><span style="font-size:12px">&#128181;</span> Payment In</button>
           <button onclick="switchView('saleReturnView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="saleReturnView"><span style="font-size:12px">&#128260;</span> Sale Returns</button>
           <button onclick="switchView('otherIncomeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="otherIncomeView"><span style="font-size:12px">&#128176;</span> Other Income</button>
@@ -822,6 +823,10 @@
         </div>
 
         <!-- ═══════ ESTIMATES ═══════ -->
+        <div id="estimationView" class="view-section hide">
+          <div id="estimationContent"></div>
+        </div>
+
         <div id="estimatesView" class="view-section hide">
             <div class="flex justify-between items-end mb-6"><div><h2 class="text-3xl font-extrabold text-slate-800">Estimates & Quotations</h2></div><button onclick="createNewEstimate()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold">➕ New Estimate</button></div>
             <div id="estimateEditor" class="hide bg-white p-6 rounded-xl shadow-sm border border-emerald-200 mb-8 border-t-4"><div class="flex justify-between items-center mb-4 border-b pb-2"><h3 class="font-bold text-lg text-emerald-800" id="estEditorTitle">Draft Estimate</h3><button onclick="closeEstimateEditor()" class="text-slate-500 hover:text-red-500 font-bold">✕ Close</button></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"><div><label class="block text-xs font-bold text-slate-500 uppercase">Client</label><select id="estClient" class="w-full p-2 border rounded bg-slate-50 outline-none"></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase">Date</label><input type="date" id="estDate" class="w-full p-2 border rounded bg-slate-50 outline-none"></div><div><label class="block text-xs font-bold text-slate-500 uppercase">Est Ref No.</label><input type="text" id="estNum" class="w-full p-2 border rounded bg-slate-50 font-bold text-emerald-700 outline-none" readonly></div></div><div class="overflow-x-auto border rounded mb-4"><table class="min-w-full excel-table text-sm"><thead class="bg-slate-100"><tr class="text-left text-slate-600 uppercase font-bold text-xs"><th class="p-2 w-10">#</th><th class="p-2">Description</th><th class="p-2 w-24">Qty</th><th class="p-2 w-24">Unit</th><th class="p-2 w-32">Rate (₹)</th><th class="p-2 w-32">Amount (₹)</th><th class="p-2 w-10 text-center">Del</th></tr></thead><tbody id="estTableBody" class="bg-white"></tbody></table></div><div class="flex justify-between items-start"><button onclick="addEstimateRow()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded font-bold hover:bg-emerald-100">+ Add Row</button><div class="text-right"><p class="text-sm font-bold text-slate-500 uppercase">Total Estimated Value</p><p class="text-3xl font-extrabold text-emerald-600" id="estTotalVal">₹0.00</p></div></div><div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-bold text-slate-500 uppercase">Terms & Conditions</label><textarea id="estTerms" class="w-full p-2 border rounded bg-slate-50 outline-none text-sm h-20" placeholder=""></textarea></div><div><label class="block text-xs font-bold text-slate-500 uppercase">Private Notes</label><textarea id="estNotes" class="w-full p-2 border rounded bg-slate-50 outline-none text-sm h-20" placeholder="Internal notes..."></textarea></div></div><div class="mt-4 text-right border-t pt-4"><button onclick="saveEstimate()" class="bg-emerald-600 text-white px-8 py-2 rounded-lg font-bold shadow hover:bg-emerald-700">💾 Save Estimate</button></div></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="estimatesListContainer"></div>

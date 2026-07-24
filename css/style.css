@@ -2058,6 +2058,14 @@ aside ::-webkit-scrollbar-thumb:hover { background: rgba(13,40,28,.16) !importan
 /* Section headings a touch bolder to match the concept */
 #moduleCardsGrid ~ * h2, .filoo-hd { letter-spacing: -.2px; }
 
+/* ═══ Estimation module fields ═══ */
+.est-in{ width:100%; padding:11px 12px; border:1.5px solid #E9E6F2; border-radius:10px; font-size:15px; background:#fff; outline:none; }
+.est-in:focus{ border-color:#7C5CFC; box-shadow:0 0 0 3px rgba(124,92,252,.12); }
+.est-cell{ width:100%; padding:8px 9px; border:1px solid #E9E6F2; border-radius:8px; font-size:14px; background:#fff; outline:none; }
+.est-cell:focus{ border-color:#7C5CFC; box-shadow:0 0 0 2px rgba(124,92,252,.14); }
+.est-cell.text-right{ text-align:right; }
+@media (max-width:768px){ .est-in, .est-cell{ font-size:16px !important; min-height:46px; } }
+
 /* ═══ Filoo mobile home (greeting · hero · tiles · recent) ═══ */
 #filooHome{ display:none; }
 /* On the Filoo home, hide the app header chips (breadcrumb / sync / user / logout)

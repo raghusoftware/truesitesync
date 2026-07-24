@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   items: 'mes_items',
   accounts: 'mes_accounts',
   estimates: 'mes_estimates',
+  estimations: 'mes_estimations',
   sheets: 'mes_sheets',
   abstracts: 'mes_abstracts',
   raBills: 'mes_ra_bills',
@@ -109,6 +110,7 @@ export const state = {
   items: load(STORAGE_KEYS.items, {}),
   accounts: load(STORAGE_KEYS.accounts, [{ id: 'acc_cash', name: 'Main Cash Book', type: 'Cash' }]),
   estimates: load(STORAGE_KEYS.estimates, []),
+  estimations: load(STORAGE_KEYS.estimations, []),
   sheets: load(STORAGE_KEYS.sheets, []),
   abstracts: load(STORAGE_KEYS.abstracts, []),
   raBills: load(STORAGE_KEYS.raBills, []),
@@ -476,6 +478,7 @@ function _renderForKeys(keys) {
     equipmentList: ['renderEquipmentView'],
     itemsMaster: ['renderItemsMasterView'],
     itemCategories: ['renderItemsMasterView'],
+    estimations: ['renderEstimationView'],
     projectDocs: ['renderProjectDocs'],
   };
   const seen = new Set();
