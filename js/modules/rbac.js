@@ -382,9 +382,9 @@ async function _reportGoogle(m) {
     const sb = getSupabase();
     if (!sb) return;
     await sb.from('client_errors').insert({
-      message: ('[google-signin] ' + m).slice(0, 1000),
+      message: ('[google-signin v1.5.84] ' + m).slice(0, 1000),
       source: 'google-signin',
-      app_version: '1.5.76',
+      app_version: '1.5.84',
       user_agent: (navigator.userAgent || '').slice(0, 500),
       url: (location.href || '').slice(0, 500)
     });
