@@ -1,11 +1,7 @@
 name: Build Desktop App
 
 on:
-  workflow_dispatch:
-  push:
-    tags: ['v*']
-  release:
-    types: [created]
+  workflow_dispatch:   # manual only — tags build the AAB, not the desktop app
 
 jobs:
   build-windows:
