@@ -81,7 +81,12 @@ function itemFinalRate(item) {
   const prof = (base + oh + con) * _n(item.ra?.profitPct) / 100;
   return { base, oh, con, prof, final: base + oh + con + prof };
 }
-function recalcItem(item) { const f = itemFinalRate(item); item.rate = f.final; item.amount = f.final * _n(item.qty); return item; }
+function recalcItem(item) {
+  const f = itemFinalRate(item);
+  if (f.base > 0) item.rate = f.final; // rate analysis drives the rate; else keep the manual/imported rate
+  item.amount = _n(item.rate) * _n(item.qty);
+  return item;
+}
 function estTotal(est) { return (est.boqItems || []).reduce((s, it) => s + _n(it.amount), 0); }
 
 // ═══ State handle for the editor ═══
@@ -148,9 +153,14 @@ function _renderEditor(c) {
 
     <!-- 2. BOQ -->
     <div class="bg-white border rounded-2xl p-5 mb-5" style="box-shadow:0 8px 22px -18px rgba(91,52,217,.4);">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 class="font-extrabold text-slate-800">2 · Bill of Quantities</h3>
-        <button onclick="window._estAddBOQ()" class="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg font-bold">+ Add Item</button>
+        <div class="flex gap-2 items-center">
+          <input type="file" id="estBOQFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="window._estImportBOQ(event)">
+          <button onclick="window._estBOQTemplate()" class="text-xs text-slate-500 font-bold px-2 py-1.5 hover:text-slate-700">Template</button>
+          <button onclick="document.getElementById('estBOQFile').click()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg font-bold">⬆ Import Excel</button>
+          <button onclick="window._estAddBOQ()" class="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg font-bold">+ Add Item</button>
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm" id="estBoqTable">
@@ -328,6 +338,62 @@ window._estBoqField = function (id, field, val) {
   const it = (_cur_est?.boqItems || []).find(x => x.id === id); if (!it) return;
   it[field] = (field === 'qty') ? _n(val) : val;
   recalcItem(it); _renderBOQBody(); _renderBudget();
+};
+// Import BOQ from Excel/CSV — same smart column detection as the project BOQ upload.
+window._estImportBOQ = function (event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file || !_cur_est) return;
+  const XLSX = window.XLSX;
+  if (!XLSX) { showToast('Excel library not loaded', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { showToast('No rows found in the file', 'error'); return; }
+      const headers = Object.keys(rows[0]);
+      const lc = s => String(s).toLowerCase().trim();
+      const find = arr => headers.find(h => arr.some(a => lc(h).includes(a)));
+      const cm = {
+        code: find(['code', 'item code', 'sr', 'sl', 'item no']) || headers[0],
+        desc: find(['desc', 'description', 'item name', 'particular', 'name']) || headers[1],
+        uom: find(['uom', 'unit', 'units']) || headers[2],
+        qty: find(['qty', 'quantity', 'total qty']) || headers[3],
+        rate: find(['rate', 'price', 'unit rate']) || headers[4]
+      };
+      _cur_est.boqItems = _cur_est.boqItems || [];
+      let added = 0;
+      rows.forEach(row => {
+        const code = String(row[cm.code] || '').trim();
+        const desc = String(row[cm.desc] || '').trim();
+        if (!code && !desc) return;
+        const it = _blankBOQ();
+        it.code = code; it.desc = desc;
+        it.unit = String(row[cm.uom] || '').trim();
+        it.qty = parseFloat(row[cm.qty]) || 0;
+        it.rate = parseFloat(row[cm.rate]) || 0;
+        it.amount = _n(it.rate) * _n(it.qty);
+        _cur_est.boqItems.push(it); added++;
+      });
+      _renderBOQBody(); _renderBudget();
+      showToast(added ? added + ' BOQ items imported' : 'No usable rows found', added ? 'success' : 'warning');
+    } catch (err) { showToast('Could not read file: ' + (err.message || err), 'error'); }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+};
+window._estBOQTemplate = function () {
+  const XLSX = window.XLSX;
+  if (!XLSX) { showToast('Excel library not loaded', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Code', 'Description', 'Unit', 'Qty', 'Rate'],
+    ['RCC001', 'RCC M25 — Slab casting', 'Cum', 150, ''],
+    ['STL001', 'TMT Steel Fe500', 'Kg', 12000, ''],
+    ['EXC001', 'Earthwork excavation', 'Cum', 800, '']
+  ]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
+  try { XLSX.writeFile(wb, 'BOQ-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
 };
 window._estAnalyse = function (id) {
   const it = (_cur_est?.boqItems || []).find(x => x.id === id); if (!it) return;
