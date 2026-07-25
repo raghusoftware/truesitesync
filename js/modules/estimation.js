@@ -157,7 +157,7 @@ function _renderEditor(c) {
         <h3 class="font-extrabold text-slate-800">2 · Bill of Quantities</h3>
         <div class="flex gap-2 items-center">
           <input type="file" id="estBOQFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="window._estImportBOQ(event)">
-          <button onclick="window._estBOQTemplate()" class="text-xs text-slate-500 font-bold px-2 py-1.5 hover:text-slate-700">Template</button>
+          <button onclick="window._estBOQTemplate()" class="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-200">⬇ Template</button>
           <button onclick="document.getElementById('estBOQFile').click()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg font-bold">⬆ Import Excel</button>
           <button onclick="window._estAddBOQ()" class="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg font-bold">+ Add Item</button>
         </div>
