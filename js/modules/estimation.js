@@ -192,7 +192,9 @@ function _renderBOQBody() {
       <td class="p-2" data-col="Description"><input class="est-cell" value="${_esc(it.desc)}" onchange="window._estBoqField('${it.id}','desc',this.value)" placeholder="Work item"></td>
       <td class="p-2" data-col="Unit"><input class="est-cell" value="${_esc(it.unit)}" onchange="window._estBoqField('${it.id}','unit',this.value)" placeholder="Cum"></td>
       <td class="p-2" data-col="Qty"><input class="est-cell text-right" type="number" value="${it.qty || ''}" onchange="window._estBoqField('${it.id}','qty',this.value)" placeholder="0"></td>
-      <td class="p-2 text-right" data-col="Rate"><span class="font-bold text-slate-700">${_money(it.rate)}</span><div class="text-[9px] text-slate-400">auto</div></td>
+      <td class="p-2 text-right" data-col="Rate">${itemBaseRate(it) > 0
+        ? `<span class="font-bold text-slate-700">${_money(it.rate)}</span><div class="text-[9px] text-emerald-600 font-bold">from analysis</div>`
+        : `<input class="est-cell text-right" type="number" value="${it.rate || ''}" onchange="window._estBoqField('${it.id}','rate',this.value)" placeholder="Enter rate">`}</td>
       <td class="p-2 text-right" data-col="Amount"><span class="font-extrabold text-violet-700">${_money(it.amount)}</span></td>
       <td class="p-2" data-col=""><div class="flex gap-1 justify-end">
         <button onclick="window._estAnalyse('${it.id}')" class="text-[11px] font-bold bg-violet-600 text-white px-2.5 py-1.5 rounded-lg">Rate Analysis</button>
@@ -336,7 +338,7 @@ window._estAddBOQ = function () { if (!_cur_est) return; (_cur_est.boqItems = _c
 window._estDelBOQ = function (id) { if (!_cur_est) return; _cur_est.boqItems = (_cur_est.boqItems || []).filter(x => x.id !== id); _renderBOQBody(); _renderBudget(); };
 window._estBoqField = function (id, field, val) {
   const it = (_cur_est?.boqItems || []).find(x => x.id === id); if (!it) return;
-  it[field] = (field === 'qty') ? _n(val) : val;
+  it[field] = (field === 'qty' || field === 'rate') ? _n(val) : val;
   recalcItem(it); _renderBOQBody(); _renderBudget();
 };
 // Import BOQ from Excel/CSV — same smart column detection as the project BOQ upload.
