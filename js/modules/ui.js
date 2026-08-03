@@ -147,7 +147,7 @@ window._filooAccount = function(){
 function renderFilooHome(){
   const el = document.getElementById('filooHome');
   if (!el) return;
-  const isMobile = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) || window.innerWidth <= 900;
+  const isMobile = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (!isMobile) { el.style.display = 'none'; return; }
   el.style.display = 'block';
 
@@ -904,7 +904,7 @@ function _updateBreadcrumb(viewId) {
   // Mobile Filoo home has its own greeting + avatar, so hide the app header
   // (breadcrumb / sync / user / logout chips) there and show it everywhere else.
   try {
-    const mob = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) || window.innerWidth <= 900;
+    const mob = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     document.body.classList.toggle('filoo-home', mob && viewId === 'projectsHome');
   } catch (e) {}
   const bc = document.getElementById('breadcrumbPath');
