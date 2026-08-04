@@ -2426,7 +2426,7 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
   --msg-acc:#4f46e5; --msg-acc2:#7c3aed; --msg-ink:#0f172a; --msg-sub:#475569;
   --msg-mut:#94a3b8; --msg-line:#eceff4; --msg-surface:#ffffff; --msg-tint:#f6f7fb;
 }
-#groupedEntryContainer .g-items{ max-width:1180px; }
+#groupedEntryContainer .g-items{ width:100%; }
 
 /* ── item card ── */
 .msg-item{
