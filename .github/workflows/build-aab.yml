@@ -44,7 +44,7 @@ jobs:
           cp -r assets www/
 
       - name: Install Capacitor
-        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor/app@6 @capacitor/status-bar@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor/app@6 @capacitor/status-bar@6 @capacitor/geolocation@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4 capacitor-voice-recorder@5
 
       - name: Confirm Google Sign-In client ID
         run: grep -A3 '"GoogleAuth"' capacitor.config.json
@@ -92,6 +92,15 @@ jobs:
       - name: Configure Android (in-app links + HTTPS), same as the APK build
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Site-capture permissions for the Execution Intelligence platform (photos / voice / GPS)
+          if ! grep -q 'android.permission.CAMERA' "$MANIFEST"; then
+            sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />#' "$MANIFEST"
+          fi
+          # Fallback: if the INTERNET permission line was absent, inject right after the opening <manifest> tag.
+          if ! grep -q 'android.permission.CAMERA' "$MANIFEST"; then
+            sed -i '0,/<manifest[^>]*>/s##&\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />#' "$MANIFEST"
+          fi
+          echo "----- manifest permissions -----"; grep 'uses-permission' "$MANIFEST" || true
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           mkdir -p android/app/src/main/java/com/truesitesync/app
           cat > android/app/src/main/java/com/truesitesync/app/MainActivity.java << 'JAVAEOF'

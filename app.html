@@ -19,8 +19,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.6.0">
-    <script type="module" src="js/app.js?v=1.5.85"></script>
+    <link rel="stylesheet" href="css/style.css?v=1.6.1">
+    <script type="module" src="js/app.js?v=1.5.87"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -141,8 +141,9 @@
           </div>
           <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Project Modules</p>
           <button onclick="switchView('projectDashboard')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="projectDashboard"><span style="font-size:13px">&#128200;</span> Dashboard</button>
-          <button onclick="switchView('planningView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="planningView"><span style="font-size:13px">&#128197;</span> Planning</button>
-          <button onclick="switchView('microPlanView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="microPlanView"><span style="font-size:13px">&#128203;</span> Micro Plan</button>
+          <button onclick="switchView('execEngineView'); window.renderExecEngine&&window.renderExecEngine('baseline')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="execEngineView"><span style="font-size:13px">&#128197;</span> Planning</button>
+          <button onclick="switchView('execEngineView'); window.renderExecEngine&&window.renderExecEngine('plan')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="execEngineView"><span style="font-size:13px">&#128203;</span> Micro Plan</button>
+          <button onclick="switchView('execEngineView'); window.renderExecEngine&&window.renderExecEngine('actuals')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="execEngineView"><span style="font-size:13px">&#9878;</span> Execution</button>
           <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
           <button onclick="switchView('executionView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="executionView"><span style="font-size:13px">&#127959;</span> Execution</button>
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
@@ -298,6 +299,11 @@
         </div>
       </div>
       <div id="microPlanContent"></div>
+    </div>
+
+    <!-- ═══════ EXECUTION INTELLIGENCE (Baseline → Execution Plan → Actuals → Variance) ═══════ -->
+    <div id="execEngineView" class="view-section hide">
+      <div id="execEngineContent"></div>
     </div>
 
     <!-- ═══════ ADD/EDIT PROJECT FORM (Full-Screen) ═══════ -->
