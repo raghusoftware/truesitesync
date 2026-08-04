@@ -95,7 +95,8 @@ const STORAGE_KEYS = {
   execBaselines: 'mes_exec_baselines',     // immutable snapshots written on approval
   execPlans: 'mes_exec_plans',             // Stage-2 versioned execution plans (V1,V2…)
   execChanges: 'mes_exec_changes',         // append-only change/audit log (with reasons)
-  execActuals: 'mes_exec_actuals'          // Stage-3 daily actual-execution records
+  execActuals: 'mes_exec_actuals',         // Stage-3 daily actual-execution records
+  execAssignments: 'mes_exec_assignments'  // daily worker → activity labour assignments
 };
 
 // Register keys so sync engine can map state key → localStorage key
@@ -206,6 +207,7 @@ export const state = {
   execPlans: load(STORAGE_KEYS.execPlans, []),
   execChanges: load(STORAGE_KEYS.execChanges, []),
   execActuals: load(STORAGE_KEYS.execActuals, []),
+  execAssignments: load(STORAGE_KEYS.execAssignments, []),
 
   currentProjectId: null,
   currentSheetId: null,
@@ -497,6 +499,7 @@ function _renderForKeys(keys) {
     execPlans: ['renderExecEngine'],
     execChanges: ['renderExecEngine'],
     execActuals: ['renderExecEngine'],
+    execAssignments: ['renderExecEngine'],
   };
   const seen = new Set();
   keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));
@@ -596,7 +599,7 @@ export function migrateToProjects() {
     'leads','tenders','cubeTests','ncrReports','incidents','ppeChecks',
     'equipUtilization','dailyProgress','milestones','qualityChecks',
     'planningTasks','taskMaterials','taskEquipment','issues','concretePours',
-    'execActivities','execBaselines','execPlans','execChanges','execActuals'];
+    'execActivities','execBaselines','execPlans','execChanges','execActuals','execAssignments'];
   arrKeys.forEach(key => {
     if (Array.isArray(state[key])) {
       state[key].forEach(rec => { if (!rec.projectId) rec.projectId = defaultProjId; });

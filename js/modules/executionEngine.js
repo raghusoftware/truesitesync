@@ -65,8 +65,28 @@ const changesFor = id => (state.execChanges || []).filter(c => c.activityId === 
 const actualsFor = id => (state.execActuals || []).filter(x => x.activityId === id).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
 function _ensureArrays() {
-  ['execActivities', 'execBaselines', 'execPlans', 'execChanges', 'execActuals'].forEach(k => { if (!Array.isArray(state[k])) state[k] = []; });
+  ['execActivities', 'execBaselines', 'execPlans', 'execChanges', 'execActuals', 'execAssignments'].forEach(k => { if (!Array.isArray(state[k])) state[k] = []; });
 }
+
+/* ── labour roster / availability (reuses labourMaster + attendanceLogs) ── */
+const roster = () => (state.labourMaster || []).filter(w => !w.projectId || w.projectId === pid());
+const isAbsent = (w, date) => (state.attendanceLogs || []).some(a => a.labourId === w.id && a.date === date && a.status === 'Absent');
+const availableWorkers = date => roster().filter(w => !isAbsent(w, date));
+const assignmentsOn = date => (state.execAssignments || []).filter(x => x.projectId === pid() && x.date === date);
+const assignmentsForActivity = (actId, date) => (state.execAssignments || []).filter(x => x.activityId === actId && x.date === date);
+const isWorkerFree = (workerId, date) => !(state.execAssignments || []).some(x => x.projectId === pid() && x.date === date && x.workerId === workerId);
+/** Activities that have an active plan and are scheduled on `date` (no dates ⇒ always active). */
+function activeActivitiesOn(date) {
+  return acts().filter(a => {
+    const ap = activePlan(a.id); if (!ap) return false;
+    const s = (ap.schedule && ap.schedule.plannedStart) || '', f = (ap.schedule && ap.schedule.plannedFinish) || '';
+    if (!s && !f) return true;
+    if (s && date < s) return false;
+    if (f && date > f) return false;
+    return true;
+  });
+}
+function planTradeNeed(ap) { const m = {}; (ap.labour || []).forEach(l => { const t = l.type || 'General'; m[t] = (m[t] || 0) + num(l.workers); }); return m; }
 /** Append to a synced array; pull first to reduce concurrent-append clobber on the audit logs. */
 async function _appendSynced(key, rec) {
   _ensureArrays();
@@ -132,13 +152,13 @@ export function renderExecEngine(tab) {
 }
 window.renderExecEngine = renderExecEngine;
 
-window._execTab = function (k) { _ui.tab = k; _ui.editActId = null; _ui.planActId = null; _ui.actualActId = null; _draft = _planDraft = _actualDraft = null; renderExecEngine(); };
+window._execTab = function (k) { _ui.tab = k; _ui.editActId = null; _ui.planActId = null; _ui.actualActId = null; _ui.assignMode = false; _draft = _planDraft = _actualDraft = null; renderExecEngine(); };
 
 function _renderBody() {
   const b = document.getElementById('eeBody'); if (!b) return;
   switch (_ui.tab) {
     case 'baseline': b.innerHTML = _draft ? _baselineEditor() : _baselineList(); break;
-    case 'plan': b.innerHTML = _planDraft ? _planEditor() : _planList(); break;
+    case 'plan': b.innerHTML = _ui.assignMode ? _assignBoard() : (_planDraft ? _planEditor() : _planList()); break;
     case 'actuals': b.innerHTML = _actualDraft ? _actualEditor() : _actualsList(); break;
     case 'compare': b.innerHTML = _compareView(); break;
     case 'dashboard': b.innerHTML = _dashboardView(); break;
@@ -475,8 +495,11 @@ window._execApprove = function (id, fromEditor) {
 function _planList() {
   const approved = acts().filter(a => a.status === 'approved');
   const drafts = acts().filter(a => a.status !== 'approved');
+  const anyPlan = approved.some(a => activePlan(a.id));
   return `
-    <div class="ee-toolbar"><div class="text-xs text-slate-500">${approved.length} baselined activit${approved.length === 1 ? 'y' : 'ies'} ready to execute</div></div>
+    <div class="ee-toolbar"><div class="text-xs text-slate-500">${approved.length} baselined activit${approved.length === 1 ? 'y' : 'ies'} ready to execute</div>
+      ${anyPlan ? `<button class="ee-btn-primary" onclick="window._execAssignOpen()">👷 Assign Labour (by day)</button>` : ''}
+    </div>
     ${drafts.length ? `<div class="ee-note">⚠ ${drafts.length} activit${drafts.length === 1 ? 'y is' : 'ies are'} still in draft. Approve the baseline (Baseline tab) before generating an execution plan.</div>` : ''}
     ${!approved.length ? `<div class="ee-empty"><div class="text-3xl mb-2">📋</div><p class="font-bold text-slate-700">Nothing to execute yet</p><p class="text-xs text-slate-400 mt-1">Approve a baseline first, then <b>Generate Plan</b> here — everything auto-fills from the baseline.</p></div>`
       : `<div class="ee-cards">${approved.map(_planCard).join('')}</div>`}`;
@@ -497,6 +520,7 @@ function _planCard(a) {
              <div class="flex gap-1">
                ${plans.length > 1 ? `<button class="ee-lnk" onclick="window._execVersions('${a.id}')">Versions</button>` : ''}
                <button class="ee-lnk" onclick="window._execChangeLog('${a.id}')">History</button>
+               <button class="ee-lnk" onclick="window._execPlanPDF('${a.id}')" title="Printable work order to hand out">⬇ Plan PDF</button>
                <button class="ee-lnk ok" onclick="window._execEditPlan('${a.id}')">Edit plan</button>
              </div></div>`}
     </div>`;
@@ -530,7 +554,10 @@ function _planEditor() {
     <div class="ee-editor-head">
       <button class="ee-btn-ghost" onclick="window._execClosePlan()">‹ Back</button>
       <div class="text-sm font-bold text-slate-700">Execution Plan · ${esc(a.name)} · <span class="ee-badge ver" style="vertical-align:middle">${d.version}</span></div>
-      <button class="ee-btn-ok" onclick="window._execSavePlan()">Save changes</button>
+      <div class="flex gap-2">
+        <button class="ee-btn-ghost" onclick="window._execPlanPDF('${a.id}')">⬇ Plan PDF</button>
+        <button class="ee-btn-ok" onclick="window._execSavePlan()">Save changes</button>
+      </div>
     </div>
     <div class="ee-note">Edits here never touch the baseline. Any change asks for a reason and creates a new version (audit-tracked).</div>
     ${_sec('Schedule & Target', `<div class="ee-grid">
@@ -694,6 +721,161 @@ function _simpleModal(title, bodyHtml) {
   wrap.innerHTML = `<div class="ee-modal"><div class="ee-modal-h">${esc(title)}</div><div class="ee-modal-body">${bodyHtml}</div><div class="ee-modal-f"><button class="ee-btn-ghost" onclick="this.closest('.ee-overlay').remove()">Close</button></div></div>`;
   document.body.appendChild(wrap);
 }
+
+/* ═══════════════════════════════════════════════════════
+ *  GENERATE PLAN PDF — printable work order (hand-out & assign)
+ * ═══════════════════════════════════════════════════════ */
+window._execPlanPDF = function (actId) {
+  const a = actById(actId); const ap = activePlan(actId);
+  if (!a || !ap) return showToast('Generate an execution plan first', 'error');
+  const ns = window.jspdf; if (!ns) return showToast('PDF engine not ready', 'error');
+  const doc = new ns.jsPDF({ unit: 'mm', format: 'a4' });
+  const ml = 14; let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(14); doc.setFont(undefined, 'bold'); doc.text('EXECUTION PLAN / WORK ORDER', ml, y); y += 5;
+  doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  const loc = [a.location, a.wing, a.floor, a.zone, a.area].filter(Boolean).join(' · ');
+  const sd = ap.schedule || {};
+  doc.text(`Project: ${(proj() || {}).name || '—'}    |    Plan ${ap.version}    |    Generated: ${new Date().toLocaleDateString('en-IN')}`, ml, y); y += 4;
+  doc.text(`Activity: ${a.name}${a.code ? '  (' + a.code + ')' : ''}${loc ? '    |    Location: ' + loc : ''}`, ml, y); y += 4;
+  doc.text(`Schedule: ${sd.plannedStart || '—'} to ${sd.plannedFinish || '—'}    |    Duration: ${num(sd.duration) || '—'} d    |    Shift: ${sd.shift || '—'}    |    Target Qty: ${fmtN(ap.targetQty)} ${(a.qty && a.qty.unit) || ''}`, ml, y); y += 6;
+
+  const tbl = (title, head, body) => { if (!body.length) return; doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text(title, ml, y); y += 1; doc.autoTable({ startY: y + 1, head: [head], body, styles: { fontSize: 8 }, headStyles: { fontStyle: 'bold' }, theme: 'grid', margin: { left: ml, right: ml } }); y = doc.lastAutoTable.finalY + 6; };
+  tbl('LABOUR', ['Trade', 'Workers', 'Hours', 'OT'], (ap.labour || []).map(l => [l.type || '', num(l.workers), num(l.hours), num(l.otHours)]));
+  tbl('MATERIALS', ['Material', 'Qty', 'Unit'], (ap.material || []).map(m => [m.name || '', fmtN(m.qty), m.unit || '']));
+  tbl('EQUIPMENT', ['Equipment', 'Qty', 'Work hrs', 'Fuel (L)'], (ap.equipment || []).map(e => [e.name || '', num(e.qty), num(e.workingHours), num(e.fuel)]));
+
+  // assigned workers for the plan's start date, if any
+  const day = sd.plannedStart || new Date().toISOString().slice(0, 10);
+  const asg = assignmentsForActivity(actId, day);
+  if (asg.length) tbl(`ASSIGNED WORKERS (${day})`, ['#', 'Name', 'Trade'], asg.map((x, i) => { const w = roster().find(r => r.id === x.workerId) || {}; return [i + 1, w.name || x.workerId, w.trade || x.trade || '']; }));
+
+  if (y > 250) { doc.addPage(); y = 20; }
+  y += 4; doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text('Assigned to (Gang/Sub): ______________________________', ml, y); y += 8;
+  doc.text('Site Engineer: __________________', ml, y); doc.text('Supervisor: __________________', ml + 90, y); y += 8;
+  doc.text('Signature: __________________', ml, y); doc.text('Date: __________________', ml + 90, y);
+  mobileSavePDF(doc, `WorkOrder-${(a.name || 'activity').replace(/[^a-z0-9]+/gi, '-')}.pdf`);
+};
+
+/* ═══════════════════════════════════════════════════════
+ *  FREE-LABOUR ASSIGNMENT (by day) — assign available workers
+ * ═══════════════════════════════════════════════════════ */
+window._execAssignOpen = function () { _ui.assignMode = true; _ui.assignDate = _ui.assignDate || new Date().toISOString().slice(0, 10); _ui.tab = 'plan'; renderExecEngine(); };
+window._execAssignClose = function () { _ui.assignMode = false; renderExecEngine(); };
+window._execAssignDate = function (d) { _ui.assignDate = d; _renderBody(); };
+
+function _assignBoard() {
+  const date = _ui.assignDate;
+  const roles = roster();
+  if (!roles.length) return `<div class="ee-editor"><div class="ee-editor-head"><button class="ee-btn-ghost" onclick="window._execAssignClose()">‹ Back</button><div class="text-sm font-bold text-slate-700">Assign Labour</div><span></span></div><div class="ee-note">No workers in the Labour master for this project. Add workers under <b>Labour</b> first, then assign them here.</div></div>`;
+  const active = activeActivitiesOn(date);
+  const avail = availableWorkers(date);
+  const free = avail.filter(w => isWorkerFree(w.id, date));
+
+  // per-trade availability summary
+  const trades = [...new Set([...roles.map(w => (w.trade || 'General')), ...active.flatMap(a => Object.keys(planTradeNeed(activePlan(a.id))))])];
+  const needTotal = {}; active.forEach(a => { const n = planTradeNeed(activePlan(a.id)); Object.entries(n).forEach(([t, c]) => needTotal[t] = (needTotal[t] || 0) + c); });
+  const summary = trades.map(t => {
+    const strength = roles.filter(w => (w.trade || 'General') === t).length;
+    const availT = avail.filter(w => (w.trade || 'General') === t).length;
+    const freeT = free.filter(w => (w.trade || 'General') === t).length;
+    const need = needTotal[t] || 0;
+    const short = need > availT;
+    return `<tr class="${short ? 'ee-short' : ''}"><td class="ee-vlabel">${esc(t)}</td><td>${strength}</td><td>${availT}</td><td>${need}</td><td><b>${freeT}</b></td><td>${short ? `<span class="ee-vr">short ${need - availT}</span>` : (need ? '<span class="ee-vg">ok</span>' : '—')}</td></tr>`;
+  }).join('');
+
+  // free worker pool chips (grouped)
+  const poolChips = free.length ? free.map(w => `<span class="ee-wchip">${esc(w.name)} <i>${esc(w.trade || 'general')}</i>
+    <select class="ee-wassign" onchange="window._execAssign('${date}','${w.id}',this.value)"><option value="">＋ assign…</option>${active.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></span>`).join('') : '<span class="ee-mini">All available workers are assigned.</span>';
+
+  const cards = active.length ? active.map(a => {
+    const ap = activePlan(a.id); const need = planTradeNeed(ap);
+    const asg = assignmentsForActivity(a.id, date);
+    const byTrade = {}; asg.forEach(x => { const w = roles.find(r => r.id === x.workerId) || {}; const t = w.trade || x.trade || 'General'; (byTrade[t] = byTrade[t] || []).push({ id: x.id, wid: x.workerId, name: w.name || x.workerId }); });
+    const rows = Object.keys(need).map(t => {
+      const got = (byTrade[t] || []).length; const short = got < need[t];
+      const chips = (byTrade[t] || []).map(p => `<span class="ee-achip">${esc(p.name)}<button onclick="window._execUnassign('${p.id}')" title="Remove">✕</button></span>`).join('');
+      return `<div class="ee-need-row"><span class="ee-need-t">${esc(t)} <b class="${short ? 'ee-vr' : 'ee-vg'}">${got}/${need[t]}</b></span><div class="ee-need-chips">${chips || '<span class="ee-mini">none assigned</span>'}</div></div>`;
+    }).join('');
+    const shortAny = Object.keys(need).some(t => (byTrade[t] || []).length < need[t]);
+    return `<div class="ee-card"><div class="ee-card-top"><div class="min-w-0"><div class="ee-card-title">${esc(a.name)}</div><div class="ee-card-sub">${esc([a.code, a.location, a.floor].filter(Boolean).join(' · ')) || '—'}</div></div>${shortAny ? '<span class="ee-badge draft" style="background:#fef2f2;color:#dc2626">Short</span>' : '<span class="ee-badge ok">Staffed</span>'}</div>${rows || '<span class="ee-mini">No labour in this plan.</span>'}<div class="ee-card-foot"><span class="ee-mini">${asg.length} assigned</span>${shortAny && free.length ? `<button class="ee-lnk ok" onclick="window._execAutoAssign('${a.id}','${date}')">🤖 Auto-fill free</button>` : ''}</div></div>`;
+  }).join('') : `<div class="ee-empty"><p class="font-bold text-slate-700">No activities scheduled on ${esc(date)}</p><p class="text-xs text-slate-400 mt-1">Pick another date, or set plan start/finish dates so activities appear here.</p></div>`;
+
+  return `
+    <div class="ee-editor">
+      <div class="ee-editor-head">
+        <button class="ee-btn-ghost" onclick="window._execAssignClose()">‹ Back</button>
+        <div class="text-sm font-bold text-slate-700">👷 Assign Labour</div>
+        <div class="flex gap-2 items-center">
+          <input type="date" class="ee-input" style="width:auto" value="${esc(date)}" onchange="window._execAssignDate(this.value)">
+          <button class="ee-btn-ghost" onclick="window._execAssignPDF('${date}')">⬇ Day Plan PDF</button>
+        </div>
+      </div>
+      ${_sec('Manpower availability · ' + esc(date), `<div class="ee-tblwrap"><table class="ee-tbl"><thead><tr><th>Trade</th><th>Strength</th><th>Available</th><th>Required</th><th>Free</th><th>Status</th></tr></thead><tbody>${summary || '<tr><td colspan="6" class="ee-mini">No trades</td></tr>'}</tbody></table></div>`)}
+      ${_sec('Free labour pool (' + free.length + ')', `<div class="ee-pool">${poolChips}</div>`, 'Available & not yet assigned today')}
+      <div class="ee-cards">${cards}</div>
+    </div>`;
+}
+
+window._execAssign = function (date, workerId, actId) {
+  if (!actId) return;
+  if (!isWorkerFree(workerId, date)) return showToast('Worker is already assigned today', 'error');
+  _ensureArrays();
+  const w = roster().find(r => r.id === workerId) || {};
+  state.execAssignments.push({ id: uid('asg'), projectId: pid(), date, activityId: actId, workerId, trade: w.trade || 'General', createdBy: who(), createdAt: nowISO() });
+  saveAllData(); _renderBody();
+};
+window._execUnassign = function (asgId) {
+  window.recycleDelete && window.recycleDelete('execAssignments', asgId, 'Assignment');
+  saveAllData(); _renderBody();
+};
+window._execAutoAssign = function (actId, date) {
+  const ap = activePlan(actId); if (!ap) return;
+  const need = planTradeNeed(ap);
+  const asg = assignmentsForActivity(actId, date);
+  const got = {}; asg.forEach(x => { const w = roster().find(r => r.id === x.workerId) || {}; const t = w.trade || x.trade || 'General'; got[t] = (got[t] || 0) + 1; });
+  let free = availableWorkers(date).filter(w => isWorkerFree(w.id, date));
+  let added = 0;
+  _ensureArrays();
+  Object.entries(need).forEach(([t, count]) => {
+    let deficit = count - (got[t] || 0);
+    while (deficit > 0) {
+      const pick = free.find(x => (x.trade || 'General') === t);
+      if (!pick) break;
+      state.execAssignments.push({ id: uid('asg'), projectId: pid(), date, activityId: actId, workerId: pick.id, trade: t, createdBy: who(), createdAt: nowISO() });
+      free = free.filter(x => x.id !== pick.id); deficit--; added++;
+    }
+  });
+  saveAllData(); _renderBody();
+  showToast(added ? `Auto-assigned ${added} worker(s)` : 'No matching free workers for the shortfall', added ? 'success' : 'info');
+};
+
+window._execAssignPDF = function (date) {
+  const ns = window.jspdf; if (!ns) return showToast('PDF engine not ready', 'error');
+  const active = activeActivitiesOn(date);
+  if (!active.length) return showToast('No activities scheduled on this date', 'error');
+  const doc = new ns.jsPDF({ unit: 'mm', format: 'a4' });
+  const ml = 14; let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(14); doc.setFont(undefined, 'bold'); doc.text('DAILY WORK ASSIGNMENT', ml, y); y += 5;
+  doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text(`Project: ${(proj() || {}).name || '—'}    |    Date: ${date}    |    Generated: ${new Date().toLocaleDateString('en-IN')}`, ml, y); y += 6;
+  active.forEach(a => {
+    const ap = activePlan(a.id); const need = planTradeNeed(ap); const asg = assignmentsForActivity(a.id, date);
+    if (y > 255) { doc.addPage(); y = 20; }
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text(`${a.name}${a.code ? ' (' + a.code + ')' : ''}`, ml, y); y += 1;
+    const loc = [a.location, a.wing, a.floor].filter(Boolean).join(' · ');
+    const needStr = Object.entries(need).map(([t, c]) => `${t}: ${c}`).join(', ') || '—';
+    const body = asg.length ? asg.map((x, i) => { const w = roster().find(r => r.id === x.workerId) || {}; return [i + 1, w.name || x.workerId, w.trade || x.trade || '', x.checkedIn ? '✓' : '']; }) : [['—', 'No workers assigned', '', '']];
+    doc.autoTable({ startY: y + 2, head: [[`# `, 'Worker', 'Trade', 'Present']], body, styles: { fontSize: 8 }, headStyles: { fontStyle: 'bold' }, theme: 'grid', margin: { left: ml, right: ml },
+      didDrawPage: () => {}, });
+    y = doc.lastAutoTable.finalY + 2;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8);
+    doc.text(`Required — ${needStr}${loc ? '    |    Location: ' + loc : ''}    |    Target: ${fmtN(ap.targetQty)} ${(a.qty && a.qty.unit) || ''}`, ml, y); y += 7;
+  });
+  if (y > 255) { doc.addPage(); y = 20; }
+  doc.setFontSize(9); doc.text('Site Engineer: __________________', ml, y); doc.text('Supervisor: __________________', ml + 90, y);
+  mobileSavePDF(doc, `Daily-Assignment-${date}.pdf`);
+};
 
 /* ═══════════════════════════════════════════════════════
  *  STAGE 3 — ACTUALS (daily site execution + capture)
