@@ -42,6 +42,7 @@ let _sbLocId = null;      // selected location
 let _sbCat = 'All';       // palette category filter
 let _sbSearch = '';
 let _sbDrag = null;       // { type:'new'|'move', task?, taskId? }
+let _sbPalMap = {};       // masterTaskId → palette item (avoids embedding JSON in HTML)
 
 /* ── helpers ── */
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -145,13 +146,17 @@ function _paletteHtml() {
   const items = palette().filter(t =>
     (_sbCat === 'All' || t.category === _sbCat) &&
     (!_sbSearch || t.name.toLowerCase().includes(_sbSearch.toLowerCase())));
+  // Cache items by id and pass only the id via a data attribute — never embed JSON
+  // in an HTML attribute (its double-quotes would break the attribute).
+  _sbPalMap = {};
+  items.forEach(t => { _sbPalMap[t.masterTaskId] = t; });
   return `
     <div class="sb-pal-head">Task Palette</div>
     <input class="sb-search" placeholder="Search tasks…" value="${esc(_sbSearch)}" oninput="window._sbSearchInput(this.value)">
     <div class="sb-cats">${CATEGORIES.map(c => `<button class="sb-cat ${_sbCat === c ? 'active' : ''}" onclick="window._sbCatSet('${c}')">${c}</button>`).join('')}</div>
     <div class="sb-pal-list">
       ${items.length ? items.map(t => `
-        <div class="sb-chip" draggable="true" ondragstart="window._sbPalDragStart(event,'${q(JSON.stringify(t))}')" title="Drag onto a location">
+        <div class="sb-chip" draggable="true" data-mtid="${esc(t.masterTaskId)}" ondragstart="window._sbPalDragStart(event, this.getAttribute('data-mtid'))" title="Drag onto a location">
           <span class="sb-chip-ic">${t.icon}</span><span class="sb-chip-nm">${esc(t.name)}</span>
         </div>`).join('')
       : `<p class="sb-mini" style="padding:12px">No tasks in this category.</p>`}
@@ -253,7 +258,7 @@ function _taskCard(loc, t, i, dup) {
 }
 
 /* ── drag & drop handlers (native HTML5) ── */
-window._sbPalDragStart = function (ev, json) { try { _sbDrag = { type: 'new', task: JSON.parse(json) }; } catch { _sbDrag = null; } ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData('text/plain', 'new'); };
+window._sbPalDragStart = function (ev, mtid) { const t = _sbPalMap[mtid]; _sbDrag = t ? { type: 'new', task: t } : null; try { ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData('text/plain', mtid || 'new'); } catch {} };
 window._sbTaskDragStart = function (ev, taskId) { _sbDrag = { type: 'move', taskId }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', taskId); };
 window._sbAllow = function (ev) { ev.preventDefault(); ev.dataTransfer.dropEffect = _sbDrag && _sbDrag.type === 'new' ? 'copy' : 'move'; if (ev.currentTarget.classList) ev.currentTarget.classList.add('sb-over'); };
 window._sbDrop = function (ev, beforeIndex) {
