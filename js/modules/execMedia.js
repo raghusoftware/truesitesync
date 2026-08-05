@@ -50,7 +50,7 @@ function _isNative() {
  * Upload one File/Blob and return a lightweight ref to persist in state.
  * Returns null (and toasts) on failure so callers can keep going.
  */
-export async function uploadExecMedia(file, kind = 'media') {
+export async function uploadExecMedia(file, kind = 'media', folder = 'exec') {
   if (!file) return null;
   const sb = getSupabase();
   const orgId = _orgId();
@@ -59,7 +59,8 @@ export async function uploadExecMedia(file, kind = 'media') {
 
   const name = file.name || (kind + '-' + Date.now() + (file.type && file.type.includes('audio') ? '.webm' : '.jpg'));
   const id = 'em_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const path = `${orgId}/exec/${id}-${_safeName(name)}`;
+  const safeFolder = String(folder || 'exec').replace(/[^a-z0-9_-]/gi, '') || 'exec';
+  const path = `${orgId}/${safeFolder}/${id}-${_safeName(name)}`;
   try {
     const { error } = await sb.storage.from(BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
     if (error) { console.warn('[execMedia] upload failed', name, error); showToast('Upload failed: ' + (error.message || name), 'error'); return null; }

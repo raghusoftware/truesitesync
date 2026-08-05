@@ -20,7 +20,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
-    <script type="module" src="js/app.js?v=1.6.0"></script>
+    <script type="module" src="js/app.js?v=1.6.1"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1062,7 +1062,8 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 hide" id="attachmentsSection">
               <div class="p-3 bg-[#0f766e] flex justify-between items-center">
                 <h3 class="text-sm font-bold text-white uppercase tracking-wider ml-2">Attachments & Reports</h3>
-                <div class="flex gap-2">
+                <div class="flex gap-2 items-center">
+                  <span id="attUploadStatus" class="text-[11px] text-teal-100 font-semibold"></span>
                   <label class="text-xs bg-white text-teal-900 px-3 py-1.5 rounded shadow-sm hover:bg-gray-100 font-bold cursor-pointer">
                     + Add File <input type="file" multiple class="hidden" onchange="addSheetAttachments(this.files)">
                   </label>

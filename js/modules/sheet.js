@@ -13,6 +13,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
+import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js';
 
 let _allSheetBoqItems = [];     // all BOQ items across all groups (unfiltered)
 let _currentSheetBoqItems = []; // filtered BOQ items for current selection
@@ -1215,30 +1216,42 @@ export function toggleAttachmentsSection() {
   document.getElementById('attachmentsSection')?.classList.toggle('hide');
 }
 
-export function addSheetAttachments(files) {
+export async function addSheetAttachments(files) {
   if (!state.currentSheetId) { showToast('Save the sheet first', 'error'); return; }
   const sheetId = state.currentSheetId;
   if (!state.sheetAttachments[sheetId]) state.sheetAttachments[sheetId] = [];
-
-  Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const isImage = file.type.startsWith('image/');
-      state.sheetAttachments[sheetId].push({
-        id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        name: file.name, size: file.size, type: file.type,
-        data: isImage ? reader.result : null,
-        addedAt: new Date().toISOString(),
-        category: _guessAttachmentCategory(file.name)
-      });
-      saveAllData();
-      _renderAttachmentsList(sheetId);
-      showToast(`Attached: ${file.name}`);
-    };
-    if (file.type.startsWith('image/')) reader.readAsDataURL(file);
-    else reader.readAsArrayBuffer(file);
-  });
+  const arr = Array.from(files || []);
+  if (!arr.length) return;
+  const statusEl = document.getElementById('attUploadStatus');
+  let done = 0;
+  for (const file of arr) {
+    if (statusEl) statusEl.textContent = `Uploading ${done + 1} of ${arr.length}: ${file.name}…`;
+    // Bytes go to Storage (not base64 in the synced JSON) — keeps the cache small.
+    const ref = await uploadExecMedia(file, 'attachment', 'sheets');
+    if (!ref) continue;   // upload failed (offline / no cloud) — helper already toasted
+    state.sheetAttachments[sheetId].push({
+      id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: file.name, size: file.size, type: file.type,
+      path: ref.path,                         // Storage ref (replaces base64 `data`)
+      addedAt: new Date().toISOString(),
+      category: _guessAttachmentCategory(file.name)
+    });
+    saveAllData();
+    _renderAttachmentsList(sheetId);
+    done++;
+  }
+  if (statusEl) statusEl.textContent = '';
+  showToast(done ? `${done} file(s) attached` : 'No files attached', done ? 'success' : 'error');
 }
+
+/** Open an attachment: Storage ref via signed URL, or a legacy base64 image. */
+window._sheetOpenAttachment = function (sheetId, attId) {
+  const a = (state.sheetAttachments[sheetId] || []).find(x => x.id === attId);
+  if (!a) return;
+  if (a.path) return openExecMedia({ path: a.path, name: a.name });
+  if (a.data) { try { const w = window.open(); if (w) w.document.write(`<img src="${a.data}" style="max-width:100%">`); } catch {} return; }
+  showToast('This attachment has no preview', 'info');
+};
 
 function _guessAttachmentCategory(name) {
   const n = name.toLowerCase();
@@ -1257,6 +1270,8 @@ export function removeSheetAttachment(sheetId, attId) {
   if (!confirm('Remove this attachment?')) return;
   const arr = state.sheetAttachments[sheetId];
   if (arr) {
+    const a = arr.find(x => x.id === attId);
+    if (a && a.path) removeExecMedia({ path: a.path });   // delete the file from Storage too
     state.sheetAttachments[sheetId] = arr.filter(a => a.id !== attId);
     saveAllData();
     _renderAttachmentsList(sheetId);
@@ -1277,11 +1292,12 @@ function _renderAttachmentsList(sheetId) {
     ${atts.map(a => {
       const sizeKB = (a.size / 1024).toFixed(1);
       const icon = catIcons[a.category] || '&#128206;';
+      const canOpen = a.path || a.data;
       return `<div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
         <span class="text-xl flex-shrink-0">${icon}</span>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold text-slate-700 truncate" title="${a.name}">${a.name}</p>
-          <p class="text-[10px] text-slate-400">${a.category} | ${sizeKB} KB</p>
+        <div class="flex-1 min-w-0 ${canOpen ? 'cursor-pointer' : ''}" ${canOpen ? `onclick="window._sheetOpenAttachment('${sheetId}','${a.id}')" title="Open ${a.name}"` : `title="${a.name}"`}>
+          <p class="text-xs font-bold text-slate-700 truncate">${a.name}</p>
+          <p class="text-[10px] text-slate-400">${a.category} | ${sizeKB} KB${canOpen ? ' · tap to open' : ''}</p>
         </div>
         <button onclick="removeSheetAttachment('${sheetId}','${a.id}')" class="text-red-400 hover:text-red-600 text-xs flex-shrink-0" title="Remove">&#10005;</button>
       </div>`;
