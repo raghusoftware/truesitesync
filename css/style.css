@@ -2621,3 +2621,9 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
   .sb-chip{ flex:0 0 auto; }
   .sb-in, .sb-search{ font-size:16px; }
 }
+
+/* Schedule Builder — Save button (deferred sync) */
+.sb-btn-save{ background:#fff; color:#16a34a; font-size:12px; font-weight:700; padding:8px 14px; border-radius:9px; border:1px solid #bbf7d0; cursor:pointer; transition:.15s; }
+.sb-btn-save:hover{ background:#f0fdf4; }
+.sb-btn-save.sb-dirty{ background:#16a34a; color:#fff; border-color:#16a34a; box-shadow:0 4px 12px -3px rgba(22,163,74,.5); animation:sbPulse 1.6s ease-in-out infinite; }
+@keyframes sbPulse{ 0%,100%{ box-shadow:0 4px 12px -3px rgba(22,163,74,.5); } 50%{ box-shadow:0 4px 18px -2px rgba(22,163,74,.75); } }

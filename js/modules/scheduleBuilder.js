@@ -12,7 +12,7 @@
  * items (proj.boqs[].items) + a categorised standard task library.
  * ═══════════════════════════════════════════════════════════
  */
-import { state, saveAllData } from './state.js';
+import { state, saveAllData, saveLocalKey } from './state.js';
 import { showToast, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
 import { seedBaselineFromSchedule } from './executionEngine.js';
 
@@ -44,6 +44,16 @@ let _sbCat = 'All';       // palette category filter
 let _sbSearch = '';
 let _sbDrag = null;       // { type:'new'|'move', task?, taskId? }
 let _sbPalMap = {};       // masterTaskId → palette item (avoids embedding JSON in HTML)
+let _sbDirty = false;     // unsaved local edits (synced only on explicit Save)
+
+/** Persist edits LOCALLY only (no cloud push) and flag unsaved changes, so a
+ *  mid-edit background sync can't wipe a just-added task. Sync happens on Save. */
+function _sbTouch() { saveLocalKey('scheduleLocations'); _sbDirty = true; _updateSaveBtn(); }
+function _updateSaveBtn() { const b = document.getElementById('sbSaveBtn'); if (b) { b.classList.toggle('sb-dirty', _sbDirty); b.innerHTML = _sbDirty ? '💾 Save changes •' : '💾 Saved'; } }
+window._sbSaveAll = function () {
+  saveAllData(); _sbDirty = false; _updateSaveBtn();
+  showToast('Schedule saved & synced', 'success');
+};
 
 /* ── helpers ── */
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -126,6 +136,7 @@ export function renderScheduleBuilder() {
         </div>
         <div class="flex gap-2">
           ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbExportPDF()">⬇ Gantt PDF</button>` : ''}
+          ${list.length ? `<button id="sbSaveBtn" class="sb-btn-save ${_sbDirty ? 'sb-dirty' : ''}" onclick="window._sbSaveAll()">${_sbDirty ? '💾 Save changes •' : '💾 Saved'}</button>` : ''}
           <button class="sb-btn-primary" onclick="window._sbAddLocation()">+ New Location</button>
         </div>
       </div>
@@ -186,19 +197,19 @@ window._sbAddLocation = function () {
   const nm = name.trim(); if (!nm) return;
   ensure();
   const l = { id: uid('loc'), projectId: pid(), name: nm, startDate: '', tasks: [], createdAt: new Date().toISOString() };
-  state.scheduleLocations.push(l); _sbLocId = l.id; saveAllData(); renderScheduleBuilder();
+  state.scheduleLocations.push(l); _sbLocId = l.id; _sbTouch(); renderScheduleBuilder();
 };
 window._sbRenameLocation = function (id) {
   const l = locById(id); if (!l) return;
   const nm = prompt('Rename location:', l.name); if (nm == null) return;
-  if (nm.trim()) { l.name = nm.trim(); saveAllData(); renderScheduleBuilder(); }
+  if (nm.trim()) { l.name = nm.trim(); _sbTouch(); renderScheduleBuilder(); }
 };
 window._sbDeleteLocation = function (id) {
   const l = locById(id); if (!l) return;
   if (!confirm(`Delete location "${l.name}" and its ${(l.tasks || []).length} task(s)?`)) return;
   window.recycleDelete && window.recycleDelete('scheduleLocations', id, 'Schedule Location', l.name);
   if (_sbLocId === id) _sbLocId = null;
-  saveAllData(); renderScheduleBuilder();
+  saveAllData(); _sbDirty = false; renderScheduleBuilder();
 };
 window._sbDuplicateLocation = function (id) {
   const l = locById(id); if (!l) return;
@@ -207,7 +218,7 @@ window._sbDuplicateLocation = function (id) {
   ensure();
   const copy = { id: uid('loc'), projectId: pid(), name: nm.trim(), startDate: l.startDate || '',
     tasks: (l.tasks || []).map((t, i) => ({ ...t, id: uid('t'), order: i + 1, startDate: '' })), createdAt: new Date().toISOString() };
-  state.scheduleLocations.push(copy); _sbLocId = copy.id; saveAllData(); renderScheduleBuilder();
+  state.scheduleLocations.push(copy); _sbLocId = copy.id; _sbTouch(); renderScheduleBuilder();
   showToast(`Location duplicated with ${copy.tasks.length} task(s)`, 'success');
 };
 
@@ -276,7 +287,7 @@ window._sbDrop = function (ev, beforeIndex) {
     if (idx > -1) { const [moved] = loc.tasks.splice(idx, 1); _insert(loc, moved, beforeIndex, idx); }
   }
   _sbDrag = null;
-  _reorder(loc); saveAllData(); renderScheduleBuilder();
+  _reorder(loc); _sbTouch(); renderScheduleBuilder();
 };
 function _insert(loc, task, beforeIndex, removedFrom) {
   let bi = beforeIndex;
@@ -289,20 +300,20 @@ function _reorder(loc) { (loc.tasks || []).forEach((t, i) => t.order = i + 1); }
 window._sbTaskField = function (locId, taskId, field, val) {
   const l = locById(locId); const t = l && (l.tasks || []).find(x => x.id === taskId); if (!t) return;
   t[field] = field === 'duration' ? num(val) : val;
-  saveAllData();
+  _sbTouch();
   // update just the end-date chip without a full re-render (keeps focus)
   if (field === 'startDate' || field === 'duration') renderScheduleBuilder();
 };
 window._sbTaskDep = function (locId, taskId, depId) {
   const l = locById(locId); const t = l && (l.tasks || []).find(x => x.id === taskId); if (!t) return;
   t.deps = depId ? [depId] : [];
-  saveAllData();
+  _sbTouch();
 };
 window._sbRemoveTask = function (locId, taskId) {
   const l = locById(locId); if (!l) return;
-  l.tasks = (l.tasks || []).filter(x => x.id !== taskId); _reorder(l); saveAllData(); renderScheduleBuilder();
+  l.tasks = (l.tasks || []).filter(x => x.id !== taskId); _reorder(l); _sbTouch(); renderScheduleBuilder();
 };
-window._sbLocStart = function (locId, val) { const l = locById(locId); if (l) { l.startDate = val; saveAllData(); } };
+window._sbLocStart = function (locId, val) { const l = locById(locId); if (l) { l.startDate = val; _sbTouch(); } };
 
 /* ── auto-schedule ── */
 window._sbAutoSchedule = function (locId) {
@@ -319,7 +330,7 @@ window._sbAutoSchedule = function (locId) {
     prevEnd = t._end;
   });
   tasks.forEach(t => delete t._end);
-  saveAllData(); renderScheduleBuilder();
+  _sbTouch(); renderScheduleBuilder();
   showToast('Start dates auto-scheduled from durations & dependencies', 'success');
 };
 
@@ -328,6 +339,7 @@ window._sbSendToBaseline = function (locId) {
   const loc = locById(locId); if (!loc || !(loc.tasks || []).length) return;
   if (!confirm(`Create ${loc.tasks.length} draft baseline activit${loc.tasks.length === 1 ? 'y' : 'ies'} in Planning & Execution from "${loc.name}"?\n\nThey open as drafts for you to add resources/cost and Approve. Tasks already sent are skipped.`)) return;
   let res;
+  saveAllData(); _sbDirty = false; _updateSaveBtn();   // persist the schedule before/with seeding
   try { res = seedBaselineFromSchedule(loc); } catch (e) { console.warn('[schedule→baseline]', e); return showToast('Could not send to baseline: ' + (e.message || e), 'error'); }
   if (!res.added) return showToast(res.skipped ? 'Already sent — nothing new to add' : 'Nothing to send', 'info');
   showToast(`${res.added} activit${res.added === 1 ? 'y' : 'ies'} added to baseline${res.skipped ? `, ${res.skipped} already there` : ''}`, 'success');

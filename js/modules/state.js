@@ -280,6 +280,20 @@ export function saveAllData() {
   }
 }
 
+/**
+ * Persist ONE key to localStorage only — no cloud push. Bumps the key's local
+ * timestamp so a background pull keeps (and later heals-pushes) this local copy
+ * instead of clobbering it with the older cloud value. Used by editors that batch
+ * many rapid edits and sync once via an explicit Save (e.g. the Schedule Builder),
+ * so a mid-edit sync can't make a just-added item vanish.
+ */
+export function saveLocalKey(key) {
+  const storageKey = STORAGE_KEYS[key];
+  if (!storageKey || state[key] === undefined) return;
+  try { localStorage.setItem(storageKey, JSON.stringify(state[key])); } catch (e) { console.warn('[state] local save failed for', key, e?.name || e); }
+  setLocalKeyTs(key, Date.now());
+}
+
 /** Persist labour-specific data */
 export function saveLabourData() {
   const keys = ['labourMaster', 'attendanceLogs', 'labourSalaries', 'labourPayments'];
