@@ -378,8 +378,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (event === 'PASSWORD_RECOVERY') {
-        // User clicked the reset-password email link — show the set-new-password screen.
-        try { if (window._hideSplash) window._hideSplash(); window._rbacShowPasswordReset?.(); } catch (e) { console.warn('[auth] recovery UI:', e); }
+        // Only show the standalone "set new password" screen when recovery came from an
+        // email LINK (token in the URL → _recoveryMode). The in-app 6-digit code flow
+        // (resetWithCode → verifyOtp) ALSO fires this event, but that screen already
+        // collected the new password — surfacing a second screen would double the ask.
+        if (_recoveryMode) {
+          try { if (window._hideSplash) window._hideSplash(); window._rbacShowPasswordReset?.(); } catch (e) { console.warn('[auth] recovery UI:', e); }
+        }
         return;
       }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted && !_recoveryMode) {
@@ -734,7 +739,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.93';
+const APP_VERSION = '1.5.94';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
