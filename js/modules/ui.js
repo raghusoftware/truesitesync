@@ -12,8 +12,7 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 // ══════════════════════════════════════════
 
 const MODULE_CARDS = [
-  { id: 'planningView', icon: '&#128197;', label: 'Planning', desc: 'Tasks, scheduling & resources', color: '#0ea5e9', stateKey: 'planningTasks' },
-  { id: 'microPlanView', icon: '&#128221;', label: 'Micro Planning', desc: 'Daily task decomposition & labor', color: '#6366f1', stateKey: 'microTasks' },
+  { id: 'execEngineView', icon: '&#128197;', label: 'Planning & Execution', desc: 'Baseline → Execution Plan → Actuals, variance & labour', color: '#7c3aed', stateKey: 'execActivities' },
   { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
   { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
@@ -1362,6 +1361,7 @@ export function switchView(viewId) {
   }
   if (viewId === 'planningView') { if (typeof window.renderPlanningView === 'function') window.renderPlanningView(); }
   if (viewId === 'microPlanView') { if (typeof window.renderMicroPlanningView === 'function') window.renderMicroPlanningView(); }
+  if (viewId === 'execEngineView') { if (typeof window.renderExecEngine === 'function') window.renderExecEngine(); }
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
   if (viewId === 'analyticsView') renderAnalyticsDashboard();
   if (viewId === 'cashFlowView') { if (typeof window.renderCashFlow === 'function') window.renderCashFlow(); }
@@ -2618,15 +2618,22 @@ export function deleteAbstract(id) {
   if (!abs) return;
   if (abs.isInvoiced) return showToast('Cannot delete! This abstract is locked inside an Invoice.', 'error');
   if (confirm(`Are you sure you want to delete Abstract ${abs.abstractNum}?`)) {
-    const sheetIdx = state.sheets.findIndex(s => s.id === abs.sheetId);
-    if (sheetIdx > -1) { state.sheets[sheetIdx].isBilled = false; state.sheets[sheetIdx].linkedAbstract = null; }
+    // Restore EVERY sheet on this abstract to "pending for abstract" — multi-sheet
+    // abstracts store sheetIds; fall back to the single sheetId for the classic flow.
+    // (Previously only abs.sheetId was reset, so multi-sheet abstracts left the other
+    // measurements stuck as billed and they never returned to pending.)
+    const ids = (abs.sheetIds && abs.sheetIds.length) ? abs.sheetIds : (abs.sheetId ? [abs.sheetId] : []);
+    ids.forEach(sid => {
+      const i = state.sheets.findIndex(s => s.id === sid);
+      if (i > -1) { state.sheets[i].isBilled = false; state.sheets[i].linkedAbstract = null; }
+    });
     // Cascade: if this abstract mirrors an RA bill (Micro-Planning), delete that
     // RA bill too — otherwise it lingers in RA Billing and the cumulative math
     // keeps treating its quantities as billed.
     const raId = abs._raBillId || (state.raBills || []).find(b => b.abstractId === id)?.id;
     if (raId) state.raBills = (state.raBills || []).filter(b => b.id !== raId);
     window.recycleDelete && window.recycleDelete('abstracts', id, 'Abstract');
-    saveAllData(); renderAbstractsList(); window.renderSavedSheets?.();
+    saveAllData(); renderAbstractsList(); window.renderSavedSheets?.(); window.renderMeasurementList?.();
     if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
     if (typeof window.renderCostLedger === 'function') { try { window.renderCostLedger(); } catch {} }
     showToast(raId ? 'Abstract & linked RA bill deleted — quantities back to unbilled' : 'Abstract deleted & Measurement Sheet restored', 'success');
