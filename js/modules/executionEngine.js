@@ -109,6 +109,46 @@ function blankActivity() {
   };
 }
 
+/**
+ * Seed DRAFT baseline activities from a Schedule Builder location.
+ * Maps each schedule task → an execActivity (name, code, location, planned
+ * start/duration/finish, dependencies). Skips tasks whose (code|location) already
+ * exists so re-running is idempotent. Returns { added, skipped }.
+ */
+export function seedBaselineFromSchedule(loc) {
+  if (!loc || !Array.isArray(loc.tasks)) return { added: 0, skipped: 0 };
+  _ensureArrays();
+  const existing = new Set((state.execActivities || []).filter(a => a.projectId === pid())
+    .map(a => ((a.code || a.name || '') + '|' + (a.location || '')).toLowerCase()));
+  const sorted = loc.tasks.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const created = {};   // schedule task id → new activity (for dependency mapping)
+  let added = 0, skipped = 0;
+  sorted.forEach(t => {
+    const code = (t.masterTaskId && !/^std_/.test(t.masterTaskId)) ? t.masterTaskId : '';
+    const key = ((code || t.name || '') + '|' + (loc.name || '')).toLowerCase();
+    if (existing.has(key)) { skipped++; return; }
+    const a = blankActivity();
+    a.name = t.name || 'Task'; a.code = code; a.boqRef = code; a.location = loc.name || '';
+    a.schedule.plannedStart = t.startDate || '';
+    a.schedule.duration = t.duration || '';
+    if (t.startDate && num(t.duration)) {
+      const d = new Date(t.startDate); d.setDate(d.getDate() + Math.max(0, num(t.duration)));
+      a.schedule.plannedFinish = d.toISOString().slice(0, 10);
+    }
+    state.execActivities.push(a); created[t.id] = a; existing.add(key); added++;
+  });
+  // carry over dependencies between the activities we just created
+  sorted.forEach(t => {
+    const a = created[t.id]; if (!a) return;
+    (t.deps || []).forEach(depId => {
+      const da = created[depId];
+      if (da) a.deps.push({ id: uid('d'), dependsOn: da.id, type: DEP_TYPES[0], lag: 0, critical: false });
+    });
+  });
+  if (added) saveAllData();
+  return { added, skipped };
+}
+
 /* ── cost roll-ups ────────────────────────────────────── */
 function labCost(rows) { return (rows || []).reduce((s, r) => s + num(r.cost), 0); }
 function matCost(rows) { return (rows || []).reduce((s, r) => s + (num(r.cost) || num(r.qty) * (1 + num(r.wastagePct) / 100) * num(r.rate)), 0); }

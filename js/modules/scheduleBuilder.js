@@ -14,6 +14,7 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
+import { seedBaselineFromSchedule } from './executionEngine.js';
 
 /* ── standard task library (used when a project has no BOQ, and always available) ── */
 const STD_TASKS = [
@@ -222,6 +223,7 @@ function _dropZone(loc) {
       </label>
       <div class="flex gap-2">
         <button class="sb-btn-ok" onclick="window._sbAutoSchedule('${loc.id}')" title="Set start dates sequentially from durations & dependencies">⚡ Auto-Schedule</button>
+        ${(loc.tasks || []).length ? `<button class="sb-btn-ghost" onclick="window._sbSendToBaseline('${loc.id}')" title="Create draft baseline activities in Planning & Execution from this location">→ Send to Baseline</button>` : ''}
       </div>
     </div>
     <div class="sb-zone" ondragover="window._sbAllow(event)" ondrop="window._sbDrop(event, null)">
@@ -319,6 +321,20 @@ window._sbAutoSchedule = function (locId) {
   tasks.forEach(t => delete t._end);
   saveAllData(); renderScheduleBuilder();
   showToast('Start dates auto-scheduled from durations & dependencies', 'success');
+};
+
+/* ── send location → Execution baseline (draft activities) ── */
+window._sbSendToBaseline = function (locId) {
+  const loc = locById(locId); if (!loc || !(loc.tasks || []).length) return;
+  if (!confirm(`Create ${loc.tasks.length} draft baseline activit${loc.tasks.length === 1 ? 'y' : 'ies'} in Planning & Execution from "${loc.name}"?\n\nThey open as drafts for you to add resources/cost and Approve. Tasks already sent are skipped.`)) return;
+  let res;
+  try { res = seedBaselineFromSchedule(loc); } catch (e) { console.warn('[schedule→baseline]', e); return showToast('Could not send to baseline: ' + (e.message || e), 'error'); }
+  if (!res.added) return showToast(res.skipped ? 'Already sent — nothing new to add' : 'Nothing to send', 'info');
+  showToast(`${res.added} activit${res.added === 1 ? 'y' : 'ies'} added to baseline${res.skipped ? `, ${res.skipped} already there` : ''}`, 'success');
+  if (confirm('Open Planning & Execution to review and approve the baseline now?')) {
+    if (typeof window.switchView === 'function') window.switchView('execEngineView');
+    if (typeof window.renderExecEngine === 'function') window.renderExecEngine('baseline');
+  }
 };
 
 /* ── export: per-location table + simple Gantt ── */
