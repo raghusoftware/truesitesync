@@ -19,8 +19,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.6.4">
-    <script type="module" src="js/app.js?v=1.5.94"></script>
+    <link rel="stylesheet" href="css/style.css?v=1.6.5">
+    <script type="module" src="js/app.js?v=1.5.95"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -302,6 +302,11 @@
     <!-- ═══════ EXECUTION INTELLIGENCE (Baseline → Execution Plan → Actuals → Variance) ═══════ -->
     <div id="execEngineView" class="view-section hide">
       <div id="execEngineContent"></div>
+    </div>
+
+    <!-- ═══════ SCHEDULE BUILDER (location-wise drag-drop) ═══════ -->
+    <div id="scheduleBuilderView" class="view-section hide">
+      <div id="scheduleBuilderContent"></div>
     </div>
 
     <!-- ═══════ ADD/EDIT PROJECT FORM (Full-Screen) ═══════ -->

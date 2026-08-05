@@ -15,6 +15,7 @@ import { getSupabase } from '../database/supabase.js';
 export const ACCESS_MODULES = [
   { id: 'projectDashboard', label: 'Dashboard', group: 'Project' },
   { id: 'execEngineView', label: 'Planning & Execution', group: 'Project' },
+  { id: 'scheduleBuilderView', label: 'Schedule Builder', group: 'Project' },
   { id: 'issuesView', label: 'Issues', group: 'Project' },
   { id: 'pettyCashView', label: 'Petty Cash', group: 'Project' },
   { id: 'labourView', label: 'Labour', group: 'Project' },
@@ -100,10 +101,10 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'execEngineView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
   Engineer: { permissions: [
-    'projectDashboard', 'execEngineView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
 };
 

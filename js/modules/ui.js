@@ -13,6 +13,7 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 
 const MODULE_CARDS = [
   { id: 'execEngineView', icon: '&#128197;', label: 'Planning & Execution', desc: 'Baseline → Execution Plan → Actuals, variance & labour', color: '#7c3aed', stateKey: 'execActivities' },
+  { id: 'scheduleBuilderView', icon: '&#128197;', label: 'Schedule Builder', desc: 'Drag tasks onto locations · auto-schedule', color: '#0ea5e9', stateKey: 'scheduleLocations' },
   { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
   { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
@@ -1362,6 +1363,7 @@ export function switchView(viewId) {
   if (viewId === 'planningView') { if (typeof window.renderPlanningView === 'function') window.renderPlanningView(); }
   if (viewId === 'microPlanView') { if (typeof window.renderMicroPlanningView === 'function') window.renderMicroPlanningView(); }
   if (viewId === 'execEngineView') { if (typeof window.renderExecEngine === 'function') window.renderExecEngine(); }
+  if (viewId === 'scheduleBuilderView') { if (typeof window.renderScheduleBuilder === 'function') window.renderScheduleBuilder(); }
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
   if (viewId === 'analyticsView') renderAnalyticsDashboard();
   if (viewId === 'cashFlowView') { if (typeof window.renderCashFlow === 'function') window.renderCashFlow(); }

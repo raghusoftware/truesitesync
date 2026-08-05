@@ -116,7 +116,7 @@ const GLOBAL_NAV = [
 
 // Views that live INSIDE a project → show the project bar.
 const PROJECT_VIEWS = new Set([
-  'projectDashboard','planningView','microPlanView','issuesView','executionView',
+  'projectDashboard','planningView','microPlanView','execEngineView','scheduleBuilderView','issuesView','executionView',
   'labourView','equipmentView','inventoryView','recipeView','assetsView',
   'measurementListView','abstractsView','pettyCashView','documentsView','entrySheet',
 ]);
