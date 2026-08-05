@@ -1,4 +1,5 @@
 import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
+import { idbSet, idbGet } from '../database/idbCache.js';
 
 const STORAGE_KEYS = {
   clients: 'mes_clients',
@@ -256,8 +257,6 @@ function _isEmptyVal(v) {
   return false;
 }
 
-let _quotaWarned = false;
-
 /** Persist all data to localStorage + async push to Supabase.
  *  Each key is isolated so one oversized key (e.g. KYC photos hitting the
  *  ~5MB localStorage quota) cannot abort the whole save or block cloud sync. */
@@ -268,15 +267,33 @@ export function saveAllData() {
     try {
       localStorage.setItem(storageKey, json);
     } catch (e) {
-      // QuotaExceededError — local cache is full, but cloud is still authoritative.
-      console.warn(`[state] localStorage save failed for "${key}" (quota?):`, e?.name || e);
-      if (!_quotaWarned && typeof window !== 'undefined' && window.showToast) {
-        _quotaWarned = true;
-        try { window.showToast('Local storage is full — your data is still being saved to the cloud. Consider clearing old data.', 'error'); } catch {}
-      }
+      // localStorage is capped at ~5 MB. When a big key (e.g. embedded photos)
+      // won't fit, remove its stale copy to free space and cache it in IndexedDB
+      // instead (hundreds of MB). Cloud stays the source of truth either way — so
+      // no data is lost and no alarming popup is needed.
+      try { localStorage.removeItem(storageKey); } catch {}
+      idbSet(storageKey, json);
+      console.warn(`[state] "${key}" too big for localStorage — cached in IndexedDB instead`);
     }
     // Always push to cloud regardless of local success.
     syncPush(key, state[key]);
+  }
+}
+
+/**
+ * Overlay any keys that live in IndexedDB (because they overflowed localStorage)
+ * onto state. Called once at boot, before the cloud pull, so big locally-cached
+ * datasets are restored even though localStorage couldn't hold them. Best-effort.
+ */
+export async function hydrateLocalCache() {
+  for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+    try {
+      if (localStorage.getItem(storageKey) != null) continue; // localStorage has it — trust that
+      const json = await idbGet(storageKey);
+      if (json == null) continue;
+      const val = JSON.parse(json);
+      if (val !== undefined) { state[key] = val; }
+    } catch (e) { /* ignore a single bad key */ }
   }
 }
 

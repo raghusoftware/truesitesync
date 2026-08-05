@@ -1,4 +1,4 @@
-import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud } from './modules/state.js';
+import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud, hydrateLocalCache } from './modules/state.js';
 import { getSupabase } from './database/supabase.js';
 import { installErrorMonitor } from './database/errorMonitor.js';
 import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
@@ -356,6 +356,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
     console.error('[boot] initRBAC failed:', e);
   }
+
+  // Restore any big datasets that overflowed localStorage into IndexedDB, before
+  // the cloud pull overlays the newest data. Best-effort; never blocks boot.
+  try { await hydrateLocalCache(); } catch (e) { console.warn('[boot] IndexedDB hydrate skipped:', e?.message || e); }
 
   const sb = getSupabase();
   console.log('[boot] Supabase client:', sb ? 'OK' : 'FAILED');
@@ -740,7 +744,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.99';
+const APP_VERSION = '1.6.0';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
