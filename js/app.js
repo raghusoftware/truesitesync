@@ -362,8 +362,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (sb) {
     if (window._splashStatus) window._splashStatus('Connecting to cloud...');
 
+    // If the user arrived from a password-reset email, the recovery token is in the
+    // URL (implicit flow: #...type=recovery). Detect it up front so the session it
+    // silently establishes does NOT auto-boot the app to the home page — we must land
+    // on the "set a new password" screen instead.
+    const _recoveryMode = /type=recovery/i.test(window.location.hash || '') || /[?&]type=recovery/i.test(window.location.search || '');
+
     sb.auth.onAuthStateChange(async (event, session) => {
-      console.log('[auth] event:', event, 'booted:', _appBooted);
+      console.log('[auth] event:', event, 'booted:', _appBooted, 'recovery:', _recoveryMode);
       // Keep the realtime websocket authenticated with the latest JWT so RLS
       // doesn't silently drop postgres_changes payloads (kept fresh on refresh).
       try { if (session?.access_token && sb.realtime?.setAuth) sb.realtime.setAuth(session.access_token); } catch {}
@@ -376,7 +382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { if (window._hideSplash) window._hideSplash(); window._rbacShowPasswordReset?.(); } catch (e) { console.warn('[auth] recovery UI:', e); }
         return;
       }
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted) {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted && !_recoveryMode) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
         // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
@@ -394,6 +400,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const sessionPromise = sb.auth.getSession();
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timed out')), 8000));
       const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+      // Password-recovery arrival: show the set-new-password screen, never the home page,
+      // even though a (recovery) session exists.
+      if (_recoveryMode) {
+        if (window._hideSplash) window._hideSplash();
+        window._rbacShowPasswordReset?.();
+        return;
+      }
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
@@ -721,7 +734,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.5.92';
+const APP_VERSION = '1.5.93';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

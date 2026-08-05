@@ -14,8 +14,7 @@ import { getSupabase } from '../database/supabase.js';
 // ── Module definitions for access control ──
 export const ACCESS_MODULES = [
   { id: 'projectDashboard', label: 'Dashboard', group: 'Project' },
-  { id: 'planningView', label: 'Planning', group: 'Project' },
-  { id: 'microPlanView', label: 'Micro Planning', group: 'Project' },
+  { id: 'execEngineView', label: 'Planning & Execution', group: 'Project' },
   { id: 'issuesView', label: 'Issues', group: 'Project' },
   { id: 'pettyCashView', label: 'Petty Cash', group: 'Project' },
   { id: 'labourView', label: 'Labour', group: 'Project' },
@@ -101,10 +100,10 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'planningView', 'microPlanView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
   Engineer: { permissions: [
-    'projectDashboard', 'planningView', 'microPlanView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
 };
 
@@ -130,6 +129,15 @@ export function initRBAC() {
     if (!role) return;
     role.permissions = role.permissions || [];
     ALL_MODULE_IDS.forEach(id => { if (!role.permissions.includes(id)) { role.permissions.push(id); _rolesChanged = true; } });
+  });
+  // Migration: Planning + Micro-Planning were merged into the Execution engine
+  // (execEngineView). Any role that could see either old view should see the new
+  // hub too, so existing supervisors/engineers keep their access after the reform.
+  Object.values(state.rbacRoles).forEach(role => {
+    if (!role || !Array.isArray(role.permissions)) return;
+    if ((role.permissions.includes('planningView') || role.permissions.includes('microPlanView')) && !role.permissions.includes('execEngineView')) {
+      role.permissions.push('execEngineView'); _rolesChanged = true;
+    }
   });
   if (_rolesChanged) saveAllData();
   // No default/seed user — the first person who logs in (via Supabase) becomes
@@ -845,6 +853,8 @@ export async function submitNewPassword() {
     const { data: { user } } = await sb.auth.getUser();
     if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
     showToast('Password updated — signed in!', 'success');
+    // Strip the recovery token from the URL so a refresh doesn't re-enter recovery mode.
+    try { history.replaceState(null, '', window.location.pathname); } catch {}
     try { await loadFromCloud(); } catch {}
     if (typeof window._bootApp === 'function') window._bootApp();
   } catch (e) {
