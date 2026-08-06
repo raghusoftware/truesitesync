@@ -12,6 +12,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
+import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
 
 const PC_CATEGORIES = ['Site Materials', 'Travel / Transport', 'Food / Refreshments', 'Daily Wages', 'Tools / Hardware', 'Miscellaneous'];
 
@@ -77,7 +78,8 @@ function _compressImage(file) {
 
 // ── view state ─────────────────────────────────────────────
 let _pcSection = null;        // null | 'wallets' | 'expense' | 'ledger' | custodianId
-let _pcPendingPhoto = null;   // base64 of a captured receipt awaiting save
+let _pcPendingPhoto = null;       // legacy base64 (kept for back-compat display)
+let _pcPendingPhotoPath = null;   // Storage path of a newly-captured receipt
 let _pcLedgerFilter = '';     // custodian id filter
 
 // ══════════════════════════════════════════════════════════
@@ -230,7 +232,7 @@ function _txnRow(t, showName) {
   const isIn = t.type === 'TRANSFER';
   const accent = isIn ? '#10b981' : '#f59e0b';
   const sign = isIn ? '+' : '−';
-  const photo = t.photo ? `<button onclick="_pcLightbox('${t.id}')" title="View receipt" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">🖼️</button>` : '';
+  const photo = (t.photo || t.photoPath) ? `<button onclick="_pcLightbox('${t.id}')" title="View receipt" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">🖼️</button>` : '';
   return `<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${accent};border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
     <div style="min-width:0;">
       <div style="font-weight:700;color:#0f172a;font-size:13px;">${isIn ? 'Transfer In' : _esc(t.category || 'Expense')}${showName ? ' · ' + _esc(_custName(t.custodianId)) : ''}</div>
@@ -279,7 +281,7 @@ function _modal(html) {
   o.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">${html}</div>`;
   o.style.display = 'flex';
 }
-window._pcCloseModal = function () { const o = document.getElementById('pcModalOverlay'); if (o) o.style.display = 'none'; _pcPendingPhoto = null; };
+window._pcCloseModal = function () { const o = document.getElementById('pcModalOverlay'); if (o) o.style.display = 'none'; _pcPendingPhoto = null; _pcPendingPhotoPath = null; };
 
 const _modalHead = (title) => `<div style="padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:800;color:#0f172a;font-size:17px;">${title}</h3><button onclick="_pcCloseModal()" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:16px;">×</button></div>`;
 const _inp = 'width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:12px;box-sizing:border-box;';
@@ -383,7 +385,7 @@ window._pcDoTransfer = function () {
 window._pcExpenseModal = function (custId) {
   const c = (state.pettyCashCustodians || []).find(x => x.id === custId);
   if (!c) return;
-  _pcPendingPhoto = null;
+  _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   const cats = PC_CATEGORIES.map(x => `<option>${x}</option>`).join('');
   _modal(`${_modalHead('Log Expense')}
     <div style="padding:20px;">
@@ -402,15 +404,15 @@ window._pcCapturePhoto = async function (input) {
   const file = input.files && input.files[0];
   const prev = document.getElementById('pcExPhotoPreview');
   if (!file) return;
-  try {
-    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#94a3b8;">Compressing…</span>';
-    _pcPendingPhoto = await _compressImage(file);
-    if (prev) prev.innerHTML = _pcPendingPhoto
-      ? `<img src="${_pcPendingPhoto}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;">`
-      : '<span style="font-size:12px;color:#dc2626;">Unsupported file</span>';
-  } catch (e) {
-    _pcPendingPhoto = null;
-    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#dc2626;">Could not read image</span>';
+  let objUrl = ''; try { objUrl = URL.createObjectURL(file); } catch {}
+  if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;opacity:.6;"><div style="font-size:11px;color:#94a3b8;">Uploading…</div>`;
+  const ref = await uploadExecMedia(file, 'receipt', 'pettycash');
+  if (ref) {
+    _pcPendingPhotoPath = ref.path; _pcPendingPhoto = null;
+    if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;">`;
+  } else {
+    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#dc2626;">Upload failed — connect and retry</span>';
+    try { input.value = ''; } catch {}
   }
 };
 window._pcDoExpense = function (custId) {
@@ -421,10 +423,11 @@ window._pcDoExpense = function (custId) {
     category: document.getElementById('pcExCat').value,
     description: document.getElementById('pcExDesc').value.trim(),
     date: document.getElementById('pcExDate').value || new Date().toISOString().split('T')[0],
-    photo: _pcPendingPhoto || null,
+    photoPath: _pcPendingPhotoPath || null,   // Storage ref (bytes not in synced JSON)
+    photo: null,
     projectId: _pid(), createdAt: Date.now()
   });
-  _pcPendingPhoto = null;
+  _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   saveAllData(); _pcCloseModal();
   showToast(`Expense ${_fmt(amount)} logged`, 'success');
   renderPettyCash();
@@ -432,6 +435,8 @@ window._pcDoExpense = function (custId) {
 
 window._pcDeleteTxn = function (id) {
   if (!confirm('Delete this transaction?')) return;
+  const _t = (state.pettyCashTxns || []).find(x => x.id === id);
+  if (_t && _t.photoPath) removeExecMedia({ path: _t.photoPath });   // clean up the Storage file
   // Tombstone via recycle bin so a stale re-push can't resurrect it (ghost-deletion guard).
   if (window.recycleDelete) window.recycleDelete('pettyCashTxns', id, 'Petty Cash Txn');
   else { state.pettyCashTxns = state.pettyCashTxns.filter(t => t.id !== id); saveAllData(); }
@@ -439,9 +444,9 @@ window._pcDeleteTxn = function (id) {
 };
 
 // ── Cinematic receipt lightbox ──
-window._pcLightbox = function (txnId) {
+window._pcLightbox = async function (txnId) {
   const t = (state.pettyCashTxns || []).find(x => x.id === txnId);
-  if (!t || !t.photo) return;
+  if (!t || (!t.photo && !t.photoPath)) return;
   let lb = document.getElementById('pcLightbox');
   if (!lb) {
     lb = document.createElement('div');
@@ -450,7 +455,10 @@ window._pcLightbox = function (txnId) {
     lb.addEventListener('click', () => { lb.style.opacity = '0'; setTimeout(() => lb.remove(), 200); });
     document.body.appendChild(lb);
   }
-  lb.innerHTML = `<img src="${t.photo}" style="max-width:96%;max-height:92%;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.6);transform:scale(.96);transition:transform .25s;">
-    <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.85;">${_esc(t.category || 'Receipt')} · ${_fmt(t.amount)} · ${_esc(t.date || '')}</div>`;
+  const caption = `<div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.85;">${_esc(t.category || 'Receipt')} · ${_fmt(t.amount)} · ${_esc(t.date || '')}</div>`;
+  // Legacy base64 shows instantly; Storage-backed loads via a signed URL.
+  let src = t.photo || null;
+  if (!src && t.photoPath) { lb.innerHTML = `<div style="color:#fff;font-size:13px;opacity:.7;">Loading receipt…</div>`; lb.style.opacity = '1'; src = await signedExecUrl(t.photoPath); if (!document.getElementById('pcLightbox')) return; }
+  lb.innerHTML = (src ? `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.6);transform:scale(.96);transition:transform .25s;">` : `<div style="color:#fff;">Could not load receipt</div>`) + caption;
   requestAnimationFrame(() => { lb.style.opacity = '1'; const img = lb.querySelector('img'); if (img) img.style.transform = 'scale(1)'; });
 };
