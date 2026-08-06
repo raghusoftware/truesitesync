@@ -14,6 +14,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, mobileSavePDF } from './utils.js';
 import { getCurrentUser } from './rbac.js';
+import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
 
 // ── option lists ───────────────────────────────────────────
 const POUR_ELEMENTS = ['Footing', 'Column', 'Beam', 'Slab', 'Raft', 'Pile / Pile Cap', 'Retaining Wall', 'Plinth Beam', 'Staircase', 'Pedestal', 'Other'];
@@ -80,7 +81,8 @@ function _compressImage(file) {
 
 // ── view state ─────────────────────────────────────────────
 let _section = 'home';   // home | dashboard | dpr | pour | milestones | quality | safety
-let _pendingPhoto = null;
+let _pendingPhoto = null;         // legacy base64 (back-compat display)
+let _pendingPhotoPath = null;     // Storage path of a newly-captured photo
 
 export function renderExecution() {
   const root = document.getElementById('executionRoot');
@@ -170,7 +172,7 @@ function _modal(html, opts) {
     : `<div style="background:#fff;border-radius:18px;max-width:600px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">${html}</div>`;
   o.style.display = 'flex';
 }
-window._exCloseModal = function () { const o = document.getElementById('exModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; };
+window._exCloseModal = function () { const o = document.getElementById('exModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; _pendingPhotoPath = null; };
 const _inp = 'width:100%;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;';
 const _lbl = 'display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;';
 const _head = (t) => `<div style="padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:800;color:#0f172a;font-size:17px;">${t}</h3><button onclick="_exCloseModal()" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:16px;">×</button></div>`;
@@ -178,20 +180,30 @@ const _head = (t) => `<div style="padding:18px 20px;border-bottom:1px solid #f1f
 window._exCapturePhoto = async function (input, previewId) {
   const file = input.files && input.files[0]; const prev = document.getElementById(previewId);
   if (!file) return;
-  try { if (prev) prev.innerHTML = '<span style="font-size:12px;color:#94a3b8;">Compressing…</span>';
-    _pendingPhoto = await _compressImage(file);
-    if (prev) prev.innerHTML = _pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">` : '';
-  } catch { _pendingPhoto = null; }
+  let objUrl = ''; try { objUrl = URL.createObjectURL(file); } catch {}
+  if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;opacity:.6;"><div style="font-size:11px;color:#94a3b8;">Uploading…</div>`;
+  const ref = await uploadExecMedia(file, 'dpr', 'dpr');
+  if (ref) {
+    _pendingPhotoPath = ref.path; _pendingPhoto = null;
+    if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">`;
+  } else {
+    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#dc2626;">Upload failed — connect and retry</span>';
+    try { input.value = ''; } catch {}
+  }
 };
-window._exLightbox = function (key, id) {
-  const r = (state[key] || []).find(x => x.id === id); if (!r || !r.photo) return;
+window._exLightbox = async function (key, id) {
+  const r = (state[key] || []).find(x => x.id === id); if (!r || (!r.photo && !r.photoPath)) return;
   let lb = document.getElementById('exLightbox');
   if (!lb) { lb = document.createElement('div'); lb.id = 'exLightbox'; lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;'; lb.addEventListener('click', () => lb.remove()); document.body.appendChild(lb); }
-  lb.innerHTML = `<img src="${r.photo}" style="max-width:96%;max-height:92%;border-radius:12px;">`;
+  let src = r.photo || null;
+  if (!src && r.photoPath) { lb.innerHTML = '<div style="color:#fff;font-size:13px;opacity:.7;">Loading photo…</div>'; src = await signedExecUrl(r.photoPath); if (!document.getElementById('exLightbox')) return; }
+  lb.innerHTML = src ? `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;">` : '<div style="color:#fff;">Could not load photo</div>';
 };
 
 function _delRow(key, id, re) {
   if (!confirm('Delete this record?')) return;
+  const _r = (state[key] || []).find(x => x.id === id);
+  if (_r && _r.photoPath) removeExecMedia({ path: _r.photoPath });   // clean up the Storage file
   state[key] = (state[key] || []).filter(x => x.id !== id);
   saveAllData(); showToast('Deleted'); re();
 }
@@ -203,7 +215,7 @@ function _listShell(title, addLabel, addFn, rowsHtml, count) {
     <span style="margin-left:10px;font-size:12px;color:#94a3b8;">${count} record${count === 1 ? '' : 's'}</span></div>
     <div style="display:flex;flex-direction:column;gap:10px;">${rowsHtml || '<div style="text-align:center;padding:40px;color:#94a3b8;">No records yet.</div>'}</div>`;
 }
-function _photoBtn(key, r) { return r.photo ? `<button onclick="event.stopPropagation();_exLightbox('${key}','${r.id}')" title="Photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : ''; }
+function _photoBtn(key, r) { return (r.photo || r.photoPath) ? `<button onclick="event.stopPropagation();_exLightbox('${key}','${r.id}')" title="Photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : ''; }
 function _pdfBtn(key, r) { return key === 'dailyProgress' ? `<button onclick="event.stopPropagation();window._exDprPdf('${r.id}')" title="Download PDF" style="border:none;background:#eff6ff;color:#1d4ed8;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">PDF</button>` : ''; }
 function _rowActions(key, r) {
   return `<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">${_pdfBtn(key, r)}${_photoBtn(key, r)}<button onclick="event.stopPropagation();_exDel('${key}','${r.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button></div>`;
@@ -297,7 +309,7 @@ window._dprOhCalc = function (el) { const tr = el.closest('tr'); const qty = par
 
 window._exDprForm = function (id) {
   const d = id ? (state.dailyProgress || []).find(x => x.id === id) : null;
-  _pendingPhoto = d?.photo || null;
+  _pendingPhoto = d?.photo || null; _pendingPhotoPath = d?.photoPath || null;
 
   // ── Real-time link to Micro-Planning: seed measurement rows from planned tasks ──
   const _tasks = (typeof window.mpActivePlannedTasks === 'function') ? window.mpActivePlannedTasks() : [];
@@ -331,7 +343,7 @@ window._exDprForm = function (id) {
       <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('dpTask', d?.taskId)}</div>
       <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('dpBoq', d?.boqRef)}</div>
     </div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
 
     ${_locDatalist}
     <!-- ── MEASUREMENT — work done today (BOQ × Nos×L×B×H → bill) ── -->
@@ -392,7 +404,7 @@ window._exDprSave = function (id) {
     overheads.push({ activity: activity || type, category: type, type, resourceId: resSel?.value || '', resource: resName, qty, rate, uom: (resSel?.selectedOptions?.[0]?.dataset.unit) || '', note, cost: Math.round(qty * rate * 100) / 100 });
   });
 
-  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, measurements, overheads };
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.dailyProgress.push({ id: dprId, projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
@@ -415,7 +427,7 @@ window._exDprSave = function (id) {
     }
   }
 
-  _pendingPhoto = null; saveAllData(); _exCloseModal();
+  _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal();
   showToast(syncedLines ? `DPR saved — ${syncedLines} measurement/overhead line(s) synced to billing & cost` : 'DPR saved', 'success');
   renderExecution();
 };
@@ -440,7 +452,7 @@ function _renderPours(root) {
 }
 window._exPourForm = function (id) {
   const p = id ? (state.concretePours || []).find(x => x.id === id) : null;
-  _pendingPhoto = p?.photo || null;
+  _pendingPhoto = p?.photo || null; _pendingPhotoPath = p?.photoPath || null;
   const ck = p?.checklist || {};
   const nextNo = 'CPC-' + String((_arr('concretePours').length) + 1).padStart(3, '0');
   const sel = (opts, cur) => opts.map(o => `<option ${cur === o ? 'selected' : ''}>${o}</option>`).join('');
@@ -480,16 +492,31 @@ window._exPourForm = function (id) {
       <div><label style="${_lbl}">Status</label><select id="cpStatus" style="${_inp}">${sel(['Planned', 'In Progress', 'Completed'], p?.status || 'Completed')}</select></div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Remarks</label><input id="cpRemarks" value="${p ? _esc(p.remarks) : ''}" style="${_inp}"></div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'cpPrev')" style="font-size:12px;"><div id="cpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'cpPrev')" style="font-size:12px;"><div id="cpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
     <button onclick="_exPourSave('${id || ''}')" style="width:100%;padding:11px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${p ? 'Save Pour Card' : 'Create Pour Card'}</button>
   </div>`);
 };
+/** Fetch a Storage image as a base64 data URL so jsPDF can embed it. */
+async function _fetchImageDataUrl(path) {
+  try {
+    const url = await signedExecUrl(path);
+    if (!url) return null;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(blob); });
+  } catch { return null; }
+}
+
 // ── Daily Progress Report PDF ──
-window._exDprPdf = function (id) {
+window._exDprPdf = async function (id) {
   try {
     const d = (state.dailyProgress || []).find(x => x.id === id);
     if (!d) return showToast('DPR not found', 'error');
     if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    // Resolve the site photo up front: legacy base64 as-is, or fetch the Storage file.
+    const _photoData = (d.photo && typeof d.photo === 'string' && d.photo.startsWith('data:image'))
+      ? d.photo : (d.photoPath ? await _fetchImageDataUrl(d.photoPath) : null);
     const proj = (state.projects || []).find(x => x.id === d.projectId) || {};
     const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
@@ -534,13 +561,15 @@ window._exDprPdf = function (id) {
     workLines.forEach((ln, i) => doc.text(ln, ml, y + i * 4.5));
     y += workLines.length * 4.5 + 4;
 
-    // Embed the site photo if present (DPR stores it as a base64 data URL).
-    if (d.photo && typeof d.photo === 'string' && d.photo.startsWith('data:image')) {
+    // Embed the site photo if present (legacy base64, or fetched from Storage above).
+    if (_photoData && typeof _photoData === 'string' && _photoData.startsWith('data:image')) {
       try {
         const imgW = 80, imgH = 60;
         if (y + imgH > ph - 30) { doc.addPage(); y = 16; }
         doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Site Photo:', ml, y); y += 3;
-        doc.addImage(d.photo, 'JPEG', ml, y, imgW, imgH);
+        const _fmtM = /^data:image\/(png|jpe?g)/i.exec(_photoData);
+        const _fmt = _fmtM ? _fmtM[1].toUpperCase().replace('JPG', 'JPEG') : 'JPEG';
+        doc.addImage(_photoData, _fmt, ml, y, imgW, imgH);
         y += imgH + 6;
       } catch (e) { console.warn('DPR PDF photo embed failed:', e); }
     }
@@ -645,12 +674,12 @@ window._exPourSave = function (id) {
     volume: _num(v('cpVolume')), location: v('cpLocation'), startTime: v('cpStart'), endTime: v('cpEnd'),
     slump: v('cpSlump'), cubes: _num(v('cpCubes')), vendorId: v('cpVendor'), supplier: _vendorName(v('cpVendor')), batchNo: v('cpBatch'),
     taskId: v('cpTask'), boqRef: v('cpBoq'),
-    checklist, approvedBy: v('cpApproved'), status: v('cpStatus') || 'Completed', remarks: v('cpRemarks'), photo: _pendingPhoto || null,
+    checklist, approvedBy: v('cpApproved'), status: v('cpStatus') || 'Completed', remarks: v('cpRemarks'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null,
   };
   if (!state.concretePours) state.concretePours = [];
   if (id) { const r = state.concretePours.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.concretePours.push({ id: 'cpc_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
-  _pendingPhoto = null; saveAllData(); _exCloseModal(); showToast('Pour card saved', 'success'); renderExecution();
+  _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Pour card saved', 'success'); renderExecution();
 };
 
 // ══════════════════════════════════════════════════════════
@@ -667,7 +696,7 @@ function _renderQuality(root) {
 }
 window._exQForm = function (id) {
   const q = id ? (state.qualityChecks || []).find(x => x.id === id) : null;
-  _pendingPhoto = q?.photo || null;
+  _pendingPhoto = q?.photo || null; _pendingPhotoPath = q?.photoPath || null;
   const sel = (opts, cur) => opts.map(o => `<option ${cur === o ? 'selected' : ''}>${o}</option>`).join('');
   _modal(`${_head(q ? 'Edit Quality Record' : 'Quality Record')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -687,17 +716,17 @@ window._exQForm = function (id) {
       <div><label style="${_lbl}">Related Task</label>${_taskSelect('qTask', q?.taskId)}</div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Remarks</label><input id="qRemarks" value="${q ? _esc(q.remarks) : ''}" style="${_inp}"></div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'qPrev')" style="font-size:12px;"><div id="qPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'qPrev')" style="font-size:12px;"><div id="qPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
     <button onclick="_exQSave('${id || ''}')" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${q ? 'Save' : 'Add Record'}</button>
   </div>`);
 };
 window._exQSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { type: v('qType') || 'Inspection', date: v('qDate') || _today(), element: v('qElement'), grade: v('qGrade'), result: v('qResult'), status: v('qStatus') || 'Open', pourId: v('qPour'), taskId: v('qTask'), remarks: v('qRemarks'), photo: _pendingPhoto || null };
+  const data = { type: v('qType') || 'Inspection', date: v('qDate') || _today(), element: v('qElement'), grade: v('qGrade'), result: v('qResult'), status: v('qStatus') || 'Open', pourId: v('qPour'), taskId: v('qTask'), remarks: v('qRemarks'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null };
   if (!state.qualityChecks) state.qualityChecks = [];
   if (id) { const r = state.qualityChecks.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.qualityChecks.push({ id: 'qc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
-  _pendingPhoto = null; saveAllData(); _exCloseModal(); showToast('Quality record saved', 'success'); renderExecution();
+  _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Quality record saved', 'success'); renderExecution();
 };
 
 // ══════════════════════════════════════════════════════════
@@ -715,7 +744,7 @@ function _renderSafety(root) {
 }
 window._exSForm = function (id) {
   const s = id ? (state.incidents || []).find(x => x.id === id) : null;
-  _pendingPhoto = s?.photo || null;
+  _pendingPhoto = s?.photo || null; _pendingPhotoPath = s?.photoPath || null;
   const sel = (opts, cur) => opts.map(o => `<option ${cur === o ? 'selected' : ''}>${o}</option>`).join('');
   _modal(`${_head(s ? 'Edit Safety Record' : 'Safety Record')}<div style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -730,15 +759,15 @@ window._exSForm = function (id) {
       <div><label style="${_lbl}">Reported By</label><input id="sReporter" value="${s ? _esc(s.reportedBy) : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">Related Task</label>${_taskSelect('sTask', s?.taskId)}</div>
     </div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'sPrev')" style="font-size:12px;"><div id="sPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : ''}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'sPrev')" style="font-size:12px;"><div id="sPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
     <button onclick="_exSSave('${id || ''}')" style="width:100%;padding:11px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Record'}</button>
   </div>`);
 };
 window._exSSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
-  const data = { type: v('sType') || 'Incident', severity: v('sSev') || 'Low', date: v('sDate') || _today(), location: v('sLocation'), description: v('sDesc'), actionTaken: v('sAction'), reportedBy: v('sReporter'), taskId: v('sTask'), photo: _pendingPhoto || null };
+  const data = { type: v('sType') || 'Incident', severity: v('sSev') || 'Low', date: v('sDate') || _today(), location: v('sLocation'), description: v('sDesc'), actionTaken: v('sAction'), reportedBy: v('sReporter'), taskId: v('sTask'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null };
   if (!state.incidents) state.incidents = [];
   if (id) { const r = state.incidents.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.incidents.push({ id: 'inc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
-  _pendingPhoto = null; saveAllData(); _exCloseModal(); showToast('Safety record saved', 'success'); renderExecution();
+  _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Safety record saved', 'success'); renderExecution();
 };
