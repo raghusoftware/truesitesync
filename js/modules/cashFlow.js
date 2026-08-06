@@ -18,12 +18,17 @@ const fmt1 = (v) => Math.round(N(v) * 10) / 10;
 let _cfTab = 'cashflow';
 
 // ── AGGREGATIONS ────────────────────────────────────────────────────────────
+// An abstract counts as "billed but not yet invoiced" only while it has NOT been
+// invoiced. Invoicing sets abstract.isInvoiced=true (ui.js); once invoiced, the value
+// is counted via the invoice instead — otherwise it double-counts, and deleting the
+// invoice would leave the abstract's amount stuck in the totals.
+function _absOpen(a) { return !a.isInvoiced && a.status !== 'invoiced'; }
 function _billed(period) {
   const inP = (d) => period == null ? true : _inLast(d, period);
   let v = 0;
   (state.saleInvoices || []).filter(i => i.status !== 'Cancelled' && inP(i.date)).forEach(i => v += N(i.total));
   (state.invoices || []).filter(i => i.status !== 'Cancelled' && inP(i.date)).forEach(i => v += N(i.taxAmount));
-  (state.abstracts || []).filter(a => a.status !== 'invoiced' && inP(a.date)).forEach(a => v += N(a.totalAmount));
+  (state.abstracts || []).filter(a => _absOpen(a) && inP(a.date)).forEach(a => v += N(a.totalAmount));
   return v;
 }
 function _received(period) {
@@ -78,7 +83,7 @@ function clientScores() {
     const rows = [];
     (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => rows.push({ date: i.date, amount: N(i.total) }));
     (state.invoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => rows.push({ date: i.date, amount: N(i.taxAmount) }));
-    (state.abstracts || []).filter(a => a.clientId === id && a.status !== 'invoiced').forEach(a => rows.push({ date: a.date, amount: N(a.totalAmount) }));
+    (state.abstracts || []).filter(a => a.clientId === id && _absOpen(a)).forEach(a => rows.push({ date: a.date, amount: N(a.totalAmount) }));
     return rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   };
   const out = (state.clients || []).map(c => {
