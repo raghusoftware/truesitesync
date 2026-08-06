@@ -81,6 +81,19 @@ export async function openExecMedia(ref) {
   } catch (e) { showToast('Open failed: ' + (e.message || e), 'error'); }
 }
 
+/** Return a short-lived signed URL string for inline display (<img src>), or null. */
+export async function signedExecUrl(ref, expires = 600) {
+  const path = typeof ref === 'string' ? ref : ref?.path;
+  if (!path) return null;
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, expires);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch { return null; }
+}
+
 /** Remove bytes for a stored ref (best-effort). */
 export async function removeExecMedia(ref) {
   const path = typeof ref === 'string' ? ref : ref?.path;

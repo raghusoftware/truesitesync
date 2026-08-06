@@ -13,6 +13,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast } from './utils.js';
 import { getCurrentUser } from './rbac.js';
+import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
 
 export const ISSUE_CATEGORIES = ['Client', 'Communication', 'Compliance', 'Design', 'Environmental', 'Financial', 'Management', 'Operational', 'Quality', 'Request for Information', 'Safety', 'Supply', 'Technical', 'Other'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -86,7 +87,9 @@ function _compressImage(file) {
 
 // ── view state ─────────────────────────────────────────────
 let _section = 'dashboard';   // dashboard | pending | delayed | solved
-let _pendingPhoto = null;
+let _pendingPhoto = null;         // legacy base64 (kept for back-compat display)
+let _pendingPhotoPath = null;     // Storage path of a newly-picked photo this session
+let _photoTouched = false;        // user picked a new photo in this edit session
 
 // ══════════════════════════════════════════════════════════
 //  ENTRY + ROUTER
@@ -195,7 +198,7 @@ function _issueCard(i) {
   const st = _status(i);
   const stColor = st === 'Solved' ? '#10b981' : st === 'Delayed' ? '#ef4444' : '#f59e0b';
   const pr = i.priority || 'Medium';
-  const photo = i.photo ? `<button onclick="event.stopPropagation();_isLightbox('${i.id}')" title="View photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : '';
+  const photo = (i.photo || i.photoPath) ? `<button onclick="event.stopPropagation();_isLightbox('${i.id}')" title="View photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : '';
   const links = [];
   if (i.boqRef) links.push('&#128209; ' + _esc(_boqLabel(i.boqRef).slice(0, 28)));
   if (i.taskId) links.push('&#128197; ' + _esc(_taskName(i.taskId)));
@@ -239,7 +242,7 @@ function _modal(html) {
   o.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">${html}</div>`;
   o.style.display = 'flex';
 }
-window._isCloseModal = function () { const o = document.getElementById('issueModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; };
+window._isCloseModal = function () { const o = document.getElementById('issueModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; _pendingPhotoPath = null; _photoTouched = false; };
 
 const _inp = 'width:100%;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;';
 const _lbl = 'display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;';
@@ -247,13 +250,16 @@ const _lbl = 'display:block;font-size:11px;font-weight:700;color:#64748b;margin-
 window._isOpenForm = function (editId) {
   const iss = editId ? (state.issues || []).find(x => x.id === editId) : null;
   _pendingPhoto = iss?.photo || null;
+  _pendingPhotoPath = iss?.photoPath || null;
+  _photoTouched = false;
   const users = _users();
   const userOpts = ['<option value="">— Unassigned —</option>', ...users.map(u => `<option value="${u.id}" ${iss && iss.assignedTo === u.id ? 'selected' : ''}>${_esc(u.name || u.username || u.email)}</option>`)].join('');
   const prOpts = PRIORITIES.map(p => `<option ${iss && iss.priority === p ? 'selected' : (!iss && p === 'Medium' ? 'selected' : '')}>${p}</option>`).join('');
   const catOpts = ISSUE_CATEGORIES.map(c => `<option ${iss && iss.category === c ? 'selected' : ''}>${c}</option>`).join('');
   const boqOpts = ['<option value="">— None —</option>', ..._projBoqItems().map(b => `<option value="${b.ref}" ${iss && iss.boqRef === b.ref ? 'selected' : ''}>${_esc(b.label)}</option>`)].join('');
   const taskOpts = ['<option value="">— None —</option>', ..._projTasks().map(t => `<option value="${t.id}" ${iss && iss.taskId === t.id ? 'selected' : ''}>${_esc(t.name || t.title || 'Task')}</option>`)].join('');
-  const photoPrev = _pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">` : '';
+  // Legacy base64 shows immediately; a Storage-backed photo loads via signed URL after render.
+  const photoPrev = _pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">` : (_pendingPhotoPath ? '<span style="font-size:12px;color:#94a3b8;">Loading photo…</span>' : '');
 
   _modal(`
     <div style="padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
@@ -291,17 +297,32 @@ window._isOpenForm = function (editId) {
         ${iss && iss.status !== 'Solved' ? `<button onclick="_isSolve('${iss.id}')" style="padding:11px 16px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:10px;font-weight:700;cursor:pointer;">&#10003; Solve</button>` : ''}
       </div>
     </div>`);
+  // Load an existing Storage-backed photo into the preview via a signed URL.
+  if (_pendingPhotoPath && !_pendingPhoto) {
+    signedExecUrl(_pendingPhotoPath).then(url => {
+      const prev = document.getElementById('isPhotoPreview');
+      if (prev && url) prev.innerHTML = `<img src="${url}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">`;
+      else if (prev) prev.innerHTML = '<span style="font-size:12px;color:#94a3b8;">Photo attached (open to view)</span>';
+    });
+  }
 };
 
 window._isCapturePhoto = async function (input) {
   const file = input.files && input.files[0];
   const prev = document.getElementById('isPhotoPreview');
   if (!file) return;
-  try {
-    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#94a3b8;">Compressing…</span>';
-    _pendingPhoto = await _compressImage(file);
-    if (prev) prev.innerHTML = _pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">` : '<span style="font-size:12px;color:#dc2626;">Unsupported file</span>';
-  } catch { _pendingPhoto = null; if (prev) prev.innerHTML = '<span style="font-size:12px;color:#dc2626;">Could not read image</span>'; }
+  // Immediate local preview, then upload the bytes to Storage (not base64 in state).
+  let objUrl = ''; try { objUrl = URL.createObjectURL(file); } catch {}
+  if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;opacity:.6;"><div style="font-size:11px;color:#94a3b8;">Uploading…</div>`;
+  const ref = await uploadExecMedia(file, 'issue', 'issues');
+  if (ref) {
+    _pendingPhotoPath = ref.path; _pendingPhoto = null; _photoTouched = true;
+    if (prev) prev.innerHTML = `<img src="${objUrl}" style="max-height:120px;border-radius:10px;border:1px solid #e2e8f0;margin-top:6px;">`;
+  } else {
+    _photoTouched = false;
+    if (prev) prev.innerHTML = '<span style="font-size:12px;color:#dc2626;">Upload failed — connect and retry</span>';
+    try { input.value = ''; } catch {}
+  }
 };
 
 window._isSave = function (editId) {
@@ -312,7 +333,11 @@ window._isSave = function (editId) {
     title, date: v('isDate') || _today(), dueDate: v('isDue'),
     details: v('isDetails'), assignedTo: v('isAssign'), priority: v('isPriority') || 'Medium',
     category: v('isCategory') || 'Other', location: v('isLocation'),
-    boqRef: v('isBoq'), taskId: v('isTask'), photo: _pendingPhoto || null,
+    boqRef: v('isBoq'), taskId: v('isTask'),
+    // On capture we set path + clear base64; on open we load both from the record —
+    // so these already hold the right values whether the photo changed or not.
+    photoPath: _pendingPhotoPath || null,
+    photo: _pendingPhoto || null,
   };
   if (!state.issues) state.issues = [];
   if (editId) {
@@ -325,7 +350,7 @@ window._isSave = function (editId) {
       raisedBy: u?.id || '', createdAt: Date.now(), ...data,
     });
   }
-  _pendingPhoto = null;
+  _pendingPhoto = null; _pendingPhotoPath = null; _photoTouched = false;
   saveAllData(); _isCloseModal();
   showToast(editId ? 'Issue updated' : 'Issue created', 'success');
   renderIssues();
@@ -349,15 +374,17 @@ window._isReopen = function (id) {
 };
 window._isDelete = function (id) {
   if (!confirm('Delete this issue?')) return;
+  const it = (state.issues || []).find(x => x.id === id);
+  if (it && it.photoPath) removeExecMedia({ path: it.photoPath });   // clean up the Storage file
   window.recycleDelete && window.recycleDelete('issues', id, 'Issue');
   saveAllData();
   showToast('Issue deleted');
   renderIssues();
 };
 
-window._isLightbox = function (id) {
+window._isLightbox = async function (id) {
   const it = (state.issues || []).find(x => x.id === id);
-  if (!it || !it.photo) return;
+  if (!it || (!it.photo && !it.photoPath)) return;
   let lb = document.getElementById('issueLightbox');
   if (!lb) {
     lb = document.createElement('div');
@@ -366,6 +393,13 @@ window._isLightbox = function (id) {
     lb.addEventListener('click', () => lb.remove());
     document.body.appendChild(lb);
   }
-  lb.innerHTML = `<img src="${it.photo}" style="max-width:96%;max-height:92%;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.6);">
-    <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.85;">${_esc(it.title || 'Issue')}${it.location ? ' · ' + _esc(it.location) : ''}</div>`;
+  const caption = `<div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.85;">${_esc(it.title || 'Issue')}${it.location ? ' · ' + _esc(it.location) : ''}</div>`;
+  // Legacy base64 shows instantly; Storage-backed loads via a signed URL.
+  let src = it.photo || null;
+  if (!src && it.photoPath) {
+    lb.innerHTML = `<div style="color:#fff;font-size:13px;opacity:.7;">Loading photo…</div>`;
+    src = await signedExecUrl(it.photoPath);
+    if (!document.getElementById('issueLightbox')) return;   // closed while loading
+  }
+  lb.innerHTML = (src ? `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.6);">` : `<div style="color:#fff;">Could not load photo</div>`) + caption;
 };
