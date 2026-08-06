@@ -42,6 +42,8 @@ export function isStockCategory(cat) { return Object.prototype.hasOwnProperty.ca
 /** The category master. Standard categories are always present (self-healing). */
 export function getItemCategories() {
   if (!Array.isArray(state.itemCategories)) state.itemCategories = [];
+  // Defensive: collapse duplicates first (a past sync bug ballooned this list).
+  if (state.itemCategories.length > new Set(state.itemCategories).size) state.itemCategories = [...new Set(state.itemCategories)];
   // Existing workspaces were seeded before Raw Material/Miscellaneous existed.
   DEFAULT_ITEM_CATEGORIES.forEach(c => { if (!state.itemCategories.includes(c)) state.itemCategories.push(c); });
   // Keep the standard categories in their canonical order, customs after.

@@ -1,4 +1,4 @@
-import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud, hydrateLocalCache } from './modules/state.js';
+import { state, saveAllData, saveLabourData, saveEquipmentData, seedDemoData, migrateToProjects, loadFromCloud, pushAllToCloud, hydrateLocalCache, dedupNameLists } from './modules/state.js';
 import { getSupabase } from './database/supabase.js';
 import { installErrorMonitor } from './database/errorMonitor.js';
 import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
@@ -84,8 +84,8 @@ import './modules/scheduleBuilder.js?v=1.0.3';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.3.26';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
-import './modules/units.js?v=1.2.0';
-import './modules/itemsMaster.js?v=1.1.0';
+import './modules/units.js?v=1.2.1';
+import './modules/itemsMaster.js?v=1.1.1';
 import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js';
@@ -398,6 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
         // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
         try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
+        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
@@ -421,6 +422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
         try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[boot] cloud load failed:', e); }
+        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
         _bootApp();
         if (window._hideSplash) window._hideSplash();
         return;
@@ -744,7 +746,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.5';
+const APP_VERSION = '1.6.6';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

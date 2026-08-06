@@ -20,6 +20,9 @@ export const DEFAULT_UNITS = ['Nos', 'Kg', 'Tonne', 'Bag', 'Ltr', 'M3', 'M2', 'R
 /** The company unit list (seed defaults if empty). */
 export function getUnits() {
   if (!Array.isArray(state.units) || !state.units.length) state.units = [...DEFAULT_UNITS];
+  // Defensive: collapse any accidental duplicates (guards against a past sync bug that
+  // ballooned this list). Cheap once clean; only reassigns if it actually shrank.
+  else if (state.units.length > new Set(state.units).size) state.units = [...new Set(state.units)];
   return state.units;
 }
 

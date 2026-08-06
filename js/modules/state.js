@@ -281,6 +281,31 @@ export function saveAllData() {
 }
 
 /**
+ * `units` and `itemCategories` are plain string lists. A server merge bug used to
+ * concatenate them on every push, exploding them to hundreds of thousands of dupes
+ * (freezing the app + breaking sync). This collapses them back to unique values and
+ * persists the small version so the bloat never re-pushes. Safe/idempotent — no-ops
+ * once the lists are clean. Returns true if anything shrank.
+ */
+export function dedupNameLists() {
+  let changed = false;
+  ['units', 'itemCategories'].forEach(k => {
+    const arr = state[k];
+    if (!Array.isArray(arr) || arr.length < 2) return;
+    const seen = new Set(); const out = [];
+    for (const v of arr) { const key = typeof v === 'string' ? v : JSON.stringify(v); if (!seen.has(key)) { seen.add(key); out.push(v); } }
+    if (out.length !== arr.length) {
+      state[k] = out; changed = true;
+      try { localStorage.setItem(STORAGE_KEYS[k], JSON.stringify(out)); } catch {}
+      setLocalKeyTs(k, Date.now());
+      try { syncPush(k, out); } catch {}   // push the small list so the cloud heals
+    }
+  });
+  return changed;
+}
+if (typeof window !== 'undefined') window.dedupNameLists = dedupNameLists;
+
+/**
  * Overlay any keys that live in IndexedDB (because they overflowed localStorage)
  * onto state. Called once at boot, before the cloud pull, so big locally-cached
  * datasets are restored even though localStorage couldn't hold them. Best-effort.
@@ -295,6 +320,7 @@ export async function hydrateLocalCache() {
       if (val !== undefined) { state[key] = val; }
     } catch (e) { /* ignore a single bad key */ }
   }
+  dedupNameLists();   // collapse any bloated units/itemCategories restored from IndexedDB
 }
 
 /**
@@ -483,6 +509,7 @@ export function applyRemoteChange(key, data) {
   state[key] = data;
   try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
   reconcileRecycleBin();  // a remote push may have re-added a binned item — strip it again
+  if (key === 'units' || key === 'itemCategories') dedupNameLists();
   _rtChangedKeys.add(key);
   // Debounce a single UI refresh after a burst of remote changes. Kept short so
   // realtime changes appear near-instantly (only long enough to coalesce a burst
@@ -592,6 +619,7 @@ export async function pullRemoteUpdates() {
     }
     if (applied && typeof window !== 'undefined') {
       reconcileRecycleBin();     // re-strip binned items a stale device may have re-pushed
+      dedupNameLists();          // collapse any bloated units/itemCategories pulled from cloud
       if (typeof window.refreshCurrentView === 'function') window.refreshCurrentView();
       // Silent: data refreshes in place; no popup for routine background pulls.
     }
