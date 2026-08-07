@@ -34,8 +34,12 @@ export const STOCK_CATEGORY_TYPE = {
 const TYPE_TO_CATEGORY = Object.fromEntries(Object.entries(STOCK_CATEGORY_TYPE).map(([c, t]) => [t, c]));
 
 export const DEFAULT_ITEM_CATEGORIES = [
-  'Raw Material', 'Purchase Materials', 'Sales Items', 'Tools & Equipment', 'Services', 'Miscellaneous',
+  'Raw Material', 'Purchase Materials', 'Sales Items', 'Production Items', 'Tools & Equipment', 'Services', 'Miscellaneous',
 ];
+/** A manufactured/assembled sale product (e.g. an electrical panel) with a Bill of
+ *  Materials — selling it consumes its component raw materials from inventory. */
+export const PRODUCTION_CATEGORY = 'Production Items';
+export function isProductionCategory(cat) { return cat === PRODUCTION_CATEGORY; }
 
 export function isStockCategory(cat) { return Object.prototype.hasOwnProperty.call(STOCK_CATEGORY_TYPE, cat); }
 
@@ -101,6 +105,7 @@ function fromMasterItem(i) {
     category: i.category || '',
     hsn: i.hsn || '', rate: parseFloat(i.defaultRate) || 0,
     status: i.status || 'Active', usageCount: i.usageCount || 0,
+    bom: Array.isArray(i.bom) ? i.bom : [],
   };
 }
 
@@ -245,10 +250,28 @@ export function renderItemsMasterTable() {
 
 /** Show/hide the Min-Stock field — only stock categories use it. */
 export function onItemCategoryChange() {
-  const stock = isStockCategory(document.getElementById('imCategory').value);
+  const cat = document.getElementById('imCategory').value;
+  const stock = isStockCategory(cat);
   document.getElementById('imMinStockWrap').style.display = stock ? '' : 'none';
   document.getElementById('imStockHint').style.display = stock ? '' : 'none';
+  const bomWrap = document.getElementById('imBomWrap');
+  if (bomWrap) bomWrap.style.display = isProductionCategory(cat) ? '' : 'none';
 }
+
+/** One BOM component row: raw-material dropdown + qty-per-unit + remove. */
+function _bomRowHtml(rawMatId, qty) {
+  const opts = (state.rawMaterials || []).map(rm => `<option value="${rm.id}" ${rawMatId === rm.id ? 'selected' : ''}>${_esc(rm.name)}${rm.unit ? ' (' + _esc(rm.unit) + ')' : ''}</option>`).join('');
+  return `<div class="im-bom-row flex items-center gap-2 mb-1.5">
+    <select class="im-bom-mat flex-1 p-2 border rounded text-xs">${opts || '<option value="">— add stock items first —</option>'}</select>
+    <input type="number" step="any" min="0" class="im-bom-qty w-20 p-2 border rounded text-xs text-center font-bold text-violet-700" value="${qty != null ? qty : ''}" placeholder="Qty">
+    <button type="button" onclick="this.closest('.im-bom-row').remove()" class="text-red-400 hover:text-red-600 font-bold text-sm px-1">✕</button>
+  </div>`;
+}
+window._imAddBomRow = function (rawMatId, qty) {
+  const box = document.getElementById('imBomRows'); if (!box) return;
+  box.insertAdjacentHTML('beforeend', _bomRowHtml(rawMatId, qty));
+  const empty = document.getElementById('imBomEmpty'); if (empty) empty.style.display = 'none';
+};
 
 export function openItemMasterModal(id) {
   const found = id ? findRecord(id) : null;
@@ -273,6 +296,14 @@ export function openItemMasterModal(id) {
 
   document.getElementById('imAltUnitRows').innerHTML = '';
   (it ? it.altUnits : []).forEach(a => addAltUnitRowTo('imAltUnitRows', 'imUnit', a.unit, a.factor));
+  // Bill of Materials rows (production items)
+  const bomBox = document.getElementById('imBomRows');
+  if (bomBox) {
+    bomBox.innerHTML = '';
+    const bom = (it && Array.isArray(it.bom)) ? it.bom : [];
+    bom.forEach(c => window._imAddBomRow(c.rawMatId, c.qty));
+    const empty = document.getElementById('imBomEmpty'); if (empty) empty.style.display = bom.length ? 'none' : '';
+  }
   onItemCategoryChange();
 }
 
@@ -321,8 +352,15 @@ export function saveItemMasterItem() {
     Object.assign(rec, common, { type: STOCK_CATEGORY_TYPE[category], rate, minStock });
     if (!sameStore) state.rawMaterials.push(rec);
   } else {
+    // Production items carry a Bill of Materials (component raw materials per unit).
+    const bom = isProductionCategory(category)
+      ? Array.from(document.querySelectorAll('#imBomRows .im-bom-row')).map(r => ({
+          rawMatId: r.querySelector('.im-bom-mat')?.value || '',
+          qty: parseFloat(r.querySelector('.im-bom-qty')?.value) || 0,
+        })).filter(c => c.rawMatId && c.qty > 0)
+      : [];
     const rec = sameStore ? found.rec : { id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), usageCount: 0, createdAt: new Date().toISOString() };
-    Object.assign(rec, common, { category, defaultRate: rate });
+    Object.assign(rec, common, { category, defaultRate: rate, bom });
     if (!sameStore) state.itemsMaster.push(rec);
   }
 

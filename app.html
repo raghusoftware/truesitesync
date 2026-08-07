@@ -20,7 +20,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
-    <script type="module" src="js/app.js?v=1.6.7"></script>
+    <script type="module" src="js/app.js?v=1.6.8"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2082,6 +2082,16 @@
                 </div>
                 <p class="text-[11px] text-slate-400 mb-2">e.g. base <b>Kg</b>, alt <b>Tonne</b> where 1 Tonne = 1000 Kg.</p>
                 <div id="imAltUnitRows"></div>
+            </div>
+            <!-- Bill of Materials: only for "Production Items" (a manufactured/assembled product) -->
+            <div id="imBomWrap" class="mb-3 p-3 rounded border" style="display:none;background:#f5f3ff;border-color:#ddd6fe;">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold uppercase" style="color:#6d28d9;">🧩 Bill of Materials — raw materials per 1 unit</label>
+                    <button type="button" onclick="window._imAddBomRow()" class="text-xs font-bold text-violet-700 hover:text-violet-900">+ Add component</button>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-2">Components consumed to build one unit. Selling this item auto-deducts them from Inventory.</p>
+                <div id="imBomRows"></div>
+                <p id="imBomEmpty" class="text-[11px] text-slate-400">No components yet — add the raw materials this product is made of.</p>
             </div>
             <div class="flex gap-3 mb-4">
                 <div class="w-1/4">

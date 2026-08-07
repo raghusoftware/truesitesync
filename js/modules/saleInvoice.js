@@ -134,7 +134,8 @@ function _buildItemIndex(clientId) {
     const key = m.name.toLowerCase().trim();
     if (seen.has(key)) return;
     seen.add(key);
-    idx.push({ name: m.name, hsn: m.hsn || '', unit: m.unit || 'Nos', rate: m.defaultRate || 0, source: 'master', usageCount: m.usageCount || 0, group: 'used' });
+    const isProd = m.category === 'Production Items' && Array.isArray(m.bom) && m.bom.length > 0;
+    idx.push({ name: m.name, hsn: m.hsn || '', unit: m.unit || 'Nos', rate: m.defaultRate || 0, source: 'master', usageCount: m.usageCount || 0, group: 'used', itemId: m.id, isProduction: isProd });
   });
   // 3. Client-specific items
   const clientItems = state.items?.[clientId] || {};
@@ -188,7 +189,8 @@ function _showItemDropdown(inputEl) {
     html += `<div class="si-ac-group"><div class="si-ac-group-label">Previously Used</div>`;
     used.slice(0, 10).forEach((item, i) => {
       const meta = item.usageCount ? `Used ${item.usageCount}x` : 'Client item';
-      html += `<div class="si-ac-option" data-type="used" data-idx="${i}"><div><span class="ac-name">${_hl(item.name, q)}</span><div class="ac-meta">${meta} &middot; ${getCurrencySymbol()}${parseFloat(item.rate).toLocaleString('en-IN')} / ${item.unit}</div></div><span class="ac-badge used">SAVED</span></div>`;
+      const badge = item.isProduction ? '<span class="ac-badge" style="background:#ede9fe;color:#6d28d9;">🧩 PANEL</span>' : '<span class="ac-badge used">SAVED</span>';
+      html += `<div class="si-ac-option" data-type="used" data-idx="${i}"><div><span class="ac-name">${_hl(item.name, q)}</span><div class="ac-meta">${item.isProduction ? 'Auto-deducts materials · ' : ''}${meta} &middot; ${getCurrencySymbol()}${parseFloat(item.rate).toLocaleString('en-IN')} / ${item.unit}</div></div>${badge}</div>`;
     });
     html += '</div>';
   }
@@ -232,6 +234,9 @@ function _fillSIRowFromItem(row, item) {
   }
   // Store abstract ref
   if (item.abstractId) row.dataset.abstractId = item.abstractId;
+  // Production item → remember its id so saving the invoice deducts its BOM from stock.
+  if (item.isProduction && item.itemId) row.dataset.bomItemId = item.itemId;
+  else delete row.dataset.bomItemId;
   calcSIFormTotal();
 }
 
@@ -613,7 +618,7 @@ export function saveSaleInvoiceForm() {
     const lineDisc = lineGross * discPct / 100;
     const taxable = lineGross - lineDisc;
     const lineTax = (taxType !== 'NONE' && taxPct > 0) ? taxable * taxPct / 100 : 0;
-    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax });
+    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax, bomItemId: r.dataset.bomItemId || undefined });
     grossTotal += lineGross; totalDiscount += lineDisc; totalLineTax += lineTax;
     if (r.dataset.abstractId) linkedAbstracts.add(r.dataset.abstractId);
   });
@@ -670,6 +675,34 @@ export function saveSaleInvoiceForm() {
     if (idx >= 0) state.saleInvoices[idx] = rec;
   } else {
     state.saleInvoices.push(rec);
+  }
+  // ── Auto-deduct Bill-of-Materials from inventory for production items ──
+  // A production item (e.g. an electrical panel) consumes its component raw materials
+  // when sold. On edit we first reverse this invoice's previous consumption, then
+  // recompute from the current lines. Cancelled invoices consume nothing.
+  if (!state.inventoryTx) state.inventoryTx = [];
+  state.inventoryTx = state.inventoryTx.filter(tx => tx.saleInvoiceId !== invoiceId);
+  if (rec.status !== 'Cancelled') {
+    const outDate = rec.date || new Date().toISOString().slice(0, 10);
+    const siteId = rec.projectId || (state.rawMaterials || []).find(r => r.projectId)?.projectId || '';
+    let deducted = 0;
+    items.forEach(line => {
+      if (!line.bomItemId) return;
+      const prod = (state.itemsMaster || []).find(m => m.id === line.bomItemId);
+      if (!prod || !Array.isArray(prod.bom)) return;
+      prod.bom.forEach(comp => {
+        const rm = (state.rawMaterials || []).find(r => r.id === comp.rawMatId);
+        const outQty = (parseFloat(comp.qty) || 0) * (parseFloat(line.qty) || 0);
+        if (!rm || outQty <= 0) return;
+        state.inventoryTx.push({
+          id: 'tx_bom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          date: outDate, siteId, type: 'OUT', rawMaterialId: comp.rawMatId, qty: outQty, rate: rm.rate || 0,
+          ref: `Consumed for ${prod.name} × ${line.qty} (Inv ${rec.invoiceNo})`, saleInvoiceId: invoiceId,
+        });
+        deducted++;
+      });
+    });
+    if (deducted) showToast(`${deducted} component(s) deducted from inventory`, 'info');
   }
   // ── Business logic: upsert items master & track usage ──
   if (!state.itemsMaster) state.itemsMaster = [];
@@ -771,6 +804,8 @@ export function deleteSaleInvoice(id) {
   // Un-invoice any abstracts this invoice billed, so they're no longer stuck
   // "Invoiced" and can be re-billed or deleted. Match both the saved link list
   // and any abstract that points back at this invoice.
+  // Reverse any BOM inventory consumption this invoice caused (materials back to stock).
+  if (Array.isArray(state.inventoryTx)) state.inventoryTx = state.inventoryTx.filter(tx => tx.saleInvoiceId !== id);
   if (inv) {
     const ids = new Set(inv.linkedAbstractIds || []);
     (state.abstracts || []).forEach(a => {
