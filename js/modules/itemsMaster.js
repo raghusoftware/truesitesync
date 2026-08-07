@@ -177,7 +177,11 @@ export function renderItemsMasterView() {
         <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
           <div class="p-4 border-b flex flex-wrap items-center justify-between gap-3">
             <input type="text" id="itemMasterSearch" value="${_esc(_search)}" placeholder="Search name, description or HSN..." class="flex-1 min-w-[200px] p-2.5 bg-slate-50 border rounded text-sm" oninput="setItemSearch(this.value)">
-            <button onclick="openItemMasterModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm">➕ Add Item</button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="window._imDownloadTemplate()" class="bg-white text-slate-600 border px-3 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-50" title="Download the Excel template">⬇ Template</button>
+              <label class="bg-emerald-600 text-white px-3 py-2.5 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow-sm cursor-pointer" title="Bulk-add items from an Excel file">📥 Import Excel<input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="window._imImportExcel(event)"></label>
+              <button onclick="openItemMasterModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm">➕ Add Item</button>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -367,6 +371,91 @@ if (typeof window !== 'undefined') {
     }
   };
   window._deleteItemCategory = deleteItemCategory;
+
+  // ── Bulk import items from Excel ──
+  window._imDownloadTemplate = function () {
+    const XLSX = window.XLSX;
+    if (!XLSX) return showToast('Excel library not loaded', 'error');
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Name', 'Description', 'Category', 'Unit', 'HSN', 'Rate', 'Min Stock', 'Status'],
+      ['OPC 53 Cement', '53-grade cement', 'Raw Material', 'Bag', '2523', 380, 100, 'Active'],
+      ['River Sand', 'Fine aggregate', 'Raw Material', 'Cft', '2505', 55, '', 'Active'],
+      ['TMT Steel Fe500', '', 'Purchase Materials', 'Kg', '7214', 62, '', 'Active'],
+      ['Site Supervision', 'Monthly supervision', 'Services', 'Nos', '9954', 25000, '', 'Active'],
+    ]);
+    ws['!cols'] = [{ wch: 22 }, { wch: 26 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 9 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Items');
+    try { XLSX.writeFile(wb, 'Items-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
+  };
+
+  window._imImportExcel = function (event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const XLSX = window.XLSX;
+    if (!XLSX) { showToast('Excel library not loaded', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        if (!rows.length) { showToast('No rows found in the file', 'error'); return; }
+        const headers = Object.keys(rows[0]);
+        const lc = s => String(s).toLowerCase().trim();
+        const find = arr => headers.find(h => arr.some(a => lc(h).includes(a)));
+        const cm = {
+          name: find(['name', 'item', 'particular', 'material', 'product']) || headers[0],
+          desc: find(['desc', 'description', 'details']),
+          cat: find(['category', 'group', 'type']),
+          unit: find(['unit', 'uom']),
+          hsn: find(['hsn', 'sac']),
+          rate: find(['rate', 'price']),
+          min: find(['min stock', 'minimum', 'reorder', 'min ']),
+          status: find(['status']),
+        };
+        if (!Array.isArray(state.itemsMaster)) state.itemsMaster = [];
+        if (!Array.isArray(state.rawMaterials)) state.rawMaterials = [];
+        if (!Array.isArray(state.units)) state.units = [];
+        if (!Array.isArray(state.itemCategories)) state.itemCategories = [];
+        const existing = new Set(getAllItems().map(i => (i.name || '').toLowerCase().trim()));
+        let added = 0, skipped = 0, blank = 0;
+        const val = (row, col) => col ? String(row[col] ?? '').trim() : '';
+        rows.forEach(row => {
+          const name = val(row, cm.name);
+          if (!name) { blank++; return; }
+          if (existing.has(name.toLowerCase())) { skipped++; return; }
+          // Category: match an existing one (case-insensitive), else create it; default = Sales Items.
+          let category = val(row, cm.cat);
+          if (category) {
+            const m = state.itemCategories.find(c => c.toLowerCase() === category.toLowerCase());
+            if (m) category = m; else state.itemCategories.push(category);
+          } else category = 'Sales Items';
+          // Unit: match/add to the unit master; default = Nos.
+          let unit = val(row, cm.unit) || 'Nos';
+          const um = state.units.find(u => u.toLowerCase() === unit.toLowerCase());
+          if (um) unit = um; else state.units.push(unit);
+          const common = { name, description: val(row, cm.desc), unit, altUnits: [], hsn: val(row, cm.hsn), status: (val(row, cm.status) || 'Active') };
+          const rate = parseFloat(row[cm.rate]) || 0;
+          if (isStockCategory(category)) {
+            state.rawMaterials.push({ id: 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), projectId: (state.rawMaterials[0] || {}).projectId, ...common, type: STOCK_CATEGORY_TYPE[category], rate, minStock: (cm.min ? parseFloat(row[cm.min]) : 0) || 0 });
+          } else {
+            state.itemsMaster.push({ id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), usageCount: 0, createdAt: new Date().toISOString(), ...common, category, defaultRate: rate });
+          }
+          existing.add(name.toLowerCase()); added++;
+        });
+        if (added) saveAllData();
+        renderItemsMasterView();
+        window.populateDropdowns?.();
+        const bits = [];
+        if (added) bits.push(`${added} item(s) imported`);
+        if (skipped) bits.push(`${skipped} duplicate(s) skipped`);
+        if (!added && blank && !skipped) bits.push('no item names found — check the Name column');
+        showToast(bits.join(' · ') || 'Nothing to import', added ? 'success' : 'warning');
+      } catch (err) { showToast('Could not read file: ' + (err.message || err), 'error'); }
+      event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   window._toggleItemStatus = function (id) {
     const found = findRecord(id);
