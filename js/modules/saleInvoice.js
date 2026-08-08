@@ -623,6 +623,32 @@ export function saveSaleInvoiceForm() {
     if (r.dataset.abstractId) linkedAbstracts.add(r.dataset.abstractId);
   });
   if (!items.length) { showToast('Add at least one line item', 'error'); return; }
+  // ── Shortage check for production items: warn if there isn't enough component stock ──
+  {
+    const _editId = document.getElementById('saleInvoiceFormPanel')?.dataset?.editId || '';
+    const onHand = (matId) => (state.inventoryTx || []).reduce((sum, tx) => {
+      if (tx.rawMaterialId !== matId) return sum;
+      if (_editId && tx.saleInvoiceId === _editId) return sum;  // ignore this invoice's own prior deduction
+      return sum + (tx.type === 'OUT' ? -1 : 1) * (parseFloat(tx.qty) || 0);
+    }, 0);
+    const need = {};
+    items.forEach(line => {
+      if (!line.bomItemId) return;
+      const prod = (state.itemsMaster || []).find(m => m.id === line.bomItemId);
+      (prod && Array.isArray(prod.bom) ? prod.bom : []).forEach(c => {
+        need[c.rawMatId] = (need[c.rawMatId] || 0) + (parseFloat(c.qty) || 0) * (parseFloat(line.qty) || 0);
+      });
+    });
+    const short = [];
+    Object.entries(need).forEach(([matId, req]) => {
+      const have = onHand(matId);
+      if (req > have + 1e-9) {
+        const rm = (state.rawMaterials || []).find(r => r.id === matId);
+        short.push(`• ${rm ? rm.name : matId}: need ${req}${rm && rm.unit ? ' ' + rm.unit : ''}, in stock ${have} — short ${(req - have).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
+      }
+    });
+    if (short.length && !confirm('⚠ Not enough material in stock to build these items:\n\n' + short.join('\n') + '\n\nSave the invoice anyway? Inventory will go negative until you restock.')) return;
+  }
   const taxableAmount = grossTotal - totalDiscount;
   const gstPct = 0;
   const gstAmount = totalLineTax;
