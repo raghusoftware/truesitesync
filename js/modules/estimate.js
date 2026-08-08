@@ -9,7 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
 
 /** Open/close the estimate editor as a full-screen overlay (matches the other
  *  full-screen forms). Escape closes it. */
@@ -42,6 +42,7 @@ function _estFullscreen(on) {
 
 export function createNewEstimate() {
   state.currentEstimateId = null;
+  populateDropdowns();   // fill the client dropdown with the latest clients
   document.getElementById('estClient').value = '';
   document.getElementById('estDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('estNum').value = `EST-${Date.now().toString().slice(-4)}`;
@@ -61,6 +62,7 @@ export function openEstimate(id) {
   if (!e) return showToast('Estimate not found', 'error');
   state.currentEstimateId = e.id;
   const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+  populateDropdowns();   // fill the client dropdown before selecting the saved client
   document.getElementById('estClient').value = e.clientId || '';
   document.getElementById('estDate').value = e.date || new Date().toISOString().split('T')[0];
   document.getElementById('estNum').value = e.estNum || '';
