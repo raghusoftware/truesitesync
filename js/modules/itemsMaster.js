@@ -40,6 +40,10 @@ export const DEFAULT_ITEM_CATEGORIES = [
  *  Materials — selling it consumes its component raw materials from inventory. */
 export const PRODUCTION_CATEGORY = 'Production Items';
 export function isProductionCategory(cat) { return cat === PRODUCTION_CATEGORY; }
+/** Finished-goods stock on hand for a production item (IN from Builds − OUT from sales). */
+export function finishedStock(itemId) {
+  return (state.inventoryTx || []).reduce((s, tx) => tx.rawMaterialId === itemId ? s + (tx.type === 'OUT' ? -1 : 1) * (parseFloat(tx.qty) || 0) : s, 0);
+}
 
 export function isStockCategory(cat) { return Object.prototype.hasOwnProperty.call(STOCK_CATEGORY_TYPE, cat); }
 
@@ -227,9 +231,11 @@ export function renderItemsMasterTable() {
     // Second units, one compact line each: "1 Tonne = 1000 Kg"
     const alts = (i.altUnits || []).filter(a => a && a.unit)
       .map(a => `<div>1 ${_esc(a.unit)} = ${a.factor} ${_esc(i.unit)}</div>`).join('');
+    const isProd = i.category === PRODUCTION_CATEGORY && Array.isArray(i.bom) && i.bom.length > 0;
+    const fStock = isProd ? finishedStock(i.id) : 0;
     return `
     <tr class="hover:bg-slate-50 ${i.status === 'Inactive' ? 'opacity-60' : ''}">
-      <td class="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">${_esc(i.name)}${i.stock ? ' <span class="text-[9px] text-emerald-600 font-bold" title="Tracked in Inventory">◆</span>' : ''}</td>
+      <td class="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">${_esc(i.name)}${i.stock ? ' <span class="text-[9px] text-emerald-600 font-bold" title="Tracked in Inventory">◆</span>' : ''}${isProd ? ` <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${fStock > 0 ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-400'}" title="Finished panels in stock">🧩 ${fStock} built</span>` : ''}</td>
       <td class="px-4 py-3 text-slate-500 max-w-[200px] truncate" title="${_esc(i.description)}">${_esc(i.description) || '—'}</td>
       <td class="px-4 py-3"><span class="${catColor(i.category)} text-[10px] px-2 py-0.5 rounded font-bold uppercase">${_esc(i.category || 'Uncategorized')}</span></td>
       <td class="px-4 py-3 whitespace-nowrap"><span class="font-medium">${_esc(i.unit)}</span>${alts ? `<div class="text-[10px] text-slate-400 leading-tight mt-0.5">${alts}</div>` : ''}</td>
@@ -239,6 +245,7 @@ export function renderItemsMasterTable() {
         <button onclick="window._toggleItemStatus('${_q(i.id)}')" title="Click to toggle" class="text-[10px] px-2 py-0.5 rounded-full font-bold ${i.status === 'Active' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}">${i.status}</button>
       </td>
       <td class="px-4 py-3 text-right whitespace-nowrap">
+        ${isProd ? `<button onclick="window._imBuild('${_q(i.id)}')" class="text-violet-700 hover:text-violet-900 font-bold text-xs bg-violet-50 px-3 py-1.5 rounded mr-1" title="Consume components & add finished units to stock">🔧 Build</button>` : ''}
         <button onclick="openItemMasterModal('${_q(i.id)}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-3 py-1.5 rounded mr-1">Edit</button>
         <button onclick="window._deleteMasterItem('${_q(i.id)}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-3 py-1.5 rounded">Delete</button>
       </td>
@@ -271,6 +278,72 @@ window._imAddBomRow = function (rawMatId, qty) {
   const box = document.getElementById('imBomRows'); if (!box) return;
   box.insertAdjacentHTML('beforeend', _bomRowHtml(rawMatId, qty));
   const empty = document.getElementById('imBomEmpty'); if (empty) empty.style.display = 'none';
+};
+
+// ── Build / Assemble: consume components → add finished units to stock ──
+const _rmOnHand = (rid) => (state.inventoryTx || []).reduce((s, tx) => tx.rawMaterialId === rid ? s + (tx.type === 'OUT' ? -1 : 1) * (parseFloat(tx.qty) || 0) : s, 0);
+window._imBuild = function (id) {
+  const prod = (state.itemsMaster || []).find(m => m.id === id);
+  if (!prod || !Array.isArray(prod.bom) || !prod.bom.length) return showToast('This item has no Bill of Materials', 'error');
+  const rm = rid => (state.rawMaterials || []).find(r => r.id === rid) || {};
+  const rowsHtml = () => prod.bom.map(c => {
+    const r = rm(c.rawMatId), qtyEl = document.getElementById('imBuildQty');
+    const n = (parseFloat(qtyEl?.value) || 0) * (parseFloat(c.qty) || 0);
+    const have = _rmOnHand(c.rawMatId);
+    const shortC = n > have ? 'color:#dc2626;font-weight:700;' : 'color:#16a34a;';
+    return `<tr><td style="padding:5px 8px;">${_esc(r.name || c.rawMatId)}</td><td style="padding:5px 8px;text-align:right;color:#64748b;">${c.qty} ${_esc(r.unit || '')}/unit</td><td style="padding:5px 8px;text-align:right;">${n || '—'}</td><td style="padding:5px 8px;text-align:right;${shortC}">${have}</td></tr>`;
+  }).join('');
+  const wrap = document.createElement('div');
+  wrap.id = 'imBuildModal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:200000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `<div style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:88vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+      <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="font-weight:800;color:#6d28d9;font-size:16px;">🔧 Build / Assemble — ${_esc(prod.name)}</h3>
+        <button onclick="document.getElementById('imBuildModal').remove()" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;">×</button>
+      </div>
+      <div style="padding:20px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Quantity to build</label>
+        <input id="imBuildQty" type="number" min="1" value="1" oninput="window._imBuildRefresh()" style="width:120px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:700;margin-bottom:14px;">
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">
+          <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:6px 8px;text-align:left;">Component</th><th style="padding:6px 8px;text-align:right;">Per unit</th><th style="padding:6px 8px;text-align:right;">Needed</th><th style="padding:6px 8px;text-align:right;">In stock</th></tr></thead>
+          <tbody id="imBuildRows">${rowsHtml()}</tbody>
+        </table>
+        <p style="font-size:11px;color:#94a3b8;margin-top:10px;">Building consumes these components and adds the finished units to stock. Selling then deducts finished units first.</p>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="document.getElementById('imBuildModal').remove()" style="padding:9px 16px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-weight:700;cursor:pointer;color:#475569;">Cancel</button>
+          <button onclick="window._imDoBuild('${_q(id)}')" style="padding:9px 18px;border:none;background:#7c3aed;color:#fff;border-radius:10px;font-weight:700;cursor:pointer;">Build</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  window._imBuildRefresh = () => { const b = document.getElementById('imBuildRows'); if (b) b.innerHTML = rowsHtml(); };
+};
+window._imDoBuild = function (id) {
+  const prod = (state.itemsMaster || []).find(m => m.id === id);
+  if (!prod || !Array.isArray(prod.bom)) return;
+  const qty = parseFloat(document.getElementById('imBuildQty')?.value) || 0;
+  if (qty <= 0) return showToast('Enter a quantity to build', 'error');
+  const rm = rid => (state.rawMaterials || []).find(r => r.id === rid) || {};
+  const short = [];
+  prod.bom.forEach(c => { const need = (parseFloat(c.qty) || 0) * qty, have = _rmOnHand(c.rawMatId); if (need > have + 1e-9) short.push(`• ${rm(c.rawMatId).name || c.rawMatId}: need ${need}, have ${have}`); });
+  if (short.length && !confirm('⚠ Not enough components in stock:\n\n' + short.join('\n') + '\n\nBuild anyway? Component stock will go negative.')) return;
+  if (!state.inventoryTx) state.inventoryTx = [];
+  const buildId = 'bld_' + Date.now();
+  const today = new Date().toISOString().slice(0, 10);
+  let unitCost = 0;
+  prod.bom.forEach(c => {
+    const r = rm(c.rawMatId), out = (parseFloat(c.qty) || 0) * qty;
+    unitCost += (parseFloat(c.qty) || 0) * (parseFloat(r.rate) || 0);
+    state.inventoryTx.push({ id: 'tx_bld_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), date: today, type: 'OUT', rawMaterialId: c.rawMatId, qty: out, rate: r.rate || 0, ref: `Build ${prod.name} ×${qty}`, buildId });
+  });
+  // Produce the finished units into stock (tracked under the production item's own id).
+  state.inventoryTx.push({ id: 'tx_bldfin_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), date: today, type: 'IN', rawMaterialId: id, qty, rate: unitCost, ref: `Built ${prod.name} ×${qty}`, buildId });
+  saveAllData();
+  document.getElementById('imBuildModal')?.remove();
+  renderItemsMasterView();
+  window.populateDropdowns?.();
+  showToast(`Built ${qty} × ${prod.name} → added to finished stock`, 'success');
 };
 
 export function openItemMasterModal(id) {

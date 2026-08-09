@@ -631,13 +631,19 @@ export function saveSaleInvoiceForm() {
       if (_editId && tx.saleInvoiceId === _editId) return sum;  // ignore this invoice's own prior deduction
       return sum + (tx.type === 'OUT' ? -1 : 1) * (parseFloat(tx.qty) || 0);
     }, 0);
-    const need = {};
+    // Finished panels in stock cover the sale first; only the shortfall needs components.
+    const need = {}; const finishedUsed = {};
     items.forEach(line => {
       if (!line.bomItemId) return;
       const prod = (state.itemsMaster || []).find(m => m.id === line.bomItemId);
-      (prod && Array.isArray(prod.bom) ? prod.bom : []).forEach(c => {
-        need[c.rawMatId] = (need[c.rawMatId] || 0) + (parseFloat(c.qty) || 0) * (parseFloat(line.qty) || 0);
-      });
+      if (!prod || !Array.isArray(prod.bom)) return;
+      const q = parseFloat(line.qty) || 0;
+      const availFinished = Math.max(0, onHand(line.bomItemId) - (finishedUsed[line.bomItemId] || 0));
+      const fromStock = Math.min(q, availFinished);
+      finishedUsed[line.bomItemId] = (finishedUsed[line.bomItemId] || 0) + fromStock;
+      const shortfall = q - fromStock;
+      if (shortfall <= 0) return;                     // fully covered by finished stock
+      prod.bom.forEach(c => { need[c.rawMatId] = (need[c.rawMatId] || 0) + (parseFloat(c.qty) || 0) * shortfall; });
     });
     const short = [];
     Object.entries(need).forEach(([matId, req]) => {
@@ -702,33 +708,38 @@ export function saveSaleInvoiceForm() {
   } else {
     state.saleInvoices.push(rec);
   }
-  // ── Auto-deduct Bill-of-Materials from inventory for production items ──
-  // A production item (e.g. an electrical panel) consumes its component raw materials
-  // when sold. On edit we first reverse this invoice's previous consumption, then
-  // recompute from the current lines. Cancelled invoices consume nothing.
+  // ── Inventory for production items: deduct FINISHED stock first, then components ──
+  // A production item (e.g. an electrical panel) either sells from finished stock built
+  // via Build/Assemble, or — if not enough built — consumes its components make-to-order.
+  // On edit we first reverse this invoice's previous movements, then recompute.
+  // Cancelled invoices move nothing.
   if (!state.inventoryTx) state.inventoryTx = [];
   state.inventoryTx = state.inventoryTx.filter(tx => tx.saleInvoiceId !== invoiceId);
   if (rec.status !== 'Cancelled') {
     const outDate = rec.date || new Date().toISOString().slice(0, 10);
     const siteId = rec.projectId || (state.rawMaterials || []).find(r => r.projectId)?.projectId || '';
-    let deducted = 0;
+    const onHand = rid => state.inventoryTx.reduce((s, tx) => tx.rawMaterialId === rid ? s + (tx.type === 'OUT' ? -1 : 1) * (parseFloat(tx.qty) || 0) : s, 0);
+    let moved = 0;
     items.forEach(line => {
       if (!line.bomItemId) return;
       const prod = (state.itemsMaster || []).find(m => m.id === line.bomItemId);
       if (!prod || !Array.isArray(prod.bom)) return;
-      prod.bom.forEach(comp => {
+      const qty = parseFloat(line.qty) || 0; if (qty <= 0) return;
+      const fromStock = Math.max(0, Math.min(qty, onHand(line.bomItemId)));  // finished panels available now
+      if (fromStock > 0) {
+        state.inventoryTx.push({ id: 'tx_finout_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), date: outDate, siteId, type: 'OUT', rawMaterialId: line.bomItemId, qty: fromStock, rate: prod.defaultRate || 0, ref: `Sold ${prod.name} ×${fromStock} from finished stock (Inv ${rec.invoiceNo})`, saleInvoiceId: invoiceId });
+        moved++;
+      }
+      const shortfall = qty - fromStock;   // make-to-order remainder → consume components
+      if (shortfall > 0) prod.bom.forEach(comp => {
         const rm = (state.rawMaterials || []).find(r => r.id === comp.rawMatId);
-        const outQty = (parseFloat(comp.qty) || 0) * (parseFloat(line.qty) || 0);
+        const outQty = (parseFloat(comp.qty) || 0) * shortfall;
         if (!rm || outQty <= 0) return;
-        state.inventoryTx.push({
-          id: 'tx_bom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-          date: outDate, siteId, type: 'OUT', rawMaterialId: comp.rawMatId, qty: outQty, rate: rm.rate || 0,
-          ref: `Consumed for ${prod.name} × ${line.qty} (Inv ${rec.invoiceNo})`, saleInvoiceId: invoiceId,
-        });
-        deducted++;
+        state.inventoryTx.push({ id: 'tx_bom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), date: outDate, siteId, type: 'OUT', rawMaterialId: comp.rawMatId, qty: outQty, rate: rm.rate || 0, ref: `Consumed for ${prod.name} ×${shortfall} (Inv ${rec.invoiceNo})`, saleInvoiceId: invoiceId });
+        moved++;
       });
     });
-    if (deducted) showToast(`${deducted} component(s) deducted from inventory`, 'info');
+    if (moved) showToast('Inventory updated for production items', 'info');
   }
   // ── Business logic: upsert items master & track usage ──
   if (!state.itemsMaster) state.itemsMaster = [];
