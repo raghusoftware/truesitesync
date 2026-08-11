@@ -848,6 +848,9 @@ export function loadSheet(id) {
 
 /** Render measurement sheets list for current project */
 export function renderMeasurementList() {
+  // Release any sheet stuck "billed" whose abstract was deleted, so its badge clears
+  // and it can be re-abstracted.
+  try { window.healOrphanBilledSheets && window.healOrphanBilledSheets(); } catch {}
   const projId = state.currentProjectId;
   const container = document.getElementById('measurementListContainer');
   const emptyEl = document.getElementById('measurementListEmpty');

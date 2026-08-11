@@ -2456,7 +2456,34 @@ function _absGroupFromSheets(sheets, proj, cItems) {
 }
 
 /** Measurement sheets in this project that can still be put on an abstract. */
+/**
+ * Self-heal: release any sheet still flagged "billed" whose abstract no longer exists.
+ * Abstracts deleted before the delete→reset fix (or on another device) left their sheets
+ * stuck as billed, so they couldn't be re-abstracted. A sheet is genuinely billed only
+ * if a live abstract references it (by sheet id, or by the abstract number stored on it);
+ * otherwise reset it to pending. Idempotent — saves only when it actually frees a sheet.
+ */
+export function healOrphanBilledSheets() {
+  const abstracts = state.abstracts || [];
+  const liveNums = new Set(abstracts.map(a => a.abstractNum).filter(Boolean));
+  const liveSheetIds = new Set();
+  abstracts.forEach(a => {
+    const ids = (a.sheetIds && a.sheetIds.length) ? a.sheetIds : (a.sheetId ? [a.sheetId] : []);
+    ids.forEach(id => liveSheetIds.add(id));
+  });
+  let healed = 0;
+  (state.sheets || []).forEach(s => {
+    if (!s.isBilled || s._running) return;
+    const covered = liveSheetIds.has(s.id) || (s.linkedAbstract && liveNums.has(s.linkedAbstract));
+    if (!covered) { s.isBilled = false; s.linkedAbstract = null; healed++; }
+  });
+  if (healed) saveAllData();
+  return healed;
+}
+if (typeof window !== 'undefined') window.healOrphanBilledSheets = healOrphanBilledSheets;
+
 function _pendingAbstractSheets() {
+  healOrphanBilledSheets();   // free any sheet whose abstract was deleted
   const pid = state.currentProjectId;
   return (state.sheets || []).filter(s =>
     (!pid || s.projectId === pid) && !s.isBilled && !s._running && !s.locationId &&
