@@ -43,6 +43,14 @@ if (typeof window !== 'undefined') {
       const g = document.getElementById('labourGrid');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
+    // Same guard for Inventory: a full switchView('inventoryView') calls
+    // _openInvSection(null), bouncing the user from an open sub-section (e.g. GRN,
+    // after "Receive Stock") back to the icon grid. Leave them where they are —
+    // the sub-section already re-rendered itself on the local save.
+    if (v === 'inventoryView') {
+      const g = document.getElementById('invGrid');
+      if (g && g.style.display === 'none') return; // a section is open — leave it
+    }
     try { switchView(v); } catch {}
   };
 }
