@@ -1931,7 +1931,7 @@ function _renderGRN() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label class="group cursor-pointer border-2 border-dashed border-blue-200 bg-blue-50/40 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-3.5 flex items-center gap-3 transition">
             <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-lg flex-shrink-0">📄</div>
-            <div class="flex-1 min-w-0"><div class="text-xs font-bold text-slate-700">Challan / Receipt Photo <span class="text-rose-400">*</span></div><div class="text-[10px] text-slate-400">Tap to capture or upload</div><div id="grnChallanPrev" class="mt-1"></div></div>
+            <div class="flex-1 min-w-0"><div class="text-xs font-bold text-slate-700">Challan / Receipt Photo <span class="text-slate-300 font-medium">(opt)</span></div><div class="text-[10px] text-slate-400">Tap to capture or upload</div><div id="grnChallanPrev" class="mt-1"></div></div>
             <input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'challan')" class="hidden">
           </label>
           <label class="group cursor-pointer border-2 border-dashed border-slate-200 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-50 rounded-xl p-3.5 flex items-center gap-3 transition">
@@ -2151,7 +2151,6 @@ window._saveGRN = function() {
   // ── Validation: vendor, quantity, and challan photo are mandatory ──
   if(!supplierId){showToast('Select a vendor/supplier','error');return;}
   if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
-  if(!_grnChallanPhoto){showToast('Attach the challan/receipt photo','error');return;}
   // Receipt date is user-entered; fall back to today (or the original on edit).
   const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
