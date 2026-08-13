@@ -1876,41 +1876,78 @@ function _renderGRN() {
   const cur = getCurrencySymbol();
   // The GRN currently open for editing, if any — drives the form's edit styling.
   const _grnEdit0 = _grnEditingId ? (state.grnRecords||[]).find(x=>x.id===_grnEditingId) : null;
+  const _today = new Date().toISOString().split('T')[0];
+  const _grnDateVal = _grnEdit0 ? (_grnEdit0.date || _today) : _today;
+  // Shared field / label styles — premium, consistent focus states.
+  const _fld = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none transition focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100';
+  const _lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1';
+  const _sec = (t) => `<div class="flex items-center gap-2.5 mt-6 mb-3 first:mt-0"><span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.12em]">${t}</span><span class="flex-1 h-px bg-slate-100"></span></div>`;
   c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4 ${_grnEdit0 ? 'ring-2 ring-amber-400' : ''}">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">${_grnEdit0
-        ? `✏️ Editing <span class="font-mono text-amber-700">${_grnEdit0.grnNo}</span> <button onclick="_grnCancelEdit()" class="ml-2 text-[10px] font-bold text-slate-500 hover:text-slate-800 underline">Cancel</button>`
-        : `🚚 Goods Receipt Note <span class="text-[10px] font-medium text-slate-400">${_grnNextNumber(new Date().toISOString().split('T')[0])}</span>`}</h4>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-        <select id="grnSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <select id="grnSupplier" class="p-2 border rounded-lg text-sm bg-white"><option value="">-- Supplier * --</option>${supplierOpts}</select>
-        <input id="grnChallan" placeholder="Challan / Invoice No" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="grnVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="grnDriver" placeholder="Driver contact (opt)" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="grnCat" placeholder="Category (Steel/Cement…)" class="p-2 border rounded-lg text-sm outline-none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-hidden ${_grnEdit0 ? 'ring-2 ring-amber-300' : ''}">
+      <!-- Header band -->
+      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#eff6ff,#dbeafe'});">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#3b82f6,#1d4ed8'});">🚚</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-extrabold text-slate-800 text-base leading-tight">${_grnEdit0 ? 'Editing GRN' : 'Goods Receipt Note'}</h4>
+          <p class="text-[11px] text-slate-500 font-medium truncate">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">GRN No.</div>
+          ${_grnEdit0
+            ? `<div class="flex items-center gap-2"><span class="font-mono font-extrabold text-amber-700 text-sm bg-white/70 px-2.5 py-1 rounded-lg border border-amber-200">${_grnEdit0.grnNo}</span><button onclick="_grnCancelEdit()" class="text-[10px] font-bold text-slate-500 hover:text-slate-800 underline">Cancel</button></div>`
+            : `<div id="grnNoBadge" class="font-mono font-extrabold text-blue-700 text-sm bg-white/70 px-2.5 py-1 rounded-lg border border-blue-200">${_grnNextNumber(_grnDateVal)}</div>`}
+        </div>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-3">
-        <select id="grnMat" onchange="syncUnitPicker('grnMat','grnQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
-        <input id="grnQty" type="number" placeholder="Qty received *" class="p-2 border rounded-lg text-sm outline-none">
-        ${_unitPicker('grnQtyUnit')}
-        <input id="grnExpected" type="number" placeholder="Expected (PO)" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="grnRate" type="number" placeholder="Rate ${cur} (opt)" class="p-2 border rounded-lg text-sm outline-none">
-        <button onclick="_saveGRN()" class="${_grnEdit0 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg font-bold text-sm">${_grnEdit0 ? 'Update GRN' : 'Receive Stock'}</button>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="border border-dashed border-slate-300 rounded-lg p-2"><label class="text-[11px] font-bold text-slate-500">📄 Challan / Receipt Photo *</label><input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'challan')" class="text-xs block mt-1"><div id="grnChallanPrev"></div></div>
-        <div class="border border-dashed border-slate-300 rounded-lg p-2"><label class="text-[11px] font-bold text-slate-500">📦 Material Condition Photo</label><input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'cond')" class="text-xs block mt-1"><div id="grnCondPrev"></div></div>
+
+      <div class="p-5">
+        ${_sec('Receipt Details')}
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label><input id="grnDate" type="date" value="${_grnDateVal}" onchange="_grnDateChanged()" class="${_fld}"></div>
+          <div><label class="${_lbl}">Site / Store</label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
+          <div><label class="${_lbl}">Supplier <span class="text-rose-400">*</span></label><select id="grnSupplier" class="${_fld} bg-white"><option value="">— Select supplier —</option>${supplierOpts}</select></div>
+          <div><label class="${_lbl}">Challan / Invoice No</label><input id="grnChallan" placeholder="e.g. INV-2045" class="${_fld}"></div>
+          <div><label class="${_lbl}">Vehicle No</label><input id="grnVehicle" placeholder="e.g. GJ-01-AB-1234" class="${_fld}"></div>
+          <div><label class="${_lbl}">Driver Contact <span class="text-slate-300 normal-case font-medium">(opt)</span></label><input id="grnDriver" placeholder="Phone / name" class="${_fld}"></div>
+        </div>
+
+        ${_sec('Material Received')}
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div><label class="${_lbl}">Material <span class="text-rose-400">*</span></label><select id="grnMat" onchange="syncUnitPicker('grnMat','grnQtyUnit')" class="${_fld} bg-white">${_matOptions()}</select></div>
+          <div><label class="${_lbl}">Category</label><input id="grnCat" placeholder="Steel / Cement…" class="${_fld}"></div>
+          <div><label class="${_lbl}">Qty Received <span class="text-rose-400">*</span></label><div class="flex gap-1.5"><input id="grnQty" type="number" placeholder="0" class="${_fld} flex-1"><select id="grnQtyUnit" title="Unit" class="px-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"></select></div></div>
+          <div><label class="${_lbl}">Expected (PO) <span class="text-slate-300 normal-case font-medium">(opt)</span></label><input id="grnExpected" type="number" placeholder="0" class="${_fld}"></div>
+          <div><label class="${_lbl}">Rate <span class="text-slate-400 normal-case font-medium">${cur}/unit (opt)</span></label><input id="grnRate" type="number" placeholder="0.00" class="${_fld}"></div>
+        </div>
+
+        ${_sec('Documentation')}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="group cursor-pointer border-2 border-dashed border-blue-200 bg-blue-50/40 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-3.5 flex items-center gap-3 transition">
+            <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-lg flex-shrink-0">📄</div>
+            <div class="flex-1 min-w-0"><div class="text-xs font-bold text-slate-700">Challan / Receipt Photo <span class="text-rose-400">*</span></div><div class="text-[10px] text-slate-400">Tap to capture or upload</div><div id="grnChallanPrev" class="mt-1"></div></div>
+            <input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'challan')" class="hidden">
+          </label>
+          <label class="group cursor-pointer border-2 border-dashed border-slate-200 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-50 rounded-xl p-3.5 flex items-center gap-3 transition">
+            <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-lg flex-shrink-0">📦</div>
+            <div class="flex-1 min-w-0"><div class="text-xs font-bold text-slate-700">Material Condition Photo <span class="text-slate-300 font-medium">(opt)</span></div><div class="text-[10px] text-slate-400">Tap to capture or upload</div><div id="grnCondPrev" class="mt-1"></div></div>
+            <input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'cond')" class="hidden">
+          </label>
+        </div>
+
+        <button onclick="_saveGRN()" class="w-full mt-6 py-3 rounded-xl font-bold text-sm text-white shadow-sm transition ${_grnEdit0 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}">${_grnEdit0 ? '💾 Update GRN' : '✓ Receive Stock'}</button>
       </div>
     </div>
-    <div class="bg-white border rounded-xl overflow-hidden">
-      <div class="p-3 border-b flex flex-wrap items-center gap-2">
-        <span class="font-bold text-slate-700 text-sm mr-auto">GRN Register</span>
-        <select id="grnFltSupplier" onchange="_grnSetFilter('supplier',this.value)" class="p-1.5 border rounded-lg text-xs bg-white"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
-        <select id="grnFltMaterial" onchange="_grnSetFilter('material',this.value)" class="p-1.5 border rounded-lg text-xs bg-white"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
-        <input id="grnFltFrom" type="date" value="${_grnFilters.from}" onchange="_grnSetFilter('from',this.value)" title="From date" class="p-1.5 border rounded-lg text-xs">
-        <input id="grnFltTo" type="date" value="${_grnFilters.to}" onchange="_grnSetFilter('to',this.value)" title="To date" class="p-1.5 border rounded-lg text-xs">
-        <button onclick="_grnClearFilter()" class="px-2.5 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">Clear</button>
-        <button onclick="_grnPrintList()" class="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">🖨️ Print List</button>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center gap-2" style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);">
+        <div class="flex items-center gap-2.5 mr-auto">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm flex-shrink-0" style="background:linear-gradient(135deg,#64748b,#475569);">📋</div>
+          <span class="font-extrabold text-slate-700 text-sm">GRN Register</span>
+        </div>
+        <select id="grnFltSupplier" onchange="_grnSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
+        <select id="grnFltMaterial" onchange="_grnSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
+        <input id="grnFltFrom" type="date" value="${_grnFilters.from}" onchange="_grnSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+        <input id="grnFltTo" type="date" value="${_grnFilters.to}" onchange="_grnSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+        <button onclick="_grnClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
+        <button onclick="_grnPrintList()" class="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition">🖨️ Print</button>
       </div>
       <div id="grnListWrap"></div>
     </div>`;
@@ -2050,6 +2087,7 @@ window._grnEdit = function (id) {
   _grnChallanPhoto = g.challanPhoto || null;
   _grnCondPhoto = g.condPhoto || null;
 
+  const _gd = document.getElementById('grnDate'); if (_gd) _gd.value = g.date || '';
   document.getElementById('grnSite').value = g.siteId || '';
   document.getElementById('grnSupplier').value = g.supplierId || '';
   document.getElementById('grnChallan').value = g.challanNo || '';
@@ -2081,6 +2119,14 @@ window._grnCancelEdit = function () {
   _renderGRN();
 };
 
+/** Live-update the previewed GRN number when the receipt date changes (new GRN only). */
+window._grnDateChanged = function () {
+  if (_grnEditingId) return;
+  const d = (document.getElementById('grnDate')?.value || '').trim() || new Date().toISOString().split('T')[0];
+  const badge = document.getElementById('grnNoBadge');
+  if (badge) badge.textContent = _grnNextNumber(d);
+};
+
 window._saveGRN = function() {
   const editing = _grnEditingId ? (state.grnRecords || []).find(x => x.id === _grnEditingId) : null;
   if (_grnEditingId && !editing) { _grnEditingId = null; return showToast('That GRN no longer exists', 'error'); }
@@ -2098,8 +2144,8 @@ window._saveGRN = function() {
   if(!supplierId){showToast('Select a vendor/supplier','error');return;}
   if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
   if(!_grnChallanPhoto){showToast('Attach the challan/receipt photo','error');return;}
-  // Keep the original receipt date on edit — only a new GRN is dated today.
-  const date=editing ? editing.date : new Date().toISOString().split('T')[0];
+  // Receipt date is user-entered; fall back to today (or the original on edit).
+  const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
   const driver=document.getElementById('grnDriver').value.trim();
   const category=document.getElementById('grnCat').value.trim();
@@ -2117,7 +2163,7 @@ window._saveGRN = function() {
     // otherwise the ledger keeps crediting the original quantity.
     const prevQc = editing.qcStatus;
     Object.assign(editing, {
-      siteId, matId, category, qty, expectedQty, rate: baseRate, amount, enteredQty, entryUnit,
+      date, siteId, matId, category, qty, expectedQty, rate: baseRate, amount, enteredQty, entryUnit,
       challanNo, supplierId, vehicleNo, driver,
       challanPhoto: _grnChallanPhoto, condPhoto: _grnCondPhoto,
       // Only re-arm QC if the material became testable; never silently clear a
@@ -2126,7 +2172,7 @@ window._saveGRN = function() {
       updatedAt: new Date().toISOString(),
     });
     const tx = _grnLinkedTx(editing);
-    if (tx) Object.assign(tx, { siteId, rawMaterialId: matId, qty, rate: baseRate, grnId: editing.id, ref: `${grnNo} ${challanNo||''}${entryNote}`.trim() });
+    if (tx) Object.assign(tx, { date, siteId, rawMaterialId: matId, qty, rate: baseRate, grnId: editing.id, ref: `${grnNo} ${challanNo||''}${entryNote}`.trim() });
     else state.inventoryTx.push({id:'tx_grn_'+Date.now(),grnId:editing.id,date,siteId,rawMaterialId:matId,type:'IN',qty,rate:baseRate,ref:`${grnNo} ${challanNo||''}${entryNote}`.trim()});
     const qc = _grnLinkedQc(editing);
     if (qc && testable) Object.assign(qc, { grnId: editing.id, element: mat?.name||category, grade: category, result: `Awaiting test — ${grnNo} (${qty} ${mat?.unit||''})` });
