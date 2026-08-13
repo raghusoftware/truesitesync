@@ -18,6 +18,37 @@ import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js'
 let _allSheetBoqItems = [];     // all BOQ items across all groups (unfiltered)
 let _currentSheetBoqItems = []; // filtered BOQ items for current selection
 
+/** Build an initials prefix from a client/project name — "Nexcel Chemical" → "NC" */
+function _sheetPrefixFromName(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return 'MS';
+  const words = clean.split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w));
+  let prefix;
+  if (words.length >= 2) {
+    // First letter of each word (Nexcel Chemical → NC)
+    prefix = words.map(w => w.replace(/[^A-Za-z0-9]/g, '')[0] || '').join('').toUpperCase().slice(0, 4);
+  } else {
+    // Single word → first 3 letters (Nexcel → NEX)
+    prefix = clean.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 3);
+  }
+  return prefix || 'MS';
+}
+
+/** Next per-client measurement-sheet ref in series — NC/01, NC/02 … (continues past deletions) */
+function _generateSheetNumber(clientId, projId) {
+  const client = (state.clients || []).find(c => c.id === clientId);
+  const proj = (state.projects || []).find(p => p.id === projId);
+  const name = client?.name || proj?.clientName || proj?.name || '';
+  const prefix = _sheetPrefixFromName(name);
+  const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/(\\d+)$', 'i');
+  let max = 0;
+  (state.sheets || []).forEach(s => {
+    const m = re.exec(String(s.sheetNum || '').trim());
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return prefix + '/' + String(max + 1).padStart(2, '0');
+}
+
 /** Load project context into measurement form — auto-detect from currentProjectId */
 function _loadSheetProjectContext(projId) {
   const proj = (state.projects || []).find(p => p.id === projId);
@@ -78,6 +109,14 @@ function _loadSheetProjectContext(projId) {
 
   // Populate BBS linked item dropdown
   _populateBBSLinkedDropdown();
+
+  // Auto-generate a client-prefixed sheet ref (e.g. NC/01) for a brand-new sheet only —
+  // never overwrite a loaded sheet's number or one the user has already typed.
+  const numEl = document.getElementById('sheetNum');
+  if (numEl && !state.currentSheetId && !numEl.value.trim()) {
+    const cId = document.getElementById('sheetClientSelect')?.value || '';
+    numEl.value = _generateSheetNumber(cId, projId);
+  }
 }
 
 function _populateBBSLinkedDropdown() {
@@ -736,7 +775,7 @@ export function saveEntries() {
   const projId = document.getElementById('sheetProjectSelect')?.value || state.currentProjectId || '';
   const cId = document.getElementById('sheetClientSelect')?.value || '';
   if (!projId && !cId) return showToast('Please open a project first', 'error');
-  const sNum = document.getElementById('sheetNum').value || `S-${Date.now().toString().slice(-5)}`;
+  const sNum = document.getElementById('sheetNum').value.trim() || _generateSheetNumber(cId, projId);
   const entries = _collectEntries();
   if (entries.length === 0) return showToast('Sheet is empty', 'error');
 

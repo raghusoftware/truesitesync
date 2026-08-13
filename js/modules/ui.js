@@ -1830,6 +1830,8 @@ window._openInvSection = function(section) {
 let _grnChallanPhoto = null, _grnCondPhoto = null;
 // Set while an existing GRN is being edited; null when creating a new one.
 let _grnEditingId = null;
+// Filters for the GRN register — supplier / material / date range.
+let _grnFilters = { supplier: '', material: '', from: '', to: '' };
 
 /** Compress an image file to a small Base64 JPEG (offline-first storage). */
 function _grnCompressImage(file) {
@@ -1871,7 +1873,6 @@ function _renderGRN() {
   const c = document.getElementById('grnContent'); if (!c) return;
   _grnChallanPhoto = null; _grnCondPhoto = null;
   const supplierOpts = (state.vendors||[]).map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
-  const recent = (state.grnRecords||[]).filter(g=>g.projectId===state.currentProjectId).slice(-15).reverse();
   const cur = getCurrencySymbol();
   // The GRN currently open for editing, if any — drives the form's edit styling.
   const _grnEdit0 = _grnEditingId ? (state.grnRecords||[]).find(x=>x.id===_grnEditingId) : null;
@@ -1901,12 +1902,101 @@ function _renderGRN() {
         <div class="border border-dashed border-slate-300 rounded-lg p-2"><label class="text-[11px] font-bold text-slate-500">📦 Material Condition Photo</label><input type="file" accept="image/*" capture="environment" onchange="_grnCapturePhoto(this,'cond')" class="text-xs block mt-1"><div id="grnCondPrev"></div></div>
       </div>
     </div>
-    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent GRNs</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-      ${recent.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||'<tr><td colspan="9" class="p-5 text-center text-slate-400">No GRNs yet.</td></tr>'}
-      </tbody></table></div></div>`;
+    <div class="bg-white border rounded-xl overflow-hidden">
+      <div class="p-3 border-b flex flex-wrap items-center gap-2">
+        <span class="font-bold text-slate-700 text-sm mr-auto">GRN Register</span>
+        <select id="grnFltSupplier" onchange="_grnSetFilter('supplier',this.value)" class="p-1.5 border rounded-lg text-xs bg-white"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
+        <select id="grnFltMaterial" onchange="_grnSetFilter('material',this.value)" class="p-1.5 border rounded-lg text-xs bg-white"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
+        <input id="grnFltFrom" type="date" value="${_grnFilters.from}" onchange="_grnSetFilter('from',this.value)" title="From date" class="p-1.5 border rounded-lg text-xs">
+        <input id="grnFltTo" type="date" value="${_grnFilters.to}" onchange="_grnSetFilter('to',this.value)" title="To date" class="p-1.5 border rounded-lg text-xs">
+        <button onclick="_grnClearFilter()" class="px-2.5 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">Clear</button>
+        <button onclick="_grnPrintList()" class="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">🖨️ Print List</button>
+      </div>
+      <div id="grnListWrap"></div>
+    </div>`;
+  _renderGrnList();
   syncUnitPicker('grnMat', 'grnQtyUnit');
 }
+
+/** Current-project GRNs narrowed by the supplier / material / date-range filters. */
+function _grnFilteredRecords() {
+  const f = _grnFilters;
+  const active = f.supplier || f.material || f.from || f.to;
+  let list = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+  if (f.supplier) list = list.filter(g => g.supplierId === f.supplier);
+  if (f.material) list = list.filter(g => g.matId === f.material);
+  if (f.from) list = list.filter(g => (g.date || '') >= f.from);
+  if (f.to) list = list.filter(g => (g.date || '') <= f.to);
+  list = list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.receivedAt || '').localeCompare(a.receivedAt || ''));
+  // No filter → keep the register light with the 15 most-recent; filtered → show every match.
+  return active ? list : list.slice(0, 15);
+}
+
+/** Paint just the GRN list table (filter changes must not reset the entry form). */
+function _renderGrnList() {
+  const wrap = document.getElementById('grnListWrap'); if (!wrap) return;
+  const rows = _grnFilteredRecords();
+  const active = _grnFilters.supplier || _grnFilters.material || _grnFilters.from || _grnFilters.to;
+  const totalQty = rows.reduce((s, g) => s + (Number(g.qty) || 0), 0);
+  wrap.innerHTML = `
+    <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
+    <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    </tbody></table></div>`;
+}
+
+window._grnSetFilter = function (key, val) { _grnFilters[key] = val || ''; _renderGrnList(); };
+window._grnClearFilter = function () {
+  _grnFilters = { supplier: '', material: '', from: '', to: '' };
+  ['grnFltSupplier', 'grnFltMaterial', 'grnFltFrom', 'grnFltTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _renderGrnList();
+};
+
+/** Print / PDF the currently filtered GRN material list. */
+window._grnPrintList = function () {
+  const rows = _grnFilteredRecords();
+  if (!rows.length) { showToast('Nothing to print for the current filters', 'warning'); return; }
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const f = _grnFilters;
+  const supName = f.supplier ? (state.vendors.find(v => v.id === f.supplier)?.name || '') : 'All Suppliers';
+  const matName = f.material ? (state.rawMaterials.find(r => r.id === f.material)?.name || '') : 'All Materials';
+  const dateRange = (f.from || f.to) ? `${f.from || '…'} to ${f.to || '…'}` : 'All dates';
+  const totalQty = rows.reduce((s, g) => s + (Number(g.qty) || 0), 0);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const body = rows.map((g, i) => {
+    const m = state.rawMaterials.find(r => r.id === g.matId);
+    const sup = state.vendors.find(v => v.id === g.supplierId);
+    return `<tr><td>${i + 1}</td><td>${esc(g.grnNo || '—')}</td><td>${esc(g.date || '')}</td><td>${esc(sup?.name || '—')}</td><td>${esc(m?.name || g.category || '—')}</td><td class="r">${esc(g.qty)} ${esc(m?.unit || '')}</td><td>${esc(g.challanNo || '')}</td><td>${g.billed ? 'Billed' : 'Unbilled'}</td></tr>`;
+  }).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>GRN Material List</title>
+    <style>
+      *{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
+      body{margin:24px;color:#0f172a}
+      h1{font-size:18px;margin:0 0 2px}
+      .sub{font-size:12px;color:#475569;margin:0 0 12px}
+      .meta{font-size:11px;color:#334155;margin:0 0 14px;line-height:1.6}
+      .meta b{color:#0f172a}
+      table{width:100%;border-collapse:collapse;font-size:11px}
+      th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
+      th{background:#f1f5f9;text-transform:uppercase;font-size:10px}
+      td.r,th.r{text-align:right}
+      tfoot td{font-weight:bold;background:#f8fafc}
+      @media print{body{margin:10mm}}
+    </style></head><body>
+    <h1>${esc((proj && proj.name) || 'GRN Material List')}</h1>
+    <p class="sub">Goods Receipt — Material List</p>
+    <div class="meta"><b>Supplier:</b> ${esc(supName)} &nbsp;|&nbsp; <b>Material:</b> ${esc(matName)} &nbsp;|&nbsp; <b>Period:</b> ${esc(dateRange)}<br><b>Entries:</b> ${rows.length} &nbsp;|&nbsp; <b>Printed:</b> ${new Date().toLocaleString('en-IN')}</div>
+    <table><thead><tr><th>#</th><th>GRN No</th><th>Date</th><th>Supplier</th><th>Material</th><th class="r">Qty</th><th>Challan/Inv</th><th>Bill</th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><td colspan="5" class="r">Total Qty</td><td class="r">${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td><td colspan="2"></td></tr></tfoot>
+    </table></body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print the list', 'error'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+};
 window._grnViewPhoto = function (id) {
   const g = (state.grnRecords || []).find(x => x.id === id); if (!g) return;
   const lb = document.createElement('div');
