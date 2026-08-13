@@ -2148,9 +2148,23 @@ window._saveGRN = function() {
   const rate=parseFloat(document.getElementById('grnRate').value)||0;
   const supplierId=document.getElementById('grnSupplier').value;
   const challanNo=document.getElementById('grnChallan').value.trim();
-  // ── Validation: vendor, quantity, and challan photo are mandatory ──
+  // ── Validation: vendor and quantity are mandatory ──
   if(!supplierId){showToast('Select a vendor/supplier','error');return;}
   if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
+  // Block duplicate receipts — a supplier's challan/invoice number is a unique
+  // document, so the same number from the same supplier can't be entered twice.
+  // Skip when challan is blank (nothing to match on) and ignore the record being edited.
+  if (challanNo) {
+    const dup = (state.grnRecords || []).find(g =>
+      g.id !== _grnEditingId &&
+      g.supplierId === supplierId &&
+      String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase()
+    );
+    if (dup) {
+      const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this supplier';
+      return showToast(`Challan "${challanNo}" from ${supName} is already recorded in ${dup.grnNo} — duplicate entry blocked`, 'error');
+    }
+  }
   // Receipt date is user-entered; fall back to today (or the original on edit).
   const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
