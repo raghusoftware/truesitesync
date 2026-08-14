@@ -1823,10 +1823,11 @@ window._openInvSection = function(section) {
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
   if (grid) grid.style.display='none'; if (back) back.style.display='inline-block';
-  const map = { stock:'invSecStock', grn:'invSecGrn', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
+  const map = { stock:'invSecStock', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'stock') renderLiveInventory();
   else if (section === 'grn') _renderGRN();
+  else if (section === 'grnregister') _renderGrnRegister();
   else if (section === 'gang') _renderGangMaterial();
   else if (section === 'tools') _renderTools();
   else if (section === 'transfer') _renderInvTransfer();
@@ -1997,12 +1998,15 @@ window._grnClearFilter = function () {
   _renderGrnList();
 };
 
-/** Print / PDF the currently filtered GRN material list. */
+/** Print / PDF the currently filtered GRN material list (entry-form register). */
 window._grnPrintList = function () {
-  const rows = _grnFilteredRecords();
+  _grnPrintRows(_grnFilteredRecords(), _grnFilters);
+};
+
+/** Shared printer for any GRN row set + filter descriptor {supplier,material,from,to}. */
+function _grnPrintRows(rows, f) {
   if (!rows.length) { showToast('Nothing to print for the current filters', 'warning'); return; }
   const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
-  const f = _grnFilters;
   const supName = f.supplier ? (state.vendors.find(v => v.id === f.supplier)?.name || '') : 'All Suppliers';
   const matName = f.material ? (state.rawMaterials.find(r => r.id === f.material)?.name || '') : 'All Materials';
   const dateRange = (f.from || f.to) ? `${f.from || '…'} to ${f.to || '…'}` : 'All dates';
@@ -2041,7 +2045,7 @@ window._grnPrintList = function () {
   w.document.close();
   w.focus();
   setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
-};
+}
 window._grnViewPhoto = function (id) {
   const g = (state.grnRecords || []).find(x => x.id === id); if (!g) return;
   const lb = document.createElement('div');
@@ -2050,6 +2054,141 @@ window._grnViewPhoto = function (id) {
   lb.innerHTML = `${g.challanPhoto ? `<div style="text-align:center;"><div style="color:#cbd5e1;font-size:11px;margin-bottom:4px;">Challan</div><img src="${g.challanPhoto}" style="max-height:42vh;max-width:90vw;border-radius:10px;"></div>` : ''}${g.condPhoto ? `<div style="text-align:center;"><div style="color:#cbd5e1;font-size:11px;margin-bottom:4px;">Material condition</div><img src="${g.condPhoto}" style="max-height:42vh;max-width:90vw;border-radius:10px;"></div>` : ''}`;
   document.body.appendChild(lb);
 };
+
+// ─── Full GRN Register (dedicated Inventory tile — filters + pagination) ───
+// Own filter/pagination state, kept separate from the entry-form mini-register.
+let _grnRegFilters = { supplier: '', material: '', from: '', to: '' };
+let _grnRegPage = 1;
+let _grnRegSize = 20;
+
+/** Current-project GRNs after applying the register filters, newest first. */
+function _grnRegFiltered() {
+  const f = _grnRegFilters;
+  let list = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+  if (f.supplier) list = list.filter(g => g.supplierId === f.supplier);
+  if (f.material) list = list.filter(g => g.matId === f.material);
+  if (f.from) list = list.filter(g => (g.date || '') >= f.from);
+  if (f.to) list = list.filter(g => (g.date || '') <= f.to);
+  return list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.receivedAt || '').localeCompare(a.receivedAt || ''));
+}
+
+/** Render the full GRN Register screen (filters, paged table, print). */
+function _renderGrnRegister() {
+  const c = document.getElementById('grnRegisterContent'); if (!c) return;
+  const cur = getCurrencySymbol();
+  const all = _grnRegFiltered();
+  const total = all.length;
+  const size = _grnRegSize === 0 ? (total || 1) : _grnRegSize;
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (_grnRegPage > pages) _grnRegPage = pages;
+  if (_grnRegPage < 1) _grnRegPage = 1;
+  const startIdx = (_grnRegPage - 1) * size;
+  const rows = all.slice(startIdx, startIdx + size);
+  const shownFrom = total ? startIdx + 1 : 0;
+  const shownTo = Math.min(startIdx + size, total);
+  const pageQty = rows.reduce((s, g) => s + (Number(g.qty) || 0), 0);
+  const totalQty = all.reduce((s, g) => s + (Number(g.qty) || 0), 0);
+  const totalAmt = all.reduce((s, g) => s + (Number(g.amount) || 0), 0);
+  const active = _grnRegFilters.supplier || _grnRegFilters.material || _grnRegFilters.from || _grnRegFilters.to;
+  const sizeOpt = (n, lbl) => `<option value="${n}" ${_grnRegSize === n ? 'selected' : ''}>${lbl}</option>`;
+
+  c.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#4338ca);">📋</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-extrabold text-slate-800 text-base leading-tight">GRN Register</h4>
+          <p class="text-[11px] text-slate-500 font-medium">All goods received on this project</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Received</div>
+          <div class="font-extrabold text-indigo-700 text-sm">${total} GRN${total === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
+        <select id="grnRegFltSupplier" onchange="_grnRegSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnRegFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
+        <select id="grnRegFltMaterial" onchange="_grnRegSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnRegFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
+        <input id="grnRegFltFrom" type="date" value="${_grnRegFilters.from}" onchange="_grnRegSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+        <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+        <button onclick="_grnRegClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
+        <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition ml-auto">🖨️ Print</button>
+      </div>
+
+      <!-- Summary strip -->
+      <div class="px-5 py-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-slate-500 bg-white border-b border-slate-100">
+        <span>Showing <b class="text-slate-700">${shownFrom}–${shownTo}</b> of <b class="text-slate-700">${total}</b></span>
+        <span>Total qty <b class="text-slate-700">${totalQty.toLocaleString('en-IN',{maximumFractionDigits:2})}</b></span>
+        <span>Total value <b class="text-slate-700">${cur}${totalAmt.toLocaleString('en-IN',{maximumFractionDigits:2})}</b></span>
+        ${active ? '<span class="text-indigo-500 font-semibold">Filtered</span>' : ''}
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-x-auto"><table class="w-full text-xs">
+        <thead class="bg-slate-50"><tr>
+          <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">GRN No</th>
+          <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Date</th>
+          <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Supplier</th>
+          <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Material</th>
+          <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Challan</th>
+          <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Qty</th>
+          <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Amount</th>
+          <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">QC</th>
+          <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">Bill</th>
+          <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">📷</th>
+          <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Action</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
+          <td class="px-3 py-2.5 font-mono text-indigo-700 font-bold">${g.grnNo||'—'}</td>
+          <td class="px-3 py-2.5 text-slate-600">${g.date||''}</td>
+          <td class="px-3 py-2.5">${sup?.name||'—'}</td>
+          <td class="px-3 py-2.5 font-bold text-slate-700">${m?.name||g.category||'—'}</td>
+          <td class="px-3 py-2.5 text-slate-500">${g.challanNo||'—'}</td>
+          <td class="px-3 py-2.5 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
+          <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+Number(g.amount).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'}</td>
+          <td class="px-3 py-2.5 text-center">${qc}</td>
+          <td class="px-3 py-2.5 text-center">${bill}</td>
+          <td class="px-3 py-2.5 text-center">${g.challanPhoto||g.condPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-indigo-500 hover:underline font-semibold">view</button>`:'—'}</td>
+          <td class="px-3 py-2.5 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnRegEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnRegDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td>
+        </tr>`;}).join('')||`<tr><td colspan="11" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
+        </tbody>
+      </table></div>
+
+      <!-- Pagination footer -->
+      <div class="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50/60">
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span>Rows per page</span>
+          <select id="grnRegSize" onchange="_grnRegSetSize(this.value)" class="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400">
+            ${sizeOpt(15,'15')}${sizeOpt(20,'20')}${sizeOpt(50,'50')}${sizeOpt(100,'100')}${sizeOpt(0,'All')}
+          </select>
+        </div>
+        <div class="flex items-center gap-1.5 ml-auto">
+          <button onclick="_grnRegGo(1)" ${_grnRegPage<=1?'disabled':''} class="px-2.5 py-1.5 text-xs font-bold rounded-lg border transition ${_grnRegPage<=1?'text-slate-300 border-slate-100 cursor-not-allowed':'text-slate-600 border-slate-200 bg-white hover:bg-slate-100'}">« First</button>
+          <button onclick="_grnRegGo(${_grnRegPage-1})" ${_grnRegPage<=1?'disabled':''} class="px-2.5 py-1.5 text-xs font-bold rounded-lg border transition ${_grnRegPage<=1?'text-slate-300 border-slate-100 cursor-not-allowed':'text-slate-600 border-slate-200 bg-white hover:bg-slate-100'}">‹ Prev</button>
+          <span class="px-3 text-xs font-bold text-slate-600">Page ${_grnRegPage} of ${pages}</span>
+          <button onclick="_grnRegGo(${_grnRegPage+1})" ${_grnRegPage>=pages?'disabled':''} class="px-2.5 py-1.5 text-xs font-bold rounded-lg border transition ${_grnRegPage>=pages?'text-slate-300 border-slate-100 cursor-not-allowed':'text-slate-600 border-slate-200 bg-white hover:bg-slate-100'}">Next ›</button>
+          <button onclick="_grnRegGo(${pages})" ${_grnRegPage>=pages?'disabled':''} class="px-2.5 py-1.5 text-xs font-bold rounded-lg border transition ${_grnRegPage>=pages?'text-slate-300 border-slate-100 cursor-not-allowed':'text-slate-600 border-slate-200 bg-white hover:bg-slate-100'}">Last »</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+window._grnRegSetFilter = function (key, val) { _grnRegFilters[key] = val || ''; _grnRegPage = 1; _renderGrnRegister(); };
+window._grnRegClearFilter = function () {
+  _grnRegFilters = { supplier: '', material: '', from: '', to: '' };
+  _grnRegPage = 1;
+  _renderGrnRegister();
+};
+window._grnRegSetSize = function (v) { _grnRegSize = parseInt(v, 10) || 0; _grnRegPage = 1; _renderGrnRegister(); };
+window._grnRegGo = function (p) { _grnRegPage = p; _renderGrnRegister(); };
+window._grnRegPrint = function () { _grnPrintRows(_grnRegFiltered(), _grnRegFilters); };
+/** Edit from the register — jump to the GRN entry form in edit mode. */
+window._grnRegEdit = function (id) { _openInvSection('grn'); _grnEdit(id); };
+/** Delete from the register — reuse the shared delete, then repaint the register. */
+window._grnRegDelete = function (id) { _grnDelete(id); _renderGrnRegister(); };
 /**
  * The stock transaction and QC check a GRN spawned. New records carry grnId;
  * older ones predate it, so fall back to matching the GRN number in the ref.
