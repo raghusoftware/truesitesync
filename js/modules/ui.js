@@ -3152,6 +3152,12 @@ export function loadPendingAbstractsForBilling() {
   if (!cId) { cont.classList.add('hide'); return; }
   cont.classList.remove('hide');
   list.innerHTML = '';
+  // Prefill retention % from the client's project setting (user can still override).
+  const _client = state.clients.find(c => c.id === cId);
+  const _proj = state.projects.find(p => p.id === _client?.projectId);
+  const _ret = document.getElementById('billRetention');
+  if (_ret && _proj && (_proj.retention || 0) > 0 && !_ret.dataset.touched) _ret.value = _proj.retention;
+
   const pending = state.abstracts.filter(a => a.clientId === cId && !a.isInvoiced);
   pending.forEach(a => {
     list.innerHTML += `<label class="flex items-center gap-3 p-3 border-b hover:bg-slate-100 cursor-pointer"><input type="checkbox" class="billing-checkbox w-5 h-5 accent-blue-600" value="${a.id}" onchange="calculateLiveBill()"><div><p class="font-bold text-slate-800">${a.abstractNum} - Area: ${a.area}</p><p class="text-sm font-extrabold text-blue-700">${getCurrencySymbol()}${a.totalAmount.toLocaleString('en-IN')}</p></div></label>`;
@@ -3179,7 +3185,8 @@ export function generateFinalInvoice() {
   if (checkedBoxes.length === 0) return showToast('Select abstract to bill', 'error');
   const math = calculateLiveBill();
   const invNum = `INV-${Date.now().toString().slice(-4)}`;
-  const invData = { id: 'INV_' + Date.now(), invoiceNum: invNum, status: 'Final', clientId: cId, date: new Date().toISOString().split('T')[0], abstractIds: checkedBoxes, subtotal: math.subtotal, gstType: math.type, taxAmount: math.tax, totalAmount: math.total };
+  const invData = { id: 'INV_' + Date.now(), invoiceNum: invNum, status: 'Final', clientId: cId, date: new Date().toISOString().split('T')[0], abstractIds: checkedBoxes, subtotal: math.subtotal, gstType: math.type, taxAmount: math.tax, totalAmount: math.total,
+    retentionPct: math.retentionPct, retentionAmt: math.retentionAmt, tdsPct: math.tdsPct, tdsAmt: math.tdsAmt, advanceRec: math.advanceRec, ld: math.ld, totalDeductions: math.totalDeductions, netPayable: math.netPayable };
   state.invoices.push(invData);
   checkedBoxes.forEach(id => {
     const idx = state.abstracts.findIndex(a => a.id === id);
@@ -3228,7 +3235,23 @@ export function openInvoiceInfo(id) {
   const inv = state.invoices.find(i => i.id === id);
   if (!inv) return;
   document.getElementById('invInfoTitle').textContent = `Invoice: ${inv.invoiceNum} ${inv.status === 'Cancelled' ? '(CANCELLED)' : ''}`;
-  document.getElementById('invInfoContent').innerHTML = `<p><b>Date:</b> ${inv.date}</p><p><b>Subtotal:</b> ${getCurrencySymbol()}${inv.subtotal}</p><p><b>Tax:</b> ${getCurrencySymbol()}${inv.taxAmount}</p><p><b>Total:</b> ${getCurrencySymbol()}${inv.totalAmount}</p><hr><p><b>Linked Abstracts:</b> ${inv.abstractIds.length}</p>`;
+  const cur = getCurrencySymbol();
+  const m = v => cur + (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const hasDed = (inv.totalDeductions || 0) > 0 || inv.netPayable != null;
+  const dedRow = (lbl, v) => (Number(v) || 0) > 0 ? `<p class="text-rose-600"><b>Less ${lbl}:</b> -${m(v)}</p>` : '';
+  document.getElementById('invInfoContent').innerHTML =
+    `<p><b>Date:</b> ${inv.date}</p>` +
+    `<p><b>Work Value:</b> ${m(inv.subtotal)}</p>` +
+    `<p><b>GST:</b> ${m(inv.taxAmount)}</p>` +
+    `<p><b>Bill Value (Gross):</b> ${m(inv.totalAmount)}</p>` +
+    (hasDed
+      ? dedRow(`Retention${inv.retentionPct ? ' (' + inv.retentionPct + '%)' : ''}`, inv.retentionAmt) +
+        dedRow('Advance Recovery', inv.advanceRec) +
+        dedRow('LD / Penalty', inv.ld) +
+        dedRow(`TDS${inv.tdsPct ? ' (' + inv.tdsPct + '%)' : ''}`, inv.tdsAmt) +
+        `<hr><p class="text-base"><b>Net Payable:</b> <b>${m(inv.netPayable != null ? inv.netPayable : inv.totalAmount)}</b></p>`
+      : '') +
+    `<hr><p><b>Linked Abstracts:</b> ${inv.abstractIds.length}</p>`;
   document.getElementById('invoiceInfoModal').classList.remove('hidden');
 }
 

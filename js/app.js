@@ -14,7 +14,7 @@ import {
   renderAccounts, openAccountModal, saveAccount, renderReports,
   renderMasterClientList, renderMasterVendorList, exportMasterList,
   exportVendorLedgerPDF, exportClientStatementPDF
-} from './modules/finance.js';
+} from './modules/finance.js?v=1.6.23';
 import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
@@ -61,10 +61,10 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.6.22';
+} from './modules/ui.js?v=1.6.23';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.3.22';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.3.22';
-import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js';
+import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.23';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
@@ -746,7 +746,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.22';
+const APP_VERSION = '1.6.23';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

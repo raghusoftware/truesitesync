@@ -63,8 +63,24 @@ export function exportInvoicePDF(id) {
   } else {
     doc.text(`IGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.igst)}`, 196, tY, null, null, "right"); tY += 6;
   }
-  doc.setFontSize(12); doc.setTextColor(249, 115, 22);
-  doc.text(`Grand Total:`, 120, tY + 4); doc.text(`${sym} ${_num2(inv.totalAmount)}`, 196, tY + 4, null, null, "right");
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Bill Value (Gross):`, 140, tY); doc.text(`${sym} ${_num2(inv.totalAmount)}`, 196, tY, null, null, "right"); tY += 6;
+
+  // Deductions & recovery → Net Payable (only when the invoice carries them).
+  const hasDed = (inv.totalDeductions || 0) > 0 || inv.netPayable != null;
+  if (hasDed) {
+    doc.setFont("helvetica", "normal"); doc.setTextColor(190, 60, 50);
+    const dedLine = (lbl, v) => { if ((Number(v) || 0) > 0) { doc.text(`Less ${lbl}:`, 140, tY); doc.text(`- ${sym} ${_num2(v)}`, 196, tY, null, null, "right"); tY += 6; } };
+    dedLine(`Retention${inv.retentionPct ? ' (' + inv.retentionPct + '%)' : ''}`, inv.retentionAmt);
+    dedLine('Advance Recovery', inv.advanceRec);
+    dedLine('LD / Penalty', inv.ld);
+    dedLine(`TDS${inv.tdsPct ? ' (' + inv.tdsPct + '%)' : ''}`, inv.tdsAmt);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(30, 58, 138);
+    doc.text(`Net Payable:`, 120, tY + 4); doc.text(`${sym} ${_num2(inv.netPayable != null ? inv.netPayable : inv.totalAmount)}`, 196, tY + 4, null, null, "right");
+  } else {
+    doc.setFontSize(12); doc.setTextColor(249, 115, 22);
+    doc.text(`Grand Total:`, 120, tY + 4); doc.text(`${sym} ${_num2(inv.totalAmount)}`, 196, tY + 4, null, null, "right");
+  }
   mobileSavePDF(doc,`${inv.invoiceNum}.pdf`);
 }
 

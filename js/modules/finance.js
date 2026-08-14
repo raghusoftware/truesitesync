@@ -71,10 +71,37 @@ export function calculateLiveBill() {
     igst: parseFloat(document.getElementById('billIgst').value) || 0
   };
   const { taxAmount: tax, total } = computeGst(subtotal, rates);
-  document.getElementById('billPreviewSub').textContent = getCurrencySymbol() + subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  document.getElementById('billPreviewTax').textContent = getCurrencySymbol() + tax.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  document.getElementById('billPreviewTotal').textContent = getCurrencySymbol() + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  return { subtotal, tax, total, type };
+
+  // ── Deductions & recovery → Net Payable (retention & TDS on work value) ──
+  const num = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const retentionPct = num('billRetention');
+  const tdsPct = num('billTds');
+  const advanceRec = num('billAdvanceRec');
+  const ld = num('billLD');
+  const retentionAmt = subtotal * retentionPct / 100;
+  const tdsAmt = subtotal * tdsPct / 100;
+  const totalDeductions = retentionAmt + tdsAmt + advanceRec + ld;
+  const gross = total;                       // work value + GST
+  const netPayable = gross - totalDeductions;
+
+  const sym = getCurrencySymbol();
+  const money = v => sym + v.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('billPreviewSub', money(subtotal));
+  setTxt('billPreviewTax', money(tax));
+  setTxt('billPreviewGross', money(gross));
+  setTxt('billPreviewRetention', '-' + money(retentionAmt));
+  setTxt('billPreviewAdvance', '-' + money(advanceRec));
+  setTxt('billPreviewLd', '-' + money(ld));
+  setTxt('billPreviewTds', '-' + money(tdsAmt));
+  setTxt('billPreviewNet', money(netPayable));
+  setTxt('billPreviewTotal', money(total));
+  // Dim deduction rows that are zero so the summary stays clean.
+  const dim = (rowId, on) => { const el = document.getElementById(rowId); if (el) el.style.opacity = on ? '1' : '.35'; };
+  dim('rowRetention', retentionAmt > 0); dim('rowAdvance', advanceRec > 0);
+  dim('rowLd', ld > 0); dim('rowTds', tdsAmt > 0);
+
+  return { subtotal, tax, total, type, retentionPct, retentionAmt, tdsPct, tdsAmt, advanceRec, ld, totalDeductions, gross, netPayable };
 }
 
 export function buildClientLedger(cId) {
