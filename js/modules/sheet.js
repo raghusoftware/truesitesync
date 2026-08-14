@@ -18,6 +18,76 @@ import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js'
 let _allSheetBoqItems = [];     // all BOQ items across all groups (unfiltered)
 let _currentSheetBoqItems = []; // filtered BOQ items for current selection
 
+// ═══════ Measurement approval lifecycle ═══════
+// Classic sheets flow Draft → Submitted → Approved (or Rejected) → Billed.
+// Backward compatible: sheets with no `status` derive one from isBilled, so
+// legacy data behaves exactly as before and needs no migration. Running
+// (Record-Work) sheets bill via RA bills, not this gate — they stay "running".
+const SHEET_STATUS = {
+  draft:     { label: 'Draft',            cls: 'bg-slate-100 text-slate-600',     border: 'border-l-slate-300' },
+  submitted: { label: 'Pending Approval', cls: 'bg-amber-100 text-amber-700',     border: 'border-l-amber-400' },
+  approved:  { label: 'Approved',         cls: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-500' },
+  rejected:  { label: 'Rejected',         cls: 'bg-rose-100 text-rose-700',       border: 'border-l-rose-500' },
+  billed:    { label: 'Billed',           cls: 'bg-green-100 text-green-700',      border: 'border-l-green-500' },
+  running:   { label: 'Running · RA Billing', cls: 'bg-violet-100 text-violet-700', border: 'border-l-violet-400' },
+};
+
+/** Effective lifecycle status of a sheet (derived for legacy/running sheets). */
+export function sheetStatus(s) {
+  if (!s) return 'draft';
+  if (s._running || s.locationId) return 'running';
+  if (s.status) return s.status;
+  return s.isBilled ? 'billed' : 'draft';
+}
+window.sheetStatus = sheetStatus;
+
+/** Who is performing an approval action (for the audit trail). */
+function _measActor() {
+  try { const u = window.getCurrentUser?.(); return u?.name || u?.email || 'User'; } catch { return 'User'; }
+}
+
+/** Record a lifecycle transition + audit entry, persist, and repaint the list. */
+function _transitionSheet(id, newStatus, note) {
+  const s = state.sheets.find(x => x.id === id);
+  if (!s) return null;
+  s.status = newStatus;
+  if (!Array.isArray(s.statusHistory)) s.statusHistory = [];
+  s.statusHistory.push({ status: newStatus, at: new Date().toISOString(), by: _measActor(), note: note || '' });
+  s.updatedAt = new Date().toISOString();
+  saveAllData();
+  renderMeasurementList();
+  return s;
+}
+
+window.submitSheet = function (id) {
+  const s = _transitionSheet(id, 'submitted');
+  if (s) showToast(`${s.sheetNum} submitted for approval`, 'success');
+};
+window.approveSheet = function (id) {
+  const s = state.sheets.find(x => x.id === id); if (!s) return;
+  if (!confirm(`Approve ${s.sheetNum}?\n\nApproved measurements are cleared for billing.`)) return;
+  s.rejectionReason = '';
+  const done = _transitionSheet(id, 'approved');
+  if (done) showToast(`${done.sheetNum} approved ✓`, 'success');
+};
+window.rejectSheet = function (id) {
+  const s = state.sheets.find(x => x.id === id); if (!s) return;
+  const reason = prompt(`Reject ${s.sheetNum}?\n\nReason (shown in the Rejected register):`, s.rejectionReason || '');
+  if (reason === null) return;
+  s.rejectionReason = reason.trim();
+  const done = _transitionSheet(id, 'rejected', reason.trim());
+  if (done) showToast(`${done.sheetNum} rejected`, 'warning');
+};
+window.reopenSheet = function (id) {
+  const s = state.sheets.find(x => x.id === id); if (!s) return;
+  s.rejectionReason = '';
+  const done = _transitionSheet(id, 'draft', 'Reopened');
+  if (done) showToast(`${done.sheetNum} reopened as Draft`, 'info');
+};
+
+let _measStatusFilter = 'all';
+window.setMeasurementStatusFilter = function (v) { _measStatusFilter = v || 'all'; renderMeasurementList(); };
+
 /** Build an initials prefix from a client/project name — "Nexcel Chemical" → "NC" */
 function _sheetPrefixFromName(name) {
   const clean = String(name || '').trim();
@@ -908,30 +978,61 @@ export function renderMeasurementList() {
     })
     .sort((a, b) => new Date(b.updatedAt || b.date) - new Date(a.updatedAt || a.date));
 
-  if (countEl) countEl.textContent = projectSheets.length;
+  // ── Status filter chips (counts within the current search) ──
+  const counts = { all: projectSheets.length, draft: 0, submitted: 0, approved: 0, rejected: 0, billed: 0, running: 0 };
+  projectSheets.forEach(s => { counts[sheetStatus(s)] = (counts[sheetStatus(s)] || 0) + 1; });
+  const chipsEl = document.getElementById('measStatusChips');
+  if (chipsEl) {
+    const chipDefs = [
+      ['all', 'All', 'bg-slate-800 text-white', 'bg-slate-100 text-slate-600'],
+      ['submitted', 'Pending', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-700'],
+      ['approved', 'Approved', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-700'],
+      ['rejected', 'Rejected', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-700'],
+      ['draft', 'Draft', 'bg-slate-600 text-white', 'bg-slate-50 text-slate-600'],
+      ['billed', 'Billed', 'bg-green-600 text-white', 'bg-green-50 text-green-700'],
+    ];
+    if (counts.running) chipDefs.push(['running', 'Running', 'bg-violet-600 text-white', 'bg-violet-50 text-violet-700']);
+    chipsEl.innerHTML = chipDefs.map(([k, lbl, on, off]) =>
+      `<button onclick="setMeasurementStatusFilter('${k}')" class="text-xs font-bold px-3 py-1.5 rounded-full transition ${_measStatusFilter === k ? on : off} ${k !== 'all' && !counts[k] ? 'opacity-40' : ''}">${lbl} <span class="opacity-70">${counts[k] || 0}</span></button>`
+    ).join('');
+  }
 
-  if (!projectSheets.length) {
-    container.innerHTML = '';
-    if (emptyEl) emptyEl.classList.remove('hidden');
+  const visibleSheets = _measStatusFilter === 'all'
+    ? projectSheets
+    : projectSheets.filter(s => sheetStatus(s) === _measStatusFilter);
+
+  if (countEl) countEl.textContent = visibleSheets.length;
+
+  if (!visibleSheets.length) {
+    container.innerHTML = _measStatusFilter === 'all'
+      ? '' : `<div class="text-center py-12 text-slate-400 text-sm">No sheets with status "${SHEET_STATUS[_measStatusFilter]?.label || _measStatusFilter}".</div>`;
+    if (emptyEl) emptyEl.classList.toggle('hidden', _measStatusFilter !== 'all');
+    if (_measStatusFilter !== 'all') return;
     return;
   }
   if (emptyEl) emptyEl.classList.add('hidden');
 
   const proj = state.projects.find(p => p.id === projId);
 
-  container.innerHTML = projectSheets.map(s => {
+  container.innerHTML = visibleSheets.map(s => {
     const totalQty = s.entries.reduce((sum, e) => sum + (e.qty || 0), 0);
     const itemCount = s.entries.filter(e => e.code || e.description).length;
     const uniqueItems = [...new Set(s.entries.filter(e => e.code).map(e => e.code))];
     const dateStr = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const updatedStr = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-    const _running = s._running || s.locationId;
-    const billedClass = s.isBilled ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
-    const statusBadge = s.isBilled
-      ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Billed</span>`
-      : _running
-        ? `<span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" title="Running measurement — bill from Micro-Planning → RA Billing">Running · RA Billing</span>`
-        : `<span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>`;
+    const st = sheetStatus(s);
+    const meta = SHEET_STATUS[st] || SHEET_STATUS.draft;
+    const _running = st === 'running';
+    const billedClass = meta.border;
+    const statusBadge = `<span class="text-[10px] font-bold ${meta.cls} px-2 py-0.5 rounded-full"${_running ? ' title="Running measurement — bill from Micro-Planning → RA Billing"' : ''}>${meta.label}</span>`;
+
+    // Lifecycle action buttons by status (classic sheets only).
+    const actBtn = (fn, label, cls) => `<button onclick="${fn}('${s.id}')" class="px-3 py-2 rounded-lg font-bold text-sm transition ${cls}">${label}</button>`;
+    let lifecycle = '';
+    if (st === 'draft')     lifecycle = actBtn('submitSheet', 'Submit', 'bg-amber-500 text-white hover:bg-amber-600');
+    else if (st === 'submitted') lifecycle = actBtn('approveSheet', '✓ Approve', 'bg-emerald-600 text-white hover:bg-emerald-700') + actBtn('rejectSheet', 'Reject', 'bg-rose-50 text-rose-600 hover:bg-rose-100');
+    else if (st === 'rejected')  lifecycle = actBtn('reopenSheet', 'Reopen', 'bg-slate-100 text-slate-700 hover:bg-slate-200');
+    else if (st === 'approved')  lifecycle = actBtn('reopenSheet', 'Revert', 'bg-slate-50 text-slate-500 hover:bg-slate-100');
 
     return `<div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4 ${billedClass}">
       <div class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
@@ -939,7 +1040,7 @@ export function renderMeasurementList() {
           <div class="flex items-center gap-2 mb-1.5">
             <h4 class="font-extrabold text-slate-800 text-base">${s.sheetNum}</h4>
             ${statusBadge}
-            ${s.isBilled ? `<span class="text-[10px] font-semibold text-slate-400">${s.linkedAbstract || ''}</span>` : ''}
+            ${st === 'billed' ? `<span class="text-[10px] font-semibold text-slate-400">${s.linkedAbstract || ''}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <span title="Date"><span class="font-bold text-slate-600">Date:</span> ${dateStr}</span>
@@ -948,9 +1049,11 @@ export function renderMeasurementList() {
             <span title="Total Qty"><span class="font-bold text-slate-600">Total Qty:</span> ${totalQty.toLocaleString('en-IN', {maximumFractionDigits:2})}</span>
             ${updatedStr ? `<span class="text-slate-400" title="Last updated">Updated: ${updatedStr}</span>` : ''}
           </div>
+          ${st === 'rejected' && s.rejectionReason ? `<div class="mt-2 text-[11px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5"><span class="font-bold">Rejected:</span> ${s.rejectionReason}</div>` : ''}
           ${uniqueItems.length ? `<div class="flex flex-wrap gap-1 mt-2">${uniqueItems.slice(0, 5).map(c => `<span class="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">${c}</span>`).join('')}${uniqueItems.length > 5 ? `<span class="text-[10px] text-slate-400 font-semibold">+${uniqueItems.length - 5} more</span>` : ''}</div>` : ''}
         </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          ${lifecycle}
           <button onclick="loadSheet('${s.id}')" class="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition flex items-center gap-1.5" title="Open & Edit">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             Open
