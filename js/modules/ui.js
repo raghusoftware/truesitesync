@@ -1868,6 +1868,11 @@ window._grnCapturePhoto = async function (input, which) {
   const pv = document.getElementById(which === 'challan' ? 'grnChallanPrev' : 'grnCondPrev');
   if (pv) pv.innerHTML = data ? `<img src="${data}" style="max-height:90px;border-radius:8px;margin-top:6px;">` : '';
 };
+/** Format a stored ISO date (yyyy-mm-dd) for display as dd/mm/yyyy. */
+function _grnFmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '');
+}
 /** Auto sequential GRN no — GRN-<PROJCODE>-<YYYYMMDD>-### */
 function _grnNextNumber(date) {
   const ymd = (date || '').replace(/-/g, '');
@@ -1987,7 +1992,7 @@ function _renderGrnList() {
   wrap.innerHTML = `
     <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
     <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${g.date}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
     </tbody></table></div>`;
 }
 
@@ -2015,7 +2020,7 @@ function _grnPrintRows(rows, f) {
   const body = rows.map((g, i) => {
     const m = state.rawMaterials.find(r => r.id === g.matId);
     const sup = state.vendors.find(v => v.id === g.supplierId);
-    return `<tr><td>${i + 1}</td><td>${esc(g.grnNo || '—')}</td><td>${esc(g.date || '')}</td><td>${esc(sup?.name || '—')}</td><td>${esc(m?.name || g.category || '—')}</td><td class="r">${esc(g.qty)} ${esc(m?.unit || '')}</td><td>${esc(g.challanNo || '')}</td><td>${g.billed ? 'Billed' : 'Unbilled'}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${esc(g.grnNo || '—')}</td><td>${esc(_grnFmtDate(g.date))}</td><td>${esc(sup?.name || '—')}</td><td>${esc(m?.name || g.category || '—')}</td><td class="r">${esc(g.qty)} ${esc(m?.unit || '')}</td><td>${esc(g.challanNo || '')}</td><td>${g.billed ? 'Billed' : 'Unbilled'}</td></tr>`;
   }).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>GRN Material List</title>
     <style>
@@ -2143,7 +2148,7 @@ function _renderGrnRegister() {
         <tbody>
         ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
           <td class="px-3 py-2.5 font-mono text-indigo-700 font-bold">${g.grnNo||'—'}</td>
-          <td class="px-3 py-2.5 text-slate-600">${g.date||''}</td>
+          <td class="px-3 py-2.5 text-slate-600">${_grnFmtDate(g.date)}</td>
           <td class="px-3 py-2.5">${sup?.name||'—'}</td>
           <td class="px-3 py-2.5 font-bold text-slate-700">${m?.name||g.category||'—'}</td>
           <td class="px-3 py-2.5 text-slate-500">${g.challanNo||'—'}</td>
@@ -2310,7 +2315,7 @@ window._saveGRN = function() {
       const msg =
         `⚠ Duplicate challan\n\n` +
         `Challan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo}\n` +
-        `(dated ${dup.date || '—'}, ${dup.qty} ${dupMat?.unit || ''} ${dupMat?.name || dup.category || ''}).` +
+        `(dated ${_grnFmtDate(dup.date) || '—'}, ${dup.qty} ${dupMat?.unit || ''} ${dupMat?.name || dup.category || ''}).` +
         (sameDay ? `\n\nThis new entry is on the SAME date.` : '') +
         `\n\nThe same challan has already been entered. Do you still want to add another?`;
       if (!confirm(msg)) { showToast('Duplicate GRN not added', 'info'); return; }
