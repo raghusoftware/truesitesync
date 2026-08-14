@@ -1632,6 +1632,36 @@ export function addAltUnitRow(unit = '', factor = '') {
 }
 window.addAltUnitRow = addAltUnitRow;
 
+// ─── Supplier approved-rate rows (Material Master modal) ───
+/** Add one supplier-rate row: [supplier][rate][approved][remove]. */
+export function addSupplierRateRow(vendorId = '', rate = '', approved = true) {
+  const wrap = document.getElementById('supplierRateRows');
+  if (!wrap) return;
+  const opts = '<option value="">— Select supplier —</option>' +
+    (state.vendors || []).map(v => `<option value="${v.id}" ${v.id === vendorId ? 'selected' : ''}>${v.name}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'sup-rate-row flex items-center gap-2 mb-2';
+  row.innerHTML =
+    `<select class="sr-vendor flex-1 p-2 border rounded text-sm bg-white outline-none focus:border-emerald-500">${opts}</select>` +
+    `<input type="number" class="sr-rate w-24 p-2 border rounded text-sm outline-none focus:border-emerald-500" placeholder="Rate" value="${rate !== '' && rate != null ? rate : ''}">` +
+    `<label class="flex items-center gap-1 text-[11px] font-bold text-emerald-700 whitespace-nowrap" title="Only approved rates auto-fill on a PO"><input type="checkbox" class="sr-approved" ${approved ? 'checked' : ''}> Approved</label>` +
+    `<button type="button" onclick="this.closest('.sup-rate-row').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button>`;
+  wrap.appendChild(row);
+}
+window.addSupplierRateRow = addSupplierRateRow;
+
+/** Collect supplier-rate rows into [{vendorId, rate, approved}], one per supplier (last wins). */
+function readSupplierRateRows() {
+  const out = {};
+  document.querySelectorAll('#supplierRateRows .sup-rate-row').forEach(row => {
+    const vendorId = row.querySelector('.sr-vendor')?.value || '';
+    const rate = parseFloat(row.querySelector('.sr-rate')?.value);
+    if (!vendorId || !(rate >= 0) || isNaN(rate)) return;
+    out[vendorId] = { vendorId, rate, approved: !!row.querySelector('.sr-approved')?.checked };
+  });
+  return Object.values(out);
+}
+
 export function openRawMaterialModal(id) {
   const rm = id ? state.rawMaterials.find(x => x.id === id) : null;
   document.getElementById('rawMatModal').classList.remove('hidden');
@@ -1645,6 +1675,11 @@ export function openRawMaterialModal(id) {
   document.getElementById('modalRawMinStock').value = rm ? (rm.minStock || '') : '';
   document.getElementById('altUnitRows').innerHTML = '';
   if (rm && Array.isArray(rm.altUnits)) rm.altUnits.forEach(a => addAltUnitRow(a.unit, a.factor));
+  const srWrap = document.getElementById('supplierRateRows');
+  if (srWrap) {
+    srWrap.innerHTML = '';
+    if (rm && Array.isArray(rm.supplierRates)) rm.supplierRates.forEach(s => addSupplierRateRow(s.vendorId, s.rate, s.approved !== false));
+  }
 }
 
 export function saveRawMaterial() {
@@ -1656,13 +1691,14 @@ export function saveRawMaterial() {
   const conflict = isNameTaken(name, id);
   if (conflict) return showToast(`Cannot add! ${conflict}`, 'error');
   const altUnits = readAltUnitRows('altUnitRows', unit);
+  const supplierRates = readSupplierRateRows();
   const minStock = parseFloat(document.getElementById('modalRawMinStock').value) || 0;
   const existing = id ? state.rawMaterials.find(x => x.id === id) : null;
   if (existing) {
     existing.name = name.trim(); existing.unit = unit.trim(); existing.type = type;
-    existing.minStock = minStock; existing.altUnits = altUnits;
+    existing.minStock = minStock; existing.altUnits = altUnits; existing.supplierRates = supplierRates;
   } else {
-    state.rawMaterials.push({ id: 'rm_' + Date.now(), name: name.trim(), unit: unit.trim(), type, minStock, altUnits });
+    state.rawMaterials.push({ id: 'rm_' + Date.now(), name: name.trim(), unit: unit.trim(), type, minStock, altUnits, supplierRates });
   }
   saveAllData();
   populateDropdowns();

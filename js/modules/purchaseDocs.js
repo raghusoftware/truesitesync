@@ -13,6 +13,9 @@ import { _openFullScreenForm, _populateVendorSelect, closeFullScreenForm } from 
 
 export function openPurchaseOrderForm(editId) {
   _populateVendorSelect('poOrdFormVendor');
+  // Re-fill every row's rate from the newly picked supplier's approved rates.
+  const vendorSel = document.getElementById('poOrdFormVendor');
+  if (vendorSel) vendorSel.onchange = () => _poVendorChanged();
   const po = editId ? (state.purchaseOrders || []).find(o => o.id === editId) : null;
   state._editingPOId = po ? po.id : null;
   const tbody = document.getElementById('poOrdFormTableBody');
@@ -47,10 +50,41 @@ export function addPOFormRow(count = 1) {
   state.rawMaterials.forEach(rm => rmOpts += `<option value="${rm.id}">${rm.name} (${rm.unit})</option>`);
   for (let i = 0; i < count; i++) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="p-1 border text-center text-xs font-bold text-slate-400 po-row-num">${tbody.rows.length + 1}</td><td class="p-1 border"><select class="table-input pur-mat font-bold">${rmOpts}</select></td><td class="p-1 border"><input type="number" class="table-input pur-qty" oninput="calcPOFormTotal()"></td><td class="p-1 border"><input type="number" class="table-input pur-rate" oninput="calcPOFormTotal()"></td><td class="p-1 border bg-slate-50"><input type="text" class="table-input pur-amt font-bold text-blue-800 text-right" readonly></td><td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); calcPOFormTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+    tr.innerHTML = `<td class="p-1 border text-center text-xs font-bold text-slate-400 po-row-num">${tbody.rows.length + 1}</td><td class="p-1 border"><select class="table-input pur-mat font-bold" onchange="_poRowFillRate(this)">${rmOpts}</select></td><td class="p-1 border"><input type="number" class="table-input pur-qty" oninput="calcPOFormTotal()"></td><td class="p-1 border"><input type="number" class="table-input pur-rate" oninput="calcPOFormTotal()"></td><td class="p-1 border bg-slate-50"><input type="text" class="table-input pur-amt font-bold text-blue-800 text-right" readonly></td><td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); calcPOFormTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
     tbody.appendChild(tr);
   }
 }
+
+/** Approved rate a supplier charges for a material, or null if none on file. */
+function _approvedRate(vendorId, matId) {
+  if (!vendorId || !matId) return null;
+  const rm = (state.rawMaterials || []).find(m => m.id === matId);
+  const rec = (rm?.supplierRates || []).find(s => s.vendorId === vendorId && s.approved !== false && s.rate != null);
+  return rec ? rec.rate : null;
+}
+
+/** Fill one PO row's rate from the selected supplier's approved rate for its item. */
+window._poRowFillRate = function (matSel) {
+  const tr = matSel.closest('tr'); if (!tr) return;
+  const vendorId = document.getElementById('poOrdFormVendor')?.value || '';
+  const rate = _approvedRate(vendorId, matSel.value);
+  if (rate != null) {
+    const rateEl = tr.querySelector('.pur-rate');
+    if (rateEl) rateEl.value = rate;  // auto-filled; user can still override
+  }
+  calcPOFormTotal();
+};
+
+/** Supplier changed — refresh the rate on every row that has an approved rate on file. */
+window._poVendorChanged = function () {
+  const vendorId = document.getElementById('poOrdFormVendor')?.value || '';
+  document.querySelectorAll('#poOrdFormTableBody tr').forEach(tr => {
+    const matId = tr.querySelector('.pur-mat')?.value;
+    const rate = _approvedRate(vendorId, matId);
+    if (rate != null) { const rateEl = tr.querySelector('.pur-rate'); if (rateEl) rateEl.value = rate; }
+  });
+  calcPOFormTotal();
+};
 
 export function calcPOFormTotal() {
   let sub = 0;
