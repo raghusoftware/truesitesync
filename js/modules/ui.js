@@ -2924,6 +2924,156 @@ window._createAbstractFromSelected = function () {
   document.getElementById('abstractModal').classList.remove('hidden');
 };
 
+// ═══════ Deviation & Extra-Item statement (BOQ vs executed) ═══════
+/** Compare BOQ qty vs executed (cumulative billed) qty per item for a project. */
+function _deviationData(projId) {
+  const proj = (state.projects || []).find(p => p.id === projId);
+  if (!proj) return null;
+  // Flat BOQ list with a stable ref key (matches abstract item.boqIndex).
+  const boqList = []; const byRef = {};
+  if (proj.boqs?.length) {
+    proj.boqs.forEach(g => (g.items || []).forEach((it, i) => {
+      const ref = g.id + ':' + i;
+      const row = { ref, code: it.code || '', desc: it.description || '', uom: it.uom || '', boqQty: Number(it.qty) || 0, rate: Number(it.rate) || 0 };
+      boqList.push(row); byRef[ref] = row;
+    }));
+  } else if (proj.boqItems?.length) {
+    proj.boqItems.forEach((it, i) => {
+      const ref = String(i);
+      const row = { ref, code: it.code || '', desc: it.description || '', uom: it.uom || '', boqQty: Number(it.qty) || 0, rate: Number(it.rate) || 0 };
+      boqList.push(row); byRef[ref] = row;
+    });
+  }
+  // Executed qty per ref, summed across the project's abstracts; unmatched = extra.
+  const executed = {}; const extra = {};
+  (state.abstracts || []).filter(a => a.projectId === projId || (state.clients.find(c => c.id === a.clientId)?.projectId === projId)).forEach(a => {
+    (a.items || []).forEach(it => {
+      const ref = (it.boqIndex != null && it.boqIndex !== '') ? String(it.boqIndex) : null;
+      if (ref && byRef[ref]) {
+        executed[ref] = (executed[ref] || 0) + (Number(it.qty) || 0);
+      } else {
+        const key = (it.code || '') + '|' + (it.desc || it.description || '');
+        if (!extra[key]) extra[key] = { code: it.code || '', desc: it.desc || it.description || '', uom: it.uom || '', qty: 0, rate: Number(it.rate) || 0 };
+        extra[key].qty += Number(it.qty) || 0;
+      }
+    });
+  });
+  const rows = boqList.map(b => {
+    const exec = executed[b.ref] || 0;
+    const diff = exec - b.boqQty;
+    const pct = b.boqQty ? (diff / b.boqQty * 100) : (exec > 0 ? 100 : 0);
+    return { ...b, exec, diff, pct, amtVar: diff * b.rate };
+  }).filter(r => r.boqQty > 0 || r.exec > 0);
+  const extraRows = Object.values(extra).map(e => ({ ...e, amount: e.qty * e.rate }));
+  const totals = {
+    boqAmt: rows.reduce((s, r) => s + r.boqQty * r.rate, 0),
+    execAmt: rows.reduce((s, r) => s + r.exec * r.rate, 0),
+    amtVar: rows.reduce((s, r) => s + r.amtVar, 0),
+    extraAmt: extraRows.reduce((s, e) => s + e.amount, 0),
+  };
+  return { rows, extraRows, totals, projName: proj.name };
+}
+
+window.toggleDeviationStatement = function () {
+  const panel = document.getElementById('deviationPanel');
+  if (!panel) return;
+  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  window.renderDeviationStatement();
+};
+
+window.renderDeviationStatement = function () {
+  const panel = document.getElementById('deviationPanel'); if (!panel) return;
+  const d = _deviationData(state.currentProjectId);
+  if (!d) { panel.innerHTML = '<div class="p-5 bg-white rounded-xl border text-slate-400 text-sm">Open a project first.</div>'; return; }
+  const cur = getCurrencySymbol();
+  const n = (v, dp = 2) => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: dp });
+  const m = v => cur + n(v);
+  const pctCls = p => p > 0.01 ? 'text-rose-600' : p < -0.01 ? 'text-emerald-600' : 'text-slate-500';
+  const varCls = v => v > 0.01 ? 'text-rose-600' : v < -0.01 ? 'text-emerald-600' : 'text-slate-500';
+  const devRows = d.rows.map((r, i) => `<tr class="hover:bg-slate-50" style="border-bottom:1px solid #f1f5f9;">
+      <td class="px-3 py-2 text-center text-slate-400">${i + 1}</td>
+      <td class="px-3 py-2 font-mono text-indigo-700">${r.code || '—'}</td>
+      <td class="px-3 py-2 text-slate-700">${r.desc || ''}</td>
+      <td class="px-3 py-2 text-center text-slate-500">${r.uom || ''}</td>
+      <td class="px-3 py-2 text-right">${n(r.boqQty)}</td>
+      <td class="px-3 py-2 text-right font-semibold">${n(r.exec)}</td>
+      <td class="px-3 py-2 text-right ${varCls(r.diff)}">${r.diff > 0 ? '+' : ''}${n(r.diff)}</td>
+      <td class="px-3 py-2 text-right font-bold ${pctCls(r.pct)}">${r.pct > 0 ? '+' : ''}${n(r.pct, 1)}%</td>
+      <td class="px-3 py-2 text-right text-slate-500">${m(r.rate)}</td>
+      <td class="px-3 py-2 text-right font-bold ${varCls(r.amtVar)}">${r.amtVar > 0 ? '+' : ''}${m(r.amtVar)}</td>
+    </tr>`).join('') || '<tr><td colspan="10" class="p-6 text-center text-slate-400">No BOQ items to compare.</td></tr>';
+  const extraRows = d.extraRows.map((e, i) => `<tr class="hover:bg-amber-50/40" style="border-bottom:1px solid #f1f5f9;">
+      <td class="px-3 py-2 text-center text-slate-400">${i + 1}</td>
+      <td class="px-3 py-2 font-mono text-amber-700">${e.code || '—'}</td>
+      <td class="px-3 py-2 text-slate-700">${e.desc || ''}</td>
+      <td class="px-3 py-2 text-center text-slate-500">${e.uom || ''}</td>
+      <td class="px-3 py-2 text-right font-semibold">${n(e.qty)}</td>
+      <td class="px-3 py-2 text-right text-slate-500">${m(e.rate)}</td>
+      <td class="px-3 py-2 text-right font-bold text-amber-700">${m(e.amount)}</td>
+    </tr>`).join('');
+  panel.innerHTML = `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-slate-100" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+      <div class="mr-auto"><h3 class="font-extrabold text-slate-800 text-sm">Deviation Statement</h3><p class="text-[11px] text-slate-500">BOQ vs executed quantity · ${d.projName || ''}</p></div>
+      <button onclick="printDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">🖨️ Print</button>
+      <button onclick="toggleDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg">Close</button>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-xs" style="min-width:760px">
+      <thead class="bg-slate-50"><tr>
+        <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">#</th>
+        <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Code</th>
+        <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Description</th>
+        <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">UOM</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">BOQ Qty</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Executed</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Diff.</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">% Var</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Rate</th>
+        <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Amount Var</th>
+      </tr></thead>
+      <tbody>${devRows}</tbody>
+      <tfoot><tr class="bg-slate-50 font-bold"><td colspan="8" class="px-3 py-2.5 text-right text-slate-600">Net Amount Variation</td><td></td><td class="px-3 py-2.5 text-right ${varCls(d.totals.amtVar)}">${d.totals.amtVar > 0 ? '+' : ''}${m(d.totals.amtVar)}</td></tr></tfoot>
+    </table></div>
+    ${d.extraRows.length ? `
+    <div class="px-5 py-3 border-t border-slate-100 bg-amber-50/40"><h4 class="font-extrabold text-amber-800 text-sm">Extra / Non-BOQ Items</h4><p class="text-[11px] text-slate-500">Billed items not present in the BOQ (${d.extraRows.length}).</p></div>
+    <div class="overflow-x-auto"><table class="w-full text-xs" style="min-width:560px">
+      <thead class="bg-slate-50"><tr><th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">#</th><th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Code</th><th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Description</th><th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">UOM</th><th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Rate</th><th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Amount</th></tr></thead>
+      <tbody>${extraRows}</tbody>
+      <tfoot><tr class="bg-amber-50 font-bold"><td colspan="6" class="px-3 py-2.5 text-right text-amber-800">Total Extra Work</td><td class="px-3 py-2.5 text-right text-amber-800">${m(d.totals.extraAmt)}</td></tr></tfoot>
+    </table></div>` : ''}
+  </div>`;
+};
+
+window.printDeviationStatement = function () {
+  const d = _deviationData(state.currentProjectId);
+  if (!d || (!d.rows.length && !d.extraRows.length)) { showToast('Nothing to print', 'warning'); return; }
+  const cur = getCurrencySymbol();
+  const n = (v, dp = 2) => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: dp });
+  const m = v => cur + ' ' + n(v);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const devBody = d.rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.code)}</td><td>${esc(r.desc)}</td><td class="c">${esc(r.uom)}</td><td class="r">${n(r.boqQty)}</td><td class="r">${n(r.exec)}</td><td class="r">${r.diff > 0 ? '+' : ''}${n(r.diff)}</td><td class="r">${r.pct > 0 ? '+' : ''}${n(r.pct, 1)}%</td><td class="r">${m(r.rate)}</td><td class="r">${r.amtVar > 0 ? '+' : ''}${m(r.amtVar)}</td></tr>`).join('');
+  const extraBody = d.extraRows.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.code)}</td><td>${esc(e.desc)}</td><td class="c">${esc(e.uom)}</td><td class="r">${n(e.qty)}</td><td class="r">${m(e.rate)}</td><td class="r">${m(e.amount)}</td></tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Deviation Statement — ${esc(d.projName || '')}</title>
+    <style>*{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}body{margin:22px;color:#0f172a}
+    h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px;color:#b45309}.sub{font-size:12px;color:#475569;margin:0 0 12px}
+    table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:6px}
+    th,td{border:1px solid #cbd5e1;padding:5px 7px;text-align:left}th{background:#eef2ff;text-transform:uppercase;font-size:9px}
+    td.r,th.r{text-align:right}td.c,th.c{text-align:center}tfoot td{font-weight:bold;background:#f8fafc}
+    @media print{body{margin:10mm}}</style></head><body>
+    <h1>${esc(d.projName || 'Deviation Statement')}</h1><p class="sub">Deviation Statement — BOQ vs Executed Quantity &nbsp;|&nbsp; ${new Date().toLocaleDateString('en-IN')}</p>
+    <table><thead><tr><th>#</th><th>Code</th><th>Description</th><th class="c">UOM</th><th class="r">BOQ Qty</th><th class="r">Executed</th><th class="r">Diff.</th><th class="r">% Var</th><th class="r">Rate</th><th class="r">Amount Var</th></tr></thead>
+    <tbody>${devBody || '<tr><td colspan="10" style="text-align:center">No BOQ items.</td></tr>'}</tbody>
+    <tfoot><tr><td colspan="9" class="r">Net Amount Variation</td><td class="r">${d.totals.amtVar > 0 ? '+' : ''}${m(d.totals.amtVar)}</td></tr></tfoot></table>
+    ${d.extraRows.length ? `<h2>Extra / Non-BOQ Items</h2>
+    <table><thead><tr><th>#</th><th>Code</th><th>Description</th><th class="c">UOM</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+    <tbody>${extraBody}</tbody><tfoot><tr><td colspan="6" class="r">Total Extra Work</td><td class="r">${m(d.totals.extraAmt)}</td></tr></tfoot></table>` : ''}
+    </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+};
+
 export function renderAbstractsList() {
   _renderPendingMeasPanel();
   const container = document.getElementById('abstractsCardsContainer');
