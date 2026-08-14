@@ -2290,9 +2290,13 @@ window._saveGRN = function() {
   // ── Validation: vendor and quantity are mandatory ──
   if(!supplierId){showToast('Select a vendor/supplier','error');return;}
   if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
-  // Block duplicate receipts — a supplier's challan/invoice number is a unique
-  // document, so the same number from the same supplier can't be entered twice.
-  // Skip when challan is blank (nothing to match on) and ignore the record being edited.
+  // Receipt date is user-entered; fall back to today (or the original on edit).
+  const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
+  // Duplicate-receipt guard — a supplier's challan/invoice number is a unique
+  // document, so re-entering the same number from the same supplier is almost
+  // always a mistake. Warn and let the user decide (some suppliers legitimately
+  // reuse a challan across split deliveries). Skip when challan is blank, and
+  // ignore the record being edited.
   if (challanNo) {
     const dup = (state.grnRecords || []).find(g =>
       g.id !== _grnEditingId &&
@@ -2301,11 +2305,17 @@ window._saveGRN = function() {
     );
     if (dup) {
       const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this supplier';
-      return showToast(`Challan "${challanNo}" from ${supName} is already recorded in ${dup.grnNo} — duplicate entry blocked`, 'error');
+      const dupMat = state.rawMaterials.find(r => r.id === dup.matId);
+      const sameDay = (dup.date || '') === date;
+      const msg =
+        `⚠ Duplicate challan\n\n` +
+        `Challan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo}\n` +
+        `(dated ${dup.date || '—'}, ${dup.qty} ${dupMat?.unit || ''} ${dupMat?.name || dup.category || ''}).` +
+        (sameDay ? `\n\nThis new entry is on the SAME date.` : '') +
+        `\n\nThe same challan has already been entered. Do you still want to add another?`;
+      if (!confirm(msg)) { showToast('Duplicate GRN not added', 'info'); return; }
     }
   }
-  // Receipt date is user-entered; fall back to today (or the original on edit).
-  const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
   const vehicleNo=document.getElementById('grnVehicle').value.trim();
   const driver=document.getElementById('grnDriver').value.trim();
   const category=document.getElementById('grnCat').value.trim();
