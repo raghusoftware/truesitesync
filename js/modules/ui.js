@@ -3208,6 +3208,99 @@ export function renderInvoiceHistory() {
 
 // exportInvoicePDF moved to ./invoiceExports.js
 
+// ═══════ Final Account Statement (project closeout) ═══════
+/** Consolidate a client's RA bills into a final-account position. */
+function _finalAccountData(cId) {
+  const invs = (state.invoices || []).filter(i => i.clientId === cId && i.status !== 'Cancelled');
+  const sum = k => invs.reduce((s, i) => s + (Number(i[k]) || 0), 0);
+  const workValue = sum('subtotal');
+  const gst = sum('taxAmount');
+  const gross = sum('totalAmount');
+  const retention = sum('retentionAmt');
+  const tds = sum('tdsAmt');
+  const advance = sum('advanceRec');
+  const ld = sum('ld');
+  const totalDeductions = retention + tds + advance + ld;
+  // Net payable per invoice; older invoices without deductions fall back to gross.
+  const netBilled = invs.reduce((s, i) => s + (i.netPayable != null ? Number(i.netPayable) : (Number(i.totalAmount) || 0)), 0);
+  const received = (state.paymentsIn || []).filter(p => p.clientId === cId).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const balance = netBilled - received;              // outstanding on net payable
+  const finalPayable = balance + retention;          // + retention released at closeout
+  return { invs, workValue, gst, gross, retention, tds, advance, ld, totalDeductions, netBilled, received, balance, finalPayable };
+}
+
+window.renderFinalAccount = function () {
+  const cId = document.getElementById('billingClientSelect')?.value || '';
+  const panel = document.getElementById('finalAccountPanel');
+  if (!panel) return;
+  if (!cId) { panel.innerHTML = '<span class="text-rose-500 font-semibold">Select a client above first.</span>'; return; }
+  const d = _finalAccountData(cId);
+  if (!d.invs.length) { panel.innerHTML = '<span class="text-slate-400">No invoices for this client yet.</span>'; return; }
+  const cur = getCurrencySymbol();
+  const m = v => cur + (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const row = (lbl, val, o = {}) => `<div class="flex justify-between py-1.5 ${o.border ? 'border-t border-slate-200 mt-1 pt-2' : ''} ${o.strong ? 'font-extrabold text-base' : ''}"${o.color ? ` style="color:${o.color}"` : ''}><span>${lbl}</span><span style="font-variant-numeric:tabular-nums">${o.sign || ''}${m(val)}</span></div>`;
+  panel.innerHTML = `<div class="max-w-lg text-slate-700">
+    ${row('Cumulative Work Value', d.workValue)}
+    ${row('GST', d.gst)}
+    ${row('Gross Billed (incl GST)', d.gross, { border: true, strong: true })}
+    ${row('Less: Retention held', d.retention, { sign: '-', color: '#e11d48' })}
+    ${row('Less: TDS', d.tds, { sign: '-', color: '#e11d48' })}
+    ${row('Less: Advance recovered', d.advance, { sign: '-', color: '#e11d48' })}
+    ${row('Less: LD / Penalty', d.ld, { sign: '-', color: '#e11d48' })}
+    ${row('Net Billed (across RA bills)', d.netBilled, { border: true, strong: true })}
+    ${row('Payments Received', d.received, { sign: '-', color: '#059669' })}
+    ${row('Balance of Net Billed', d.balance, { border: true })}
+    ${row('Add: Retention Released (closeout)', d.retention, { sign: '+', color: '#059669' })}
+    ${row('Final Amount Payable on Closeout', d.finalPayable, { border: true, strong: true, color: '#1d4ed8' })}
+    <p class="text-[11px] text-slate-400 mt-3">Across ${d.invs.length} RA bill(s). Record the retention release as a Payment when settled. TDS, advance recovery &amp; LD are not returned.</p>
+  </div>`;
+};
+
+window.printFinalAccount = function () {
+  const cId = document.getElementById('billingClientSelect')?.value || '';
+  if (!cId) { showToast('Select a client first', 'warning'); return; }
+  const d = _finalAccountData(cId);
+  if (!d.invs.length) { showToast('No invoices to consolidate for this client', 'warning'); return; }
+  const client = state.clients.find(c => c.id === cId);
+  const proj = state.projects.find(p => p.id === client?.projectId);
+  const cur = getCurrencySymbol();
+  const m = v => cur + ' ' + (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const line = (lbl, val, o = {}) => `<tr class="${o.cls || ''}"><td>${esc(lbl)}</td><td class="r">${o.sign || ''}${m(val)}</td></tr>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Final Account — ${esc(client?.name || '')}</title>
+    <style>*{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}body{margin:26px;color:#0f172a}
+    h1{font-size:19px;margin:0 0 2px}.sub{font-size:12px;color:#475569;margin:0 0 4px}
+    .meta{font-size:11px;color:#334155;margin:0 0 16px}
+    table{width:100%;max-width:560px;border-collapse:collapse;font-size:13px}
+    td{padding:8px 10px;border-bottom:1px solid #e2e8f0}td.r{text-align:right;font-variant-numeric:tabular-nums}
+    tr.strong td{font-weight:bold;border-top:2px solid #94a3b8;background:#f8fafc}
+    tr.less td{color:#b91c1c}tr.add td{color:#047857}tr.final td{font-weight:bold;font-size:15px;color:#1d4ed8;border-top:2px solid #1d4ed8;background:#eff6ff}
+    @media print{body{margin:12mm}}</style></head><body>
+    <h1>${esc((proj && proj.name) || client?.name || 'Final Account')}</h1>
+    <p class="sub">Final Account Statement</p>
+    <div class="meta"><b>Client:</b> ${esc(client?.name || '—')} &nbsp;|&nbsp; <b>RA bills:</b> ${d.invs.length} &nbsp;|&nbsp; <b>Date:</b> ${new Date().toLocaleDateString('en-IN')}</div>
+    <table>
+      ${line('Cumulative Work Value', d.workValue)}
+      ${line('GST', d.gst)}
+      ${line('Gross Billed (incl GST)', d.gross, { cls: 'strong' })}
+      ${line('Less: Retention held', d.retention, { cls: 'less', sign: '- ' })}
+      ${line('Less: TDS', d.tds, { cls: 'less', sign: '- ' })}
+      ${line('Less: Advance recovered', d.advance, { cls: 'less', sign: '- ' })}
+      ${line('Less: LD / Penalty', d.ld, { cls: 'less', sign: '- ' })}
+      ${line('Net Billed (across RA bills)', d.netBilled, { cls: 'strong' })}
+      ${line('Payments Received', d.received, { cls: 'less', sign: '- ' })}
+      ${line('Balance of Net Billed', d.balance, { cls: 'strong' })}
+      ${line('Add: Retention Released (closeout)', d.retention, { cls: 'add', sign: '+ ' })}
+      ${line('Final Amount Payable on Closeout', d.finalPayable, { cls: 'final' })}
+    </table>
+    <p style="font-size:10px;color:#94a3b8;margin-top:14px;max-width:560px">Retention is released at closeout; TDS, advance recovery and LD are permanent deductions. Record the retention release as a Payment when settled.</p>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+};
+
 export function cancelInvoice(id) {
   if (!confirm("Cancel this invoice? It will remain in ledger as 0 value.")) return;
   const idx = state.invoices.findIndex(i => i.id === id);
