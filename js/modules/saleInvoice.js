@@ -9,10 +9,33 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, amountToWordsINR } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
+
+// Indian GST state code (first 2 digits of a GSTIN) → state name.
+const GST_STATE = {
+  '01':'Jammu & Kashmir','02':'Himachal Pradesh','03':'Punjab','04':'Chandigarh','05':'Uttarakhand','06':'Haryana',
+  '07':'Delhi','08':'Rajasthan','09':'Uttar Pradesh','10':'Bihar','11':'Sikkim','12':'Arunachal Pradesh','13':'Nagaland',
+  '14':'Manipur','15':'Mizoram','16':'Tripura','17':'Meghalaya','18':'Assam','19':'West Bengal','20':'Jharkhand',
+  '21':'Odisha','22':'Chhattisgarh','23':'Madhya Pradesh','24':'Gujarat','25':'Daman & Diu','26':'Dadra & Nagar Haveli',
+  '27':'Maharashtra','28':'Andhra Pradesh (Old)','29':'Karnataka','30':'Goa','31':'Lakshadweep','32':'Kerala',
+  '33':'Tamil Nadu','34':'Puducherry','35':'Andaman & Nicobar','36':'Telangana','37':'Andhra Pradesh','38':'Ladakh'
+};
+const _gstStateCode = g => (String(g || '').trim().slice(0, 2).match(/^\d{2}$/) || [])[0] || '';
+const _gstStateName = g => { const c = _gstStateCode(g); return c ? (GST_STATE[c] || 'State ' + c) : ''; };
+
+/** Ship-to same-as-billing toggle: lock the delivery field when checked. */
+window.onSIShipSameToggle = function () {
+  const same = document.getElementById('siFormShipSame')?.checked;
+  const d = document.getElementById('siFormDelivery');
+  if (!d) return;
+  d.readOnly = !!same;
+  d.style.opacity = same ? '.6' : '1';
+  if (same) d.value = '';
+  d.placeholder = same ? 'Same as billing address' : 'Site / delivery address';
+};
 
 export function setSIPayMode(mode) {
   const creditBtn = document.getElementById('siToggleCredit');
@@ -286,6 +309,24 @@ export function searchSIPO() {
 export function onSIClientChange() {
   const clientId = document.getElementById('siFormClient')?.value;
   const client = state.clients.find(c => c.id === clientId);
+  // ── Buyer (Bill-To) info chip: GSTIN / state / address ──
+  const info = document.getElementById('siFormBuyerInfo');
+  if (info) {
+    if (client && (client.gst || client.address)) {
+      const st = _gstStateName(client.gst);
+      info.style.display = 'block';
+      info.innerHTML =
+        (client.gst ? `<b>GSTIN:</b> ${client.gst}` : `<span style="color:#e11d48;font-weight:600">No GSTIN on file</span>`) +
+        (st ? ` &nbsp;·&nbsp; <b>State:</b> ${st}` : '') +
+        (client.address ? `<br><b>Address:</b> ${client.address}` : '');
+    } else { info.style.display = 'none'; info.innerHTML = ''; }
+  }
+  // Auto place-of-supply: compare buyer state code with the company's.
+  const stSel = document.getElementById('siFormState');
+  const coGst = state.companyProfile?.GST || '';
+  if (stSel && !stSel.value && client?.gst && coGst) {
+    stSel.value = _gstStateCode(client.gst) === _gstStateCode(coGst) ? 'intra' : 'inter';
+  }
   // Auto-select project if client matches a project's clientName
   if (client && !document.getElementById('siFormProject')?.value) {
     const matchProj = (state.projects || []).find(p =>
@@ -479,6 +520,11 @@ export function openSaleInvoiceForm(editId) {
     try { if (existing.projectId && typeof onSIProjectChange === 'function') onSIProjectChange(); } catch {}
     const woEl = document.getElementById('siFormWO'); if (woEl && existing.boqGroupId) woEl.value = existing.boqGroupId;
     setSIPayMode(existing.payType || 'Credit');
+    setEl('siFormReverseCharge', existing.reverseCharge || 'No');
+    const shipEl = document.getElementById('siFormShipSame'); if (shipEl) shipEl.checked = existing.shipSame !== false && !existing.delivery;
+    try { window.onSIShipSameToggle && window.onSIShipSameToggle(); } catch {}
+    if (existing.delivery) { const d = document.getElementById('siFormDelivery'); if (d) { d.readOnly = false; d.style.opacity = '1'; d.value = existing.delivery; } }
+    try { onSIClientChange(); } catch {}
   } else {
     document.getElementById('siFormDate').value = today;
     document.getElementById('siFormNo').value = 'SI-' + (Date.now() % 100000);
@@ -493,6 +539,11 @@ export function openSaleInvoiceForm(editId) {
     const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = true;
     const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = '18';
     setSIPayMode('Credit');
+    const rc = document.getElementById('siFormReverseCharge'); if (rc) rc.value = 'No';
+    const ship = document.getElementById('siFormShipSame'); if (ship) ship.checked = true;
+    const bi = document.getElementById('siFormBuyerInfo'); if (bi) { bi.style.display = 'none'; bi.innerHTML = ''; }
+    const aw = document.getElementById('siFormAmountWords'); if (aw) aw.textContent = '—';
+    try { window.onSIShipSameToggle && window.onSIShipSameToggle(); } catch {}
   }
 
   const pendingPanel = document.getElementById('siPendingItemsPanel'); if (pendingPanel) pendingPanel.classList.add('hidden');
@@ -592,6 +643,8 @@ export function calcSIFormTotal() {
   if (roundEl?.checked) { roundAmt = Math.round(grand) - grand; grand = Math.round(grand); }
   setT('siFormRoundAmt', roundAmt !== 0 ? (roundAmt > 0 ? '+' : '') + roundAmt.toFixed(2) : '0.00');
   setT('siFormTotal', getCurrencySymbol() + grand.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+  const words = document.getElementById('siFormAmountWords');
+  if (words) words.textContent = grand > 0 ? amountToWordsINR(grand) : '—';
 }
 
 export function saveSaleInvoiceForm() {
@@ -689,7 +742,9 @@ export function saveSaleInvoiceForm() {
     poDate: document.getElementById('siFormPODate')?.value || '',
     terms: document.getElementById('siFormTerms')?.value || '',
     stateOfSupply: document.getElementById('siFormState')?.value || '',
-    delivery: document.getElementById('siFormDelivery')?.value || '',
+    reverseCharge: document.getElementById('siFormReverseCharge')?.value || 'No',
+    shipSame: !!document.getElementById('siFormShipSame')?.checked,
+    delivery: document.getElementById('siFormShipSame')?.checked ? '' : (document.getElementById('siFormDelivery')?.value || ''),
     notes: document.getElementById('siFormNotes')?.value || '',
     grossTotal, totalDiscount, taxableAmount, itemTax: totalLineTax,
     gstPct, gstAmount, tcsPct, tcsAmount, roundOff, roundAmt,
