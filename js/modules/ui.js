@@ -51,6 +51,17 @@ if (typeof window !== 'undefined') {
       const g = document.getElementById('invGrid');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
+    // Settings: switchView('settingsView') resets to the icon home grid, bouncing
+    // the user out of an open section when they toggle an option (which saves).
+    if (v === 'settingsView') {
+      const g = document.getElementById('settingsHomeGrid');
+      if (g && g.classList.contains('hide')) return; // a section is open — leave it
+    }
+    // Equipment: same pattern — switchView('equipmentView') calls _openEquipSection(null).
+    if (v === 'equipmentView') {
+      const g = document.getElementById('equipGrid');
+      if (g && g.style.display === 'none') return; // a section is open — leave it
+    }
     try { switchView(v); } catch {}
   };
 }
