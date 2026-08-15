@@ -12,6 +12,12 @@ import { showToast, getCurrencySymbol } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
 
+/** Display a stored ISO date (yyyy-mm-dd) as dd/mm/yyyy. */
+function _purFmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '');
+}
+
 export function renderPurchaseLedger() {
   const vFilterEl = document.getElementById('plFilterVendor');
   if (vFilterEl && vFilterEl.options.length <= 1) {
@@ -274,7 +280,7 @@ window._purRefreshGrnPicker = function() {
       <span class="font-mono text-[11px] text-amber-700 font-bold">${g.grnNo || '—'}</span>
       <span class="text-xs font-bold text-slate-700">${m ? m.name : (g.category || 'Material')}</span>
       <span class="text-[11px] text-slate-500">${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}</span>
-      <span class="ml-auto text-[11px] text-slate-400">${g.date || ''}</span>
+      <span class="ml-auto text-[11px] text-slate-400">${_purFmtDate(g.date)}</span>
       <span class="text-xs font-bold text-slate-800">${cur}${amt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
     </label>`;
   }).join('');
