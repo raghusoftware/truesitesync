@@ -2689,7 +2689,7 @@ export function directInvoiceFromSheet() {
   for (const k in grouped) { const d = grouped[k]; const amt = d.qty * d.rate; totalAmt += amt; totalQty += d.qty; finalItems.push({ ...d, amount: amt }); }
   const absData = { id: 'A_' + Date.now(), abstractNum: `ABS-${Date.now().toString().slice(-4)}`, clientId: cId, sheetId: s.id, sheetNum: s.sheetNum, date: document.getElementById('sheetDate').value, area: s.area || 'N/A', totalAmount: totalAmt, items: finalItems, isInvoiced: false, linkedInvoice: null };
   state.abstracts.push(absData);
-  s.isBilled = true; s.status = 'billed'; s.linkedAbstract = absData.abstractNum;
+  s.isBilled = true; s.linkedAbstract = absData.abstractNum;
   saveAllData();
   switchView('billingView');
   document.getElementById('billingClientSelect').value = s.clientId;
@@ -2717,14 +2717,6 @@ export function generateAbstractFromSheet() {
     return;
   }
   if (sheet.isBilled) return showToast('Abstract already generated', 'error');
-  // Verification gate (soft): professional practice bills only Approved
-  // measurements. Warn if this sheet hasn't cleared approval, but let the user
-  // proceed — keeps the existing direct-bill habit working.
-  const _st = window.sheetStatus ? window.sheetStatus(sheet) : (sheet.status || 'draft');
-  if (_st !== 'approved') {
-    const nice = _st.charAt(0).toUpperCase() + _st.slice(1);
-    if (!confirm(`⚠ ${sheet.sheetNum} is not approved (status: ${nice}).\n\nProfessional practice is to bill only Approved measurements.\nBill it anyway?`)) return;
-  }
   const cId = sheet.clientId;
   const proj = state.projects.find(p => p.id === sheet.projectId);
   const boqItems = proj?.boqItems || [];
@@ -2771,7 +2763,7 @@ export function confirmAndSaveAbstract() {
   const ids = (data.sheetIds && data.sheetIds.length) ? data.sheetIds : (data.sheetId ? [data.sheetId] : []);
   ids.forEach(sid => {
     const idx = state.sheets.findIndex(s => s.id === sid);
-    if (idx > -1) { state.sheets[idx].isBilled = true; state.sheets[idx].status = 'billed'; state.sheets[idx].linkedAbstract = data.abstractNum; }
+    if (idx > -1) { state.sheets[idx].isBilled = true; state.sheets[idx].linkedAbstract = data.abstractNum; }
   });
   saveAllData();
   document.getElementById('abstractModal').classList.add('hidden');
@@ -2830,7 +2822,7 @@ export function healOrphanBilledSheets() {
   (state.sheets || []).forEach(s => {
     if (!s.isBilled || s._running) return;
     const covered = liveSheetIds.has(s.id) || (s.linkedAbstract && liveNums.has(s.linkedAbstract));
-    if (!covered) { s.isBilled = false; if (s.status === 'billed') s.status = 'approved'; s.linkedAbstract = null; healed++; }
+    if (!covered) { s.isBilled = false; s.linkedAbstract = null; healed++; }
   });
   if (healed) saveAllData();
   return healed;
@@ -3159,7 +3151,7 @@ export function deleteAbstract(id) {
     const ids = (abs.sheetIds && abs.sheetIds.length) ? abs.sheetIds : (abs.sheetId ? [abs.sheetId] : []);
     ids.forEach(sid => {
       const i = state.sheets.findIndex(s => s.id === sid);
-      if (i > -1) { state.sheets[i].isBilled = false; if (state.sheets[i].status === 'billed') state.sheets[i].status = 'approved'; state.sheets[i].linkedAbstract = null; }
+      if (i > -1) { state.sheets[i].isBilled = false; state.sheets[i].linkedAbstract = null; }
     });
     // Cascade: if this abstract mirrors an RA bill (Micro-Planning), delete that
     // RA bill too — otherwise it lingers in RA Billing and the cumulative math
