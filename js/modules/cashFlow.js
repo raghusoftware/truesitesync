@@ -1206,12 +1206,24 @@ function _renderCockpit() {
   const labWeek = wagesDue + weeklyAdv;
   const labMonth = wagesDue + weeklyAdv * _weeksLeft;
 
-  // EMI (monthly) + maintenance run-rate — booked to this month.
-  const payEmi = (state.accounts || []).filter(a => a.type === 'Loan').reduce((s, a) => s + N(a.emi), 0);
+  // Loan EMIs — one installment per month, dated by each loan's EMI day.
+  let emiWeek = 0, emiMonth = 0;
+  const _lastDay = new Date(_dnow.getFullYear(), _dnow.getMonth() + 1, 0).getDate();
+  (state.accounts || []).filter(a => a.type === 'Loan' && N(a.emi) > 0).forEach(a => {
+    const emi = N(a.emi);
+    emiMonth += emi;
+    if (N(a.emiDay) > 0) {
+      const dd = Math.min(Math.max(1, N(a.emiDay)), _lastDay);
+      const emiDate = new Date(_dnow.getFullYear(), _dnow.getMonth(), dd).toISOString().split('T')[0];
+      if (emiDate <= _endWeek) emiWeek += emi;   // due this week (incl a day already passed this month)
+    }
+  });
+  const payEmi = emiMonth;
+  // Maintenance run-rate — booked to this month.
   const payMaint = (state.maintenanceLogs || []).filter(m => _inLast(m.date, 30)).reduce((s, m) => s + N(m.cost || m.amount || m.amt || 0), 0);
 
-  const dueWeek = matWeek + labWeek;
-  const dueMonth = matMonth + labMonth + payEmi + payMaint;
+  const dueWeek = matWeek + labWeek + emiWeek;
+  const dueMonth = matMonth + labMonth + emiMonth + payMaint;
 
   // Sales money in — from invoices, timed by each invoice's payment terms.
   const _in30 = _addDays(_todayStr, 30);
@@ -1265,7 +1277,7 @@ function _renderCockpit() {
         <div style="padding:13px 16px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:9px;">
           ${_payRow('👷 Labour', labMonth, weeklyAdv > 0 ? `wages due + ${fmt(weeklyAdv)}/week advance` : 'wages due')}
           ${_payRow('🧱 Material suppliers', matMonth, 'by each vendor&rsquo;s payment terms')}
-          ${_payRow('🏷️ Loan EMIs', payEmi, 'this month')}
+          ${_payRow('🏷️ Loan EMIs', payEmi, emiWeek > 0 ? `${fmt(emiWeek)} due this week` : 'this month, per EMI date')}
           ${_payRow('🛠️ Maintenance', payMaint, 'last 30 days')}
         </div>
       </div>

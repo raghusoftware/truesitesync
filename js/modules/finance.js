@@ -562,7 +562,7 @@ export function openAccountModal(editId) {
   set('modalAccProject', acc?.projectId);
   set('modalAccLimit', acc?.sanctionedLimit); set('modalAccIntRate', acc?.interestRate);
   set('modalAccLender', acc?.lender); set('modalAccLoanAmt', acc?.loanAmount); set('modalAccLoanRate', acc?.loanRate);
-  set('modalAccIntType', acc?.interestType || 'Reducing'); set('modalAccTenure', acc?.tenureMonths); set('modalAccEmi', acc?.emi); set('modalAccDisb', acc?.disbursementDate);
+  set('modalAccIntType', acc?.interestType || 'Reducing'); set('modalAccTenure', acc?.tenureMonths); set('modalAccEmi', acc?.emi); set('modalAccEmiDay', acc?.emiDay); set('modalAccDisb', acc?.disbursementDate);
   set('modalAccCardLimit', acc?.cardLimit); set('modalAccCardDue', acc?.cardDueDay);
   set('modalAccNotes', acc?.notes);
   window._accTypeChanged();
@@ -582,7 +582,7 @@ export function saveAccount() {
     projectId: val('modalAccProject'),
     sanctionedLimit: num('modalAccLimit'), interestRate: num('modalAccIntRate'),
     lender: val('modalAccLender'), loanAmount: num('modalAccLoanAmt'), loanRate: num('modalAccLoanRate'),
-    interestType: val('modalAccIntType'), tenureMonths: num('modalAccTenure'), emi: num('modalAccEmi'), disbursementDate: val('modalAccDisb'),
+    interestType: val('modalAccIntType'), tenureMonths: num('modalAccTenure'), emi: num('modalAccEmi'), emiDay: num('modalAccEmiDay'), disbursementDate: val('modalAccDisb'),
     cardLimit: num('modalAccCardLimit'), cardDueDay: num('modalAccCardDue'),
     notes: val('modalAccNotes')
   };
