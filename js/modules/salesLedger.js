@@ -10,6 +10,47 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 
+/** Deterministic avatar gradient from a party name. */
+export function lxAvatarColor(name) {
+  let h = 0; const s = String(name || '?');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 62% 55%), hsl(${(h + 32) % 360} 64% 44%))`;
+}
+/** Two-letter initials from a party name. */
+export function lxInitials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts[0][0] + (parts[1] ? parts[1][0] : (parts[0][1] || ''))).toUpperCase();
+}
+/** ISO yyyy-mm-dd → dd MMM yyyy for compact ledger dates. */
+export function lxFmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return iso || '—';
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] || m[2];
+  return `${m[3]} ${mon} ${m[1]}`;
+}
+/** Count-up animation for the .lx-val KPI numbers inside a container. */
+export function lxAnimateKpis(containerId) {
+  if (typeof document === 'undefined') return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const root = document.getElementById(containerId); if (!root) return;
+  root.querySelectorAll('.lx-val').forEach(el => {
+    const raw = el.textContent || '';
+    const m = raw.match(/^(\D*)([\d,]*\.?\d*)(.*)$/); if (!m) return;
+    const target = parseFloat(m[2].replace(/,/g, '')); if (!isFinite(target) || target === 0) return;
+    const pre = m[1], post = m[3], dur = 650, t0 = performance.now();
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(target * e);
+      el.textContent = pre + v.toLocaleString('en-IN') + post;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+if (typeof window !== 'undefined') window.lxAnimateKpis = lxAnimateKpis;
+
 export function renderSalesLedger() {
   const clientFilter = document.getElementById('slFilterClient');
   if (clientFilter && clientFilter.options.length <= 1) {
@@ -36,7 +77,10 @@ export function renderSalesLedger() {
   tbody.innerHTML = '';
   let kpiTotal = 0, kpiReceived = 0;
 
-  filtered.forEach(inv => {
+  const sym = getCurrencySymbol();
+  const nf = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  let rowsHtml = '';
+  filtered.forEach((inv, i) => {
     const c = state.clients.find(x => x.id === inv.clientId);
     const received = state.paymentsIn.filter(p => p.invoiceId === inv.id).reduce((s, p) => s + parseFloat(p.amount), 0);
     const clientReceived = received || state.paymentsIn.filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount), 0);
@@ -44,18 +88,36 @@ export function renderSalesLedger() {
     const isCancelled = inv.status === 'Cancelled';
     kpiTotal += isCancelled ? 0 : (inv.taxAmount || 0);
     kpiReceived += isCancelled ? 0 : clientReceived;
-    const statusBadge = isCancelled ? `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded font-bold">Cancelled</span>` : outstanding <= 0 ? `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">✓ Paid</span>` : `<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>`;
-    tbody.innerHTML += `<tr class="${isCancelled ? 'opacity-50 line-through text-slate-400' : 'hover:bg-slate-50'} transition"><td class="px-4 py-3 font-mono font-bold text-blue-700">${inv.invoiceNum}</td><td class="px-4 py-3 text-slate-500">${inv.date || '-'}</td><td class="px-4 py-3 font-bold text-slate-700">${c ? c.name : 'Unknown'}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${(inv.subtotal || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right text-slate-500">${getCurrencySymbol()}${(inv.taxAmount - (inv.subtotal || 0)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(inv.taxAmount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right text-green-700 font-bold">${getCurrencySymbol()}${clientReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewInvoiceFromLedger('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold">View</button>${!isCancelled ? `<button onclick="cancelInvoiceFromLedger('${inv.id}')" class="text-orange-600 bg-orange-50 hover:bg-orange-100 text-[10px] px-2 py-1 rounded font-bold">Cancel</button>` : ''}<button onclick="deleteInvoiceFromLedger('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></div></td></tr>`;
+    const pill = isCancelled ? '<span class="lx-pill cancel">Cancelled</span>'
+      : outstanding <= 0 ? '<span class="lx-pill paid">Paid</span>'
+      : '<span class="lx-pill pending">Pending</span>';
+    const nm = c ? c.name : 'Unknown';
+    rowsHtml += `<tr class="${isCancelled ? 'lx-cancelled' : ''}" style="animation-delay:${Math.min(i * 28, 320)}ms">
+      <td><span class="doc-no">${inv.invoiceNum}</span></td>
+      <td style="color:var(--lx-muted)">${lxFmtDate(inv.date)}</td>
+      <td><span class="lx-party"><span class="lx-av" style="background:${lxAvatarColor(nm)}">${lxInitials(nm)}</span><span style="font-weight:650">${nm}</span></span></td>
+      <td class="num">${sym}${nf(inv.subtotal)}</td>
+      <td class="num" style="color:var(--lx-muted)">${sym}${nf((inv.taxAmount || 0) - (inv.subtotal || 0))}</td>
+      <td class="num" style="font-weight:750">${sym}${nf(inv.taxAmount)}</td>
+      <td class="num" style="color:var(--lx-good);font-weight:700">${sym}${nf(clientReceived)}</td>
+      <td class="num" style="${outstanding > 0 ? 'color:var(--lx-bad);font-weight:800' : 'color:var(--lx-faint)'}">${sym}${nf(outstanding)}</td>
+      <td style="text-align:center">${pill}</td>
+      <td style="text-align:center"><div class="lx-act"><button onclick="viewInvoiceFromLedger('${inv.id}')" class="lx-btn view">View</button>${!isCancelled ? `<button onclick="cancelInvoiceFromLedger('${inv.id}')" class="lx-btn warn">Cancel</button>` : ''}<button onclick="deleteInvoiceFromLedger('${inv.id}')" class="lx-btn del">Del</button></div></td>
+    </tr>`;
   });
-  if (filtered.length === 0) tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400 font-medium">No invoices match your filters.</td></tr>`;
+  tbody.innerHTML = rowsHtml || `<tr><td colspan="10" style="padding:44px;text-align:center;color:var(--lx-faint);font-weight:600">No invoices match your filters.</td></tr>`;
 
   const outstandingTotal = Math.max(0, kpiTotal - kpiReceived);
-  document.getElementById('slKpiTotal').textContent = getCurrencySymbol() + kpiTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  document.getElementById('slKpiReceived').textContent = getCurrencySymbol() + kpiReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  document.getElementById('slKpiOutstanding').textContent = getCurrencySymbol() + outstandingTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  document.getElementById('slKpiTotal').textContent = sym + nf(kpiTotal);
+  document.getElementById('slKpiReceived').textContent = sym + nf(kpiReceived);
+  document.getElementById('slKpiOutstanding').textContent = sym + nf(outstandingTotal);
   document.getElementById('slKpiCount').textContent = filtered.length;
+  const pct = kpiTotal > 0 ? Math.round(kpiReceived / kpiTotal * 100) : 0;
+  const setSub = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  setSub('slKpiReceivedSub', pct + '% collected');
+  setSub('slKpiOutstandingSub', (100 - pct) + '% pending');
   const foot = document.getElementById('slTableFoot');
-  if (foot) foot.innerHTML = `<td class="px-4 py-3" colspan="5">Showing ${filtered.length} of ${state.invoices.length} invoices</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${kpiTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right text-green-700">${getCurrencySymbol()}${kpiReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right text-red-600">${getCurrencySymbol()}${outstandingTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td colspan="2"></td>`;
+  if (foot) foot.innerHTML = `<td colspan="5">Showing ${filtered.length} of ${state.invoices.length} invoices</td><td class="num">${sym}${nf(kpiTotal)}</td><td class="num" style="color:var(--lx-good)">${sym}${nf(kpiReceived)}</td><td class="num" style="color:var(--lx-bad)">${sym}${nf(outstandingTotal)}</td><td colspan="2"></td>`;
 }
 
 export function clearSalesLedgerFilters() {

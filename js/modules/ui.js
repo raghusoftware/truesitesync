@@ -1386,7 +1386,7 @@ export function switchView(viewId) {
   if (viewId === 'reportsView') { if (typeof window.renderReportsDashboard === 'function') window.renderReportsDashboard(); }
   if (viewId === 'analyticsView') renderAnalyticsDashboard();
   if (viewId === 'cashFlowView') { if (typeof window.renderCashFlow === 'function') window.renderCashFlow(); }
-  if (viewId === 'salesLedgerView') { window.renderSalesLedger?.(); window.renderSaleInvoices?.(); }
+  if (viewId === 'salesLedgerView') { window.renderSalesLedger?.(); window.renderSaleInvoices?.(); setTimeout(() => window.lxAnimateKpis?.('slKpiRow'), 60); }
   if (viewId === 'proformaInvoiceView') window.renderProformaInvoices?.();
   if (viewId === 'paymentInView') window.renderPaymentInList?.();
   if (viewId === 'saleOrderView') window.renderSaleOrders?.();
@@ -1395,7 +1395,7 @@ export function switchView(viewId) {
   if (viewId === 'saleFixedAssetsView') window.renderSaleFixedAssets?.();
   if (viewId === 'otherIncomeView') window.renderOtherIncome?.();
   if (viewId === 'purchaseLedgerView') window.renderPurchaseLedger?.();
-  if (viewId === 'purchaseBillsView') window.renderPurchaseLedger?.();
+  if (viewId === 'purchaseBillsView') { window.renderPurchaseLedger?.(); setTimeout(() => window.lxAnimateKpis?.('plKpiRow'), 60); }
   if (viewId === 'paymentOutView') window.renderPaymentOut?.();
   if (viewId === 'expensesView') window.renderExpenseCategories?.();
   if (viewId === 'purchaseOrderView') window.renderPurchaseOrders?.();

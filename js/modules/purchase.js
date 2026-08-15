@@ -17,6 +17,10 @@ function _purFmtDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
   return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '');
 }
+/** Redesigned-ledger helpers (kept local to avoid cross-module cache coupling). */
+function _lxAv(name) { let h = 0; const s = String(name || '?'); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return `linear-gradient(135deg, hsl(${h} 62% 55%), hsl(${(h + 32) % 360} 64% 44%))`; }
+function _lxInit(name) { const p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p[1] ? p[1][0] : (p[0][1] || ''))).toUpperCase() : '?'; }
+function _lxDate(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); if (!m) return iso || '—'; const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] || m[2]; return `${m[3]} ${mon} ${m[1]}`; }
 
 export function renderPurchaseLedger() {
   const vFilterEl = document.getElementById('plFilterVendor');
@@ -68,19 +72,42 @@ export function renderPurchaseLedger() {
   let kpiTotal = 0, kpiPaid = 0, kpiOut = 0;
   const allLocs = getAllLocations();
 
-  filtered.forEach(b => {
+  const sym = getCurrencySymbol();
+  const nf = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const today = new Date().toISOString().split('T')[0];
+  let kpiOverdue = 0;
+  let rowsHtml = '';
+  filtered.forEach((b, i) => {
     const v = state.vendors.find(x => x.id === b.vendorId);
     const site = allLocs.find(x => x.id === b.siteId);
     kpiTotal += b.totalAmount; kpiPaid += b.paidAmt; kpiOut += b.outstanding;
-    let statBadge = b.status === 'Paid' ? `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Paid</span>` : (b.status === 'Partial' ? `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">Partial</span>` : `<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Unpaid</span>`);
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition"><td class="px-4 py-3 font-mono font-bold text-blue-700">${b.billNo}</td><td class="px-4 py-3 text-slate-500">${b.date}</td><td class="px-4 py-3 font-bold text-slate-700">${v?.name || 'Unknown'}</td><td class="px-4 py-3 text-slate-500">${site?.name || '-'}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${b.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right text-green-700 font-bold">${getCurrencySymbol()}${b.paidAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-right ${b.outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${b.outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td><td class="px-4 py-3 text-center">${statBadge}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewPurchaseBill('${b.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold">View</button><button onclick="openPurchaseFormPanel('${b.id}')" class="text-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-[10px] px-2 py-1 rounded font-bold">Edit</button><button onclick="deletePurchaseBill('${b.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></div></td></tr>`;
+    const isOverdue = (b.outstanding > 0) && b.dueDate && b.dueDate < today;
+    if (isOverdue) kpiOverdue += b.outstanding;
+    const pill = b.status === 'Paid' ? '<span class="lx-pill paid">Paid</span>'
+      : (b.status === 'Partial' ? '<span class="lx-pill partial">Partial</span>' : '<span class="lx-pill pending">Unpaid</span>');
+    const nm = v?.name || 'Unknown';
+    rowsHtml += `<tr style="animation-delay:${Math.min(i * 28, 320)}ms">
+      <td style="color:var(--lx-muted)">${_lxDate(b.date)}</td>
+      <td><span class="doc-no">${b.billNo}</span></td>
+      <td><span class="lx-party"><span class="lx-av" style="background:${_lxAv(nm)}">${_lxInit(nm)}</span><span style="font-weight:650">${nm}</span></span></td>
+      <td style="color:var(--lx-muted)">${site?.name || '—'}</td>
+      <td class="num" style="font-weight:750">${sym}${nf(b.totalAmount)}</td>
+      <td class="num" style="${b.outstanding > 0 ? 'color:var(--lx-bad);font-weight:800' : 'color:var(--lx-faint)'}">${sym}${nf(b.outstanding)}</td>
+      <td style="color:${isOverdue ? 'var(--lx-bad);font-weight:700' : 'var(--lx-muted)'}">${b.dueDate ? _lxDate(b.dueDate) : '—'}</td>
+      <td style="text-align:center">${pill}</td>
+      <td style="text-align:center"><div class="lx-act"><button onclick="viewPurchaseBill('${b.id}')" class="lx-btn view">View</button><button onclick="openPurchaseFormPanel('${b.id}')" class="lx-btn edit">Edit</button><button onclick="deletePurchaseBill('${b.id}')" class="lx-btn del">Del</button></div></td>
+    </tr>`;
   });
-  if (filtered.length === 0) tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 font-medium">No purchases match your filters.</td></tr>`;
-  document.getElementById('plKpiTotal').textContent = getCurrencySymbol() + kpiTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  document.getElementById('plKpiPaid').textContent = getCurrencySymbol() + kpiPaid.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  document.getElementById('plKpiOutstanding').textContent = getCurrencySymbol() + kpiOut.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  tbody.innerHTML = rowsHtml || `<tr><td colspan="9" style="padding:44px;text-align:center;color:var(--lx-faint);font-weight:600">No purchases match your filters.</td></tr>`;
+  document.getElementById('plKpiTotal').textContent = sym + nf(kpiTotal);
+  document.getElementById('plKpiPaid').textContent = sym + nf(kpiPaid);
+  document.getElementById('plKpiOutstanding').textContent = sym + nf(kpiOut);
   const overEl = document.getElementById('plKpiOverdue');
-  if (overEl) overEl.textContent = getCurrencySymbol() + '0';
+  if (overEl) overEl.textContent = sym + nf(kpiOverdue);
+  const pct = kpiTotal > 0 ? Math.round(kpiPaid / kpiTotal * 100) : 0;
+  const setSub = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  setSub('plKpiPaidSub', pct + '% settled');
+  setSub('plKpiOutstandingSub', (100 - pct) + '% payable');
 }
 
 export function clearPurchaseLedgerFilters() {

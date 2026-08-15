@@ -20,7 +20,8 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
-    <script type="module" src="js/app.js?v=1.6.29"></script>
+    <link rel="stylesheet" href="css/ledger.css?v=1.6.30">
+    <script type="module" src="js/app.js?v=1.6.30"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1379,33 +1380,40 @@
 </div>
 
         <!-- ═══════ SALES LEDGER ═══════ -->
-<div id="salesLedgerView" class="view-section hide">
-  <div class="flex justify-between items-end mb-6">
-    <div><h2>Sales Ledger</h2><p class="text-slate-500 font-medium mt-1">All invoices — searchable, filterable, and actionable.</p></div>
-    <button onclick="openSaleInvoiceForm()" class="bg-[#1e3a8a] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-900 transition">➕ New Invoice</button>
+<div id="salesLedgerView" class="view-section hide lx">
+  <div class="lx-hero lx-anim">
+    <div class="lx-hero-ic">🧾</div>
+    <div class="lx-hero-txt">
+      <h2>Sales Ledger</h2>
+      <p>Every tax invoice — searchable, filterable and actionable in one place.</p>
+    </div>
+    <button onclick="openSaleInvoiceForm()" class="lx-cta"><span class="plus">+</span> New Invoice</button>
   </div>
-  <div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-center">
-    <input type="text" id="slSearch" placeholder="🔍  Search invoice no, client, amount..." class="flex-1 min-w-48 p-2.5 border rounded-lg text-sm font-medium outline-none focus:border-orange-400" oninput="renderSalesLedger()">
-    <select id="slFilterClient" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white" onchange="renderSalesLedger()"><option value="">All Clients</option></select>
-    <select id="slFilterStatus" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-orange-400 bg-white" onchange="renderSalesLedger()"><option value="">All Status</option><option value="Active">Active</option><option value="Cancelled">Cancelled</option></select>
-    <input type="date" id="slFromDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderSalesLedger()">
-    <span class="text-slate-400 font-bold text-xs">TO</span>
-    <input type="date" id="slToDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderSalesLedger()">
-    <button onclick="clearSalesLedgerFilters()" class="text-xs font-bold text-slate-500 hover:text-red-500 px-3 py-2 border rounded-lg hover:border-red-300 transition">✕ Clear</button>
+
+  <div class="lx-toolbar lx-anim" data-d="1">
+    <div class="lx-search"><span class="ic">🔍</span><input type="text" id="slSearch" class="lx-field" placeholder="Search invoice no, client, amount…" oninput="renderSalesLedger()"></div>
+    <select id="slFilterClient" class="lx-field" onchange="renderSalesLedger()"><option value="">All Clients</option></select>
+    <select id="slFilterStatus" class="lx-field" onchange="renderSalesLedger()"><option value="">All Status</option><option value="Active">Active</option><option value="Cancelled">Cancelled</option></select>
+    <input type="date" id="slFromDate" class="lx-field" onchange="renderSalesLedger()">
+    <span class="to">TO</span>
+    <input type="date" id="slToDate" class="lx-field" onchange="renderSalesLedger()">
+    <button onclick="clearSalesLedgerFilters()" class="lx-clear">✕ Clear</button>
   </div>
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" id="slKpiRow">
-    <div class="bg-white rounded-xl border shadow-sm p-4"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Total Invoiced</p><p class="text-2xl font-extrabold text-slate-800" id="slKpiTotal">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Received</p><p class="text-2xl font-extrabold text-green-600" id="slKpiReceived">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Outstanding</p><p class="text-2xl font-extrabold text-orange-600" id="slKpiOutstanding">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Total Invoices</p><p class="text-2xl font-extrabold text-blue-700" id="slKpiCount">0</p></div>
+
+  <div class="lx-kpis" id="slKpiRow">
+    <div class="lx-tile lx-anim" data-d="1"><div class="lx-tile-top"><span class="lx-lbl">Total Invoiced</span><span class="lx-ic">📊</span></div><div class="lx-val" id="slKpiTotal">₹0</div><div class="lx-sub" id="slKpiTotalSub">across all invoices</div></div>
+    <div class="lx-tile good lx-anim" data-d="2"><div class="lx-tile-top"><span class="lx-lbl">Received</span><span class="lx-ic">✓</span></div><div class="lx-val" id="slKpiReceived">₹0</div><div class="lx-sub" id="slKpiReceivedSub">collected to date</div></div>
+    <div class="lx-tile warn lx-anim" data-d="3"><div class="lx-tile-top"><span class="lx-lbl">Outstanding</span><span class="lx-ic">⏳</span></div><div class="lx-val" id="slKpiOutstanding">₹0</div><div class="lx-sub" id="slKpiOutstandingSub">yet to collect</div></div>
+    <div class="lx-tile lx-anim" data-d="4"><div class="lx-tile-top"><span class="lx-lbl">Total Invoices</span><span class="lx-ic">🗂️</span></div><div class="lx-val" id="slKpiCount">0</div><div class="lx-sub" id="slKpiCountSub">matching filters</div></div>
   </div>
-  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 bg-slate-800 flex justify-between items-center text-white rounded-t-xl"><h3 class="font-bold">Invoice Register</h3><button onclick="printReport('slTableWrapper','Sales Ledger')" class="bg-slate-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-500">🖨️ Print</button></div>
-    <div class="overflow-x-auto" id="slTableWrapper">
-      <table class="min-w-full text-sm divide-y">
-        <thead class="bg-slate-50"><tr class="text-left text-[10px] font-bold uppercase text-slate-500"><th class="px-4 py-3">Invoice No</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Client</th><th class="px-4 py-3 text-right">Base Amt</th><th class="px-4 py-3 text-right">Tax</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-right">Received</th><th class="px-4 py-3 text-right">Outstanding</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-center">Links</th><th class="px-4 py-3 text-center">Actions</th></tr></thead>
-        <tbody id="slTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
-        <tfoot class="bg-slate-50 border-t-2 border-slate-300"><tr id="slTableFoot" class="font-extrabold text-slate-800 text-sm"></tr></tfoot>
+
+  <div class="lx-card lx-anim" data-d="5">
+    <div class="lx-card-head"><h3><span class="dot"></span>Invoice Register</h3><button onclick="printReport('slTableWrapper','Sales Ledger')" class="lx-print">🖨️ Print</button></div>
+    <div class="lx-tablewrap" id="slTableWrapper">
+      <table>
+        <thead><tr><th>Invoice No</th><th>Date</th><th>Client</th><th class="num">Base Amt</th><th class="num">Tax</th><th class="num">Total</th><th class="num">Received</th><th class="num">Outstanding</th><th style="text-align:center">Status</th><th style="text-align:center">Actions</th></tr></thead>
+        <tbody id="slTableBody"></tbody>
+        <tfoot><tr id="slTableFoot"></tr></tfoot>
       </table>
     </div>
   </div>
@@ -1635,43 +1643,40 @@
 </div>
 
         <!-- ═══════ PURCHASE BILLS (was Purchase Ledger) ═══════ -->
-<div id="purchaseBillsView" class="view-section hide">
-  <div class="flex justify-between items-center mb-5">
-    <div><h2>Purchase Bills</h2><p class="text-slate-500 font-medium mt-1">All inward material bills, tools, and expenses linked to projects.</p></div>
-    <div class="flex gap-2">
-      <button onclick="openPurchaseFormPanel()" class="bg-[#f97316] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-orange-600 transition flex items-center gap-2">➕ Add Purchase</button>
+<div id="purchaseBillsView" class="view-section hide lx lx-purchase">
+  <div class="lx-hero lx-anim">
+    <div class="lx-hero-ic">📦</div>
+    <div class="lx-hero-txt">
+      <h2>Purchase Bills</h2>
+      <p>Every inward bill, tool and expense — linked to vendors, sites and projects.</p>
     </div>
+    <button onclick="openPurchaseFormPanel()" class="lx-cta"><span class="plus">+</span> Add Purchase</button>
   </div>
-  <!-- Filter bar -->
-  <div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-center">
-    <input type="text" id="plSearch" placeholder="🔍 Search bill no..." class="flex-1 min-w-48 p-2.5 border rounded-lg text-sm font-medium outline-none focus:border-blue-400" oninput="renderPurchaseLedger()">
-    <select id="plFilterVendor" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-blue-400 bg-white" onchange="renderPurchaseLedger()"><option value="">All Vendors</option></select>
-    <select id="plFilterSite" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-blue-400 bg-white" onchange="renderPurchaseLedger()"><option value="">All Sites / Locations</option></select>
-    <select id="plFilterStatus" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-blue-400 bg-white" onchange="renderPurchaseLedger()"><option value="">All Status</option><option value="Paid">Paid</option><option value="Partial">Partial</option><option value="Unpaid">Unpaid</option></select>
-    <input type="date" id="plFromDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderPurchaseLedger()">
-    <span class="text-slate-400 font-bold text-xs">TO</span>
-    <input type="date" id="plToDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderPurchaseLedger()">
-    <button onclick="clearPurchaseLedgerFilters()" class="text-xs font-bold text-slate-500 hover:text-red-500 px-3 py-2 border rounded-lg hover:border-red-300 transition">✕ Clear</button>
+
+  <div class="lx-toolbar lx-anim" data-d="1">
+    <div class="lx-search"><span class="ic">🔍</span><input type="text" id="plSearch" class="lx-field" placeholder="Search bill no, vendor…" oninput="renderPurchaseLedger()"></div>
+    <select id="plFilterVendor" class="lx-field" onchange="renderPurchaseLedger()"><option value="">All Vendors</option></select>
+    <select id="plFilterSite" class="lx-field" onchange="renderPurchaseLedger()"><option value="">All Sites / Locations</option></select>
+    <select id="plFilterStatus" class="lx-field" onchange="renderPurchaseLedger()"><option value="">All Status</option><option value="Paid">Paid</option><option value="Partial">Partial</option><option value="Unpaid">Unpaid</option></select>
+    <input type="date" id="plFromDate" class="lx-field" onchange="renderPurchaseLedger()">
+    <span class="to">TO</span>
+    <input type="date" id="plToDate" class="lx-field" onchange="renderPurchaseLedger()">
+    <button onclick="clearPurchaseLedgerFilters()" class="lx-clear">✕ Clear</button>
   </div>
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-green-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Paid</p><p class="text-2xl font-extrabold text-green-600" id="plKpiPaid">₹ 0.00</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-blue-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Unpaid</p><p class="text-2xl font-extrabold text-blue-700" id="plKpiOutstanding">₹ 0.00</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-red-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Overdue</p><p class="text-2xl font-extrabold text-red-600" id="plKpiOverdue">₹ 0.00</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-orange-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Total</p><p class="text-2xl font-extrabold text-slate-800" id="plKpiTotal">₹ 0.00</p></div>
+
+  <div class="lx-kpis" id="plKpiRow">
+    <div class="lx-tile lx-anim" data-d="1"><div class="lx-tile-top"><span class="lx-lbl">Total Purchases</span><span class="lx-ic">📦</span></div><div class="lx-val" id="plKpiTotal">₹0</div><div class="lx-sub">all bills</div></div>
+    <div class="lx-tile good lx-anim" data-d="2"><div class="lx-tile-top"><span class="lx-lbl">Paid</span><span class="lx-ic">✓</span></div><div class="lx-val" id="plKpiPaid">₹0</div><div class="lx-sub" id="plKpiPaidSub">settled</div></div>
+    <div class="lx-tile warn lx-anim" data-d="3"><div class="lx-tile-top"><span class="lx-lbl">Unpaid</span><span class="lx-ic">⏳</span></div><div class="lx-val" id="plKpiOutstanding">₹0</div><div class="lx-sub" id="plKpiOutstandingSub">payable</div></div>
+    <div class="lx-tile bad lx-anim" data-d="4"><div class="lx-tile-top"><span class="lx-lbl">Overdue</span><span class="lx-ic">⚠️</span></div><div class="lx-val" id="plKpiOverdue">₹0</div><div class="lx-sub">past due date</div></div>
   </div>
-  <!-- Transactions Table -->
-  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 border-b flex justify-between items-center">
-      <h3 class="font-bold text-slate-700 uppercase text-sm tracking-wider">Transactions</h3>
-      <div class="flex gap-2">
-        <button onclick="printReport('plTableWrapper','Purchase Bills')" class="text-xs font-bold text-slate-500 border px-3 py-1.5 rounded-lg hover:bg-slate-50 transition flex items-center gap-1">🖨️ Print</button>
-      </div>
-    </div>
-    <div class="overflow-x-auto" id="plTableWrapper">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 border-b"><tr class="text-left text-[10px] font-bold uppercase text-slate-500"><th class="px-4 py-3">Date</th><th class="px-4 py-3">Invoice No</th><th class="px-4 py-3">Party Name</th><th class="px-4 py-3">Payment Type</th><th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-right">Balance Due</th><th class="px-4 py-3">Due Date</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-center">Actions</th></tr></thead>
-        <tbody id="plTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+
+  <div class="lx-card lx-anim" data-d="5">
+    <div class="lx-card-head"><h3><span class="dot"></span>Transactions</h3><button onclick="printReport('plTableWrapper','Purchase Bills')" class="lx-print">🖨️ Print</button></div>
+    <div class="lx-tablewrap" id="plTableWrapper">
+      <table>
+        <thead><tr><th>Date</th><th>Bill No</th><th>Vendor</th><th>Site</th><th class="num">Amount</th><th class="num">Balance Due</th><th>Due Date</th><th style="text-align:center">Status</th><th style="text-align:center">Actions</th></tr></thead>
+        <tbody id="plTableBody"></tbody>
       </table>
     </div>
   </div>
