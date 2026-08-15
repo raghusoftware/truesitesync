@@ -1414,17 +1414,33 @@ export function switchView(viewId) {
   if (viewId === 'orgSettingsView') { switchView('settingsView'); return; }
   if (viewId === 'superAdminView') { if (typeof window.renderSuperAdminDashboard === 'function') window.renderSuperAdminDashboard(); }
 
-  // Business sections are single "hub" launchers now — keep the matching sidebar
-  // entry highlighted while the user is inside any of that hub's sub-views.
-  const _hubHighlight = (hubView, subViews) => {
-    if (subViews.includes(viewId)) {
-      const b = document.querySelector(`[data-target="${hubView}"]`);
+  // Business sections are single "hub" launchers now. Keep the matching sidebar
+  // entry highlighted while inside a hub sub-view, and show a "← Back to <hub>"
+  // bar so every hub module has a way home.
+  const _HUBS = {
+    salesHubView:    { label: 'Sales',    subs: ['salesLedgerView','saleOrderView','proformaInvoiceView','deliveryChallanView','estimatesView','estimationView','paymentInView','saleReturnView','otherIncomeView','saleFixedAssetsView'] },
+    purchaseHubView: { label: 'Purchase', subs: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView'] },
+    financeHubView:  { label: 'Finance',  subs: ['partiesLedgerView','accountsManagerView','cashFlowView','costProfitView'] },
+    systemHubView:   { label: 'System',   subs: ['itemsMasterView','masterData','planBillingView','settingsView','recycleBinView'] },
+  };
+  let _parentHub = null;
+  Object.entries(_HUBS).forEach(([hub, def]) => {
+    if (viewId === hub || def.subs.includes(viewId)) {
+      const b = document.querySelector(`[data-target="${hub}"]`);
       if (b) b.classList.add('active');
     }
-  };
-  _hubHighlight('purchaseHubView', ['purchaseHubView','purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView']);
-  _hubHighlight('financeHubView', ['financeHubView','partiesLedgerView','accountsManagerView','cashFlowView','costProfitView']);
-  _hubHighlight('systemHubView', ['systemHubView','itemsMasterView','masterData','planBillingView','settingsView','recycleBinView']);
+    if (def.subs.includes(viewId)) _parentHub = { hub, label: def.label };
+  });
+  const _backBar = document.getElementById('hubBackBar');
+  if (_backBar) {
+    if (_parentHub) {
+      _backBar.style.display = 'block';
+      _backBar.innerHTML = `<button onclick="switchView('${_parentHub.hub}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;color:#475569;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#1e293b'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'"><span style="font-size:15px;line-height:0;">&larr;</span> Back to ${_parentHub.label}</button>`;
+    } else {
+      _backBar.style.display = 'none';
+      _backBar.innerHTML = '';
+    }
+  }
   // Sale modules now live under a single "Sales" hub — keep that sidebar entry
   // highlighted while the user is in any sale sub-view.
   const saleViews = ['salesHubView','salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','estimationView'];

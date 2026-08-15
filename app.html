@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.39"></script>
+    <script type="module" src="js/app.js?v=1.6.40"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -211,6 +211,9 @@
     <!-- Mobile sidebar overlay -->
     <div id="mobileOverlay" class="mobile-overlay" onclick="toggleMobileSidebar()"></div>
     <div class="p-4 md:p-8">
+
+    <!-- Dynamic "back to hub" bar — shown by switchView on any Sales/Purchase/Finance/System sub-view -->
+    <div id="hubBackBar" style="display:none;margin-bottom:14px;"></div>
 
     <!-- ═══════ PROJECTS HOME (Landing) ═══════ -->
     <div id="projectsHome" class="view-section">
