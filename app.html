@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.33"></script>
+    <script type="module" src="js/app.js?v=1.6.34"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -155,24 +155,11 @@
           <button onclick="switchView('abstractsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="abstractsView"><span style="font-size:13px">&#128209;</span> Abstracts</button>
         </div>
 
-        <!-- ── Sale (always visible, business-level) ── -->
+        <!-- ── Sale (single hub — opens app-style module grid) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">Sale</p>
-        <button onclick="toggleSidebarDropdown(this)" class="nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-xs">
-          <span class="flex items-center gap-2.5"><span style="font-size:13px">&#128200;</span> Sale Modules</span>
-          <svg class="w-3 h-3 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        <button onclick="switchView('salesHubView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="salesHubView">
+          <span style="font-size:13px">&#128200;</span> Sales
         </button>
-        <div id="saleDropdownMenu" class="sidebar-dropdown overflow-hidden transition-all hidden">
-          <button onclick="switchView('salesLedgerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="salesLedgerView"><span style="font-size:12px">&#129534;</span> Sale Invoices</button>
-          <button onclick="switchView('saleOrderView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="saleOrderView"><span style="font-size:12px">&#128203;</span> Sale Orders</button>
-          <button onclick="switchView('proformaInvoiceView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="proformaInvoiceView"><span style="font-size:12px">&#128196;</span> Proforma Invoices</button>
-          <button onclick="switchView('deliveryChallanView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="deliveryChallanView"><span style="font-size:12px">&#128666;</span> Delivery Challans</button>
-          <button onclick="switchView('estimatesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="estimatesView"><span style="font-size:12px">&#128221;</span> Estimates</button>
-          <button onclick="switchView('estimationView'); if(window.renderEstimationView)window.renderEstimationView();" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="estimationView"><span style="font-size:12px">&#128207;</span> Estimation (Rate Analysis)</button>
-          <button onclick="switchView('paymentInView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="paymentInView"><span style="font-size:12px">&#128181;</span> Payment In</button>
-          <button onclick="switchView('saleReturnView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="saleReturnView"><span style="font-size:12px">&#128260;</span> Sale Returns</button>
-          <button onclick="switchView('otherIncomeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="otherIncomeView"><span style="font-size:12px">&#128176;</span> Other Income</button>
-          <button onclick="switchView('saleFixedAssetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="saleFixedAssetsView"><span style="font-size:12px">&#127959;</span> Sale Fixed Assets</button>
-        </div>
 
         <!-- ── Purchase (always visible, business-level) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1.5">Purchase</p>
@@ -1380,6 +1367,42 @@
 </div>
 
         <!-- ═══════ SALES LEDGER ═══════ -->
+<div id="salesHubView" class="view-section hide">
+  <style>
+    .shub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:14px}
+    .shub-card{position:relative;overflow:hidden;background:#fff;border:1px solid #e7ebf1;border-radius:18px;padding:20px 18px;cursor:pointer;
+      box-shadow:0 1px 2px rgba(15,23,42,.04),0 12px 30px -20px rgba(15,23,42,.2);
+      transition:transform .16s cubic-bezier(.22,.61,.36,1),box-shadow .16s ease,border-color .16s ease;
+      opacity:0;animation:shubrise .5s cubic-bezier(.22,.61,.36,1) forwards}
+    @keyframes shubrise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    .shub-card:hover{transform:translateY(-4px);box-shadow:0 20px 44px -20px rgba(15,23,42,.3);border-color:#dbe2ec}
+    .shub-card:active{transform:translateY(-1px) scale(.99)}
+    .shub-ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;margin-bottom:12px;transition:transform .16s ease}
+    .shub-card:hover .shub-ic{transform:scale(1.08) rotate(-3deg)}
+    .shub-card h4{margin:0;font-size:14.5px;font-weight:750;color:#0f172a;letter-spacing:-.01em}
+    .shub-card p{margin:3px 0 0;font-size:11px;color:#94a3b8;font-weight:500;line-height:1.35}
+    .shub-card .arw{position:absolute;top:18px;right:16px;font-size:14px;color:#cbd5e1;opacity:0;transform:translateX(-4px);transition:.16s}
+    .shub-card:hover .arw{opacity:1;transform:none}
+    @media (prefers-reduced-motion:reduce){.shub-card{animation:none;opacity:1}.shub-card,.shub-ic{transition:none}}
+  </style>
+  <div class="mb-6">
+    <h2 class="text-3xl font-extrabold text-slate-800">Sales</h2>
+    <p class="text-sm text-slate-500 mt-1">Invoices, orders, receipts and everything you sell — pick a module to get started.</p>
+  </div>
+  <div class="shub-grid">
+    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('salesLedgerView')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">🧾</div><h4>Sale Invoices</h4><p>Tax invoices &amp; billing</p></div>
+    <div class="shub-card" style="animation-delay:.06s" onclick="switchView('saleOrderView')"><span class="arw">→</span><div class="shub-ic" style="background:#f1ecfe;color:#7c3aed">📋</div><h4>Sale Orders</h4><p>Confirmed customer orders</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('proformaInvoiceView')"><span class="arw">→</span><div class="shub-ic" style="background:#e5f6fb;color:#0891b2">📄</div><h4>Proforma Invoices</h4><p>Quotes &amp; pre-invoices</p></div>
+    <div class="shub-card" style="animation-delay:.14s" onclick="switchView('deliveryChallanView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeee3;color:#ea580c">🚚</div><h4>Delivery Challans</h4><p>Goods dispatch notes</p></div>
+    <div class="shub-card" style="animation-delay:.18s" onclick="switchView('estimatesView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">📝</div><h4>Estimates</h4><p>Cost estimates &amp; proposals</p></div>
+    <div class="shub-card" style="animation-delay:.22s" onclick="switchView('estimationView'); if(window.renderEstimationView)window.renderEstimationView();"><span class="arw">→</span><div class="shub-ic" style="background:#e4f5ee;color:#059669">📏</div><h4>Estimation</h4><p>Rate analysis &amp; build-up</p></div>
+    <div class="shub-card" style="animation-delay:.26s" onclick="switchView('paymentInView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#10b981">💵</div><h4>Payment In</h4><p>Receipts from clients</p></div>
+    <div class="shub-card" style="animation-delay:.30s" onclick="switchView('saleReturnView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">🔄</div><h4>Sale Returns</h4><p>Credit notes &amp; returns</p></div>
+    <div class="shub-card" style="animation-delay:.34s" onclick="switchView('otherIncomeView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdf1e0;color:#d97706">💰</div><h4>Other Income</h4><p>Non-sale income</p></div>
+    <div class="shub-card" style="animation-delay:.38s" onclick="switchView('saleFixedAssetsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">🏗️</div><h4>Sale Fixed Assets</h4><p>Asset sales &amp; disposals</p></div>
+  </div>
+</div>
+
 <div id="salesLedgerView" class="view-section hide lx">
   <div class="lx-hero lx-anim">
     <div class="lx-hero-ic">🧾</div>

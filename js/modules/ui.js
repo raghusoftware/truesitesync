@@ -1421,11 +1421,12 @@ export function switchView(viewId) {
   if (ddMenu && ddToggle) {
     if (peViews.includes(viewId)) { ddMenu.classList.remove('hidden'); ddToggle.classList.add('open'); }
   }
-  const saleViews = ['salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView'];
-  const saleMenu = document.getElementById('saleDropdownMenu');
-  const saleToggle = saleMenu?.previousElementSibling;
-  if (saleMenu && saleToggle) {
-    if (saleViews.includes(viewId)) { saleMenu.classList.remove('hidden'); saleToggle.classList.add('open'); }
+  // Sale modules now live under a single "Sales" hub — keep that sidebar entry
+  // highlighted while the user is in any sale sub-view.
+  const saleViews = ['salesHubView','salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','estimationView'];
+  if (saleViews.includes(viewId)) {
+    const saleBtn = document.querySelector('[data-target="salesHubView"]');
+    if (saleBtn) saleBtn.classList.add('active');
   }
   // Auto-expand Projects dropdown
   const projectViews = ['labourView','equipmentView','inventoryView','assetsView','recipeView','entrySheet','savedSheets','abstractsView'];

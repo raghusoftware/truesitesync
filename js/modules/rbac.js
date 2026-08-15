@@ -472,7 +472,7 @@ export function hasAccess(viewId) {
   const user = getCurrentUser();
   if (!user) return false;
   if (user.role === 'Admin') return true;
-  if (viewId === 'projectsHome') return true;
+  if (viewId === 'projectsHome' || viewId === 'salesHubView') return true; // launchers; real modules stay gated
   const role = (state.rbacRoles || {})[user.role];
   if (!role) return false;
   return (role.permissions || []).includes(viewId);
