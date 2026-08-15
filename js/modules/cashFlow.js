@@ -1181,8 +1181,11 @@ function _renderCockpit() {
   const _weeksLeft = Math.max(1, Math.ceil((new Date(_endMonth + 'T00:00:00') - _dnow) / (7 * 86400000)));
 
   // Material payables — schedule each bill by its due date (vendor terms + basis).
+  // Include every vendor bill with a value (not just line-item bills) and read
+  // totalAmount OR amount, matching the aggregate purchase helpers.
+  const _billAmt = b => N(b.totalAmount) || N(b.amount);
   const _billsByVendor = {};
-  (state.vendorMaterials || []).filter(b => b.items).forEach(b => { (_billsByVendor[b.vendorId] = _billsByVendor[b.vendorId] || []).push(b); });
+  (state.vendorMaterials || []).filter(b => _billAmt(b) > 0).forEach(b => { (_billsByVendor[b.vendorId] = _billsByVendor[b.vendorId] || []).push(b); });
   let matWeek = 0, matMonth = 0, matTotal = 0, matOverdue = 0;
   Object.entries(_billsByVendor).forEach(([vid, bills]) => {
     bills.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1190,7 +1193,7 @@ function _renderCockpit() {
     const v = (state.vendors || []).find(x => x.id === vid);
     const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
     bills.forEach(b => {
-      const total = N(b.totalAmount); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
+      const total = _billAmt(b); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
       if (out <= 0) return;
       matTotal += out;
       const basis = (v?.termsBasis === 'delivery' && b.grnDate) ? b.grnDate : b.date;
@@ -1230,7 +1233,7 @@ function _renderCockpit() {
   const _in30 = _addDays(_todayStr, 30);
   const _invList = [];
   (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, _termDays(i.terms)), total: N(i.total) }); });
-  (state.invoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, 30), total: N(i.taxAmount || i.totalAmount || i.total) }); });
+  (state.invoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, 30), total: N(i.totalAmount || i.total || i.taxAmount) }); });
   const _byClient = {};
   _invList.forEach(v => { (_byClient[v.clientId] = _byClient[v.clientId] || []).push(v); });
   let salesReceivable = 0, salesDue30 = 0;
@@ -1254,7 +1257,7 @@ function _renderCockpit() {
     const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
     let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + N(p.amount), 0);
     [...bills].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(b => {
-      const total = N(b.totalAmount); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
+      const total = _billAmt(b); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
       if (out <= 0) return;
       const basis = (v?.termsBasis === 'delivery' && b.grnDate) ? b.grnDate : b.date;
       const d = _clampDay(b.dueDate || _addDays(basis, days));
