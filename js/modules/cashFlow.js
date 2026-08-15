@@ -1170,6 +1170,33 @@ function _renderCockpit() {
     receivables += Math.max(0, b - paid);
   });
 
+  // ══ Simple money position — what to pay vs what's coming in ══
+  const payLabour = labourDue();                       // wages due
+  const payMaterial = apOutstanding();                 // vendor bills − payments
+  const payEmi = (state.accounts || []).filter(a => a.type === 'Loan').reduce((s, a) => s + N(a.emi), 0);
+  const payMaint = (state.maintenanceLogs || []).filter(m => _inLast(m.date, 30)).reduce((s, m) => s + N(m.cost || m.amount || m.amt || 0), 0);
+  const toPay = payLabour + payMaterial + payEmi + payMaint;
+
+  // Sales money in — from invoices, timed by each invoice's payment terms.
+  const _termDays = t => { const m = /(\d+)/.exec(t || ''); return m ? parseInt(m[1]) : (N(state.cashFlowSettings?.creditDays) || 30); };
+  const _addDays = (d, n) => { const dt = new Date((d || new Date().toISOString().split('T')[0]) + 'T00:00:00'); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
+  const _in30 = _addDays(new Date().toISOString().split('T')[0], 30);
+  const _invList = [];
+  (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, _termDays(i.terms)), total: N(i.total) }); });
+  (state.invoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, 30), total: N(i.taxAmount || i.totalAmount || i.total) }); });
+  const _byClient = {};
+  _invList.forEach(v => { (_byClient[v.clientId] = _byClient[v.clientId] || []).push(v); });
+  let salesReceivable = 0, salesDue30 = 0;
+  Object.entries(_byClient).forEach(([cid, list]) => {
+    list.sort((a, b) => new Date(a.date) - new Date(b.date));   // oldest first
+    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+    list.forEach(v => { const ap = Math.min(pool, v.total); pool -= ap; const out = Math.max(0, v.total - ap); salesReceivable += out; if (out > 0 && (v.due || '') <= _in30) salesDue30 += out; });
+  });
+  const toReceive = salesReceivable + wip;
+  const netPos = toReceive - toPay;
+  const _payRow = (l, v) => `<div style="display:flex;justify-content:space-between;"><span>${l}</span><b style="color:#dc2626;">${fmt(v)}</b></div>`;
+  const _recvRow = (l, v, sub) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${sub ? `<br><span style="font-size:10px;color:#94a3b8;">${sub}</span>` : ''}</span><b style="color:#16a34a;white-space:nowrap;">${fmt(v)}</b></div>`;
+
   // Leakage aggregate
   const leak = {};
   pnls.forEach(p => Object.entries(p.leakage || {}).forEach(([k, n]) => { leak[k] = (leak[k] || 0) + n; }));
@@ -1192,6 +1219,35 @@ function _renderCockpit() {
     </tr>`).join('');
 
   return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div style="background:#fff;border:1px solid #fecaca;border-radius:16px;overflow:hidden;">
+        <div style="padding:12px 16px;background:linear-gradient(135deg,#fef2f2,#fee2e2);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:800;color:#b91c1c;font-size:13px;">🔴 You have to pay</span>
+          <span style="font-weight:900;color:#dc2626;font-size:18px;">${fmt(toPay)}</span>
+        </div>
+        <div style="padding:13px 16px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:9px;">
+          ${_payRow('👷 Labour — wages due', payLabour)}
+          ${_payRow('🧱 Material suppliers', payMaterial)}
+          ${_payRow('🏷️ Loan EMIs — per month', payEmi)}
+          ${_payRow('🛠️ Maintenance — last 30 days', payMaint)}
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:16px;overflow:hidden;">
+        <div style="padding:12px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:800;color:#15803d;font-size:13px;">🟢 You will receive</span>
+          <span style="font-weight:900;color:#16a34a;font-size:18px;">${fmt(toReceive)}</span>
+        </div>
+        <div style="padding:13px 16px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:9px;">
+          ${_recvRow('🧾 From Sales — billed, uncollected', salesReceivable, salesDue30 > 0 ? `≈ ${fmt(salesDue30)} due within 30 days (per payment terms)` : 'collected as per each invoice&rsquo;s payment terms')}
+          ${_recvRow('🏗️ Unbilled work (WIP)', wip, 'earned, not yet invoiced')}
+        </div>
+      </div>
+    </div>
+    <div style="background:${netPos >= 0 ? '#052e16' : '#450a0a'};color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div><div style="font-size:12px;font-weight:700;opacity:.9;">Net position — after paying everyone &amp; collecting sales</div><div style="font-size:11px;opacity:.6;margin-top:2px;">Receive ${fmt(toReceive)} &minus; Pay ${fmt(toPay)}</div></div>
+      <div style="font-size:24px;font-weight:900;color:${netPos >= 0 ? '#4ade80' : '#f87171'};white-space:nowrap;">${netPos < 0 ? '&minus;' : ''}${fmt(Math.abs(netPos))}</div>
+    </div>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
       ${kpi('Work done (earned)', fmt(earned), 'measured value, all projects', '#0d9488')}
       ${kpi('Total cost', fmt(totalCost), 'material + labour + other', '#ea580c')}
