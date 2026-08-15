@@ -1123,6 +1123,12 @@ function _renderConstructionCF() {
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
 window._cfSetPayDay = function (d) { if (!state.cashFlowSettings) state.cashFlowSettings = {}; state.cashFlowSettings.labourPayDay = parseInt(d) || 0; saveAllData(); renderCashFlow(); };
 
+// Daily-schedule filters (transaction ledger).
+let _cfSchedFrom = '', _cfSchedTo = '', _cfSchedDir = 'all';
+window._cfSchedSetFrom = function (v) { _cfSchedFrom = v || ''; renderCashFlow(); };
+window._cfSchedSetTo = function (v) { _cfSchedTo = v || ''; renderCashFlow(); };
+window._cfSchedSetDir = function (v) { _cfSchedDir = v || 'all'; renderCashFlow(); };
+
 export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
@@ -1297,9 +1303,30 @@ function _renderCockpit() {
       });
     }
   }
-  // Group by date, running balance from current cash
+  // Recorded (actual) money movements — so the ledger shows real history too.
+  (state.paymentsIn || []).forEach(p => { const cn = (state.clients || []).find(c => c.id === p.clientId)?.name; _events.push({ date: p.date, label: '💰 Received' + (cn ? ' · ' + cn : (p.ref ? ' · ' + p.ref : '')), dir: 'in', amount: N(p.amount), actual: true }); });
+  (state.vendorPayments || []).forEach(v => { const vn = (state.vendors || []).find(x => x.id === v.vendorId)?.name || 'Vendor'; _events.push({ date: v.date, label: '🧱 Paid ' + vn, dir: 'out', amount: N(v.amount), actual: true }); });
+  (state.expenses || []).forEach(e => _events.push({ date: e.date, label: '🧾 ' + (e.category || 'Expense'), dir: 'out', amount: N(e.amount), actual: true }));
+  (state.labourPayments || []).forEach(l => _events.push({ date: l.date, label: '👷 Labour ' + (l.ref || 'wage'), dir: 'out', amount: N(l.amount), actual: true }));
+  (state.labourAdvances || []).forEach(a => { const ln = (state.labourMaster || []).find(x => x.id === a.labourId)?.name || 'Labour'; _events.push({ date: a.date, label: '👷 Advance · ' + ln, dir: 'out', amount: N(a.amount), actual: true }); });
+
+  // Filter: date range + direction. Scheduled (future) rows only from today on; actuals any date.
+  const _fromD = _cfSchedFrom || _todayStr;
+  const _toD = _cfSchedTo || _addDays(_todayStr, 30);
+  const _dirF = _cfSchedDir;
+  const _rows = _events.filter(e => {
+    if (!e.date) return false;
+    if (!e.actual && e.date < _todayStr) return false;
+    if (e.date < _fromD || e.date > _toD) return false;
+    if (_dirF !== 'all' && e.dir !== _dirF) return false;
+    return true;
+  });
+  const _sumIn = _rows.filter(e => e.dir === 'in').reduce((s, e) => s + e.amount, 0);
+  const _sumOut = _rows.filter(e => e.dir === 'out').reduce((s, e) => s + e.amount, 0);
+
+  // Group by date; running balance projected from today's cash (future rows only).
   const _byDate = {};
-  _events.forEach(e => { (_byDate[e.date] = _byDate[e.date] || []).push(e); });
+  _rows.forEach(e => { (_byDate[e.date] = _byDate[e.date] || []).push(e); });
   const _fmtDay = ds => new Date(ds + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
   let _run = cashPosition();
   let _schedRows = '';
@@ -1307,24 +1334,35 @@ function _renderCockpit() {
     const items = _byDate[ds];
     const dIn = items.filter(e => e.dir === 'in').reduce((s, e) => s + e.amount, 0);
     const dOut = items.filter(e => e.dir === 'out').reduce((s, e) => s + e.amount, 0);
-    _run += dIn - dOut;
+    const future = ds >= _todayStr;
+    let balHtml = '';
+    if (future) { _run += dIn - dOut; balHtml = `<span style="font-size:11px;font-weight:700;color:${_run < 0 ? '#dc2626' : '#64748b'};">bal ${fmt(_run)}${_run < 0 ? ' ⚠' : ''}</span>`; }
     _schedRows += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-        <span style="font-size:12px;font-weight:800;color:#334155;">${_fmtDay(ds)}${ds === _todayStr ? ' <span style="font-size:8px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 5px;border-radius:8px;font-weight:800;">TODAY / DUE</span>' : ''}</span>
-        <span style="font-size:11px;font-weight:700;color:${_run < 0 ? '#dc2626' : '#64748b'};">bal ${fmt(_run)}${_run < 0 ? ' ⚠' : ''}</span>
+        <span style="font-size:12px;font-weight:800;color:#334155;">${_fmtDay(ds)}${ds === _todayStr ? ' <span style="font-size:8px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 5px;border-radius:8px;font-weight:800;">TODAY</span>' : ''}</span>
+        ${balHtml}
       </div>
-      ${items.map(e => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#475569;"><span>${e.label}</span><b style="color:${e.dir === 'in' ? '#16a34a' : '#dc2626'};white-space:nowrap;">${e.dir === 'in' ? '+' : '−'}${fmt(e.amount)}</b></div>`).join('')}
+      ${items.map(e => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#475569;"><span>${e.label}${e.actual ? '' : ' <span style="font-size:9px;color:#94a3b8;">· due</span>'}</span><b style="color:${e.dir === 'in' ? '#16a34a' : '#dc2626'};white-space:nowrap;">${e.dir === 'in' ? '+' : '−'}${fmt(e.amount)}</b></div>`).join('')}
     </div>`;
   });
+
+  const _dirBtn = (v, lbl) => `<button onclick="window._cfSchedSetDir('${v}')" style="padding:4px 11px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${_dirF === v ? 'transparent' : '#e2e8f0'};background:${_dirF === v ? (v === 'in' ? '#16a34a' : v === 'out' ? '#dc2626' : '#334155') : '#fff'};color:${_dirF === v ? '#fff' : '#475569'};">${lbl}</button>`;
   const _schedCard = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
-      <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div><span style="font-weight:800;color:#0f172a;font-size:14px;">📅 Daily cash-flow schedule</span><span style="font-size:11px;color:#94a3b8;"> — next 30 days · balance from ${fmt(cashPosition())} in hand</span></div>
-        <label style="font-size:11px;color:#64748b;font-weight:600;" title="Used for gangs that don't have their own pay day set">Default pay day
-          <select onchange="window._cfSetPayDay(this.value)" style="margin-left:6px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">
-            ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${_payDay === i ? 'selected' : ''}>${d}</option>`).join('')}
-          </select></label>
+      <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div><span style="font-weight:800;color:#0f172a;font-size:14px;">📅 Cash-flow transactions</span><span style="font-size:11px;color:#94a3b8;"> — actual + upcoming · balance projected from ${fmt(cashPosition())} in hand</span></div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;" title="Default pay day for gangs without their own">Default pay day
+            <select onchange="window._cfSetPayDay(this.value)" style="margin-left:6px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">
+              ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${_payDay === i ? 'selected' : ''}>${d}</option>`).join('')}
+            </select></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;">From <input type="date" value="${_fromD}" onchange="window._cfSchedSetFrom(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"> To <input type="date" value="${_toD}" onchange="window._cfSchedSetTo(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"></div>
+          <div style="display:flex;gap:5px;">${_dirBtn('all', 'All')}${_dirBtn('in', 'In')}${_dirBtn('out', 'Out')}</div>
+          <div style="margin-left:auto;font-size:11px;font-weight:700;display:flex;gap:12px;"><span style="color:#16a34a;">In ${fmt(_sumIn)}</span><span style="color:#dc2626;">Out ${fmt(_sumOut)}</span><span style="color:${_sumIn - _sumOut >= 0 ? '#16a34a' : '#dc2626'};">Net ${fmt(_sumIn - _sumOut)}</span></div>
+        </div>
       </div>
-      <div style="max-height:360px;overflow-y:auto;">${_schedRows || '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px;">No scheduled transactions in the next 30 days.</div>'}</div>
+      <div style="max-height:380px;overflow-y:auto;">${_schedRows || '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px;">No transactions in this range.</div>'}</div>
     </div>`;
 
   // Leakage aggregate

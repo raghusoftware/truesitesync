@@ -73,7 +73,7 @@ import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.37';
 import './modules/mobileShell.js?v=1.5.3';
 import './modules/orgTeam.js?v=1.4.10';
-import './modules/cashFlow.js?v=1.6.44';
+import './modules/cashFlow.js?v=1.6.45';
 import './modules/recycleBin.js?v=1.0.1';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.6';
@@ -746,7 +746,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.44';
+const APP_VERSION = '1.6.45';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
