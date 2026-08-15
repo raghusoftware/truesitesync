@@ -1414,13 +1414,17 @@ export function switchView(viewId) {
   if (viewId === 'orgSettingsView') { switchView('settingsView'); return; }
   if (viewId === 'superAdminView') { if (typeof window.renderSuperAdminDashboard === 'function') window.renderSuperAdminDashboard(); }
 
-  // Auto-open sidebar dropdown if navigating to a submenu view
-  const peViews = ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView'];
-  const ddMenu = document.getElementById('peDropdownMenu');
-  const ddToggle = document.querySelector('#peDropdownMenu')?.previousElementSibling;
-  if (ddMenu && ddToggle) {
-    if (peViews.includes(viewId)) { ddMenu.classList.remove('hidden'); ddToggle.classList.add('open'); }
-  }
+  // Business sections are single "hub" launchers now — keep the matching sidebar
+  // entry highlighted while the user is inside any of that hub's sub-views.
+  const _hubHighlight = (hubView, subViews) => {
+    if (subViews.includes(viewId)) {
+      const b = document.querySelector(`[data-target="${hubView}"]`);
+      if (b) b.classList.add('active');
+    }
+  };
+  _hubHighlight('purchaseHubView', ['purchaseHubView','purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView']);
+  _hubHighlight('financeHubView', ['financeHubView','partiesLedgerView','accountsManagerView','cashFlowView','costProfitView']);
+  _hubHighlight('systemHubView', ['systemHubView','itemsMasterView','masterData','planBillingView','settingsView','recycleBinView']);
   // Sale modules now live under a single "Sales" hub — keep that sidebar entry
   // highlighted while the user is in any sale sub-view.
   const saleViews = ['salesHubView','salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','estimationView'];

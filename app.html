@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.6">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.34"></script>
+    <script type="module" src="js/app.js?v=1.6.35"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -163,33 +163,21 @@
 
         <!-- ── Purchase (always visible, business-level) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1.5">Purchase</p>
-        <button onclick="toggleSidebarDropdown(this)" class="nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-xs">
-          <span class="flex items-center gap-2.5"><span style="font-size:13px">&#128722;</span> Purchase Modules</span>
-          <svg class="w-3 h-3 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        <button onclick="switchView('purchaseHubView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="purchaseHubView">
+          <span style="font-size:13px">&#128722;</span> Purchase
         </button>
-        <div id="peDropdownMenu" class="sidebar-dropdown overflow-hidden transition-all hidden">
-          <button onclick="switchView('purchaseBillsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="purchaseBillsView"><span style="font-size:12px">&#128196;</span> Purchase Bills</button>
-          <button onclick="switchView('purchaseOrderView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="purchaseOrderView"><span style="font-size:12px">&#128203;</span> Purchase Orders</button>
-          <button onclick="switchView('paymentOutView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="paymentOutView"><span style="font-size:12px">&#128184;</span> Payment Out</button>
-          <button onclick="switchView('purchaseReturnView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="purchaseReturnView"><span style="font-size:12px">&#128260;</span> Purchase Returns</button>
-          <button onclick="switchView('expensesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="expensesView"><span style="font-size:12px">&#129534;</span> Expenses</button>
-          <button onclick="switchView('purchaseAssetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs pl-8" data-target="purchaseAssetsView"><span style="font-size:12px">&#127959;</span> Fixed Assets</button>
-        </div>
 
-        <!-- ── Finance (always visible, business-level) ── -->
+        <!-- ── Finance (single hub) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1.5">Finance</p>
-        <button onclick="switchView('partiesLedgerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="partiesLedgerView"><span style="font-size:13px">&#129309;</span> Parties Ledger</button>
-        <button onclick="switchView('accountsManagerView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="accountsManagerView"><span style="font-size:13px">&#127974;</span> Bank & Cash</button>
-        <button onclick="switchView('cashFlowView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="cashFlowView"><span style="font-size:13px">&#128200;</span> Cash Flow</button>
-        <button onclick="switchView('costProfitView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="costProfitView"><span style="font-size:13px">&#128202;</span> Cost &amp; Profit</button>
+        <button onclick="switchView('financeHubView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="financeHubView">
+          <span style="font-size:13px">&#128176;</span> Finance
+        </button>
 
-        <!-- ── System ── -->
+        <!-- ── System (single hub) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">System</p>
-        <button onclick="switchView('itemsMasterView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="itemsMasterView"><span style="font-size:13px">&#127991;</span> Items</button>
-        <button onclick="switchView('masterData')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="masterData"><span style="font-size:13px">&#128101;</span> Users & Roles</button>
-        <button onclick="switchView('planBillingView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="planBillingView"><span style="font-size:13px">&#128179;</span> Plan &amp; Billing</button>
-        <button onclick="switchView('settingsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="settingsView"><span style="font-size:13px">&#9881;</span> Settings &amp; Config</button>
-        <button onclick="switchView('recycleBinView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="recycleBinView"><span style="font-size:13px">&#128465;</span> Recycle Bin</button>
+        <button onclick="switchView('systemHubView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="systemHubView">
+          <span style="font-size:13px">&#9881;</span> System
+        </button>
         <!-- Super Admin (hidden by default, shown only for admin emails) -->
         <div id="superAdminNav" style="display:none;">
           <p class="px-3 text-[9px] font-bold text-red-400 uppercase tracking-widest mt-4 mb-1.5">Super Admin</p>
@@ -1400,6 +1388,48 @@
     <div class="shub-card" style="animation-delay:.30s" onclick="switchView('saleReturnView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">🔄</div><h4>Sale Returns</h4><p>Credit notes &amp; returns</p></div>
     <div class="shub-card" style="animation-delay:.34s" onclick="switchView('otherIncomeView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdf1e0;color:#d97706">💰</div><h4>Other Income</h4><p>Non-sale income</p></div>
     <div class="shub-card" style="animation-delay:.38s" onclick="switchView('saleFixedAssetsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">🏗️</div><h4>Sale Fixed Assets</h4><p>Asset sales &amp; disposals</p></div>
+  </div>
+</div>
+
+<div id="purchaseHubView" class="view-section hide">
+  <div class="mb-6">
+    <h2 class="text-3xl font-extrabold text-slate-800">Purchase</h2>
+    <p class="text-sm text-slate-500 mt-1">Bills, orders, payments and everything you buy — pick a module to get started.</p>
+  </div>
+  <div class="shub-grid">
+    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('purchaseBillsView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeee3;color:#ea580c">📄</div><h4>Purchase Bills</h4><p>Inward material bills</p></div>
+    <div class="shub-card" style="animation-delay:.06s" onclick="switchView('purchaseOrderView')"><span class="arw">→</span><div class="shub-ic" style="background:#f1ecfe;color:#7c3aed">📋</div><h4>Purchase Orders</h4><p>POs raised to vendors</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('paymentOutView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">💸</div><h4>Payment Out</h4><p>Payments to vendors</p></div>
+    <div class="shub-card" style="animation-delay:.14s" onclick="switchView('purchaseReturnView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdf1e0;color:#d97706">🔄</div><h4>Purchase Returns</h4><p>Debit notes &amp; returns</p></div>
+    <div class="shub-card" style="animation-delay:.18s" onclick="switchView('expensesView')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">🧾</div><h4>Expenses</h4><p>Overheads &amp; site expenses</p></div>
+    <div class="shub-card" style="animation-delay:.22s" onclick="switchView('purchaseAssetsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">🏗️</div><h4>Fixed Assets</h4><p>Asset purchases</p></div>
+  </div>
+</div>
+
+<div id="financeHubView" class="view-section hide">
+  <div class="mb-6">
+    <h2 class="text-3xl font-extrabold text-slate-800">Finance</h2>
+    <p class="text-sm text-slate-500 mt-1">Ledgers, accounts, cash flow and profitability — your money, at a glance.</p>
+  </div>
+  <div class="shub-grid">
+    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('partiesLedgerView')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">🤝</div><h4>Parties Ledger</h4><p>Client &amp; vendor balances</p></div>
+    <div class="shub-card" style="animation-delay:.06s" onclick="switchView('accountsManagerView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">🏦</div><h4>Bank &amp; Cash</h4><p>Accounts &amp; balances</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('cashFlowView')"><span class="arw">→</span><div class="shub-ic" style="background:#e5f6fb;color:#0891b2">📈</div><h4>Cash Flow</h4><p>Money in vs money out</p></div>
+    <div class="shub-card" style="animation-delay:.14s" onclick="switchView('costProfitView')"><span class="arw">→</span><div class="shub-ic" style="background:#f1ecfe;color:#7c3aed">📊</div><h4>Cost &amp; Profit</h4><p>Project profitability</p></div>
+  </div>
+</div>
+
+<div id="systemHubView" class="view-section hide">
+  <div class="mb-6">
+    <h2 class="text-3xl font-extrabold text-slate-800">System</h2>
+    <p class="text-sm text-slate-500 mt-1">Masters, users, subscription and configuration — set up the app the way you work.</p>
+  </div>
+  <div class="shub-grid">
+    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('itemsMasterView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">🏷️</div><h4>Items</h4><p>Item &amp; material master</p></div>
+    <div class="shub-card" style="animation-delay:.06s" onclick="switchView('masterData')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">👥</div><h4>Users &amp; Roles</h4><p>Team &amp; permissions</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('planBillingView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#10b981">💳</div><h4>Plan &amp; Billing</h4><p>Subscription &amp; usage</p></div>
+    <div class="shub-card" style="animation-delay:.14s" onclick="switchView('settingsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">⚙️</div><h4>Settings &amp; Config</h4><p>App configuration</p></div>
+    <div class="shub-card" style="animation-delay:.18s" onclick="switchView('recycleBinView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">🗑️</div><h4>Recycle Bin</h4><p>Restore deleted records</p></div>
   </div>
 </div>
 
