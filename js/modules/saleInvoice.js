@@ -26,6 +26,23 @@ const GST_STATE = {
 const _gstStateCode = g => (String(g || '').trim().slice(0, 2).match(/^\d{2}$/) || [])[0] || '';
 const _gstStateName = g => { const c = _gstStateCode(g); return c ? (GST_STATE[c] || 'State ' + c) : ''; };
 
+/** Next sequential invoice number using the Settings prefix (e.g. SI-1, SI-2 …). */
+export function nextInvoiceNumber() {
+  const ps = state.printSettings || {};
+  const prefix = (ps.invoicePrefix != null ? ps.invoicePrefix : 'SI-');
+  const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + esc + '0*(\\d+)$', 'i');
+  let maxN = 0;
+  (state.saleInvoices || []).forEach(i => {
+    const m = re.exec(String(i.invoiceNo || '').trim());
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  });
+  const start = parseInt(ps.invoiceNextNo, 10) || 1;   // lets the user reset the series
+  const next = Math.max(maxN + 1, start);
+  return prefix + next;
+}
+if (typeof window !== 'undefined') window.nextInvoiceNumber = nextInvoiceNumber;
+
 /** Ship-to same-as-billing toggle: lock the delivery field when checked. */
 window.onSIShipSameToggle = function () {
   const same = document.getElementById('siFormShipSame')?.checked;
@@ -501,7 +518,7 @@ export function openSaleInvoiceForm(editId) {
 
   if (existing) {
     document.getElementById('siFormDate').value = existing.date || today;
-    document.getElementById('siFormNo').value = existing.invoiceNo || ('SI-' + (Date.now() % 100000));
+    document.getElementById('siFormNo').value = existing.invoiceNo || nextInvoiceNumber();
     const dueEl = document.getElementById('siFormDueDate'); if (dueEl) dueEl.value = existing.dueDate || '';
     const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
     setEl('siFormPO', existing.poNo);
@@ -527,7 +544,7 @@ export function openSaleInvoiceForm(editId) {
     try { onSIClientChange(); } catch {}
   } else {
     document.getElementById('siFormDate').value = today;
-    document.getElementById('siFormNo').value = 'SI-' + (Date.now() % 100000);
+    document.getElementById('siFormNo').value = nextInvoiceNumber();
     const dueEl = document.getElementById('siFormDueDate');
     if (dueEl) { const d = new Date(); d.setDate(d.getDate() + 30); dueEl.value = d.toISOString().split('T')[0]; }
     ['siFormPO','siFormPODate','siFormDelivery','siFormNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });

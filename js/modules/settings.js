@@ -87,6 +87,24 @@ window._setDocTemplate = function(v) {
   showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : 'Standard'), 'success');
 };
 
+window._setInvoicePrefix = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.invoicePrefix = v;
+  saveAllData();
+  _refreshInvoiceNoPreview();
+};
+window._setInvoiceNextNo = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  const n = parseInt(v, 10);
+  state.printSettings.invoiceNextNo = (n > 0 ? n : 1);
+  saveAllData();
+  _refreshInvoiceNoPreview();
+};
+function _refreshInvoiceNoPreview() {
+  const el = document.getElementById('_invNoPreview');
+  if (el && typeof window.nextInvoiceNumber === 'function') { try { el.textContent = window.nextInvoiceNumber(); } catch {} }
+}
+
 window._setMeasDecimals = function(n) {
   if (!state.printSettings) state.printSettings = {};
   state.printSettings.measurementDecimals = parseInt(n) || 2;
@@ -271,7 +289,34 @@ function renderPrintConfigTab() {
   const measDec = (state.printSettings?.measurementDecimals ?? 2);
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
   const docTemplate = (state.printSettings?.docTemplate) || 'standard';
+  const invPrefix = (state.printSettings?.invoicePrefix != null ? state.printSettings.invoicePrefix : 'SI-');
+  const invNextNo = (state.printSettings?.invoiceNextNo || 1);
+  const invPreview = (typeof window.nextInvoiceNumber === 'function') ? (function(){ try { return window.nextInvoiceNumber(); } catch { return invPrefix + invNextNo; } })() : (invPrefix + invNextNo);
   c.innerHTML = `
+    <!-- ═══ INVOICE NUMBERING ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-base">&#128290;</span>
+        <h4 class="font-bold text-sm text-slate-800">Invoice Numbering</h4>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-3">Set the prefix and the series auto-increments (1, 2, 3&hellip;). New sale invoices are numbered automatically; you can still override a number on the form.</p>
+      <div class="flex items-end gap-3 flex-wrap">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Prefix</label>
+          <input type="text" value="${invPrefix.replace(/"/g,'&quot;')}" onchange="window._setInvoicePrefix(this.value)" placeholder="SI-" class="w-28 border rounded-lg px-3 py-2 text-sm font-bold">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Start / Next No.</label>
+          <input type="number" min="1" value="${invNextNo}" onchange="window._setInvoiceNextNo(this.value)" class="w-24 border rounded-lg px-3 py-2 text-sm font-bold">
+        </div>
+        <div class="flex-1 min-w-[160px]">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Next Invoice</label>
+          <div class="px-3 py-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-700 font-extrabold text-sm font-mono" id="_invNoPreview">${invPreview}</div>
+        </div>
+      </div>
+    </div>
+`;
+  c.innerHTML += `
     <!-- ═══ DOCUMENT TEMPLATE ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-1">
