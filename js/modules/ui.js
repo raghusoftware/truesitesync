@@ -3793,7 +3793,7 @@ window.renderContractorsList = function() {
         <div>
           <div style="font-size:15px;font-weight:800;color:#0f172a;">${c.name} ${c.phone ? `<span style="font-size:11px;color:#94a3b8;font-weight:500;">📞 ${c.phone}</span>` : ''}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px;">${gang.length} workers · ${gangPresent} man-days (${selMonth})</div>
-          ${(parseFloat(c.weeklyAdvance) || 0) > 0 ? `<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:3px;">💸 Weekly advance: ${cur}${(parseFloat(c.weeklyAdvance) || 0).toLocaleString('en-IN')}/week</div>` : ''}
+          ${(parseFloat(c.weeklyAdvance) || 0) > 0 ? `<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:3px;">💸 Weekly advance: ${cur}${(parseFloat(c.weeklyAdvance) || 0).toLocaleString('en-IN')} · ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][(c.weeklyAdvanceDay != null ? c.weeklyAdvanceDay : 6)]}</div>` : ''}
         </div>
         <div style="text-align:right;">
           <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${wages.toLocaleString('en-IN')}</div>
@@ -3816,16 +3816,34 @@ window.renderContractorsList = function() {
   }).join('');
 };
 
-/** Set the weekly cash advance for a gang/contractor (feeds the cockpit pay schedule). */
+/** Set the weekly cash advance + pay day for a gang (feeds the cockpit daily schedule). */
 window._setGangAdvance = function (id) {
   const c = (state.labourContractors || []).find(x => x.id === id);
   if (!c) return;
-  const raw = prompt(`Weekly advance paid to ${c.name} (₹/week):\n\nThis is shown in the Owner Cockpit as an upcoming weekly labour payment. Enter 0 to clear.`, c.weeklyAdvance || '');
-  if (raw === null) return;
-  c.weeklyAdvance = Math.max(0, parseFloat(raw) || 0);
-  saveAllData();
-  renderContractorsList();
-  showToast(c.weeklyAdvance > 0 ? `Weekly advance set to ${getCurrencySymbol()}${c.weeklyAdvance.toLocaleString('en-IN')}` : 'Weekly advance cleared', 'success');
+  const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayLong = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const curDay = (c.weeklyAdvanceDay != null) ? c.weeklyAdvanceDay : 6;
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f5f3ff,#ede9fe);"><h3 style="margin:0;font-size:16px;font-weight:800;color:#5b21b6;">💸 Weekly Payout — ${c.name}</h3><p style="margin:2px 0 0;font-size:11px;color:#7c6f9e;">Advance amount &amp; the day it&rsquo;s paid each week.</p></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Weekly Advance (&#8377;)</label><input id="_gaAmt" type="number" value="${c.weeklyAdvance || ''}" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;"></div>
+      <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Pay Day (weekly)</label><select id="_gaDay" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;background:#fff;box-sizing:border-box;">${dayLong.map((d, i) => `<option value="${i}" ${i === curDay ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;">
+      <button id="_gaCancel" style="padding:8px 16px;background:#f1f5f9;border:none;border-radius:10px;font-weight:700;font-size:13px;color:#475569;cursor:pointer;">Cancel</button>
+      <button id="_gaSave" style="padding:8px 18px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">Save</button>
+    </div></div>`;
+  document.body.appendChild(m);
+  m.querySelector('#_gaCancel').onclick = () => m.remove();
+  m.querySelector('#_gaSave').onclick = () => {
+    c.weeklyAdvance = Math.max(0, parseFloat(m.querySelector('#_gaAmt').value) || 0);
+    c.weeklyAdvanceDay = parseInt(m.querySelector('#_gaDay').value) || 0;
+    saveAllData(); renderContractorsList(); m.remove();
+    showToast(c.weeklyAdvance > 0 ? `Weekly payout ${getCurrencySymbol()}${c.weeklyAdvance.toLocaleString('en-IN')} on ${dayShort[c.weeklyAdvanceDay]}` : 'Weekly payout cleared', 'success');
+  };
 };
 
 /** Sum what has already been paid to a gang for a given wage-month (via Pay Gang). */

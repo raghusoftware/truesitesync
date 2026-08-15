@@ -1271,22 +1271,27 @@ function _renderCockpit() {
       if (d && d <= _horizon) _events.push({ date: d, label: '🧾 ' + cname, dir: 'in', amount: out });
     });
   });
-  // Loan EMIs — this month + next, on the EMI day
-  (state.accounts || []).filter(a => a.type === 'Loan' && N(a.emi) > 0 && N(a.emiDay) > 0).forEach(a => {
+  // Loan EMIs — this month + next; use the EMI day, else the disbursement day, else the 1st.
+  (state.accounts || []).filter(a => a.type === 'Loan' && N(a.emi) > 0).forEach(a => {
+    const day = N(a.emiDay) > 0 ? N(a.emiDay) : (a.disbursementDate ? new Date(a.disbursementDate + 'T00:00:00').getDate() : 1);
     [0, 1].forEach(mOff => {
       const y = _dnow.getFullYear(), m = _dnow.getMonth() + mOff;
       const ld = new Date(y, m + 1, 0).getDate();
-      const ds = new Date(y, m, Math.min(N(a.emiDay), ld)).toISOString().split('T')[0];
+      const ds = new Date(y, m, Math.min(day, ld)).toISOString().split('T')[0];
       if (ds >= _todayStr && ds <= _horizon) _events.push({ date: ds, label: '🏷️ EMI · ' + (a.name || 'Loan'), dir: 'out', amount: N(a.emi) });
     });
   });
-  // Labour weekly advances — on the chosen pay weekday
+  // Labour weekly advances — each gang on its own pay weekday (falls back to the global default).
   const _payDay = (state.cashFlowSettings?.labourPayDay != null) ? N(state.cashFlowSettings.labourPayDay) : 6; // default Saturday
   const _gangsAdv = (state.labourContractors || []).filter(c => N(c.weeklyAdvance) > 0);
   if (_gangsAdv.length) {
     for (let i = 0; i <= 30; i++) {
       const dt = new Date(_dnow); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + i);
-      if (dt.getDay() === _payDay) { const ds = dt.toISOString().split('T')[0]; _gangsAdv.forEach(c => _events.push({ date: ds, label: '👷 ' + c.name + ' — advance', dir: 'out', amount: N(c.weeklyAdvance) })); }
+      const wd = dt.getDay(); const ds = dt.toISOString().split('T')[0];
+      _gangsAdv.forEach(c => {
+        const gd = (c.weeklyAdvanceDay != null) ? N(c.weeklyAdvanceDay) : _payDay;
+        if (wd === gd) _events.push({ date: ds, label: '👷 ' + c.name + ' — advance', dir: 'out', amount: N(c.weeklyAdvance) });
+      });
     }
   }
   // Group by date, running balance from current cash
@@ -1311,7 +1316,7 @@ function _renderCockpit() {
   const _schedCard = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
       <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div><span style="font-weight:800;color:#0f172a;font-size:14px;">📅 Daily cash-flow schedule</span><span style="font-size:11px;color:#94a3b8;"> — next 30 days · balance from ${fmt(cashPosition())} in hand</span></div>
-        <label style="font-size:11px;color:#64748b;font-weight:600;">Labour pay day
+        <label style="font-size:11px;color:#64748b;font-weight:600;" title="Used for gangs that don't have their own pay day set">Default pay day
           <select onchange="window._cfSetPayDay(this.value)" style="margin-left:6px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">
             ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${_payDay === i ? 'selected' : ''}>${d}</option>`).join('')}
           </select></label>
