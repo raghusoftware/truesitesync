@@ -285,13 +285,26 @@ export function renderAccounts() {
     container.innerHTML = '<p class="text-slate-500 text-sm p-4 text-center">No accounts yet. Click "+ Add Account".</p>';
     return;
   }
+  const _ICON = { Current:'🏦', Savings:'🏦', Project:'🏗️', Cash:'💵', Wallet:'📱', CC:'💳', OD:'🔻', Loan:'🏷️', CreditCard:'💳', Bank:'🏦' };
+  const cur = getCurrencySymbol();
   state.accounts.filter(a => !term || a.name.toLowerCase().includes(term)).forEach(acc => {
     const bal = _getAccountBalance(acc.id);
-    const icon = acc.type === 'Bank' ? '🏦' : acc.type === 'Loan' ? '🏷️' : '💵';
+    const icon = _ICON[acc.type] || '💵';
     const sel = _selectedAccountId === acc.id ? 'background:#eff6ff;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;';
-    container.innerHTML += `<div onclick="_selectAccount('${acc.id}')" style="${sel}cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;" onmouseover="if('${_selectedAccountId}'!=='${acc.id}')this.style.background='#f8fafc'" onmouseout="if('${_selectedAccountId}'!=='${acc.id}')this.style.background=''">
-      <div><div style="font-weight:600;color:#1e293b;font-size:13px;">${icon} ${acc.name}</div><div style="font-size:10px;color:#94a3b8;">${acc.type || 'Cash'}</div></div>
-      <div style="font-weight:700;font-size:14px;color:${bal < 0 ? '#dc2626' : '#059669'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', { maximumFractionDigits: 0 })}${bal < 0 ? ' Dr' : ''}</div>
+    // Type-specific one-line detail.
+    let detail = _accTypeLabel(acc.type);
+    if ((acc.type === 'CC' || acc.type === 'OD') && acc.sanctionedLimit) {
+      const used = Math.max(0, -bal); const avail = Math.max(0, (acc.sanctionedLimit || 0) - used);
+      detail += ` · Limit ${cur}${(acc.sanctionedLimit||0).toLocaleString('en-IN',{maximumFractionDigits:0})} · Avail ${cur}${avail.toLocaleString('en-IN',{maximumFractionDigits:0})}`;
+    } else if (acc.type === 'Loan') {
+      if (acc.loanRate) detail += ` · ${acc.loanRate}% p.a.`;
+      if (acc.emi) detail += ` · EMI ${cur}${(acc.emi||0).toLocaleString('en-IN',{maximumFractionDigits:0})}`;
+    } else if (acc.accountNo) { detail += ` · ${acc.accountNo}`; }
+    const isLiab = acc.type === 'Loan' || acc.type === 'CC' || acc.type === 'OD' || acc.type === 'CreditCard';
+    const balColor = bal < 0 ? '#dc2626' : (isLiab && bal === 0 ? '#64748b' : '#059669');
+    container.innerHTML += `<div onclick="_selectAccount('${acc.id}')" style="${sel}cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;" onmouseover="if('${_selectedAccountId}'!=='${acc.id}')this.style.background='#f8fafc'" onmouseout="if('${_selectedAccountId}'!=='${acc.id}')this.style.background=''">
+      <div style="min-width:0;"><div style="font-weight:600;color:#1e293b;font-size:13px;">${icon} ${acc.name}</div><div style="font-size:10px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${detail}</div></div>
+      <div style="font-weight:700;font-size:14px;color:${balColor};white-space:nowrap;">${cur}${Math.abs(bal).toLocaleString('en-IN', { maximumFractionDigits: 0 })}${bal < 0 ? ' Dr' : ''}</div>
     </div>`;
   });
   if (_selectedAccountId) _renderAccountTxns();
@@ -379,7 +392,8 @@ window._acctTransfer = function() {
 };
 
 function _getAccountBalance(accId) {
-  let bal = 0;
+  const acc0 = state.accounts.find(a => a.id === accId);
+  let bal = parseFloat(acc0?.openingBalance) || 0;
   state.paymentsIn.filter(p => p.accountId === accId).forEach(p => bal += (parseFloat(p.amount) || 0));
   state.expenses.filter(e => e.accountId === accId).forEach(e => bal -= (parseFloat(e.amount) || 0));
   state.vendorPayments.filter(v => v.accountId === accId).forEach(v => bal -= (parseFloat(v.amount) || 0));
@@ -453,15 +467,7 @@ window._viewAccountLedger = function(accId) {
 };
 
 window._editAccount = function(accId) {
-  const acc = state.accounts.find(a => a.id === accId);
-  if (!acc) return;
-  const name = prompt('Account Name:', acc.name);
-  if (!name) return;
-  acc.name = name;
-  const type = prompt('Type (Cash or Bank):', acc.type);
-  if (type && (type === 'Cash' || type === 'Bank')) acc.type = type;
-  saveAllData(); populateDropdowns(); renderAccounts();
-  showToast('Account updated', 'success');
+  if (typeof openAccountModal === 'function') openAccountModal(accId);
 };
 
 window._deleteAccount = function(accId) {
@@ -473,27 +479,41 @@ window._deleteAccount = function(accId) {
   showToast('Account deleted', 'error');
 };
 
-window._transferFromAccount = function(fromId) {
-  const fromAcc = state.accounts.find(a => a.id === fromId);
-  if (!fromAcc) return;
-  const others = state.accounts.filter(a => a.id !== fromId);
-  if (!others.length) { showToast('Need at least 2 accounts for transfer', 'error'); return; }
-  const toName = prompt('Transfer to account:\n' + others.map((a, i) => `${i + 1}. ${a.name} (${a.type})`).join('\n') + '\n\nEnter number:');
-  const toIdx = parseInt(toName) - 1;
-  if (isNaN(toIdx) || !others[toIdx]) { showToast('Invalid selection', 'error'); return; }
-  const amount = prompt('Transfer amount:');
-  if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+/** Open the transfer modal (bank↔bank, bank↔cash, cash↔account — any pair). */
+window._openTransferModal = function (fromId) {
+  const accts = state.accounts || [];
+  if (accts.length < 2) { showToast('Add at least 2 accounts to transfer', 'error'); return; }
+  const g = id => document.getElementById(id);
+  const opts = accts.map(a => `<option value="${a.id}">${a.name} · ${_accTypeLabel(a.type)}</option>`).join('');
+  g('xferFrom').innerHTML = opts; g('xferTo').innerHTML = opts;
+  g('xferFrom').value = fromId || accts[0].id;
+  const alt = accts.find(a => a.id !== g('xferFrom').value);
+  if (alt) g('xferTo').value = alt.id;
+  g('xferAmount').value = ''; g('xferNote').value = '';
+  g('xferDate').value = new Date().toISOString().split('T')[0];
+  g('accountTransferModal').classList.remove('hidden');
+};
+// Back-compat alias — older buttons call _transferFromAccount.
+window._transferFromAccount = function (fromId) { window._openTransferModal(fromId); };
+
+window._saveTransfer = function () {
+  const g = id => document.getElementById(id);
+  const from = g('xferFrom')?.value, to = g('xferTo')?.value;
+  const amt = parseFloat(g('xferAmount')?.value) || 0;
+  if (!from || !to) return showToast('Select both accounts', 'error');
+  if (from === to) return showToast('From and To must be different accounts', 'error');
+  if (amt <= 0) return showToast('Enter a valid amount', 'error');
+  const fromAcc = state.accounts.find(a => a.id === from), toAcc = state.accounts.find(a => a.id === to);
   if (!state.accountTransfers) state.accountTransfers = [];
   state.accountTransfers.push({
-    id: 'txf_' + Date.now(),
-    fromAccountId: fromId,
-    toAccountId: others[toIdx].id,
-    amount: parseFloat(amount),
-    date: new Date().toISOString().split('T')[0],
-    ref: `Transfer: ${fromAcc.name} → ${others[toIdx].name}`
+    id: 'txf_' + Date.now(), fromAccountId: from, toAccountId: to, amount: amt,
+    date: g('xferDate')?.value || new Date().toISOString().split('T')[0],
+    ref: (g('xferNote')?.value || '').trim() || `Transfer: ${fromAcc?.name} → ${toAcc?.name}`
   });
-  saveAllData(); renderAccounts();
-  showToast(`Transferred ${getCurrencySymbol()}${parseFloat(amount).toLocaleString('en-IN')} to ${others[toIdx].name}`, 'success');
+  saveAllData();
+  g('accountTransferModal').classList.add('hidden');
+  renderAccounts();
+  showToast(`Transferred ${getCurrencySymbol()}${amt.toLocaleString('en-IN')} to ${toAcc?.name}`, 'success');
 };
 
 window._deleteAccountTx = function(type, id) {
@@ -505,21 +525,75 @@ window._deleteAccountTx = function(type, id) {
   }
 };
 
-export function openAccountModal() {
-  document.getElementById('accountModal').classList.remove('hidden');
-  document.getElementById('modalAccName').value = '';
+/** Friendly label for an account type code. */
+export function _accTypeLabel(t) {
+  return ({ Current: 'Current A/c', Savings: 'Savings A/c', Project: 'Project A/c', Cash: 'Cash',
+    Wallet: 'Wallet / UPI', CC: 'Cash Credit', OD: 'Overdraft', Loan: 'Term Loan',
+    CreditCard: 'Credit Card', Bank: 'Bank A/c' })[t] || (t || 'Account');
+}
+if (typeof window !== 'undefined') window._accTypeLabel = _accTypeLabel;
+
+/** Show only the field groups relevant to the selected account type. */
+window._accTypeChanged = function () {
+  const t = document.getElementById('modalAccType')?.value;
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  const isBank = t === 'Current' || t === 'Savings' || t === 'Project' || t === 'CC' || t === 'OD';
+  show('accGrpBank', isBank);
+  show('accGrpProject', t === 'Project');
+  show('accGrpCredit', t === 'CC' || t === 'OD');
+  show('accGrpLoan', t === 'Loan');
+  show('accGrpCard', t === 'CreditCard');
+};
+
+export function openAccountModal(editId) {
+  const g = id => document.getElementById(id);
+  const modal = g('accountModal'); if (!modal) return;
+  const projSel = g('modalAccProject');
+  if (projSel) projSel.innerHTML = '<option value="">— Select project —</option>' +
+    (state.projects || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  const acc = (editId && typeof editId === 'string') ? state.accounts.find(a => a.id === editId) : null;
+  g('accModalTitle').textContent = acc ? 'Edit Account' : 'Add Account';
+  g('modalAccId').value = acc ? acc.id : '';
+  const set = (id, v) => { const e = g(id); if (e) e.value = (v == null ? '' : v); };
+  set('modalAccName', acc?.name);
+  set('modalAccType', acc ? (acc.type === 'Bank' ? 'Current' : acc.type) : 'Current');
+  set('modalAccOpening', acc?.openingBalance || 0);
+  set('modalAccBank', acc?.bankName); set('modalAccNo', acc?.accountNo); set('modalAccIfsc', acc?.ifsc); set('modalAccBranch', acc?.branch);
+  set('modalAccProject', acc?.projectId);
+  set('modalAccLimit', acc?.sanctionedLimit); set('modalAccIntRate', acc?.interestRate);
+  set('modalAccLender', acc?.lender); set('modalAccLoanAmt', acc?.loanAmount); set('modalAccLoanRate', acc?.loanRate);
+  set('modalAccIntType', acc?.interestType || 'Reducing'); set('modalAccTenure', acc?.tenureMonths); set('modalAccEmi', acc?.emi); set('modalAccDisb', acc?.disbursementDate);
+  set('modalAccCardLimit', acc?.cardLimit); set('modalAccCardDue', acc?.cardDueDay);
+  set('modalAccNotes', acc?.notes);
+  window._accTypeChanged();
+  modal.classList.remove('hidden');
 }
 
 export function saveAccount() {
-  const name = document.getElementById('modalAccName').value;
-  const type = document.getElementById('modalAccType').value;
+  const g = id => document.getElementById(id);
+  const name = (g('modalAccName')?.value || '').trim();
   if (!name) return showToast('Account Name Required', 'error');
-  state.accounts.push({ id: 'acc_' + Date.now(), name, type });
+  const num = id => parseFloat(g(id)?.value) || 0;
+  const val = id => (g(id)?.value || '').trim();
+  const data = {
+    name, type: g('modalAccType').value,
+    openingBalance: num('modalAccOpening'),
+    bankName: val('modalAccBank'), accountNo: val('modalAccNo'), ifsc: val('modalAccIfsc'), branch: val('modalAccBranch'),
+    projectId: val('modalAccProject'),
+    sanctionedLimit: num('modalAccLimit'), interestRate: num('modalAccIntRate'),
+    lender: val('modalAccLender'), loanAmount: num('modalAccLoanAmt'), loanRate: num('modalAccLoanRate'),
+    interestType: val('modalAccIntType'), tenureMonths: num('modalAccTenure'), emi: num('modalAccEmi'), disbursementDate: val('modalAccDisb'),
+    cardLimit: num('modalAccCardLimit'), cardDueDay: num('modalAccCardDue'),
+    notes: val('modalAccNotes')
+  };
+  const editId = g('modalAccId')?.value;
+  if (editId) { const acc = state.accounts.find(a => a.id === editId); if (acc) Object.assign(acc, data); }
+  else state.accounts.push({ id: 'acc_' + Date.now(), ...data });
   saveAllData();
   populateDropdowns();
-  document.getElementById('accountModal').classList.add('hidden');
+  g('accountModal').classList.add('hidden');
   renderAccounts();
-  showToast('Account Created Successfully');
+  showToast(editId ? 'Account updated' : 'Account created', 'success');
 }
 
 export function renderReports() {
