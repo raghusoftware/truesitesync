@@ -3777,6 +3777,7 @@ window.renderContractorsList = function() {
         <div>
           <div style="font-size:15px;font-weight:800;color:#0f172a;">${c.name} ${c.phone ? `<span style="font-size:11px;color:#94a3b8;font-weight:500;">📞 ${c.phone}</span>` : ''}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px;">${gang.length} workers · ${gangPresent} man-days (${selMonth})</div>
+          ${(parseFloat(c.weeklyAdvance) || 0) > 0 ? `<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:3px;">💸 Weekly advance: ${cur}${(parseFloat(c.weeklyAdvance) || 0).toLocaleString('en-IN')}/week</div>` : ''}
         </div>
         <div style="text-align:right;">
           <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${wages.toLocaleString('en-IN')}</div>
@@ -3792,10 +3793,23 @@ window.renderContractorsList = function() {
           : balance > 0
             ? `<button onclick="_payContractor('${c.id}')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Balance (${cur}${balance.toLocaleString('en-IN')})</button>`
             : `<span style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">✓ Settled for ${selMonth}</span>`}
+        <button onclick="_setGangAdvance('${c.id}')" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" title="Weekly advance paid to this gang">💸 Weekly Advance</button>
         <button onclick="_deleteContractor('${c.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>
       </div>
     </div>`;
   }).join('');
+};
+
+/** Set the weekly cash advance for a gang/contractor (feeds the cockpit pay schedule). */
+window._setGangAdvance = function (id) {
+  const c = (state.labourContractors || []).find(x => x.id === id);
+  if (!c) return;
+  const raw = prompt(`Weekly advance paid to ${c.name} (₹/week):\n\nThis is shown in the Owner Cockpit as an upcoming weekly labour payment. Enter 0 to clear.`, c.weeklyAdvance || '');
+  if (raw === null) return;
+  c.weeklyAdvance = Math.max(0, parseFloat(raw) || 0);
+  saveAllData();
+  renderContractorsList();
+  showToast(c.weeklyAdvance > 0 ? `Weekly advance set to ${getCurrencySymbol()}${c.weeklyAdvance.toLocaleString('en-IN')}` : 'Weekly advance cleared', 'success');
 };
 
 /** Sum what has already been paid to a gang for a given wage-month (via Pay Gang). */

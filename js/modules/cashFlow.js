@@ -1170,17 +1170,51 @@ function _renderCockpit() {
     receivables += Math.max(0, b - paid);
   });
 
-  // ══ Simple money position — what to pay vs what's coming in ══
-  const payLabour = labourDue();                       // wages due
-  const payMaterial = apOutstanding();                 // vendor bills − payments
+  // ══ Money position — pay (this week / this month) vs coming in ══
+  const _addDays = (d, n) => { const dt = new Date((d || new Date().toISOString().split('T')[0]) + 'T00:00:00'); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
+  const _termDays = t => { const m = /(\d+)/.exec(t || ''); return m ? parseInt(m[1]) : (N(state.cashFlowSettings?.creditDays) || 30); };
+  const _todayStr = new Date().toISOString().split('T')[0];
+  const _endWeek = _addDays(_todayStr, 7);
+  const _dnow = new Date();
+  const _endMonth = new Date(_dnow.getFullYear(), _dnow.getMonth() + 1, 0).toISOString().split('T')[0];
+  const _weeksLeft = Math.max(1, Math.ceil((new Date(_endMonth + 'T00:00:00') - _dnow) / (7 * 86400000)));
+
+  // Material payables — schedule each bill by its due date (vendor terms + basis).
+  const _billsByVendor = {};
+  (state.vendorMaterials || []).filter(b => b.items).forEach(b => { (_billsByVendor[b.vendorId] = _billsByVendor[b.vendorId] || []).push(b); });
+  let matWeek = 0, matMonth = 0, matTotal = 0, matOverdue = 0;
+  Object.entries(_billsByVendor).forEach(([vid, bills]) => {
+    bills.sort((a, b) => new Date(a.date) - new Date(b.date));
+    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + N(p.amount), 0);
+    const v = (state.vendors || []).find(x => x.id === vid);
+    const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
+    bills.forEach(b => {
+      const total = N(b.totalAmount); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
+      if (out <= 0) return;
+      matTotal += out;
+      const basis = (v?.termsBasis === 'delivery' && b.grnDate) ? b.grnDate : b.date;
+      const due = b.dueDate || _addDays(basis, days);
+      if (due < _todayStr) matOverdue += out;
+      if (due <= _endWeek) matWeek += out;
+      if (due <= _endMonth) matMonth += out;
+    });
+  });
+
+  // Labour — wages due now + weekly gang advances (per contractor).
+  const wagesDue = labourDue();
+  const weeklyAdv = (state.labourContractors || []).reduce((s, c) => s + N(c.weeklyAdvance), 0);
+  const labWeek = wagesDue + weeklyAdv;
+  const labMonth = wagesDue + weeklyAdv * _weeksLeft;
+
+  // EMI (monthly) + maintenance run-rate — booked to this month.
   const payEmi = (state.accounts || []).filter(a => a.type === 'Loan').reduce((s, a) => s + N(a.emi), 0);
   const payMaint = (state.maintenanceLogs || []).filter(m => _inLast(m.date, 30)).reduce((s, m) => s + N(m.cost || m.amount || m.amt || 0), 0);
-  const toPay = payLabour + payMaterial + payEmi + payMaint;
+
+  const dueWeek = matWeek + labWeek;
+  const dueMonth = matMonth + labMonth + payEmi + payMaint;
 
   // Sales money in — from invoices, timed by each invoice's payment terms.
-  const _termDays = t => { const m = /(\d+)/.exec(t || ''); return m ? parseInt(m[1]) : (N(state.cashFlowSettings?.creditDays) || 30); };
-  const _addDays = (d, n) => { const dt = new Date((d || new Date().toISOString().split('T')[0]) + 'T00:00:00'); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
-  const _in30 = _addDays(new Date().toISOString().split('T')[0], 30);
+  const _in30 = _addDays(_todayStr, 30);
   const _invList = [];
   (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, _termDays(i.terms)), total: N(i.total) }); });
   (state.invoices || []).forEach(i => { if (i.status !== 'Cancelled') _invList.push({ clientId: i.clientId, date: i.date, due: i.dueDate || _addDays(i.date, 30), total: N(i.taxAmount || i.totalAmount || i.total) }); });
@@ -1193,8 +1227,8 @@ function _renderCockpit() {
     list.forEach(v => { const ap = Math.min(pool, v.total); pool -= ap; const out = Math.max(0, v.total - ap); salesReceivable += out; if (out > 0 && (v.due || '') <= _in30) salesDue30 += out; });
   });
   const toReceive = salesReceivable + wip;
-  const netPos = toReceive - toPay;
-  const _payRow = (l, v) => `<div style="display:flex;justify-content:space-between;"><span>${l}</span><b style="color:#dc2626;">${fmt(v)}</b></div>`;
+  const netPos = toReceive - dueMonth;
+  const _payRow = (l, v, note) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${note ? `<br><span style="font-size:10px;color:#94a3b8;">${note}</span>` : ''}</span><b style="color:#dc2626;white-space:nowrap;">${fmt(v)}</b></div>`;
   const _recvRow = (l, v, sub) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${sub ? `<br><span style="font-size:10px;color:#94a3b8;">${sub}</span>` : ''}</span><b style="color:#16a34a;white-space:nowrap;">${fmt(v)}</b></div>`;
 
   // Leakage aggregate
@@ -1221,15 +1255,18 @@ function _renderCockpit() {
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div style="background:#fff;border:1px solid #fecaca;border-radius:16px;overflow:hidden;">
-        <div style="padding:12px 16px;background:linear-gradient(135deg,#fef2f2,#fee2e2);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:800;color:#b91c1c;font-size:13px;">🔴 You have to pay</span>
-          <span style="font-weight:900;color:#dc2626;font-size:18px;">${fmt(toPay)}</span>
+        <div style="padding:12px 16px 14px;background:linear-gradient(135deg,#fef2f2,#fee2e2);">
+          <div style="font-weight:800;color:#b91c1c;font-size:13px;margin-bottom:9px;">🔴 You have to pay${matOverdue > 0 ? ` <span style="font-size:10px;color:#dc2626;background:#fff;border:1px solid #fecaca;padding:1px 7px;border-radius:10px;font-weight:800;">${fmt(matOverdue)} overdue</span>` : ''}</div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;background:#fff;border:1px solid #fecaca;border-radius:10px;padding:8px 11px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;letter-spacing:.04em;">This week</div><div style="font-size:18px;font-weight:900;color:#dc2626;">${fmt(dueWeek)}</div></div>
+            <div style="flex:1;background:#fff;border:1px solid #fecaca;border-radius:10px;padding:8px 11px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;letter-spacing:.04em;">This month</div><div style="font-size:18px;font-weight:900;color:#b91c1c;">${fmt(dueMonth)}</div></div>
+          </div>
         </div>
         <div style="padding:13px 16px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:9px;">
-          ${_payRow('👷 Labour — wages due', payLabour)}
-          ${_payRow('🧱 Material suppliers', payMaterial)}
-          ${_payRow('🏷️ Loan EMIs — per month', payEmi)}
-          ${_payRow('🛠️ Maintenance — last 30 days', payMaint)}
+          ${_payRow('👷 Labour', labMonth, weeklyAdv > 0 ? `wages due + ${fmt(weeklyAdv)}/week advance` : 'wages due')}
+          ${_payRow('🧱 Material suppliers', matMonth, 'by each vendor&rsquo;s payment terms')}
+          ${_payRow('🏷️ Loan EMIs', payEmi, 'this month')}
+          ${_payRow('🛠️ Maintenance', payMaint, 'last 30 days')}
         </div>
       </div>
       <div style="background:#fff;border:1px solid #bbf7d0;border-radius:16px;overflow:hidden;">
@@ -1244,7 +1281,7 @@ function _renderCockpit() {
       </div>
     </div>
     <div style="background:${netPos >= 0 ? '#052e16' : '#450a0a'};color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-      <div><div style="font-size:12px;font-weight:700;opacity:.9;">Net position — after paying everyone &amp; collecting sales</div><div style="font-size:11px;opacity:.6;margin-top:2px;">Receive ${fmt(toReceive)} &minus; Pay ${fmt(toPay)}</div></div>
+      <div><div style="font-size:12px;font-weight:700;opacity:.9;">Net position — after this month&rsquo;s dues &amp; collecting sales</div><div style="font-size:11px;opacity:.6;margin-top:2px;">Receive ${fmt(toReceive)} &minus; Pay ${fmt(dueMonth)}</div></div>
       <div style="font-size:24px;font-weight:900;color:${netPos >= 0 ? '#4ade80' : '#f87171'};white-space:nowrap;">${netPos < 0 ? '&minus;' : ''}${fmt(Math.abs(netPos))}</div>
     </div>
 

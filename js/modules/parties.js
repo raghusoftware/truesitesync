@@ -331,6 +331,12 @@ export function _editParty(id, type) {
       _peField('GSTIN', 'pe_gst', rec.gst, { mono: true, ph: '22AAAAA0000A1Z5' }),
       _peField('PAN', 'pe_pan', rec.pan, { mono: true, ph: 'ABCDE1234F' }),
       _peField('Payment Terms — Credit Days', 'pe_terms', rec.paymentTermsDays, { type: 'number', min: 0, ph: 'e.g. 30' }),
+      isClient ? '' : `<div>
+        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Terms Start From</label>
+        <select id="pe_termsbasis" class="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+          <option value="bill" ${rec.termsBasis !== 'delivery' ? 'selected' : ''}>Bill / Invoice date</option>
+          <option value="delivery" ${rec.termsBasis === 'delivery' ? 'selected' : ''}>Delivery / GRN date</option>
+        </select></div>`,
       isClient ? _peField('Credit Limit', 'pe_credit', rec.creditLimit, { type: 'number', min: 0, ph: 'Max outstanding' }) : '',
       _peField('Address', 'pe_addr', rec.address, { full: true, ph: 'Full address' })
     ].join('');
@@ -396,6 +402,8 @@ window._savePartyEdit = function () {
       rec.termsHistory.push({ date: new Date().toISOString(), from: prev, to: nd, reason: prev == null ? 'Terms set' : 'Terms changed' });
       rec.paymentTermsDays = nd;
     }
+    // Terms basis (vendors): count credit days from delivery/GRN date or bill date.
+    if (type !== 'Client') { const tb = document.getElementById('pe_termsbasis')?.value; if (tb) rec.termsBasis = tb; }
   }
 
   saveAllData();
