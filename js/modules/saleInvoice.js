@@ -19,13 +19,9 @@ export function setSIPayMode(mode) {
   const cashBtn = document.getElementById('siToggleCash');
   const hidden = document.getElementById('siFormPayType');
   if (hidden) hidden.value = mode;
-  if (mode === 'Credit') {
-    if (creditBtn) creditBtn.className = 'px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-blue-500 text-white shadow-sm';
-    if (cashBtn) cashBtn.className = 'px-4 py-1.5 rounded-full text-xs font-bold transition-all text-slate-500 hover:text-slate-700';
-  } else {
-    if (cashBtn) cashBtn.className = 'px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-green-500 text-white shadow-sm';
-    if (creditBtn) creditBtn.className = 'px-4 py-1.5 rounded-full text-xs font-bold transition-all text-slate-500 hover:text-slate-700';
-  }
+  // Segmented control (.lxseg button.on) — toggle the active state only.
+  if (creditBtn) creditBtn.classList.toggle('on', mode === 'Credit');
+  if (cashBtn) cashBtn.classList.toggle('on', mode !== 'Credit');
 }
 
 // ── Project dropdown populate ──

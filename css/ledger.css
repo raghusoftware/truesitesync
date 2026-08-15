@@ -189,3 +189,78 @@ select.lx-field { font-weight: 650; padding-right: 30px;
   .lx .lx-anim, .lx tbody tr { animation: none !important; opacity: 1 !important; }
   .lx-tile, .lx-hero .lx-cta, .lx-btn { transition: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Premium full-screen forms — Sale Invoice & Purchase Bill
+   Opt-in via .lxform on the panel root. Restyles the top-section
+   fields/labels/cards only (dense line-item inputs are untouched).
+   ═══════════════════════════════════════════════════════════ */
+.lxform { --lxf-accent: #2563eb; font-family: "Inter", ui-sans-serif, system-ui, sans-serif; }
+#purchaseFormPanel.lxform { --lxf-accent: #ea6a17; }
+
+/* section cards */
+.lxform .lxcard {
+  background: #fff; border: 1px solid #eaeef5; border-radius: 18px; padding: 18px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 14px 32px -20px rgba(15,23,42,.20);
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+}
+.lxform .lxcard:hover { box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 20px 44px -20px rgba(15,23,42,.26); border-color: #e2e7f0; }
+
+/* labels + fields (sale form uses .si-field/.si-lbl; both use .lxf/.lxgrid) */
+.lxform .si-lbl, .lxform .lxlbl {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #7c8aa0; margin-bottom: 5px;
+}
+.lxform .si-field, .lxform .lxf,
+.lxform .lxgrid select, .lxform .lxgrid input:not([type=checkbox]):not([type=radio]) {
+  width: 100%; padding: 10px 12px !important; font-size: 13px; color: #0f172a;
+  background: #f7f9fc !important; border: 1px solid #e6ebf3 !important; border-radius: 11px !important;
+  outline: none; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  box-shadow: none !important;
+}
+.lxform .si-field:focus, .lxform .lxf:focus,
+.lxform .lxgrid select:focus, .lxform .lxgrid input:focus {
+  border-color: var(--lxf-accent) !important; background: #fff !important;
+  box-shadow: 0 0 0 4px rgba(var(--lx-accent-rgb, 37,99,235), .14) !important;
+}
+#purchaseFormPanel.lxform { --lx-accent-rgb: 234, 106, 23; }
+.lxform select.si-field, .lxform .lxgrid select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 11px center !important; padding-right: 30px !important;
+}
+
+/* section eyebrow (numbered) */
+.lxform .lxeyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.lxform .lxeyebrow .n { width: 22px; height: 22px; border-radius: 8px; background: rgba(var(--lx-accent-rgb,37,99,235),.12); color: var(--lxf-accent); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+
+/* premium header bar */
+.lxform .lxform-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 22px; flex-shrink: 0; color: #fff; position: relative; overflow: hidden;
+  background: linear-gradient(120deg, #1e3a8a, #2563eb);
+}
+#purchaseFormPanel.lxform .lxform-head { background: linear-gradient(120deg, #b8480a, #ea6a17); }
+.lxform .lxform-head::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px);
+  background-size: 26px 26px; -webkit-mask-image: radial-gradient(120% 120% at 92% 0%, #000, transparent 60%); mask-image: radial-gradient(120% 120% at 92% 0%, #000, transparent 60%);
+}
+.lxform .lxform-head > * { position: relative; z-index: 1; }
+.lxform .lxform-ic { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.24); }
+.lxform .lxform-head h2 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #fff; }
+.lxform .lxform-head .sub { font-size: 11.5px; color: rgba(255,255,255,.8); font-weight: 500; }
+.lxform .lxseg { display: inline-flex; gap: 2px; background: rgba(255,255,255,.16); border-radius: 999px; padding: 3px; }
+.lxform .lxseg button { border: none; background: transparent; color: rgba(255,255,255,.85); font-weight: 700; font-size: 11px; padding: 5px 13px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.lxform .lxseg button.on { background: #fff; color: var(--lxf-accent); box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.lxform .lxbtn-ghost { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); color: #fff; padding: 9px 16px; border-radius: 11px; font-weight: 700; font-size: 12.5px; cursor: pointer; transition: .15s; }
+.lxform .lxbtn-ghost:hover { background: rgba(255,255,255,.24); }
+.lxform .lxbtn-primary { background: #fff; color: var(--lxf-accent); border: none; padding: 9px 18px; border-radius: 11px; font-weight: 750; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 6px 16px -6px rgba(0,0,0,.35); transition: transform .14s ease, box-shadow .14s ease; }
+.lxform .lxbtn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(0,0,0,.45); }
+.lxform .lxbtn-close { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); color: #fff; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: .18s; }
+.lxform .lxbtn-close:hover { background: rgba(239,68,68,.85); transform: rotate(90deg); }
+
+/* totals card accent footer */
+.lxform .lxtotals .lxgrand { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 2px; margin-top: 6px; border-top: 2px solid var(--lxf-accent); }
+.lxform .lxtotals .lxgrand .lbl { font-size: 15px; font-weight: 900; color: #0f172a; }
+.lxform .lxtotals .lxgrand .val { font-size: 20px; font-weight: 900; color: var(--lxf-accent); }
