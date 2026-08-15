@@ -79,6 +79,14 @@ window._setMeasOrientation = function(o) {
   showToast('Measurement PDF set to ' + o, 'success');
 };
 
+window._setDocTemplate = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.docTemplate = v;
+  saveAllData();
+  renderPrintConfigTab();
+  showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : 'Standard'), 'success');
+};
+
 window._setMeasDecimals = function(n) {
   if (!state.printSettings) state.printSettings = {};
   state.printSettings.measurementDecimals = parseInt(n) || 2;
@@ -262,7 +270,20 @@ function renderPrintConfigTab() {
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
   const measDec = (state.printSettings?.measurementDecimals ?? 2);
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
+  const docTemplate = (state.printSettings?.docTemplate) || 'standard';
   c.innerHTML = `
+    <!-- ═══ DOCUMENT TEMPLATE ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-base">&#129534;</span>
+        <h4 class="font-bold text-sm text-slate-800">Measurement &amp; Abstract &mdash; Document Template</h4>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-3">Layout used when you export/print a measurement sheet or abstract. <b>Plant (Tabular)</b> is the ruled-grid format with grouped items (F1, F2&hellip;) and a per-item Total Qty column. The letterhead uses your Company Profile.</p>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="window._setDocTemplate('standard')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'standard' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Standard</button>
+        <button onclick="window._setDocTemplate('plant')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'plant' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Plant (Tabular)</button>
+      </div>
+    </div>
     ${docColorsPanelHTML()}
     <!-- ═══ TAX INVOICE MIN ROWS ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">

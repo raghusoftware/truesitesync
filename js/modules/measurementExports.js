@@ -32,8 +32,95 @@ function _rgb(hex, fallback) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+/** Display a stored ISO date (yyyy-mm-dd) as dd-mm-yyyy. */
+function _fmtDMY(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : (iso || '');
+}
+
+/**
+ * Measurement Sheet — "Plant / Tabular" template (ruled grid, grouped items
+ * with F-lines and a per-item Total Qty spanning cell). Letterhead uses the
+ * saved Company Profile. Selected via Settings → Print → Document Template.
+ */
+export function exportMeasurementPlantPdf(id) {
+  try {
+    const sheetId = id || state.currentSheetId;
+    if (!sheetId) return showToast('Save sheet before exporting', 'error');
+    const s = state.sheets.find(x => x.id === sheetId);
+    if (!s) return showToast('Sheet not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const c = state.clients.find(x => x.id === s.clientId);
+    const proj = state.projects.find(p => p.id === s.projectId);
+    const doc = new window.jspdf.jsPDF('portrait');
+    const pw = doc.internal.pageSize.getWidth();
+    let y = getCompanyHeaderForPDF(doc) + 2;
+
+    // TO / DATE / SHEET-NO block
+    const authority = (state.printSettings?.authorityName || '').trim();
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(30);
+    doc.text(`TO, ${c?.name || proj?.clientName || '—'}`, 14, y + 4);
+    doc.text(authority || 'Name of Authority', 14, y + 14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`DATE: ${_fmtDMY(s.date)}`, pw - 14, y + 4, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(`PROJECT / AREA : ${s.area || proj?.name || '—'}`, pw - 14, y + 9, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(`MEASUREMENT SHEET NO. ${s.sheetNum || ''}`, pw - 14, y + 14, { align: 'right' });
+
+    const ty = y + 19;
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+    doc.text('Measurement Sheet', pw / 2, ty + 3, { align: 'center' });
+
+    // Grouped body: item header row + F-lines + a per-group Total Qty (rowSpan).
+    const groups = groupSheetEntries(s.entries || []);
+    const head = [['Sr\nNo.', 'Description', 'UOM', 'Nos.', 'Length', 'Width', 'Height\nThk.', 'Coeff\nSize', 'Qty', 'Total\nQty']];
+    const body = [];
+    let itemNum = 0;
+    Object.keys(groups).forEach(key => {
+      const lines = groups[key];
+      const first = lines[0] || {};
+      itemNum++;
+      let total = 0; lines.forEach(e => total += (e.qty || 0));
+      body.push([
+        { content: itemNum, styles: { halign: 'center', fontStyle: 'bold' } },
+        { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
+        { content: (first.uom || ''), styles: { halign: 'center', fontStyle: 'bold' } },
+        '', '', '', '', '', '',
+        { content: total.toFixed(2), rowSpan: lines.length + 1, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } }
+      ]);
+      lines.forEach(e => {
+        body.push([
+          '',
+          { content: e.remarks || '', styles: { halign: 'center' } },
+          '',
+          { content: e.nos || '', styles: { halign: 'center' } },
+          { content: e.l || '', styles: { halign: 'center' } },
+          { content: e.b || '', styles: { halign: 'center' } },
+          { content: e.h || '', styles: { halign: 'center' } },
+          '',
+          { content: (e.qty != null && e.qty !== '') ? Number(e.qty).toFixed(2) : '', styles: { halign: 'center' } }
+        ]);
+      });
+    });
+    doc.autoTable({
+      startY: ty + 6, head, body, theme: 'grid',
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
+      columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 13, halign: 'center' }, 4: { cellWidth: 16, halign: 'center' }, 5: { cellWidth: 16, halign: 'center' }, 6: { cellWidth: 16, halign: 'center' }, 7: { cellWidth: 15, halign: 'center' }, 8: { cellWidth: 18, halign: 'center' }, 9: { cellWidth: 20, halign: 'center' } },
+      margin: { left: 14, right: 14 }
+    });
+    mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
+  } catch (err) {
+    console.error('Plant measurement PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
 export function exportSimpleMeasurementPdf(id) {
   try {
+  // Route to the Plant/Tabular template when selected in Settings.
+  if ((state.printSettings?.docTemplate) === 'plant') return exportMeasurementPlantPdf(id);
   const sheetId = id || state.currentSheetId;
   if (!sheetId) return showToast('Save sheet before exporting', 'error');
   const s = state.sheets.find(x => x.id === sheetId);

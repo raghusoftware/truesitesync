@@ -26,8 +26,76 @@ function _rgb(hex, fallback) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+/** Display a stored ISO date (yyyy-mm-dd) as dd-mm-yyyy. */
+function _fmtDMY(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : (iso || '');
+}
+
+/**
+ * Abstract — "Plant / Tabular" template: letterhead + ABSTRACT title, TO block,
+ * ruled item grid (Sr/Description/UOM/QTY/Rate/Amount) and a Total-in-words row.
+ */
+export function exportAbstractPlantPdf(id) {
+  try {
+    const a = state.abstracts.find(x => x.id === id);
+    if (!a) return showToast('Abstract not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const c = state.clients.find(x => x.id === a.clientId);
+    const proj = state.projects.find(p => p.id === a.projectId);
+    const clientName = c?.name || proj?.clientName || a.clientName || '—';
+    const doc = new window.jspdf.jsPDF('portrait');
+    const pw = doc.internal.pageSize.getWidth();
+    let y = _simpleHeader(doc);
+
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+    doc.text('ABSTRACT', pw / 2, y + 2, { align: 'center' });
+    y += 8;
+
+    // TO block (left) + meta (right)
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+    doc.text('TO', 14, y + 4);
+    doc.text(clientName, 26, y + 4);
+    doc.setFont('helvetica', 'normal');
+    const addr = c?.address || proj?.address || '';
+    if (addr) doc.text(String(addr), 26, y + 9);
+    doc.setFont('helvetica', 'bold'); doc.text('Date :', pw - 78, y + 4);
+    doc.setFont('helvetica', 'normal'); doc.text(_fmtDMY(a.date), pw - 44, y + 4);
+    doc.text('Ref: Measurement No.:', pw - 98, y + 9); doc.text(a.sheetNum || '—', pw - 44, y + 9);
+    doc.setFont('helvetica', 'bold'); doc.text('ABSTRACT NO. :', pw - 98, y + 14);
+    doc.setFont('helvetica', 'normal'); doc.text(a.abstractNum || '—', pw - 44, y + 14);
+
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', (i.qty || 0).toFixed(2), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    doc.autoTable({
+      startY: y + 20, head: [['Sr No.', 'Description', 'UOM', 'QTY', 'Rate', 'Amount']], body: rows, theme: 'grid',
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 1.6, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
+      columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 20, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 36, halign: 'right' } },
+      margin: { left: 14, right: 14 }
+    });
+    const fy = doc.lastAutoTable.finalY;
+    doc.autoTable({
+      startY: fy, theme: 'grid',
+      body: [[
+        { content: 'Total Amount In Words: ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold' } },
+        { content: 'Total Amount', styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right' } }
+      ]],
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.15 },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 34 }, 2: { cellWidth: 36, halign: 'right' } },
+      margin: { left: 14, right: 14 }
+    });
+    mobileSavePDF(doc, `${a.abstractNum || 'Abstract'}.pdf`);
+  } catch (err) {
+    console.error('Plant abstract PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
 export function exportAbstractPDF(id) {
   try {
+  // Route to the Plant/Tabular template when selected in Settings.
+  if ((state.printSettings?.docTemplate) === 'plant') return exportAbstractPlantPdf(id);
   const a = state.abstracts.find(x => x.id === id);
   if (!a) return showToast('Abstract not found', 'error');
   if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
