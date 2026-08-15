@@ -1125,9 +1125,38 @@ window._cfSetPayDay = function (d) { if (!state.cashFlowSettings) state.cashFlow
 
 // Daily-schedule filters (transaction ledger).
 let _cfSchedFrom = '', _cfSchedTo = '', _cfSchedDir = 'all';
+let _cfSchedSnap = null;   // last-rendered rows, for the PDF export
 window._cfSchedSetFrom = function (v) { _cfSchedFrom = v || ''; renderCashFlow(); };
 window._cfSchedSetTo = function (v) { _cfSchedTo = v || ''; renderCashFlow(); };
 window._cfSchedSetDir = function (v) { _cfSchedDir = v || 'all'; renderCashFlow(); };
+
+/** Download the current (filtered) cash-flow transactions as a PDF. */
+window._cfExportSchedulePDF = function () {
+  const snap = _cfSchedSnap;
+  if (!snap || !snap.rows.length) { showToast('No transactions to export in this range', 'warning'); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded — refresh the page', 'error'); return; }
+  const doc = new window.jspdf.jsPDF('portrait');
+  const sym = getCurrencySymbol();
+  const cp = state.companyProfile || {};
+  const n = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
+  doc.text(cp.CompanyName || 'Cash Flow', 105, 15, null, null, 'center');
+  doc.setFontSize(11); doc.text('Cash-Flow Transactions', 105, 22, null, null, 'center');
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(`Period: ${snap.fromD} to ${snap.toD}  |  ${snap.dir === 'all' ? 'All' : snap.dir === 'in' ? 'Money In' : 'Money Out'}  |  Cash in hand: ${sym} ${n(snap.cash)}`, 14, 30);
+  const body = snap.rows.map(r => [r.dateFmt, r.ptext, r.dir === 'in' ? sym + ' ' + n(r.amount) : '', r.dir === 'out' ? sym + ' ' + n(r.amount) : '', r.bal != null ? sym + ' ' + n(r.bal) : '']);
+  doc.autoTable({
+    startY: 35, head: [['Date', 'Description', 'In', 'Out', 'Balance']], body, theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], fontSize: 9 },
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 'auto' }, 2: { halign: 'right', cellWidth: 26, textColor: [22, 163, 74] }, 3: { halign: 'right', cellWidth: 26, textColor: [220, 38, 38] }, 4: { halign: 'right', cellWidth: 28 } }
+  });
+  let y = doc.lastAutoTable.finalY + 9;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(15, 23, 42);
+  doc.text(`Total In: ${sym} ${n(snap.sumIn)}    Total Out: ${sym} ${n(snap.sumOut)}    Net: ${sym} ${n(snap.sumIn - snap.sumOut)}`, 14, y);
+  const fname = `CashFlow_${snap.fromD}_to_${snap.toD}.pdf`;
+  if (typeof window.mobileSavePDF === 'function') window.mobileSavePDF(doc, fname); else doc.save(fname);
+};
 
 export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
@@ -1329,6 +1358,8 @@ function _renderCockpit() {
   _rows.forEach(e => { (_byDate[e.date] = _byDate[e.date] || []).push(e); });
   const _fmtDay = ds => new Date(ds + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
   let _run = cashPosition();
+  const _snapRows = [];
+  const _plain = s => String(s || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, '').replace(/·/g, '-').replace(/\s+/g, ' ').trim();
   let _schedRows = '';
   Object.keys(_byDate).sort().forEach(ds => {
     const items = _byDate[ds];
@@ -1337,6 +1368,7 @@ function _renderCockpit() {
     const future = ds >= _todayStr;
     let balHtml = '';
     if (future) { _run += dIn - dOut; balHtml = `<span style="font-size:11px;font-weight:700;color:${_run < 0 ? '#dc2626' : '#64748b'};">bal ${fmt(_run)}${_run < 0 ? ' ⚠' : ''}</span>`; }
+    items.forEach(e => _snapRows.push({ dateFmt: _fmtDay(ds), ptext: _plain(e.label) + (e.actual ? '' : ' (due)'), dir: e.dir, amount: e.amount, bal: future ? _run : null }));
     _schedRows += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
         <span style="font-size:12px;font-weight:800;color:#334155;">${_fmtDay(ds)}${ds === _todayStr ? ' <span style="font-size:8px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 5px;border-radius:8px;font-weight:800;">TODAY</span>' : ''}</span>
@@ -1346,15 +1378,13 @@ function _renderCockpit() {
     </div>`;
   });
 
+  _cfSchedSnap = { rows: _snapRows, fromD: _fromD, toD: _toD, dir: _dirF, cash: cashPosition(), sumIn: _sumIn, sumOut: _sumOut };
   const _dirBtn = (v, lbl) => `<button onclick="window._cfSchedSetDir('${v}')" style="padding:4px 11px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${_dirF === v ? 'transparent' : '#e2e8f0'};background:${_dirF === v ? (v === 'in' ? '#16a34a' : v === 'out' ? '#dc2626' : '#334155') : '#fff'};color:${_dirF === v ? '#fff' : '#475569'};">${lbl}</button>`;
   const _schedCard = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
       <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <div><span style="font-weight:800;color:#0f172a;font-size:14px;">📅 Cash-flow transactions</span><span style="font-size:11px;color:#94a3b8;"> — actual + upcoming · balance projected from ${fmt(cashPosition())} in hand</span></div>
-          <label style="font-size:11px;color:#64748b;font-weight:600;" title="Default pay day for gangs without their own">Default pay day
-            <select onchange="window._cfSetPayDay(this.value)" style="margin-left:6px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">
-              ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${_payDay === i ? 'selected' : ''}>${d}</option>`).join('')}
-            </select></label>
+          <button onclick="window._cfExportSchedulePDF()" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer;" onmouseover="this.style.background='#f8fafc';this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.background='#fff';this.style.borderColor='#e2e8f0';this.style.color='#334155'">🖨️ Download PDF</button>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;">From <input type="date" value="${_fromD}" onchange="window._cfSchedSetFrom(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"> To <input type="date" value="${_toD}" onchange="window._cfSchedSetTo(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"></div>
