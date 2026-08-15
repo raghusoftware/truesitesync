@@ -15,7 +15,7 @@ const fmt = (v) => getCurrencySymbol() + Math.round(N(v)).toLocaleString('en-IN'
 const _esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt1 = (v) => Math.round(N(v) * 10) / 10;
 
-let _cfTab = 'cashflow';
+let _cfTab = 'cockpit';
 
 // ── AGGREGATIONS ────────────────────────────────────────────────────────────
 // An abstract counts as "billed but not yet invoiced" only while it has NOT been
@@ -1136,7 +1136,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('cashflow', 'Cash Flow', '💵')}${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
