@@ -1121,6 +1121,7 @@ function _renderConstructionCF() {
 
 // ── ENTRY ──────────────────────────────────────────────────────────────────
 window._cfSwitchTab = function (t) { _cfTab = t; renderCashFlow(); };
+window._cfSetPayDay = function (d) { if (!state.cashFlowSettings) state.cashFlowSettings = {}; state.cashFlowSettings.labourPayDay = parseInt(d) || 0; saveAllData(); renderCashFlow(); };
 
 export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
@@ -1243,6 +1244,81 @@ function _renderCockpit() {
   const _payRow = (l, v, note) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${note ? `<br><span style="font-size:10px;color:#94a3b8;">${note}</span>` : ''}</span><b style="color:#dc2626;white-space:nowrap;">${fmt(v)}</b></div>`;
   const _recvRow = (l, v, sub) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${sub ? `<br><span style="font-size:10px;color:#94a3b8;">${sub}</span>` : ''}</span><b style="color:#16a34a;white-space:nowrap;">${fmt(v)}</b></div>`;
 
+  // ══ Daily schedule — every dated money movement over the next 30 days ══
+  const _horizon = _addDays(_todayStr, 30);
+  const _clampDay = d => (d && d < _todayStr ? _todayStr : d);   // overdue → land on today
+  const _events = [];
+  // Material bills — by vendor terms/basis, oldest-first allocation
+  Object.entries(_billsByVendor).forEach(([vid, bills]) => {
+    const v = (state.vendors || []).find(x => x.id === vid); const vname = v?.name || 'Vendor';
+    const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
+    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + N(p.amount), 0);
+    [...bills].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(b => {
+      const total = N(b.totalAmount); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
+      if (out <= 0) return;
+      const basis = (v?.termsBasis === 'delivery' && b.grnDate) ? b.grnDate : b.date;
+      const d = _clampDay(b.dueDate || _addDays(basis, days));
+      if (d && d <= _horizon) _events.push({ date: d, label: '🧱 ' + vname, dir: 'out', amount: out });
+    });
+  });
+  // Sales collections — by invoice due date
+  Object.entries(_byClient).forEach(([cid, list]) => {
+    const cname = (state.clients || []).find(c => c.id === cid)?.name || 'Client';
+    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+    [...list].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(v => {
+      const ap = Math.min(pool, v.total); pool -= ap; const out = Math.max(0, v.total - ap);
+      if (out <= 0) return; const d = _clampDay(v.due || '');
+      if (d && d <= _horizon) _events.push({ date: d, label: '🧾 ' + cname, dir: 'in', amount: out });
+    });
+  });
+  // Loan EMIs — this month + next, on the EMI day
+  (state.accounts || []).filter(a => a.type === 'Loan' && N(a.emi) > 0 && N(a.emiDay) > 0).forEach(a => {
+    [0, 1].forEach(mOff => {
+      const y = _dnow.getFullYear(), m = _dnow.getMonth() + mOff;
+      const ld = new Date(y, m + 1, 0).getDate();
+      const ds = new Date(y, m, Math.min(N(a.emiDay), ld)).toISOString().split('T')[0];
+      if (ds >= _todayStr && ds <= _horizon) _events.push({ date: ds, label: '🏷️ EMI · ' + (a.name || 'Loan'), dir: 'out', amount: N(a.emi) });
+    });
+  });
+  // Labour weekly advances — on the chosen pay weekday
+  const _payDay = (state.cashFlowSettings?.labourPayDay != null) ? N(state.cashFlowSettings.labourPayDay) : 6; // default Saturday
+  const _gangsAdv = (state.labourContractors || []).filter(c => N(c.weeklyAdvance) > 0);
+  if (_gangsAdv.length) {
+    for (let i = 0; i <= 30; i++) {
+      const dt = new Date(_dnow); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + i);
+      if (dt.getDay() === _payDay) { const ds = dt.toISOString().split('T')[0]; _gangsAdv.forEach(c => _events.push({ date: ds, label: '👷 ' + c.name + ' — advance', dir: 'out', amount: N(c.weeklyAdvance) })); }
+    }
+  }
+  // Group by date, running balance from current cash
+  const _byDate = {};
+  _events.forEach(e => { (_byDate[e.date] = _byDate[e.date] || []).push(e); });
+  const _fmtDay = ds => new Date(ds + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
+  let _run = cashPosition();
+  let _schedRows = '';
+  Object.keys(_byDate).sort().forEach(ds => {
+    const items = _byDate[ds];
+    const dIn = items.filter(e => e.dir === 'in').reduce((s, e) => s + e.amount, 0);
+    const dOut = items.filter(e => e.dir === 'out').reduce((s, e) => s + e.amount, 0);
+    _run += dIn - dOut;
+    _schedRows += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <span style="font-size:12px;font-weight:800;color:#334155;">${_fmtDay(ds)}${ds === _todayStr ? ' <span style="font-size:8px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 5px;border-radius:8px;font-weight:800;">TODAY / DUE</span>' : ''}</span>
+        <span style="font-size:11px;font-weight:700;color:${_run < 0 ? '#dc2626' : '#64748b'};">bal ${fmt(_run)}${_run < 0 ? ' ⚠' : ''}</span>
+      </div>
+      ${items.map(e => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#475569;"><span>${e.label}</span><b style="color:${e.dir === 'in' ? '#16a34a' : '#dc2626'};white-space:nowrap;">${e.dir === 'in' ? '+' : '−'}${fmt(e.amount)}</b></div>`).join('')}
+    </div>`;
+  });
+  const _schedCard = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
+      <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div><span style="font-weight:800;color:#0f172a;font-size:14px;">📅 Daily cash-flow schedule</span><span style="font-size:11px;color:#94a3b8;"> — next 30 days · balance from ${fmt(cashPosition())} in hand</span></div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;">Labour pay day
+          <select onchange="window._cfSetPayDay(this.value)" style="margin-left:6px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">
+            ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${_payDay === i ? 'selected' : ''}>${d}</option>`).join('')}
+          </select></label>
+      </div>
+      <div style="max-height:360px;overflow-y:auto;">${_schedRows || '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px;">No scheduled transactions in the next 30 days.</div>'}</div>
+    </div>`;
+
   // Leakage aggregate
   const leak = {};
   pnls.forEach(p => Object.entries(p.leakage || {}).forEach(([k, n]) => { leak[k] = (leak[k] || 0) + n; }));
@@ -1296,6 +1372,8 @@ function _renderCockpit() {
       <div><div style="font-size:12px;font-weight:700;opacity:.9;">Net position — after this month&rsquo;s dues &amp; collecting sales</div><div style="font-size:11px;opacity:.6;margin-top:2px;">Receive ${fmt(toReceive)} &minus; Pay ${fmt(dueMonth)}</div></div>
       <div style="font-size:24px;font-weight:900;color:${netPos >= 0 ? '#4ade80' : '#f87171'};white-space:nowrap;">${netPos < 0 ? '&minus;' : ''}${fmt(Math.abs(netPos))}</div>
     </div>
+
+    ${_schedCard}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
       ${kpi('Work done (earned)', fmt(earned), 'measured value, all projects', '#0d9488')}
