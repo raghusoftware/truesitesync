@@ -8,7 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
 
@@ -132,7 +132,82 @@ export function viewPurchaseBill(id) {
   html += `</tbody></table></div>`;
   html += `<div class="text-sm text-right space-y-1"><p><span class="text-slate-500 font-medium">Transport:</span> ${getCurrencySymbol()}${b.extras?.transport || 0}</p><p><span class="text-slate-500 font-medium">Loading:</span> ${getCurrencySymbol()}${b.extras?.loading || 0}</p><p><span class="text-slate-500 font-medium">GST:</span> ${getCurrencySymbol()}${b.extras?.gst || 0}</p><p class="text-xl font-extrabold text-blue-800 border-t pt-2 mt-2">Grand Total: ${getCurrencySymbol()}${b.totalAmount.toLocaleString('en-IN')}</p></div>`;
   document.getElementById('purInfoContent').innerHTML = html;
+  _purInfoBillId = id;
   document.getElementById('purchaseInfoModal').classList.remove('hidden');
+}
+
+// ── Purchase-bill PDF: shared builder + preview / open / save actions ──
+let _purInfoBillId = null;
+
+function _buildPurchaseBillDoc(id) {
+  const b = state.vendorMaterials.find(x => x.id === id);
+  if (!b) { showToast('Purchase bill not found', 'error'); return null; }
+  const v = state.vendors.find(x => x.id === b.vendorId);
+  const site = getAllLocations().find(x => x.id === b.siteId);
+  const sym = getPdfCurrency().trim();
+  const n2 = x => (Number(x) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new window.jspdf.jsPDF();
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
+  doc.text('PURCHASE BILL', 105, y + 5, null, null, 'center');
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text(`Bill No: ${b.billNo || '—'}`, 14, y + 15);
+  doc.text(`Date: ${b.date || '—'}`, 140, y + 15);
+  doc.text(`Vendor: ${v?.name || '—'}`, 14, y + 21);
+  if (v?.gst || v?.GST) doc.text(`Vendor GSTIN: ${String(v.gst || v.GST).toUpperCase()}`, 14, y + 27);
+  if (site?.name) doc.text(`Site/Project: ${site.name}`, 140, y + 21);
+  const rows = (b.items || []).map((it, i) => {
+    const rm = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
+    return [i + 1, rm?.name || 'Unknown', `${it.qty || 0} ${rm?.unit || ''}`.trim(), n2(it.rate), n2(it.amount ?? (it.qty || 0) * (it.rate || 0))];
+  });
+  doc.autoTable({
+    startY: y + 33, head: [['#', 'Material', 'Qty', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid',
+    headStyles: { fillColor: [37, 99, 235], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 82 }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 28 }, 4: { halign: 'right', cellWidth: 30 } }
+  });
+  let tY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  const ex = b.extras || {};
+  if (ex.transport) { doc.text(`Transport: ${sym} ${n2(ex.transport)}`, 196, tY, { align: 'right' }); tY += 5; }
+  if (ex.loading) { doc.text(`Loading: ${sym} ${n2(ex.loading)}`, 196, tY, { align: 'right' }); tY += 5; }
+  if (ex.gst) { doc.text(`GST: ${sym} ${n2(ex.gst)}`, 196, tY, { align: 'right' }); tY += 5; }
+  tY += 3;
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+  doc.text(`Grand Total: ${sym} ${n2(b.totalAmount)}`, 196, tY, { align: 'right' });
+  return { doc, name: `PurchaseBill-${(b.billNo || id).toString().replace(/[^\w.-]/g, '_')}.pdf` };
+}
+
+// Preview — embed the rendered PDF inline inside the details modal
+export function previewPurchaseBillPDF(id) {
+  const built = _buildPurchaseBillDoc(id ?? _purInfoBillId);
+  if (!built) return;
+  const holder = document.getElementById('purInfoContent');
+  if (!holder) return;
+  try {
+    const url = built.doc.output('bloburl');
+    holder.innerHTML = `<iframe src="${url}" style="width:100%;height:65vh;border:1px solid #e2e8f0;border-radius:8px" title="Purchase Bill PDF"></iframe>`;
+  } catch (e) {
+    showToast('Preview failed: ' + (e.message || e), 'error');
+  }
+}
+
+// Open PDF — open the rendered PDF in a new browser tab
+export function openPurchaseBillPDF(id) {
+  const built = _buildPurchaseBillDoc(id ?? _purInfoBillId);
+  if (!built) return;
+  try {
+    const w = window.open(built.doc.output('bloburl'), '_blank');
+    if (!w) built.doc.output('dataurlnewwindow');
+  } catch (e) {
+    try { built.doc.output('dataurlnewwindow'); } catch (_) { showToast('Open failed: ' + (e.message || e), 'error'); }
+  }
+}
+
+// Save — download the PDF to the device
+export function savePurchaseBillPDF(id) {
+  const built = _buildPurchaseBillDoc(id ?? _purInfoBillId);
+  if (!built) return;
+  mobileSavePDF(built.doc, built.name);
 }
 
 export function deletePurchaseBill(id) {
