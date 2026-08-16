@@ -32,7 +32,7 @@ export function saveCompanyProfile() {
   const fieldMap = { cpCompanyName: 'CompanyName', cpOwnerName: 'OwnerName', cpPhone: 'Phone', cpEmail: 'Email', cpGST: 'GST', cpAddress: 'Address', cpBankName: 'BankName', cpBankAcc: 'BankAcc', cpIFSC: 'IFSC', cpFY: 'FY' };
   for (const [elId, key] of Object.entries(fieldMap)) {
     const el = document.getElementById(elId);
-    if (el) state.companyProfile[key] = el.value;
+    if (el) state.companyProfile[key] = (key === 'GST' || key === 'IFSC') ? el.value.trim().toUpperCase() : el.value;
   }
   saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
   updateProfilePreview();

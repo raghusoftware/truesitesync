@@ -256,7 +256,7 @@ export function printReport(elemId, title) {
     if (hs.showPhone && cp.Phone) contactParts.push(cp.Phone);
     if (hs.showEmail && cp.Email) contactParts.push(cp.Email);
     if (contactParts.length) detailLines.push(contactParts.join('  |  '));
-    if (hs.showGST && cp.GST) detailLines.push('GSTIN: ' + cp.GST);
+    if (hs.showGST && cp.GST) detailLines.push('GSTIN: ' + String(cp.GST).toUpperCase());
     detailLines.forEach(line => {
       headerHtml += `<p style="color:${hs.detailsColor};font-size:${hs.detailsSize}px;font-family:${hs.detailsFont},sans-serif;margin:2px 0;text-align:${dtAlign};">${line}</p>`;
     });
@@ -295,7 +295,7 @@ export function getSimpleHeaderForPDF(doc, opts = {}) {
   if (cp.Address) hp.push(cp.Address);
   if (cp.Phone) hp.push('Ph: ' + cp.Phone);
   if (cp.Email) hp.push(cp.Email);
-  if (cp.GST) hp.push('GSTIN: ' + cp.GST);
+  if (cp.GST) hp.push('GSTIN: ' + String(cp.GST).toUpperCase());
   let dy = y + 11;
   doc.splitTextToSize(hp.join('   |   '), pw - textX - mr).forEach(line => { doc.text(line, textX, dy); dy += 4; });
   y = Math.max(y + 22, dy) + 2;
@@ -423,9 +423,9 @@ export function getCompanyHeaderForPDF(doc) {
     doc.setFontSize(hs.gstSize);
     doc.setFont(hs.detailsFont, hs.gstStyle);
     if (hasLogoLeft) {
-      doc.text('GSTIN: ' + cp.GST, textXOff, y + 4);
+      doc.text('GSTIN: ' + String(cp.GST).toUpperCase(), textXOff, y + 4);
     } else {
-      doc.text('GSTIN: ' + cp.GST, dtX, y + 4, { align: dtAlign });
+      doc.text('GSTIN: ' + String(cp.GST).toUpperCase(), dtX, y + 4, { align: dtAlign });
     }
     y += hs.gstSize * 0.5 + 2;
   }

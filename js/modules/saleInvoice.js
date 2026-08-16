@@ -340,7 +340,7 @@ export function onSIClientChange() {
   }
   // Auto place-of-supply: compare buyer state code with the company's.
   const stSel = document.getElementById('siFormState');
-  const coGst = state.companyProfile?.GST || '';
+  const coGst = (state.companyProfile?.GST || '').toUpperCase();
   if (stSel && !stSel.value && client?.gst && coGst) {
     stSel.value = _gstStateCode(client.gst) === _gstStateCode(coGst) ? 'intra' : 'inter';
   }
