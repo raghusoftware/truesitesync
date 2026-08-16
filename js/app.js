@@ -106,7 +106,7 @@ import {
   _ensureRbacUser,
   renderUsersRolesPanel, openUserForm, saveUser, deleteUser, closeUserForm,
   togglePermission, toggleGroupPermissions
-} from './modules/rbac.js?v=1.6.35';
+} from './modules/rbac.js?v=1.6.49';
 import {
   THEMES, getThemeList, getActiveThemeId, setActiveTheme, renderWithTheme,
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords
@@ -746,7 +746,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.48';
+const APP_VERSION = '1.6.49';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

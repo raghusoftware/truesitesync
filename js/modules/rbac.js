@@ -197,6 +197,7 @@ function _mapSupabaseUser(supaUser) {
     name: rbacUser?.name || meta.display_name || meta.name || supaUser.email?.split('@')[0] || 'User',
     username: supaUser.email,
     email: supaUser.email,
+    phone: rbacUser?.phone || meta.phone || supaUser.phone || '',
     role,
     active: true,
   };
@@ -280,7 +281,7 @@ export async function loginUserSupabase(email, password) {
 /**
  * Supabase email/password sign up
  */
-export async function signupUserSupabase(email, password, displayName) {
+export async function signupUserSupabase(email, password, displayName, phone) {
   const sb = getSupabase();
   if (!sb) return { error: 'Supabase not initialized' };
 
@@ -290,7 +291,7 @@ export async function signupUserSupabase(email, password, displayName) {
     email,
     password,
     options: {
-      data: { display_name: displayName || email.split('@')[0], role: 'Admin' },
+      data: { display_name: displayName || email.split('@')[0], role: 'Admin', phone: phone || '' },
       emailRedirectTo: redirectUrl
     }
   });
@@ -344,6 +345,7 @@ export function _ensureRbacUser(supaUser) {
       if (!byEmail.name) byEmail.name = supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0];
       byEmail.email = supaUser.email;
       byEmail.username = supaUser.email;
+      if (!byEmail.phone) byEmail.phone = supaUser.user_metadata?.phone || supaUser.phone || '';
       byEmail.active = byEmail.active !== false;
       // role + assignments intentionally preserved (admin assigned them)
       changed = true;
@@ -549,6 +551,13 @@ function _upgradeLoginForm() {
           <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Full Name</label>
           <input type="text" id="signupName" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;transition:border .15s;" placeholder="Your full name" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
         </div>
+        <div id="signupPhoneField" style="display:none;margin-bottom:14px;">
+          <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Phone Number</label>
+          <div style="display:flex;align-items:stretch;">
+            <span style="display:flex;align-items:center;padding:0 12px;border:2px solid #e2e8f0;border-right:none;border-radius:12px 0 0 12px;background:#f8fafc;font-size:14px;font-weight:700;color:#475569;">+91</span>
+            <input type="tel" id="signupPhone" maxlength="10" inputmode="numeric" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:0 12px 12px 0;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;transition:border .15s;" placeholder="10-digit mobile" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+          </div>
+        </div>
         <div style="margin-bottom:14px;">
           <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Email</label>
           <input type="email" id="loginEmail" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;transition:border .15s;" placeholder="your@email.com" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'" onkeydown="if(event.key==='Enter')window._rbacHandleLogin()">
@@ -609,6 +618,7 @@ let _isSignupMode = false;
 export function toggleAuthMode() {
   _isSignupMode = !_isSignupMode;
   const nameField = document.getElementById('signupNameField');
+  const phoneField = document.getElementById('signupPhoneField');
   const subtitle = document.getElementById('loginSubtitle');
   const btn = document.getElementById('loginBtn');
   const toggleText = document.getElementById('authToggleText');
@@ -622,6 +632,7 @@ export function toggleAuthMode() {
 
   if (_isSignupMode) {
     if (nameField) nameField.style.display = '';
+    if (phoneField) phoneField.style.display = '';
     if (forgotRow) forgotRow.style.display = 'none';
     if (subtitle) subtitle.textContent = 'Create a new account';
     if (btn) btn.textContent = 'Create Account';
@@ -630,6 +641,7 @@ export function toggleAuthMode() {
   } else {
     if (forgotRow) forgotRow.style.display = '';
     if (nameField) nameField.style.display = 'none';
+    if (phoneField) phoneField.style.display = 'none';
     if (subtitle) subtitle.textContent = 'Sign in to your account';
     if (btn) btn.textContent = 'Sign In';
     if (toggleText) toggleText.textContent = "Don't have an account?";
@@ -896,6 +908,12 @@ export async function handleLogin() {
     if (errEl) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; }
     return;
   }
+  // Phone is mandatory when creating a new account
+  const signupPhone = (document.getElementById('signupPhone')?.value || '').replace(/[^0-9]/g, '');
+  if (_isSignupMode && signupPhone.length !== 10) {
+    if (errEl) { errEl.textContent = 'Enter a valid 10-digit phone number'; errEl.style.display = 'block'; }
+    return;
+  }
 
   // Disable button during auth
   if (btn) { btn.disabled = true; btn.textContent = _isSignupMode ? 'Creating...' : 'Signing in...'; btn.style.opacity = '0.7'; }
@@ -903,7 +921,7 @@ export async function handleLogin() {
   try {
     if (_isSignupMode) {
       const displayName = document.getElementById('signupName')?.value?.trim() || '';
-      const result = await signupUserSupabase(email, password, displayName);
+      const result = await signupUserSupabase(email, password, displayName, '+91' + signupPhone);
 
       if (result.error) {
         if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
