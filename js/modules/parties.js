@@ -343,7 +343,7 @@ export function _editParty(id, type) {
   }
 
   const html = `
-  <div id="partyEditOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:199999;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)window._closePartyEdit()">
+  <div id="partyEditOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:199999;display:flex;align-items:center;justify-content:center;padding:16px;">
     <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35);">
       <div style="padding:18px 22px;border-bottom:1px solid #e2e8f0;border-top:4px solid ${accent};border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
         <div class="flex items-center gap-2.5">
