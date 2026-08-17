@@ -406,6 +406,12 @@ window._savePartyEdit = function () {
     if (type !== 'Client') { const tb = document.getElementById('pe_termsbasis')?.value; if (tb) rec.termsBasis = tb; }
   }
 
+  // A client rename must reach the denormalized clientName stored on their sale
+  // invoices (and re-attach any project-orphaned invoices), so old sales keep
+  // showing under the updated name everywhere.
+  if (type === 'Client' && typeof window.relinkOrphanedSaleClients === 'function') {
+    try { window.relinkOrphanedSaleClients(); } catch {}
+  }
   saveAllData();
   window._closePartyEdit();
   showToast(type + ' updated', 'success');

@@ -86,12 +86,17 @@ export function onSIProjectChange() {
   if (!projId) { loadSIPendingItems(); return; }
   const proj = (state.projects || []).find(p => p.id === projId);
   if (!proj) return;
-  // Auto-select client matching this project
-  if (clientSel && proj.clientName) {
-    const matchClient = state.clients.find(c =>
-      c.name.toLowerCase().trim() === proj.clientName.toLowerCase().trim() ||
-      (c.projectName || '').toLowerCase().trim() === proj.name.toLowerCase().trim()
-    );
+  // Auto-select client matching this project. Prefer the project's real
+  // clientId — matching by name breaks the moment the client is renamed and the
+  // project's stored clientName drifts, which silently orphaned invoices onto a
+  // synthetic "proj_client_*" id instead of the real client.
+  if (clientSel && (proj.clientId || proj.clientName)) {
+    const matchClient =
+      (proj.clientId && state.clients.find(c => c.id === proj.clientId)) ||
+      (proj.clientName && state.clients.find(c =>
+        c.name.toLowerCase().trim() === proj.clientName.toLowerCase().trim() ||
+        (c.projectName || '').toLowerCase().trim() === proj.name.toLowerCase().trim()
+      ));
     if (matchClient) {
       clientSel.value = matchClient.id;
     } else {
@@ -760,8 +765,18 @@ export function saveSaleInvoiceForm() {
   let clientName = '';
   const clientOpt = document.getElementById('siFormClient')?.selectedOptions?.[0];
   if (clientId.startsWith('proj_client_')) {
-    clientName = clientOpt?.dataset?.clientName || '';
-    resolvedClientId = '';
+    // Temp project-client option: resolve to the project's REAL client so the
+    // invoice lands in that client's ledger (not orphaned on the synthetic id).
+    const projId = clientId.slice('proj_client_'.length);
+    const proj = (state.projects || []).find(p => p.id === projId);
+    const realClient = proj?.clientId ? state.clients.find(c => c.id === proj.clientId) : null;
+    if (realClient) {
+      resolvedClientId = realClient.id;
+      clientName = realClient.name;
+    } else {
+      clientName = clientOpt?.dataset?.clientName || '';
+      resolvedClientId = '';
+    }
   } else {
     const cl = state.clients.find(c => c.id === clientId);
     clientName = cl ? cl.name : '';
@@ -1176,3 +1191,32 @@ export function _navigateToSheet(sheetId) {
 // ══════════════════════════════════
 // PROFORMA INVOICE
 // ══════════════════════════════════
+
+// One-time data repair. Earlier builds saved project-based sale invoices against
+// a synthetic "proj_client_<projId>" id, orphaning them from the real client's
+// ledger (they vanished from the party/client view even though the sale existed).
+// Re-point those to the project's real clientId, and refresh the denormalized
+// clientName on every sale invoice so a renamed client reads correctly wherever
+// clientName is shown. Idempotent — safe to run on every boot. Returns true if
+// anything changed (so the caller can persist).
+export function relinkOrphanedSaleClients() {
+  let changed = false;
+  (state.saleInvoices || []).forEach(inv => {
+    if (typeof inv.clientId === 'string' && inv.clientId.startsWith('proj_client_')) {
+      const projId = inv.clientId.slice('proj_client_'.length);
+      const proj = (state.projects || []).find(p => p.id === projId);
+      const real = proj && proj.clientId ? (state.clients || []).find(c => c.id === proj.clientId) : null;
+      if (real) {
+        inv.clientId = real.id;
+        if (inv.clientName !== real.name) inv.clientName = real.name;
+        changed = true;
+        return;
+      }
+    }
+    // Rename catch-up: keep the stored clientName in step with the live client.
+    const c = (state.clients || []).find(c => c.id === inv.clientId);
+    if (c && inv.clientName !== c.name) { inv.clientName = c.name; changed = true; }
+  });
+  return changed;
+}
+window.relinkOrphanedSaleClients = relinkOrphanedSaleClients;

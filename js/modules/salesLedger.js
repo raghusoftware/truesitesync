@@ -53,8 +53,13 @@ if (typeof window !== 'undefined') window.lxAnimateKpis = lxAnimateKpis;
 
 export function renderSalesLedger() {
   const clientFilter = document.getElementById('slFilterClient');
-  if (clientFilter && clientFilter.options.length <= 1) {
+  if (clientFilter) {
+    // Rebuild every render so renamed clients show their current name (was
+    // built once, so a rename left the old name stuck in the filter).
+    const keep = clientFilter.value;
+    clientFilter.innerHTML = '<option value="">All Clients</option>';
     state.clients.forEach(c => clientFilter.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+    clientFilter.value = keep;
   }
   const search = (document.getElementById('slSearch')?.value || '').toLowerCase();
   const cFilter = document.getElementById('slFilterClient')?.value || '';

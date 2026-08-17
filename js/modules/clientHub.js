@@ -84,6 +84,11 @@ export function saveClient() {
         data.termsHistory = c.termsHistory;
       }
       Object.assign(c, data);
+      // Propagate the (possibly renamed) client name to their sale invoices'
+      // denormalized clientName, and re-attach any project-orphaned invoices.
+      if (typeof window.relinkOrphanedSaleClients === 'function') {
+        try { window.relinkOrphanedSaleClients(); } catch {}
+      }
     }
   } else {
     createdRec = { id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() };
