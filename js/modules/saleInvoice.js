@@ -193,6 +193,13 @@ export function onSIItemInput(inputEl) {
 function _showItemDropdown(inputEl) {
   const q = (inputEl.value || '').toLowerCase().trim();
   const row = inputEl.closest('tr');
+  // Only ONE autocomplete may be open at a time. Otherwise every row you type in
+  // leaves its populated dropdown open, and those floating panels (z-index 9999,
+  // up to 280px tall) stack over the rows below and block clicking/typing in them
+  // — which looked like the form "hanging" after a few rows.
+  document.querySelectorAll('#siFormTableBody .si-ac-dropdown.active').forEach(d => {
+    if (!row || !row.contains(d)) d.classList.remove('active');
+  });
   let dd = row.querySelector('.si-ac-dropdown');
   if (!dd) {
     const wrap = inputEl.parentElement;
@@ -587,13 +594,31 @@ export function openSaleInvoiceForm(editId) {
   }
   calcSIFormTotal();
   _openFullScreenForm('saleInvoiceFormPanel');
-  // Close dropdowns on click outside
-  setTimeout(() => {
-    const scrollArea = document.getElementById('siFormScrollArea');
-    if (scrollArea) scrollArea.addEventListener('click', (e) => {
-      if (!e.target.closest('.si-autocomplete-wrap') && !e.target.closest('.si-po-wrap')) closeSIDropdowns();
-    }, { once: false });
-  }, 100);
+  _ensureSIDropdownHandlers();
+}
+
+// One-time global handlers that keep the item autocompletes from piling up.
+// Guarded so reopening the form doesn't stack duplicate listeners.
+let _siDropdownHandlersBound = false;
+let _siBlurTimer = null;
+function _ensureSIDropdownHandlers() {
+  if (_siDropdownHandlersBound) return;
+  _siDropdownHandlersBound = true;
+  // Click anywhere that isn't an item/PO field → close all dropdowns.
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('.si-autocomplete-wrap') && !e.target.closest('.si-po-wrap')) closeSIDropdowns();
+  });
+  // Leaving an item field closes its dropdown shortly after (the delay lets an
+  // option click register first). Moving focus into another item field cancels
+  // the pending close so its own dropdown can open.
+  document.addEventListener('focusout', (e) => {
+    if (!e.target.closest?.('.si-item-name')) return;
+    clearTimeout(_siBlurTimer);
+    _siBlurTimer = setTimeout(closeSIDropdowns, 150);
+  });
+  document.addEventListener('focusin', (e) => {
+    if (e.target.closest?.('.si-item-name')) clearTimeout(_siBlurTimer);
+  });
 }
 
 export function addSIFormRow(count = 1) {
