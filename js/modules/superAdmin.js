@@ -113,6 +113,7 @@ function _renderUsersTab() {
   let html = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:750px;">
     <thead><tr style="background:#f8fafc;">
       <th style="text-align:left;padding:10px 12px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">User</th>
+      <th style="text-align:left;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Phone</th>
       <th style="text-align:center;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Projects</th>
       <th style="text-align:center;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Plan</th>
       <th style="text-align:center;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
@@ -122,7 +123,7 @@ function _renderUsersTab() {
     </tr></thead><tbody>`;
 
   if (!users.length) {
-    html += '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;">No users yet</td></tr>';
+    html += '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">No users yet</td></tr>';
   }
 
   users.forEach(u => {
@@ -156,6 +157,7 @@ function _renderUsersTab() {
         <div style="font-size:10px;color:#94a3b8;">${u.email}</div>
         ${u.org_name ? `<div style="font-size:9px;color:#6366f1;font-weight:600;margin-top:2px;">${u.org_name}</div>` : ''}
       </td>
+      <td style="padding:10px;font-family:monospace;font-size:12px;color:${u.phone ? '#1e293b' : '#cbd5e1'};">${u.phone || '—'}</td>
       <td style="text-align:center;padding:10px;font-weight:700;color:#1e293b;">${u.projects}</td>
       <td style="text-align:center;padding:10px;">
         <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${planColors[plan] || '#6b7280'};background:${(planColors[plan] || '#6b7280')}15;padding:3px 8px;border-radius:6px;">${plan}</span>
