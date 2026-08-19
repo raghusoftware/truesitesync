@@ -17,6 +17,10 @@ import { BBS_UNIT_WEIGHTS } from './constants.js';
 
 const _lookupBoqItem = lookupBoqItem;
 
+// Measured-quantity decimal places, per Settings (2 or 3). Used everywhere a
+// quantity is printed so the whole document is consistent.
+const _qtyDp = v => (Number(v) || 0).toFixed(state.printSettings?.measurementDecimals ?? 2);
+
 function _measOrientation() {
   return (state.printSettings?.measurementOrientation) || 'portrait';
 }
@@ -87,7 +91,7 @@ export function exportMeasurementPlantPdf(id) {
         { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
         { content: (first.uom || ''), styles: { halign: 'center', fontStyle: 'bold' } },
         '', '', '', '', '', '',
-        { content: total.toFixed(2), rowSpan: lines.length + 1, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } }
+        { content: _qtyDp(total), rowSpan: lines.length + 1, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } }
       ]);
       lines.forEach(e => {
         body.push([
@@ -99,7 +103,7 @@ export function exportMeasurementPlantPdf(id) {
           { content: e.b || '', styles: { halign: 'center' } },
           { content: e.h || '', styles: { halign: 'center' } },
           '',
-          { content: (e.qty != null && e.qty !== '') ? Number(e.qty).toFixed(2) : '', styles: { halign: 'center' } }
+          { content: (e.qty != null && e.qty !== '') ? _qtyDp(e.qty) : '', styles: { halign: 'center' } }
         ]);
       });
     });
@@ -177,11 +181,11 @@ export function exportSimpleMeasurementPdf(id) {
     let total = 0;
     lines.forEach(e => {
       total += (e.qty || 0);
-      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', (e.qty || 0).toFixed(3), e.uom || first.uom || '']);
+      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', _qtyDp(e.qty), e.uom || first.uom || '']);
     });
     rows.push([
       '', { content: 'Total Quantity', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: total.toFixed(3), styles: { fontStyle: 'bold', halign: 'center', fillColor: totalFill } },
+      { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: totalFill } },
       { content: first.uom || '', styles: { fontStyle: 'bold', halign: 'center' } }
     ]);
   });
@@ -352,7 +356,7 @@ export function exportDetailedMeasurementPdf(id) {
       if (y > ph - mb - 15) { doc.addPage(); y = mt + 5; }
       const remark = e.remarks || '';
       if (remark) { doc.setFont('helvetica', 'bold'); doc.text(remark, colX[1], y + 3); doc.setFont('helvetica', 'normal'); }
-      const vals = [e.nos || '', e.l || '', e.b || '', e.h || '', (e.qty || 0).toFixed(3)];
+      const vals = [e.nos || '', e.l || '', e.b || '', e.h || '', _qtyDp(e.qty)];
       const positions = [colX[2], colX[3], colX[4], colX[5], colX[6]];
       vals.forEach((v, vi) => { if (v !== '') doc.text(String(v), positions[vi], y + 3); });
       // Custom column values
@@ -372,15 +376,15 @@ export function exportDetailedMeasurementPdf(id) {
     y += 2;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
     doc.text(`This Bill Qty in ${unit}`, summaryLabelCol, y + 3);
-    doc.text(thisBillQty.toFixed(3), summaryValCol, y + 3);
+    doc.text(_qtyDp(thisBillQty), summaryValCol, y + 3);
     y += 4;
     doc.setFont('helvetica', 'normal');
     doc.text('Previous Bill Qty', summaryLabelCol, y + 3);
-    doc.text(prevQty.toFixed(3), summaryValCol, y + 3);
+    doc.text(_qtyDp(prevQty), summaryValCol, y + 3);
     y += 4;
     doc.setFont('helvetica', 'bold');
     doc.text(`Total Done Qty in ${unit}`, summaryLabelCol, y + 3);
-    doc.text(totalDoneQty.toFixed(3), summaryValCol, y + 3);
+    doc.text(_qtyDp(totalDoneQty), summaryValCol, y + 3);
     y += 5;
 
     // Separator

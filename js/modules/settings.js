@@ -377,6 +377,7 @@ function renderPrintConfigTab() {
       <div class="flex gap-2">
         <button onclick="window._setMeasDecimals(1)" class="px-4 py-2 rounded-lg text-sm font-bold border ${measDec === 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">1 decimal (5.2)</button>
         <button onclick="window._setMeasDecimals(2)" class="px-4 py-2 rounded-lg text-sm font-bold border ${measDec === 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">2 decimals (5.22)</button>
+        <button onclick="window._setMeasDecimals(3)" class="px-4 py-2 rounded-lg text-sm font-bold border ${measDec === 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">3 decimals (5.223)</button>
       </div>
     </div>
 

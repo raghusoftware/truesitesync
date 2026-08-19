@@ -19,6 +19,12 @@
 }
 .fullscreen-sheet .sheet-scroll-area { max-width: 100%; margin: 0 auto; padding: 0 0.5rem; }
 .excel-table th, .excel-table td { border: 1px solid #e5e7eb; }
+/* Hide the native number-input spinner (up/down) arrows across the ENTIRE app.
+   They clutter every numeric field; users type values directly. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
 .table-input {
   width: 100%; border: none; background: transparent; padding: 0.5rem;
   outline: none; transition: all 0.15s; font-size: 0.875rem;

@@ -264,7 +264,7 @@ window._dprMeasCalc = function (el) {
   const nos = r('.dm-nos'), l = r('.dm-l'), b = r('.dm-b'), h = r('.dm-h');
   const any = nos.has || l.has || b.has || h.has;
   const q = tr.querySelector('.dm-qty');
-  if (any) { q.value = (nos.v * l.v * b.v * h.v).toFixed(3); q.readOnly = true; q.style.background = '#f8fafc'; }
+  if (any) { const dec = (state.printSettings?.measurementDecimals ?? 2); q.value = String(parseFloat((nos.v * l.v * b.v * h.v).toFixed(dec))); q.readOnly = true; q.style.background = '#f8fafc'; }
   else { q.readOnly = false; q.style.background = '#fff'; }
 };
 

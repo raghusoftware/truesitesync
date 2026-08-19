@@ -18,6 +18,10 @@ import { BBS_UNIT_WEIGHTS } from './constants.js';
 
 const _num2 = formatNumber2;
 
+// Measured-quantity decimal places, per Settings (2 or 3) — keeps every printed
+// quantity consistent with the measurement sheet.
+const _qtyDp = v => (Number(v) || 0).toFixed(state.printSettings?.measurementDecimals ?? 2);
+
 /** Parse a #rrggbb hex into [r,g,b]; falls back when invalid. */
 function _rgb(hex, fallback) {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
@@ -65,7 +69,7 @@ export function exportAbstractPlantPdf(id) {
     doc.setFont('helvetica', 'bold'); doc.text('ABSTRACT NO. :', pw - 98, y + 14);
     doc.setFont('helvetica', 'normal'); doc.text(a.abstractNum || '—', pw - 44, y + 14);
 
-    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', (i.qty || 0).toFixed(2), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
     doc.autoTable({
       startY: y + 20, head: [['Sr No.', 'Description', 'UOM', 'QTY', 'Rate', 'Amount']], body: rows, theme: 'grid',
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9 },
@@ -120,7 +124,7 @@ export function exportAbstractPDF(id) {
   doc.text(`Abstract No: ${a.abstractNum || '—'} | Date: ${a.date || '—'}`, 14, nextY + 6);
   doc.text(`Ref Sheet: ${a.sheetNum || '—'} | Area: ${a.area || '—'}`, 14, nextY + 12);
   let rows = [];
-  (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', (i.qty || 0).toFixed(3), i.uom || '', _num2(i.rate), _num2(i.amount)]));
+  (a.items || []).forEach((i, index) => rows.push([index + 1, i.code || '', i.desc || '', _qtyDp(i.qty), i.uom || '', _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: nextY + 18, head: [['#', 'Item Code', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: accent, textColor: headTextCol, fontSize: 8, lineColor: border, lineWidth: 0.2 }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', textColor: fontCol, lineColor: border, lineWidth: 0.15 }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 22 }, 2: { cellWidth: 60 }, 3: { halign: 'right', cellWidth: 18 }, 4: { cellWidth: 15 }, 5: { halign: 'right', cellWidth: 28 }, 6: { halign: 'right', cellWidth: 28 } } });
   let gtY = doc.lastAutoTable.finalY + 12;
   doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
@@ -176,10 +180,10 @@ export function exportDetailedAbstractPDF(id) {
       rw.code || '-',
       rw.desc || '-',
       rw.uom || '-',
-      rw.boqQty ? rw.boqQty.toFixed(3) : '-',
-      rw.prevQty.toFixed(3),
-      rw.thisBillQty.toFixed(3),
-      rw.totalQty.toFixed(3),
+      rw.boqQty ? _qtyDp(rw.boqQty) : '-',
+      _qtyDp(rw.prevQty),
+      _qtyDp(rw.thisBillQty),
+      _qtyDp(rw.totalQty),
       _num2(rw.rate),
       _num2(rw.preAmt),
       _num2(rw.thisAmt),
