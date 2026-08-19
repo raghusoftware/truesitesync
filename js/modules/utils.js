@@ -370,8 +370,8 @@ export function getCompanyHeaderForPDF(doc) {
   const blockW = Math.max(60, Math.min(pw - ml - mr, clearW));
 
   let ty = topY + 2;
-  const centered = (text, sizeFactor) => {
-    doc.splitTextToSize(text, blockW).forEach(line => {
+  const centered = (text, sizeFactor, w) => {
+    doc.splitTextToSize(text, w || blockW).forEach(line => {
       doc.text(line, cx, ty, { align: 'center' });
       ty += sizeFactor;
     });
@@ -391,17 +391,19 @@ export function getCompanyHeaderForPDF(doc) {
   doc.setTextColor(dtColor[0], dtColor[1], dtColor[2]);
   const lineH = hs.detailsSize * 0.5 + 1.8;
 
-  if (hs.showAddress && cp.Address) centered(cp.Address, lineH);
-
-  const contactParts = [];
-  if (hs.showPhone && cp.Phone) contactParts.push('Ph: ' + cp.Phone);
-  if (hs.showEmail && cp.Email) contactParts.push(cp.Email);
-  if (contactParts.length) centered(contactParts.join('   |   '), lineH);
-
-  if (hs.showGST && cp.GST) {
-    doc.setFont(hs.detailsFont, hs.gstStyle);
-    doc.setFontSize(hs.gstSize);
-    centered('GSTIN: ' + String(cp.GST).toUpperCase(), hs.gstSize * 0.5 + 1.8);
+  // All contact details on ONE line under the company name:
+  //   Address  |  Ph: …  |  email  |  GSTIN: …
+  // (splitTextToSize wraps it only if it's too wide to fit clear of the logo).
+  const parts = [];
+  if (hs.showAddress && cp.Address) parts.push(cp.Address);
+  if (hs.showPhone && cp.Phone) parts.push('Ph: ' + cp.Phone);
+  if (hs.showEmail && cp.Email) parts.push(cp.Email);
+  if (hs.showGST && cp.GST) parts.push('GSTIN: ' + String(cp.GST).toUpperCase());
+  if (parts.length) {
+    // The details line sits below the company name; once it clears the logo it
+    // can use the full page width, so it stays on one line far more often.
+    const detW = (ty >= logoBottom + 1) ? (pw - ml - mr) : blockW;
+    centered(parts.join('   |   '), lineH, detW);
   }
 
   // Header ends below whichever is taller — the logo or the centered text.
