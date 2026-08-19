@@ -1137,16 +1137,16 @@ window._cfExportSchedulePDF = function () {
   if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded — refresh the page', 'error'); return; }
   const doc = new window.jspdf.jsPDF('portrait');
   const sym = getCurrencySymbol();
-  const cp = state.companyProfile || {};
   const n = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  doc.setFontSize(15); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
-  doc.text(cp.CompanyName || 'Cash Flow', 105, 15, null, null, 'center');
-  doc.setFontSize(11); doc.text('Cash-Flow Transactions', 105, 22, null, null, 'center');
+  let hy = 15;
+  if (typeof window.getCompanyHeaderForPDF === 'function') { try { hy = window.getCompanyHeaderForPDF(doc); } catch {} }
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
+  doc.text('Cash-Flow Transactions', 105, hy + 4, null, null, 'center');
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
-  doc.text(`Period: ${snap.fromD} to ${snap.toD}  |  ${snap.dir === 'all' ? 'All' : snap.dir === 'in' ? 'Money In' : 'Money Out'}  |  Cash in hand: ${sym} ${n(snap.cash)}`, 14, 30);
+  doc.text(`Period: ${snap.fromD} to ${snap.toD}  |  ${snap.dir === 'all' ? 'All' : snap.dir === 'in' ? 'Money In' : 'Money Out'}  |  Cash in hand: ${sym} ${n(snap.cash)}`, 14, hy + 11);
   const body = snap.rows.map(r => [r.dateFmt, r.ptext, r.dir === 'in' ? sym + ' ' + n(r.amount) : '', r.dir === 'out' ? sym + ' ' + n(r.amount) : '', r.bal != null ? sym + ' ' + n(r.bal) : '']);
   doc.autoTable({
-    startY: 35, head: [['Date', 'Description', 'In', 'Out', 'Balance']], body, theme: 'grid',
+    startY: hy + 15, head: [['Date', 'Description', 'In', 'Out', 'Balance']], body, theme: 'grid',
     headStyles: { fillColor: [15, 23, 42], fontSize: 9 },
     styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
     columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 'auto' }, 2: { halign: 'right', cellWidth: 26, textColor: [22, 163, 74] }, 3: { halign: 'right', cellWidth: 26, textColor: [220, 38, 38] }, 4: { halign: 'right', cellWidth: 28 } }

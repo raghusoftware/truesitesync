@@ -283,25 +283,10 @@ export function printReport(elemId, title) {
  * Returns the y position just below the header (after a separator rule).
  */
 export function getSimpleHeaderForPDF(doc, opts = {}) {
-  const cp = state.companyProfile || {};
-  const pw = doc.internal.pageSize.getWidth();
-  const ml = opts.ml ?? 14, mr = opts.mr ?? 14;
-  let y = 14, textX = ml;
-  if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, y, 22, 22); textX = ml + 27; } catch {} }
-  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text(cp.CompanyName || '', textX, y + 6);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(70, 70, 70);
-  const hp = [];
-  if (cp.Address) hp.push(cp.Address);
-  if (cp.Phone) hp.push('Ph: ' + cp.Phone);
-  if (cp.Email) hp.push(cp.Email);
-  if (cp.GST) hp.push('GSTIN: ' + String(cp.GST).toUpperCase());
-  let dy = y + 11;
-  doc.splitTextToSize(hp.join('   |   '), pw - textX - mr).forEach(line => { doc.text(line, textX, dy); dy += 4; });
-  y = Math.max(y + 22, dy) + 2;
-  doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y);
-  doc.setTextColor(0, 0, 0);
-  return y + 4;
+  // Unified with the standard letterhead so every PDF looks identical —
+  // logo top-left, company details centered. (Kept as a named export because
+  // several exporters call it directly.)
+  return getCompanyHeaderForPDF(doc);
 }
 
 // Exposed on window so exporter modules can use it
@@ -353,90 +338,81 @@ if (typeof window !== 'undefined') {
 
 /** Get company header for jsPDF documents */
 export function getCompanyHeaderForPDF(doc) {
-  const cp = state.companyProfile;
+  const cp = state.companyProfile || {};
   const hs = getHeaderSettings();
   const pw = doc.internal.pageSize.getWidth();
   const ml = 14, mr = 14;
-  let y = 15;
+  const topY = 14;
 
-  if (!hs.showHeader) {
-    return y;
-  }
+  if (!hs.showHeader) return 15;
 
+  // ── Standard letterhead: logo pinned top-left, company block centered ──
+  // One consistent, "letter-pad" look for every PDF the app generates, no matter
+  // the caller. Colors / sizes / fonts / visibility toggles still come from the
+  // user's header settings — only the layout is fixed.
   const nameColor = _hexToRgb(hs.companyNameColor);
   const dtColor = _hexToRgb(hs.detailsColor);
-  const nameAlign = hs.companyNameAlign;
-  const dtAlign = hs.detailsAlign;
-  const nameX = _pdfAlignX(nameAlign, pw, ml, mr);
-  const dtX = _pdfAlignX(dtAlign, pw, ml, mr);
+  const cx = pw / 2;
 
-  if (hs.showLogo && cp.logo) {
+  // Logo — top-left corner.
+  let logoBottom = topY;
+  const hasLogo = hs.showLogo && cp.logo;
+  if (hasLogo) {
     try {
-      const lw = hs.logoWidth, lh = hs.logoHeight;
-      const lx = nameAlign === 'center' ? pw/2 - lw/2 : nameAlign === 'right' ? pw - mr - lw : ml;
-      doc.addImage(cp.logo, 'PNG', lx, y - 5, lw, lh);
-      if (nameAlign === 'center') { y += lh + 2; } else { y += 0; }
+      doc.addImage(cp.logo, 'PNG', ml, topY, hs.logoWidth, hs.logoHeight);
+      logoBottom = topY + hs.logoHeight;
     } catch {}
   }
 
-  const hasLogoLeft = hs.showLogo && cp.logo && nameAlign !== 'center';
-  const textXOff = hasLogoLeft ? ml + hs.logoWidth + 4 : nameX;
+  // Keep the centered text clear of the logo (and its right-hand mirror), so a
+  // long address wraps instead of running under the logo.
+  const clearW = hasLogo ? 2 * (cx - (ml + hs.logoWidth + 6)) : pw - ml - mr;
+  const blockW = Math.max(60, Math.min(pw - ml - mr, clearW));
 
-  if (hs.showCompanyName) {
-    doc.setFontSize(hs.companyNameSize);
+  let ty = topY + 2;
+  const centered = (text, sizeFactor) => {
+    doc.splitTextToSize(text, blockW).forEach(line => {
+      doc.text(line, cx, ty, { align: 'center' });
+      ty += sizeFactor;
+    });
+  };
+
+  if (hs.showCompanyName && cp.CompanyName) {
     doc.setFont(hs.companyNameFont, hs.companyNameStyle);
+    doc.setFontSize(hs.companyNameSize);
     doc.setTextColor(nameColor[0], nameColor[1], nameColor[2]);
-    if (hasLogoLeft) {
-      doc.text(cp.CompanyName || '', textXOff, y + 2);
-    } else {
-      doc.text(cp.CompanyName || '', nameX, y + 2, { align: nameAlign });
-    }
-    y += hs.companyNameSize * 0.4 + 2;
+    ty += hs.companyNameSize * 0.35;
+    centered(cp.CompanyName, hs.companyNameSize * 0.42 + 1.5);
+    ty += 1.5;
   }
 
-  doc.setFontSize(hs.detailsSize);
   doc.setFont(hs.detailsFont, 'normal');
+  doc.setFontSize(hs.detailsSize);
   doc.setTextColor(dtColor[0], dtColor[1], dtColor[2]);
+  const lineH = hs.detailsSize * 0.5 + 1.8;
 
-  if (hs.showAddress && cp.Address) {
-    if (hasLogoLeft) {
-      doc.text(cp.Address, textXOff, y + 4);
-    } else {
-      doc.text(cp.Address, dtX, y + 4, { align: dtAlign });
-    }
-    y += hs.detailsSize * 0.5 + 2;
-  }
+  if (hs.showAddress && cp.Address) centered(cp.Address, lineH);
 
   const contactParts = [];
-  if (hs.showPhone && cp.Phone) contactParts.push(cp.Phone);
+  if (hs.showPhone && cp.Phone) contactParts.push('Ph: ' + cp.Phone);
   if (hs.showEmail && cp.Email) contactParts.push(cp.Email);
-  if (contactParts.length) {
-    if (hasLogoLeft) {
-      doc.text(contactParts.join('  |  '), textXOff, y + 4);
-    } else {
-      doc.text(contactParts.join('  |  '), dtX, y + 4, { align: dtAlign });
-    }
-    y += hs.detailsSize * 0.5 + 2;
-  }
+  if (contactParts.length) centered(contactParts.join('   |   '), lineH);
 
   if (hs.showGST && cp.GST) {
-    doc.setFontSize(hs.gstSize);
     doc.setFont(hs.detailsFont, hs.gstStyle);
-    if (hasLogoLeft) {
-      doc.text('GSTIN: ' + String(cp.GST).toUpperCase(), textXOff, y + 4);
-    } else {
-      doc.text('GSTIN: ' + String(cp.GST).toUpperCase(), dtX, y + 4, { align: dtAlign });
-    }
-    y += hs.gstSize * 0.5 + 2;
+    doc.setFontSize(hs.gstSize);
+    centered('GSTIN: ' + String(cp.GST).toUpperCase(), hs.gstSize * 0.5 + 1.8);
   }
 
-  y += 2;
+  // Header ends below whichever is taller — the logo or the centered text.
+  let y = Math.max(ty, logoBottom) + 3;
   if (hs.showSeparator) {
     const sepColor = _hexToRgb(hs.separatorColor);
     doc.setDrawColor(sepColor[0], sepColor[1], sepColor[2]);
     doc.setLineWidth(hs.separatorWidth);
     doc.line(ml, y, pw - mr, y);
   }
+  doc.setTextColor(0, 0, 0);
   return y + hs.headerSpacing;
 }
 
