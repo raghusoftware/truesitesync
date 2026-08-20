@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.57"></script>
+    <script type="module" src="js/app.js?v=1.6.58"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -198,6 +198,12 @@
         </div>
       </div>
       <div class="flex items-center gap-3 header-right-items">
+        <span class="header-support text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 whitespace-nowrap" title="Call our support for any query">
+          <span>📞</span><span class="hidden sm:inline">Support:</span>
+          <a href="tel:+917383503062" class="hover:underline">73835&nbsp;03062</a>
+          <span class="text-emerald-300">/</span>
+          <a href="tel:+917043274323" class="hover:underline">70432&nbsp;74323</a>
+        </span>
         <span id="headerProjBadge" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full"></span>
         <span id="headerSyncBadge" onclick="window._manualSync&&window._manualSync()" class="text-[10px] font-bold px-2 py-1 rounded-full cursor-pointer" title="Click to sync now"></span>
         <span id="headerUserBadge" onclick="window._rbacLogout()" title="Click to log out" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full cursor-pointer"></span>
