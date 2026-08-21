@@ -1,4 +1,4 @@
-import { syncPush, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
+import { syncPush, syncReplace, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
 import { idbSet, idbGet } from '../database/idbCache.js';
 
 const STORAGE_KEYS = {
@@ -278,6 +278,26 @@ export function saveAllData() {
     // Always push to cloud regardless of local success.
     syncPush(key, state[key]);
   }
+}
+
+/** Persist ONE key locally + normal (union-merge) cloud push. */
+export function saveKey(key) {
+  if (state[key] === undefined) return;
+  const json = JSON.stringify(state[key]);
+  try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
+  setLocalKeyTs(key, Date.now());
+  syncPush(key, state[key]);
+}
+
+/** Persist ONE key locally + HARD-overwrite the cloud (bypasses the union merge).
+ *  Use when SHRINKING a synced array — emptying the recycle bin, permanent delete,
+ *  restore — which a normal merge push can never do (it only re-adds removed rows). */
+export function saveKeyReplace(key) {
+  if (state[key] === undefined) return;
+  const json = JSON.stringify(state[key]);
+  try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
+  setLocalKeyTs(key, Date.now());
+  syncReplace(key, state[key]);
 }
 
 /**

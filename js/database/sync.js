@@ -529,6 +529,34 @@ export async function syncPushImmediate(dataKey, value) {
   return _pushKey(dataKey, value);
 }
 
+/**
+ * HARD OVERWRITE one key in the cloud, bypassing the server-side array-union
+ * merge. The normal push (push_module_merged / the merge-guard trigger) can only
+ * GROW a synced array — it re-adds any records the incoming payload lacks. That's
+ * correct for edits, but makes it impossible to SHRINK an array (empty the recycle
+ * bin, permanent-delete, restore). This calls push_module_replace, which flips the
+ * merge-guard bypass so the payload replaces the row wholesale.
+ */
+export async function syncReplace(dataKey, value) {
+  const sb = getSupabase();
+  if (!sb || !_online) { _dirtyKeys.add(dataKey); return false; }
+  const orgId = await _resolveOrg();
+  if (!orgId) { _dirtyKeys.add(dataKey); return false; }
+  _inFlight.add(dataKey);
+  // Pre-seed so the realtime echo of this exact value is ignored (no re-apply).
+  _lastJson[dataKey] = JSON.stringify(value);
+  try {
+    const { error } = await sb.rpc('push_module_replace', { p_module: dataKey, p_payload: value, p_org: orgId });
+    if (error) { console.warn(`[sync] replace ${dataKey} failed:`, error.message); _dirtyKeys.add(dataKey); return false; }
+    _dirtyKeys.delete(dataKey);
+    return true;
+  } catch (e) {
+    console.warn(`[sync] replace ${dataKey} error:`, e); _dirtyKeys.add(dataKey); return false;
+  } finally {
+    _inFlight.delete(dataKey);
+  }
+}
+
 // ════════════════════════════════════════════════
 //  FLUSH ON EXIT — never lose the last edit
 // ════════════════════════════════════════════════

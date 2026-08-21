@@ -9,7 +9,7 @@
  * Delete Permanently drops it from the bin for good.
  * ═══════════════════════════════════════════════════════════
  */
-import { state, saveAllData } from './state.js';
+import { state, saveAllData, saveKey, saveKeyReplace } from './state.js';
 import { showToast } from './utils.js';
 
 const _who = () => { try { const u = window.getCurrentUser?.(); return u?.name || u?.email || ''; } catch { return ''; } };
@@ -42,7 +42,7 @@ export function recycleDelete(key, id, type, label) {
 window.recycleDelete = recycleDelete;
 
 /** Restore a binned item back into its source array. */
-export function restoreFromBin(binId) {
+export async function restoreFromBin(binId) {
   const bin = state.recycleBin || [];
   const i = bin.findIndex(e => e.binId === binId);
   if (i < 0) return;
@@ -51,7 +51,11 @@ export function restoreFromBin(binId) {
     state[e.key].push(e.item);
   }
   bin.splice(i, 1);
-  saveAllData();
+  // The bin entry IS the tombstone for this record, so it must be REMOVED from the
+  // cloud (hard overwrite) before the restored record is pushed — otherwise the
+  // server would tombstone it straight back out of its source array.
+  await saveKeyReplace('recycleBin');
+  saveKey(e.key);
   showToast(`Restored ${e.type}`, 'success');
   renderRecycleBin();
   if (typeof window.refreshCurrentView === 'function') { try { window.refreshCurrentView(); } catch {} }
@@ -62,7 +66,8 @@ window.restoreFromBin = restoreFromBin;
 export function permanentDelete(binId) {
   if (!confirm('Permanently delete this item? This cannot be undone.')) return;
   state.recycleBin = (state.recycleBin || []).filter(e => e.binId !== binId);
-  saveAllData();
+  // Hard overwrite — a normal push would union the removed entry right back.
+  saveKeyReplace('recycleBin');
   showToast('Permanently deleted', 'warning');
   renderRecycleBin();
 }
@@ -73,7 +78,8 @@ export function emptyRecycleBin() {
   if (!(state.recycleBin || []).length) return;
   if (!confirm('Empty the recycle bin? Everything in it will be permanently deleted.')) return;
   state.recycleBin = [];
-  saveAllData();
+  // Hard overwrite so the emptied bin actually sticks (the union merge can't shrink it).
+  saveKeyReplace('recycleBin');
   showToast('Recycle bin emptied', 'warning');
   renderRecycleBin();
 }
