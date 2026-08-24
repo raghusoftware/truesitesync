@@ -154,21 +154,32 @@ export async function loadOrgMembers() {
   const sb = getSupabase();
   if (!sb || !_currentOrg) return [];
 
+  // Real names + emails come from a SECURITY DEFINER RPC that reads auth.users
+  // (the client can't read other members' emails directly, which is why the list
+  // used to show "User"). Returns the row id too, for role-change / remove.
+  try {
+    const { data, error } = await sb.rpc('org_member_list', { p_org_id: _currentOrg.id });
+    if (!error && Array.isArray(data)) {
+      _orgMembers = data.map(m => ({
+        id: m.id, user_id: m.user_id, role: m.role, is_active: m.is_active, joined_at: m.joined_at,
+        email: m.email || '',
+        phone: m.phone || '',
+        display_name: (m.display_name && m.display_name.trim()) || (m.email ? m.email.split('@')[0] : 'User'),
+      }));
+      return _orgMembers;
+    }
+  } catch (e) { console.warn('[org] member_list rpc failed, falling back:', e?.message || e); }
+
+  // Fallback (RPC unavailable): row data only, best-effort names from user_profiles.
   const { data } = await sb.from('org_members')
     .select('id, user_id, role, is_active, joined_at')
     .eq('org_id', _currentOrg.id)
     .order('joined_at', { ascending: true });
-
-  // Fetch user profiles
   if (data?.length) {
     const userIds = data.map(m => m.user_id);
-    const { data: profiles } = await sb.from('user_profiles')
-      .select('id, display_name, email')
-      .in('id', userIds);
-
+    const { data: profiles } = await sb.from('user_profiles').select('id, display_name, email').in('id', userIds);
     const profileMap = {};
     (profiles || []).forEach(p => profileMap[p.id] = p);
-
     _orgMembers = data.map(m => ({
       ...m,
       display_name: profileMap[m.user_id]?.display_name || 'User',
@@ -177,7 +188,6 @@ export async function loadOrgMembers() {
   } else {
     _orgMembers = [];
   }
-
   return _orgMembers;
 }
 
@@ -549,25 +559,35 @@ export function renderTeamPanel() {
       <h4 style="font-size:13px;font-weight:700;color:#1e293b;margin:0;">Team Members (${activeMembers.length}/${_currentOrg?.max_seats || 3})</h4>
     </div>`;
 
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const _cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+  const _initials = n => { const p = String(n || 'U').trim().split(/\s+/); return ((p[0] || 'U')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); };
+  const meUser = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+  const myId = meUser?.supabaseId || meUser?.id || '';
+  const myEmail = (meUser?.email || '').toLowerCase();
+  const roleColors = { owner: '#7c3aed', admin: '#2563eb', member: '#059669', supervisor: '#d97706', viewer: '#6b7280' };
+
   activeMembers.forEach(m => {
     const isOwner = m.role === 'owner';
-    const roleColors = { owner:'#7c3aed', admin:'#2563eb', member:'#059669', supervisor:'#d97706', viewer:'#6b7280' };
+    const isMe = (m.user_id && m.user_id === myId) || (m.email && m.email.toLowerCase() === myEmail);
+    const rc = roleColors[m.role] || '#6b7280';
+    const canManage = admin && !isOwner && !isMe;   // can't demote/remove yourself or the owner
     html += `
-      <div style="padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:${roleColors[m.role] || '#6b7280'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;">${(m.display_name || 'U')[0].toUpperCase()}</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#1e293b;">${m.display_name || 'User'}</div>
-            <div style="font-size:11px;color:#94a3b8;">${m.email || ''}</div>
+      <div style="padding:13px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;transition:background .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+        <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:220px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:${rc};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0;letter-spacing:.5px;box-shadow:0 1px 3px ${rc}55;">${_initials(m.display_name)}</div>
+          <div style="min-width:0;">
+            <div style="font-size:13.5px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">${_esc(m.display_name || 'User')}${isMe ? '<span style="font-size:9px;font-weight:800;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 6px;border-radius:999px;">YOU</span>' : ''}</div>
+            <div style="font-size:11.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">${_esc(m.email || '')}${m.phone ? ' &middot; ' + _esc(m.phone) : ''}</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${roleColors[m.role] || '#6b7280'};background:${roleColors[m.role] || '#6b7280'}15;padding:3px 8px;border-radius:6px;">${m.role}</span>
-          ${admin && !isOwner ? `
-            <select onchange="_orgChangeRole('${m.id}',this.value)" style="font-size:11px;padding:4px 6px;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;">
-              ${['admin','member','supervisor','viewer'].map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${rc};background:${rc}15;border:1px solid ${rc}33;padding:3px 10px;border-radius:999px;">${_cap(m.role)}</span>
+          ${canManage ? `
+            <select onchange="_orgChangeRole('${m.id}',this.value)" title="Change this member's role" style="font-size:11px;font-weight:600;padding:5px 8px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;background:#fff;color:#334155;outline:none;">
+              ${['admin', 'member', 'supervisor', 'viewer'].map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${_cap(r)}</option>`).join('')}
             </select>
-            <button onclick="_orgRemoveMember('${m.id}')" style="padding:4px 8px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;">Remove</button>
+            <button onclick="_orgRemoveMember('${m.id}')" title="Remove member" style="padding:5px 11px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;">Remove</button>
           ` : ''}
         </div>
       </div>`;
