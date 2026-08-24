@@ -1,5 +1,5 @@
 import { state, saveAllData, saveEquipmentData } from './state.js';
-import { showToast, getAllLocations, getCurrencySymbol } from './utils.js';
+import { showToast, getAllLocations, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getPdfCurrency } from './utils.js';
 
 // ==========================================
 // LOCATION, ASSETS & MAINTENANCE
@@ -755,6 +755,20 @@ window._eqLogTypeChange = function() {
   document.querySelectorAll('.eq-fuel').forEach(el => el.style.display = type === 'Fuel' ? '' : 'none');
 };
 
+// Auto-calculate Hours Run from Start/Finish time (handles an overnight shift).
+window._eqCalcHours = function() {
+  const s = document.getElementById('eqLogStart')?.value;
+  const f = document.getElementById('eqLogFinish')?.value;
+  if (!s || !f) return;
+  const [sh, sm] = s.split(':').map(Number);
+  const [fh, fm] = f.split(':').map(Number);
+  let mins = (fh * 60 + fm) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;               // finish past midnight
+  const hrs = Math.round((mins / 60) * 100) / 100;
+  const hEl = document.getElementById('eqLogHours');
+  if (hEl) hEl.value = hrs;
+};
+
 export function saveEquipmentLog() {
   const assetId = document.getElementById('eqLogAsset').value;
   const date = document.getElementById('eqLogDate').value;
@@ -776,9 +790,12 @@ export function saveEquipmentLog() {
     if (hours <= 0 && km <= 0) return showToast('Enter hours and/or km run', 'error');
     logEntry.hours = hours;
     logEntry.km = km;
+    logEntry.startTime = document.getElementById('eqLogStart')?.value || '';
+    logEntry.finishTime = document.getElementById('eqLogFinish')?.value || '';
     logEntry.operatorId = document.getElementById('eqLogOperator').value;
     const op = (state.labourMaster || []).find(l => l.id === logEntry.operatorId);
     const parts = [];
+    if (logEntry.startTime && logEntry.finishTime) parts.push(`${logEntry.startTime}–${logEntry.finishTime}`);
     if (hours) parts.push(`${hours} hrs`);
     if (km) parts.push(`${km} km`);
     logEntry.remarks = `${parts.join(' · ')}${op ? ' · Op: ' + op.name : ''}${remarks ? ' · ' + remarks : ''}`;
@@ -821,7 +838,7 @@ export function saveEquipmentLog() {
   saveEquipmentData();
   saveAllData();
 
-  ['eqLogAmount', 'eqLogRemarks', 'eqLogHours', 'eqLogKm', 'eqLogLitres', 'eqLogReceipt'].forEach(id => {
+  ['eqLogAmount', 'eqLogRemarks', 'eqLogHours', 'eqLogKm', 'eqLogLitres', 'eqLogReceipt', 'eqLogStart', 'eqLogFinish'].forEach(id => {
     if (document.getElementById(id)) document.getElementById(id).value = '';
   });
 
@@ -860,6 +877,105 @@ export function renderEquipmentLog() {
     </tr>`;
   }).join('') || '<tr><td colspan="7" class="p-4 text-center text-slate-400">No logs yet.</td></tr>';
 }
+
+// ── Equipment PDF reports (Usage + Full) ──────────────────────────────────────
+function _eqWoName(l) {
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const g = proj?.boqs?.find(b => b.id === l.siteId);
+  if (g) return (g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ');
+  return getAllLocations().find(x => x.id === l.siteId)?.name || '-';
+}
+// Logs for the current project, honouring the Activity Log's equipment filter.
+function _eqExportLogs() {
+  const filterAsset = document.getElementById('eqFilterAsset')?.value || '';
+  const projEquipIds = new Set((state.equipmentList || []).filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => e.id));
+  let logs = (state.equipmentLogs || []).filter(l => projEquipIds.has(l.assetId));
+  if (filterAsset) logs = logs.filter(l => l.assetId === filterAsset);
+  logs = logs.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  let assetLabel = 'All Equipment';
+  if (filterAsset) { const e = state.equipmentList.find(x => x.id === filterAsset); assetLabel = e ? `${e.name} (${e.regNo || 'No Reg'})` : 'Equipment'; }
+  return { logs, assetLabel };
+}
+function _eqReportHead(doc, title, assetLabel) {
+  const pw = doc.internal.pageSize.getWidth();
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text(title, pw / 2, y + 2, { align: 'center' });
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(assetLabel, 14, y + 9);
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  if (proj) doc.text(`Project: ${proj.name}`, pw - 14, y + 9, { align: 'right' });
+  return y + 13;
+}
+
+// PDF 1 — pure usage (runbook): date, operator, start/finish, hours, km.
+window.exportEquipmentUsagePdf = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+  const { logs, assetLabel } = _eqExportLogs();
+  const usage = logs.filter(l => l.type === 'Runbook' || l.hours || l.km);
+  if (!usage.length) return showToast('No usage entries to export', 'warning');
+  const doc = new window.jspdf.jsPDF('landscape');
+  const y = _eqReportHead(doc, 'Equipment Usage Report', assetLabel);
+  let totH = 0, totKm = 0;
+  const rows = usage.map((l, i) => {
+    const eq = state.equipmentList.find(e => e.id === l.assetId);
+    const op = (state.labourMaster || []).find(o => o.id === l.operatorId);
+    totH += Number(l.hours) || 0; totKm += Number(l.km) || 0;
+    return [i + 1, l.date, `${eq?.name || '?'} (${eq?.regNo || ''})`, op?.name || '-', l.startTime || '-', l.finishTime || '-',
+      (Number(l.hours) || 0) ? Number(l.hours).toFixed(2) : '-', (Number(l.km) || 0) ? Number(l.km).toFixed(1) : '-', _eqWoName(l)];
+  });
+  doc.autoTable({
+    startY: y, head: [['#', 'Date', 'Equipment', 'Operator', 'Start', 'Finish', 'Hours', 'KM', 'Work Order / Site']],
+    body: rows, theme: 'grid', headStyles: { fillColor: [16, 185, 129], fontSize: 8.5 }, styles: { fontSize: 8, cellPadding: 2 },
+    columnStyles: { 6: { halign: 'center' }, 7: { halign: 'center' } },
+    foot: [[{ content: 'TOTAL', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, { content: totH.toFixed(2), styles: { fontStyle: 'bold', halign: 'center' } }, { content: totKm.toFixed(1), styles: { fontStyle: 'bold', halign: 'center' } }, '']],
+    footStyles: { fillColor: [236, 253, 245], textColor: [6, 95, 70] }
+  });
+  mobileSavePDF(doc, `Equipment_Usage_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// PDF 2 — full report: every activity row + expense totals and a summary.
+window.exportEquipmentFullPdf = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+  const { logs, assetLabel } = _eqExportLogs();
+  if (!logs.length) return showToast('No log entries to export', 'warning');
+  const cur = getPdfCurrency();  // PDF-safe "Rs. " — the ₹ glyph is missing from jsPDF fonts
+  const n0 = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const doc = new window.jspdf.jsPDF('landscape');
+  const y = _eqReportHead(doc, 'Equipment Activity & Expense Report', assetLabel);
+  let totH = 0, totKm = 0, totL = 0, totAmt = 0; const byCat = {};
+  const rows = logs.map((l, i) => {
+    const eq = state.equipmentList.find(e => e.id === l.assetId);
+    totH += Number(l.hours) || 0; totKm += Number(l.km) || 0; totL += Number(l.litres) || 0; totAmt += Number(l.amount) || 0;
+    byCat[l.type] = (byCat[l.type] || 0) + (Number(l.amount) || 0);
+    const det = [];
+    if (l.hours) det.push(`${Number(l.hours).toFixed(2)} hrs`);
+    if (l.km) det.push(`${Number(l.km).toFixed(1)} km`);
+    if (l.litres) det.push(`${l.litres} L`);
+    return [i + 1, l.date, `${eq?.name || '?'} (${eq?.regNo || ''})`, l.type, _eqWoName(l), det.join(' · ') || '-',
+      (Number(l.amount) || 0) ? cur + n0(l.amount) : '-', l.remarks || '-'];
+  });
+  doc.autoTable({
+    startY: y, head: [['#', 'Date', 'Equipment', 'Type', 'Work Order / Site', 'Usage', 'Amount', 'Remarks']],
+    body: rows, theme: 'grid', headStyles: { fillColor: [37, 99, 235], fontSize: 8.5 }, styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 22 }, 3: { cellWidth: 24 }, 5: { cellWidth: 28 }, 6: { halign: 'right', cellWidth: 30 } },
+    foot: [[{ content: 'TOTAL EXPENSE', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, { content: cur + n0(totAmt), styles: { halign: 'right', fontStyle: 'bold' } }, '']],
+    footStyles: { fillColor: [239, 246, 255], textColor: [30, 58, 138] }
+  });
+  let sy = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('Summary', 14, sy);
+  const sumRows = Object.entries(byCat).filter(([, v]) => v > 0).map(([k, v]) => [k + ' expense', cur + n0(v)]);
+  sumRows.push(['Total Hours Run', totH.toFixed(2)]);
+  sumRows.push(['Total KM Run', totKm.toFixed(1)]);
+  if (totL) sumRows.push(['Total Fuel (L)', totL.toFixed(1)]);
+  sumRows.push(['GRAND TOTAL EXPENSE', cur + n0(totAmt)]);
+  doc.autoTable({
+    startY: sy + 2, body: sumRows, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 }, 1: { halign: 'right' } }, margin: { left: 14 }, tableWidth: 150
+  });
+  mobileSavePDF(doc, `Equipment_Full_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+};
 
 export function deleteEquipment(id) {
   if (!confirm('Remove this equipment?')) return;
