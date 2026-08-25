@@ -223,6 +223,11 @@ function _getFallbackUser() {
   } catch { return null; }
 }
 
+// Accounts that must always keep full access (they can't be locked out by a
+// restricted rbac role — otherwise the owner picking "Supervisor" hides
+// everything from themselves with no way back).
+const SUPER_ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
+
 function _mapSupabaseUser(supaUser) {
   const meta = supaUser.user_metadata || {};
   // Map to our internal user format. IMPORTANT: match the RBAC entry by
@@ -232,7 +237,13 @@ function _mapSupabaseUser(supaUser) {
   const em = (supaUser.email || '').trim().toLowerCase();
   const rbacUser = (state.rbacUsers || []).find(u => u.supabaseId === supaUser.id)
     || (em ? (state.rbacUsers || []).find(u => ((u.email || u.username || '').trim().toLowerCase() === em)) : null);
-  const role = rbacUser?.role || meta.role || 'Admin';
+  let role = rbacUser?.role || meta.role || 'Admin';
+  // Safeguard: the org owner and super-admins always have full access, no matter
+  // what rbac role is on their record — they can never lock themselves out.
+  try {
+    if (SUPER_ADMINS.includes(em)) role = 'Admin';
+    else if (typeof window !== 'undefined' && typeof window.getCurrentOrg === 'function' && window.getCurrentOrg()?._userRole === 'owner') role = 'Admin';
+  } catch {}
   return {
     id: rbacUser?.id || 'usr_supa_' + supaUser.id.substring(0, 8),
     supabaseId: supaUser.id,

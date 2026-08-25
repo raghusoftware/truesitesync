@@ -139,6 +139,7 @@ export async function loadUserOrg() {
 
 /** Get current org */
 export function getCurrentOrg() { return _currentOrg; }
+if (typeof window !== 'undefined') window.getCurrentOrg = getCurrentOrg;
 
 /** Check if user is org owner/admin */
 export function isOrgAdmin() {
