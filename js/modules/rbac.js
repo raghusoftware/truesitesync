@@ -104,10 +104,10 @@ const DEFAULT_ROLES = {
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
   ]},
   Engineer: { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'reportsView',
   ]},
 };
 
@@ -165,6 +165,23 @@ export function initRBAC() {
   Object.entries(DEFAULT_ROLES).forEach(([name, def]) => {
     if (!state.rbacRoles[name]) { state.rbacRoles[name] = JSON.parse(JSON.stringify(def)); _rolesChanged = true; }
   });
+  // One-time: Abstract is a billing module — hide it from the default site roles
+  // (Site Supervisor / Engineer) so only managers (Project Manager+) see & bill it.
+  // Guarded so it runs once; an admin can re-grant it later via the matrix without
+  // it being stripped again.
+  if (!state.rbacFlags) state.rbacFlags = {};
+  if (!state.rbacFlags.hideAbstractFromSiteRolesV1) {
+    ['Site Supervisor', 'Engineer'].forEach(rn => {
+      const r = state.rbacRoles[rn];
+      if (r && Array.isArray(r.permissions)) {
+        const before = r.permissions.length;
+        r.permissions = r.permissions.filter(p => p !== 'abstractsView');
+        if (r.permissions.length !== before) _rolesChanged = true;
+      }
+    });
+    state.rbacFlags.hideAbstractFromSiteRolesV1 = true;
+    _rolesChanged = true;
+  }
   if (_rolesChanged) saveAllData();
   // No default/seed user — the first person who logs in (via Supabase) becomes
   // the Admin of their own workspace (see _ensureRbacUser).
@@ -1071,11 +1088,12 @@ export function renderUsersRolesPanel() {
       <h3 class="font-bold text-lg text-slate-800 mb-4">Role Permissions</h3>
       <p class="text-xs text-slate-400 mb-4">Configure which modules each role can access. Admin always has full access.</p>
       <div class="space-y-3">
-        ${Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
+        ${(() => { const _allMods = getAccessModules(); const _allIds = new Set(_allMods.map(m => m.id)); return Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
           const role = roles[roleName];
           const perms = role.permissions || [];
-          const total = ALL_MODULE_IDS.length;
-          const granted = perms.length;
+          const total = _allMods.length;
+          // Count only permissions that map to a real, currently-registered module.
+          const granted = perms.filter(p => _allIds.has(p)).length;
           return `<div class="border rounded-xl overflow-hidden">
             <div class="flex items-center justify-between p-3 bg-slate-50 cursor-pointer select-none" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
               <div class="flex items-center gap-3">
@@ -1091,7 +1109,7 @@ export function renderUsersRolesPanel() {
               ${_renderPermissionGrid(roleName, perms)}
             </div>
           </div>`;
-        }).join('')}
+        }).join(''); })()}
       </div>
     </div>
   `;
