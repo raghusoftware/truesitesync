@@ -530,6 +530,26 @@ export async function syncPushImmediate(dataKey, value) {
 }
 
 /**
+ * Record PERMANENT deletions (Empty bin / Delete forever) as lasting tombstones
+ * so the underlying records can never be resurrected by a stale device — the
+ * recycle-bin entry alone isn't enough because emptying the bin removes it.
+ * `entries` is [{ key, id }].
+ */
+export async function syncRecordDeletions(entries) {
+  const sb = getSupabase();
+  if (!sb || !_online || !entries || !entries.length) return false;
+  const orgId = await _resolveOrg();
+  if (!orgId) return false;
+  const payload = entries.map(e => ({ key: e.key, id: e.id })).filter(e => e.key && e.id);
+  if (!payload.length) return false;
+  try {
+    const { error } = await sb.rpc('record_deletions', { p_org: orgId, p_entries: payload });
+    if (error) { console.warn('[sync] record_deletions failed:', error.message); return false; }
+    return true;
+  } catch (e) { console.warn('[sync] record_deletions error:', e); return false; }
+}
+
+/**
  * HARD OVERWRITE one key in the cloud, bypassing the server-side array-union
  * merge. The normal push (push_module_merged / the merge-guard trigger) can only
  * GROW a synced array — it re-adds any records the incoming payload lacks. That's

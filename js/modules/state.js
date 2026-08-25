@@ -1,4 +1,4 @@
-import { syncPush, syncReplace, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
+import { syncPush, syncReplace, syncRecordDeletions, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
 import { idbSet, idbGet } from '../database/idbCache.js';
 
 const STORAGE_KEYS = {
@@ -287,6 +287,12 @@ export function saveKey(key) {
   try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
   setLocalKeyTs(key, Date.now());
   syncPush(key, state[key]);
+}
+
+/** Record permanent deletions ({key,id}[]) as lasting server-side tombstones so
+ *  the records can't be resurrected by a stale device after the bin is emptied. */
+export async function recordPermanentDeletions(entries) {
+  try { return await syncRecordDeletions(entries); } catch { return false; }
 }
 
 /** Persist ONE key locally + HARD-overwrite the cloud (bypasses the union merge).

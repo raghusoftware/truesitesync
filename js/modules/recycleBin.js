@@ -9,7 +9,7 @@
  * Delete Permanently drops it from the bin for good.
  * ═══════════════════════════════════════════════════════════
  */
-import { state, saveAllData, saveKey, saveKeyReplace } from './state.js';
+import { state, saveAllData, saveKey, saveKeyReplace, recordPermanentDeletions } from './state.js';
 import { showToast } from './utils.js';
 
 const _who = () => { try { const u = window.getCurrentUser?.(); return u?.name || u?.email || ''; } catch { return ''; } };
@@ -63,8 +63,11 @@ export async function restoreFromBin(binId) {
 window.restoreFromBin = restoreFromBin;
 
 /** Remove a binned item permanently (it's already gone from its source array). */
-export function permanentDelete(binId) {
+export async function permanentDelete(binId) {
   if (!confirm('Permanently delete this item? This cannot be undone.')) return;
+  const entry = (state.recycleBin || []).find(e => e.binId === binId);
+  // Record a lasting tombstone FIRST so the record can't be resurrected later.
+  if (entry) await recordPermanentDeletions([{ key: entry.key, id: entry.id }]);
   state.recycleBin = (state.recycleBin || []).filter(e => e.binId !== binId);
   // Hard overwrite — a normal push would union the removed entry right back.
   saveKeyReplace('recycleBin');
@@ -74,9 +77,13 @@ export function permanentDelete(binId) {
 window.permanentDelete = permanentDelete;
 
 /** Empty the whole bin. */
-export function emptyRecycleBin() {
+export async function emptyRecycleBin() {
   if (!(state.recycleBin || []).length) return;
   if (!confirm('Empty the recycle bin? Everything in it will be permanently deleted.')) return;
+  // Record lasting tombstones for every item FIRST — otherwise emptying the bin
+  // removes the only "deleted" marker and stale devices resurrect the records.
+  const entries = (state.recycleBin || []).map(e => ({ key: e.key, id: e.id }));
+  await recordPermanentDeletions(entries);
   state.recycleBin = [];
   // Hard overwrite so the emptied bin actually sticks (the union merge can't shrink it).
   saveKeyReplace('recycleBin');
