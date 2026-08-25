@@ -34,20 +34,25 @@ function _sheetPrefixFromName(name) {
   return prefix || 'MS';
 }
 
-/** Next per-client measurement-sheet ref in series — NC/01, NC/02 … (continues past deletions) */
-function _generateSheetNumber(clientId, projId) {
+/** Next ref in a project's ONE running series — client-prefixed NC/01, NC/02 …
+ *  shared by BOTH measurement sheets AND DPRs (a Measurement gets NC/01, the next
+ *  related DPR gets NC/02, and so on), counted PER PROJECT. Continues past deletions. */
+function _nextProjectSeries(clientId, projId) {
   const client = (state.clients || []).find(c => c.id === clientId);
   const proj = (state.projects || []).find(p => p.id === projId);
   const name = client?.name || proj?.clientName || proj?.name || '';
   const prefix = _sheetPrefixFromName(name);
   const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/(\\d+)$', 'i');
   let max = 0;
-  (state.sheets || []).forEach(s => {
-    const m = re.exec(String(s.sheetNum || '').trim());
-    if (m) max = Math.max(max, parseInt(m[1], 10));
-  });
+  const bump = numStr => { const m = re.exec(String(numStr || '').trim()); if (m) max = Math.max(max, parseInt(m[1], 10)); };
+  (state.sheets || []).forEach(s => { if (!projId || s.projectId === projId) bump(s.sheetNum); });
+  (state.dailyProgress || []).forEach(d => { if (!projId || d.projectId === projId) bump(d.dprNum); });
   return prefix + '/' + String(max + 1).padStart(2, '0');
 }
+if (typeof window !== 'undefined') window._nextProjectSeries = _nextProjectSeries;
+
+/** Back-compat alias — measurement sheets draw from the shared per-project series. */
+function _generateSheetNumber(clientId, projId) { return _nextProjectSeries(clientId, projId); }
 
 /** Load project context into measurement form — auto-detect from currentProjectId */
 function _loadSheetProjectContext(projId) {

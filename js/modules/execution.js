@@ -227,7 +227,7 @@ function _rowActions(key, r) {
 function _renderDPR(root) {
   const list = _arr('dailyProgress').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const rows = list.map(d => `<div onclick="_exDprForm('${d.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0ea5e9;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
-    <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(d.date)} ${d.weather ? '· ' + _esc(d.weather) : ''}${d.area ? ' · ' + _esc(d.area) : ''}</div>
+    <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${d.dprNum ? '<span style="color:#0ea5e9;">' + _esc(d.dprNum) + '</span> · ' : ''}${_esc(d.date)} ${d.weather ? '· ' + _esc(d.weather) : ''}${d.area ? ' · ' + _esc(d.area) : ''}</div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(d.workDone || '')}</div>
     <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}</div></div>
     ${_rowActions('dailyProgress', d)}</div>`).join('');
@@ -435,7 +435,12 @@ window._exDprSave = function (id) {
   const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.dailyProgress.push({ id: dprId, projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
+  else {
+    // Continue the project's shared Measurement<->DPR series (NC/01, NC/02 …).
+    const _proj = (state.projects || []).find(p => p.id === _pid());
+    const dprNum = (typeof window._nextProjectSeries === 'function') ? window._nextProjectSeries(_proj?.clientId || '', _pid()) : '';
+    state.dailyProgress.push({ id: dprId, projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data, dprNum });
+  }
 
   // ── Feed measured work + overhead into the shared measurement pipeline. On an
   //    edit, first clear this DPR's prior lines so we don't double-count. ──
