@@ -100,6 +100,9 @@ const DEFAULT_ROLES = {
     'purchaseBillsView', 'purchaseOrderView', 'paymentOutView', 'purchaseReturnView', 'expensesView', 'purchaseAssetsView',
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
+  'Project Manager': { permissions: [
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
+  ]},
   'Site Supervisor': { permissions: [
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
@@ -107,6 +110,23 @@ const DEFAULT_ROLES = {
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'abstractsView', 'reportsView',
   ]},
 };
+
+// Roles allowed to convert a measurement sheet into an Abstract ("Bill to
+// Abstract"). Supervisors and Engineers are intentionally excluded — only a
+// Project Manager (or a full-access Admin/CEO/Owner) may bill.
+const _BILL_ROLES = ['Project Manager', 'Admin', 'CEO', 'Owner'];
+export function canBillToAbstract() {
+  const u = getCurrentUser();
+  return !!u && _BILL_ROLES.includes(u.role);
+}
+export function isProjectManager() {
+  const u = getCurrentUser();
+  return !!u && u.role === 'Project Manager';
+}
+if (typeof window !== 'undefined') {
+  window.canBillToAbstract = canBillToAbstract;
+  window.isProjectManager = isProjectManager;
+}
 
 // ── Cached auth user ──
 let _cachedUser = null;
@@ -139,6 +159,11 @@ export function initRBAC() {
     if ((role.permissions.includes('planningView') || role.permissions.includes('microPlanView')) && !role.permissions.includes('execEngineView')) {
       role.permissions.push('execEngineView'); _rolesChanged = true;
     }
+  });
+  // Migration: make newly-introduced default roles (e.g. Project Manager)
+  // available on existing workspaces so admins can assign them.
+  Object.entries(DEFAULT_ROLES).forEach(([name, def]) => {
+    if (!state.rbacRoles[name]) { state.rbacRoles[name] = JSON.parse(JSON.stringify(def)); _rolesChanged = true; }
   });
   if (_rolesChanged) saveAllData();
   // No default/seed user — the first person who logs in (via Supabase) becomes

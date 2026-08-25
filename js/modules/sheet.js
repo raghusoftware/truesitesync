@@ -779,10 +779,21 @@ export function saveEntries() {
   const entries = _collectEntries();
   if (entries.length === 0) return showToast('Sheet is empty', 'error');
 
+  const _prev = state.currentSheetId ? state.sheets.find(s => s.id === state.currentSheetId) : null;
   let isBilled = false; let linkedAbstract = null;
-  if (state.currentSheetId) {
-    const existing = state.sheets.find(s => s.id === state.currentSheetId);
-    if (existing && existing.isBilled) { isBilled = existing.isBilled; linkedAbstract = existing.linkedAbstract; }
+  if (_prev && _prev.isBilled) { isBilled = _prev.isBilled; linkedAbstract = _prev.linkedAbstract; }
+
+  // ── Attribution & review tracking ──
+  const _me = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+  const _meName = _me?.name || _me?.email || 'Unknown';
+  const _meId = _me?.id || _me?.supabaseId || '';
+  const _isManager = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : false;
+  let createdBy = _prev?.createdBy || '', createdById = _prev?.createdById || '';
+  let reviewedBy = _prev?.reviewedBy || '', reviewedAt = _prev?.reviewedAt || '', status = _prev?.status || '';
+  if (!createdBy) { createdBy = _meName; createdById = _meId; }   // first save = the uploader
+  // A manager (Project Manager / Admin) editing someone else's existing sheet marks it Reviewed.
+  if (_prev && _isManager && _meId && _meId !== createdById) {
+    reviewedBy = _meName; reviewedAt = new Date().toISOString(); status = 'Reviewed';
   }
 
   const data = {
@@ -790,7 +801,8 @@ export function saveEntries() {
     date: document.getElementById('sheetDate').value, sheetNum: sNum,
     area: document.getElementById('sheetArea').value, entries,
     customColumns: _customColumns.length ? [..._customColumns] : undefined,
-    updatedAt: new Date().toISOString(), isBilled, linkedAbstract
+    updatedAt: new Date().toISOString(), isBilled, linkedAbstract,
+    createdBy, createdById, reviewedBy, reviewedAt, status
   };
   if (!state.currentSheetId) { state.sheets.push(data); state.currentSheetId = data.id; }
   else {
@@ -825,13 +837,31 @@ export function saveEntries() {
   let toastMsg = 'Draft Saved';
   if (autoConsumptionCount > 0) toastMsg += ` & ${autoConsumptionCount} Material Stocks Deducted`;
   showToast(toastMsg, 'success');
-  if (isBilled) {
-    document.getElementById('btnGenerateAbstract').classList.add('hide');
-    document.getElementById('sheetStatusText').textContent = `Billed -> Abstract: ${linkedAbstract}`;
-  } else {
-    document.getElementById('btnGenerateAbstract').classList.remove('hide');
-    document.getElementById('sheetStatusText').textContent = 'Saved Draft: ' + sNum;
-  }
+  _updateAbstractBtn(data);
+  _renderSheetAttribution(data);
+  document.getElementById('sheetStatusText').textContent = isBilled ? `Billed -> Abstract: ${linkedAbstract}` : 'Saved Draft: ' + sNum;
+}
+
+// Show "Bill to Abstract" only to roles allowed to bill (PM / Admin) and only
+// when the sheet isn't already billed. Supervisors & Engineers never see it.
+function _updateAbstractBtn(sheet) {
+  const btn = document.getElementById('btnGenerateAbstract');
+  if (!btn) return;
+  const canBill = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : true;
+  btn.classList.toggle('hide', !(canBill && sheet && !sheet.isBilled));
+}
+
+// "Measurement sheet uploaded by …" + (if reviewed) "Reviewed — changes made by …".
+function _renderSheetAttribution(sheet) {
+  const el = document.getElementById('sheetAttribution');
+  if (!el) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  if (!sheet || (!sheet.createdBy && !sheet.reviewedBy)) { el.classList.add('hide'); el.innerHTML = ''; return; }
+  let html = '';
+  if (sheet.createdBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;">📄 Measurement sheet uploaded by <b style="color:#0f172a;">${esc(sheet.createdBy)}</b></span>`;
+  if (sheet.reviewedBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;">✓ Reviewed — changes made by <b>${esc(sheet.reviewedBy)}</b></span>`;
+  el.innerHTML = html;
+  el.classList.remove('hide');
 }
 
 export function loadSheet(id) {
@@ -875,13 +905,11 @@ export function loadSheet(id) {
   else document.getElementById('attachmentsSection')?.classList.add('hide');
 
   document.getElementById('exportControls')?.classList.remove('hide');
-  if (s.isBilled) {
-    document.getElementById('btnGenerateAbstract')?.classList.add('hide');
-    document.getElementById('sheetStatusText').textContent = `Loaded (Billed): ${s.sheetNum} -> Abstract: ${s.linkedAbstract}`;
-  } else {
-    document.getElementById('btnGenerateAbstract')?.classList.remove('hide');
-    document.getElementById('sheetStatusText').textContent = 'Loaded Draft: ' + s.sheetNum;
-  }
+  _updateAbstractBtn(s);
+  _renderSheetAttribution(s);
+  document.getElementById('sheetStatusText').textContent = s.isBilled
+    ? `Loaded (Billed): ${s.sheetNum} -> Abstract: ${s.linkedAbstract}`
+    : 'Loaded Draft: ' + s.sheetNum;
   window.switchView('entrySheet');
 }
 

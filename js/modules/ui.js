@@ -2737,6 +2737,11 @@ export function directInvoiceFromSheet() {
 // ABSTRACTS
 // ==========================================
 export function generateAbstractFromSheet() {
+  // Only a Project Manager (or full-access Admin/Owner) may bill to Abstract —
+  // Supervisors and Engineers are blocked.
+  if (typeof window.canBillToAbstract === 'function' && !window.canBillToAbstract()) {
+    return showToast('Only a Project Manager can bill a sheet to Abstract.', 'error');
+  }
   const sId = state.currentSheetId;
   if (!sId) return showToast('Please save first', 'error');
   const sheet = state.sheets.find(s => s.id === sId);
@@ -2789,6 +2794,12 @@ export function generateAbstractFromSheet() {
 export function confirmAndSaveAbstract() {
   if (!state.pendingAbstractData) return;
   const data = state.pendingAbstractData;
+  // The person who bills the abstract (a Project Manager / Admin) is its creator.
+  if (!data.createdBy) {
+    const _me = window.getCurrentUser?.();
+    data.createdBy = _me?.name || _me?.email || '';
+    data.createdById = _me?.id || _me?.supabaseId || '';
+  }
   state.abstracts.push(data);
   // Mark every sheet on this abstract as billed. sheetIds is the multi-select
   // list; fall back to the single sheetId for the classic per-sheet flow.
@@ -3107,6 +3118,7 @@ export function renderAbstractsList() {
   let filtered = (state.abstracts || []).filter(a => !state.currentProjectId || a.projectId === state.currentProjectId || (state.clients.find(c => c.id === a.clientId)?.projectId === state.currentProjectId));
   if (!filtered.length) { if (emptyState) emptyState.classList.remove('hidden'); return; }
   if (emptyState) emptyState.classList.add('hidden');
+  const _escN = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
     const client = state.clients.find(c => c.id === a.clientId);
     const _invoiced = a.isInvoiced || a.status === 'invoiced';
@@ -3126,6 +3138,7 @@ export function renderAbstractsList() {
               <div class="flex items-center gap-3 flex-wrap mb-1">
                 <span class="font-extrabold text-blue-800 text-base">${a.abstractNum}</span>
                 ${statusBadge}
+                ${a.status === 'Reviewed' ? '<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-bold border border-emerald-200">&#10003; Reviewed</span>' : ''}
               </div>
               <div class="flex items-center gap-2 text-sm text-slate-500 flex-wrap">
                 <span class="font-semibold text-slate-700">${client ? client.name : 'Unknown'}</span>
@@ -3136,6 +3149,10 @@ export function renderAbstractsList() {
                 <span class="text-slate-300">|</span>
                 <span>${a.date || '—'}</span>
               </div>
+              ${(a.createdBy || a.reviewedBy) ? `<div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                ${a.createdBy ? `<span class="text-slate-400">Uploaded by <b class="text-slate-600">${_escN(a.createdBy)}</b></span>` : ''}
+                ${a.reviewedBy ? `<span class="text-emerald-600 font-semibold">&#10003; Reviewed &amp; changes made by ${_escN(a.reviewedBy)}</span>` : ''}
+              </div>` : ''}
             </div>
           </div>
           <!-- Right: Amount + Actions -->
@@ -3310,6 +3327,15 @@ export function saveAbstractEdits() {
   abs.totalAmount = total;
   abs.date = document.getElementById('absEditDate')?.value || abs.date;
   abs.area = document.getElementById('absEditArea')?.value || abs.area;
+  // Review tracking: a manager (Project Manager / Admin) editing the abstract
+  // stamps it "Reviewed" with their name.
+  const _me = window.getCurrentUser?.();
+  const _isManager = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : false;
+  if (_me && _isManager) {
+    abs.reviewedBy = _me.name || _me.email || '';
+    abs.reviewedAt = new Date().toISOString();
+    abs.status = 'Reviewed';
+  }
   saveAllData();
   renderAbstractsList();
   closeAbstractEditor();
