@@ -244,20 +244,37 @@ const _dprLocList = () => (typeof window.mpProjectLocations === 'function' ? win
 //       prefill (d = {nos,l,b,h,qty}) so a reopened DPR shows what was entered. =====
 window._dprMeasRow = function (loc, code, d) {
   d = d || {};
+  const isOther = !!(d.isNonBoq || (typeof code === 'string' && code.indexOf('NB:') === 0));
   const boqOpts = '<option value="">— BOQ item —</option>' + _dprBoqList().map(b =>
-    `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${code === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('');
+    `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${!isOther && code === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('')
+    + `<option value="__OTHER__" ${isOther ? 'selected' : ''}>✏️ Other (Non-BOQ)…</option>`;
   const dim = (cls, val) => `<td style="padding:4px;"><input class="${cls}" type="number" min="0" step="0.001" value="${val != null && val !== '' ? _esc(val) : ''}" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:60px;text-align:right;"></td>`;
   return `<tr>
     <td style="padding:4px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:130px;"></td>
-    <td style="padding:4px;"><select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:210px;">${boqOpts}</select></td>
+    <td style="padding:4px;">
+      <select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:210px;">${boqOpts}</select>
+      <input class="dm-otherdesc" value="${_esc(isOther ? (d.description || '') : '')}" placeholder="Type Non-BOQ item name…" style="${_DPR_INP}width:210px;margin-top:3px;display:${isOther ? 'block' : 'none'};">
+    </td>
     ${dim('dm-nos', d.nos)}${dim('dm-l', d.l)}${dim('dm-b', d.b)}${dim('dm-h', d.h)}
     <td style="padding:4px;"><input class="dm-qty" type="number" min="0" step="0.001" value="${d.qty != null && d.qty !== '' ? _esc(d.qty) : ''}" placeholder="0" style="${_DPR_INP}width:78px;text-align:right;font-weight:800;color:#1d4ed8;background:#f8fafc;"></td>
-    <td style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" readonly style="${_DPR_INP}width:56px;background:#f8fafc;"></td>
+    <td style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" ${isOther ? '' : 'readonly'} style="${_DPR_INP}width:56px;background:${isOther ? '#fff' : '#f8fafc'};"></td>
     <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
 window._dprAddMeas = function () { const tb = document.getElementById('dprMeasBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprMeasRow()); };
-window._dprMeasPick = function (sel) { const o = sel.selectedOptions[0]; const u = sel.closest('tr').querySelector('.dm-uom'); if (u) u.value = o?.dataset.uom || ''; };
+window._dprMeasPick = function (sel) {
+  const o = sel.selectedOptions[0];
+  const tr = sel.closest('tr');
+  const u = tr.querySelector('.dm-uom');
+  const other = tr.querySelector('.dm-otherdesc');
+  if (sel.value === '__OTHER__') {
+    if (other) { other.style.display = 'block'; other.focus(); }
+    if (u) { u.removeAttribute('readonly'); u.style.background = '#fff'; }
+  } else {
+    if (other) other.style.display = 'none';
+    if (u) { u.value = o?.dataset.uom || ''; u.setAttribute('readonly', 'readonly'); u.style.background = '#f8fafc'; }
+  }
+};
 window._dprMeasCalc = function (el) {
   const tr = el.closest('tr');
   const r = s => { const v = (tr.querySelector(s)?.value ?? '').trim(); if (v === '') return { v: 1, has: false }; const n = parseFloat(v); return { v: isNaN(n) ? 1 : n, has: true }; };
@@ -384,12 +401,23 @@ window._exDprSave = function (id) {
   //    DPR record so reopening prefills them). ──
   const measurements = [];
   document.querySelectorAll('#dprMeasBody tr').forEach(tr => {
-    const code = tr.querySelector('.dm-boq')?.value;
+    const sel = tr.querySelector('.dm-boq');
+    let code = sel?.value || '';
     const qty = parseFloat(tr.querySelector('.dm-qty')?.value) || 0;
-    if (!code || qty <= 0) return;
-    const o = tr.querySelector('.dm-boq').selectedOptions[0];
     const dv = s => (tr.querySelector(s)?.value || '').trim();
-    measurements.push({ location: (tr.querySelector('.dm-loc')?.value || v('dpArea') || 'General').trim() || 'General', code, description: o?.dataset.desc, uom: o?.dataset.uom, rate: parseFloat(o?.dataset.rate) || 0, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h') });
+    let description, uom, rate, isNonBoq = false;
+    if (code === '__OTHER__') {
+      // Non-BOQ item: use the typed name; a stable "NB:<name>" code lets it group
+      // and flow into the measurement sheet like any other line (no BOQ rate).
+      const nm = dv('.dm-otherdesc');
+      if (!nm || qty <= 0) return;
+      isNonBoq = true; code = 'NB:' + nm; description = nm; uom = dv('.dm-uom'); rate = 0;
+    } else {
+      if (!code || qty <= 0) return;
+      const o = sel.selectedOptions[0];
+      description = o?.dataset.desc; uom = o?.dataset.uom; rate = parseFloat(o?.dataset.rate) || 0;
+    }
+    measurements.push({ location: (tr.querySelector('.dm-loc')?.value || v('dpArea') || 'General').trim() || 'General', code, description, uom, rate, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h'), isNonBoq });
   });
   const overheads = [];
   document.querySelectorAll('#dprOhBody tr').forEach(tr => {

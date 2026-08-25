@@ -790,6 +790,10 @@ export function saveEntries() {
   const _isManager = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : false;
   let createdBy = _prev?.createdBy || '', createdById = _prev?.createdById || '';
   let reviewedBy = _prev?.reviewedBy || '', reviewedAt = _prev?.reviewedAt || '', status = _prev?.status || '';
+  const locked = !!_prev?.locked, verifiedBy = _prev?.verifiedBy || '', verifiedAt = _prev?.verifiedAt || '';
+  // A Verified & locked sheet can only be saved by a manager (Project Manager /
+  // Admin). Regular users are blocked (the UI also disables the inputs).
+  if (locked && !_isManager) { showToast('This measurement is Verified & locked. Only a Project Manager can edit it.', 'error'); return; }
   if (!createdBy) { createdBy = _meName; createdById = _meId; }   // first save = the uploader
   // A manager (Project Manager / Admin) editing someone else's existing sheet marks it Reviewed.
   if (_prev && _isManager && _meId && _meId !== createdById) {
@@ -802,7 +806,8 @@ export function saveEntries() {
     area: document.getElementById('sheetArea').value, entries,
     customColumns: _customColumns.length ? [..._customColumns] : undefined,
     updatedAt: new Date().toISOString(), isBilled, linkedAbstract,
-    createdBy, createdById, reviewedBy, reviewedAt, status
+    createdBy, createdById, reviewedBy, reviewedAt, status,
+    locked, verifiedBy, verifiedAt
   };
   if (!state.currentSheetId) { state.sheets.push(data); state.currentSheetId = data.id; }
   else {
@@ -839,7 +844,8 @@ export function saveEntries() {
   showToast(toastMsg, 'success');
   _updateAbstractBtn(data);
   _renderSheetAttribution(data);
-  document.getElementById('sheetStatusText').textContent = isBilled ? `Billed -> Abstract: ${linkedAbstract}` : 'Saved Draft: ' + sNum;
+  _applyLockState(data);
+  document.getElementById('sheetStatusText').textContent = data.locked ? 'Verified & Locked' : (isBilled ? `Billed -> Abstract: ${linkedAbstract}` : 'Saved Draft: ' + sNum);
 }
 
 // Show "Bill to Abstract" only to roles allowed to bill (PM / Admin) and only
@@ -851,18 +857,58 @@ function _updateAbstractBtn(sheet) {
   btn.classList.toggle('hide', !(canBill && sheet && !sheet.isBilled));
 }
 
-// "Measurement sheet uploaded by …" + (if reviewed) "Reviewed — changes made by …".
+// "Measurement sheet uploaded by …" + (if reviewed/locked) the review/lock lines.
 function _renderSheetAttribution(sheet) {
   const el = document.getElementById('sheetAttribution');
   if (!el) return;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  if (!sheet || (!sheet.createdBy && !sheet.reviewedBy)) { el.classList.add('hide'); el.innerHTML = ''; return; }
+  if (!sheet || (!sheet.createdBy && !sheet.reviewedBy && !sheet.locked)) { el.classList.add('hide'); el.innerHTML = ''; return; }
   let html = '';
   if (sheet.createdBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;">📄 Measurement sheet uploaded by <b style="color:#0f172a;">${esc(sheet.createdBy)}</b></span>`;
   if (sheet.reviewedBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;">✓ Reviewed — changes made by <b>${esc(sheet.reviewedBy)}</b></span>`;
+  if (sheet.locked) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:800;">🔒 Verified &amp; locked${sheet.verifiedBy ? ' by <b>' + esc(sheet.verifiedBy) + '</b>' : ''}</span>`;
   el.innerHTML = html;
   el.classList.remove('hide');
 }
+
+// Once Verified & locked, regular users can't edit; only a manager (Project
+// Manager / Admin) may unlock, change, and re-lock.
+function _applyLockState(sheet) {
+  const locked = !!(sheet && sheet.locked);
+  const canManage = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : true;
+  const readOnly = locked && !canManage;
+  [document.getElementById('entryTableBody'), document.getElementById('groupedEntryContainer')].forEach(box => {
+    if (box) box.querySelectorAll('input,select,textarea,button').forEach(n => { n.disabled = readOnly; });
+  });
+  ['sheetDate', 'sheetNum', 'sheetArea', 'sheetClientSelect', 'sheetProjectSelect'].forEach(id => { const n = document.getElementById(id); if (n) n.disabled = readOnly; });
+  document.querySelectorAll('[onclick*="saveEntries"],[onclick*="addMoreEntries"],[onclick*="addGroupedItem"],[onclick*="openCustomColumnsModal"]').forEach(b => { b.style.display = readOnly ? 'none' : ''; });
+  const vBtn = document.getElementById('btnVerifyLock');
+  const uBtn = document.getElementById('btnUnlockSheet');
+  if (vBtn) vBtn.classList.toggle('hide', !(canManage && state.currentSheetId && !locked));
+  if (uBtn) uBtn.classList.toggle('hide', !(canManage && locked));
+}
+
+window._verifyLockSheet = function () {
+  if (!state.currentSheetId) return showToast('Save the sheet first', 'error');
+  if (typeof window.canBillToAbstract === 'function' && !window.canBillToAbstract()) return showToast('Only a Project Manager can verify & lock.', 'error');
+  const s = state.sheets.find(x => x.id === state.currentSheetId);
+  if (!s) return;
+  const me = window.getCurrentUser?.();
+  s.locked = true; s.verifiedBy = me?.name || me?.email || ''; s.verifiedAt = new Date().toISOString(); s.status = 'Verified';
+  saveAllData();
+  _applyLockState(s); _renderSheetAttribution(s);
+  const st = document.getElementById('sheetStatusText'); if (st) st.textContent = 'Verified & Locked';
+  showToast('Measurement verified & locked', 'success');
+};
+window._unlockSheet = function () {
+  if (typeof window.canBillToAbstract === 'function' && !window.canBillToAbstract()) return showToast('Only a Project Manager can unlock.', 'error');
+  const s = state.sheets.find(x => x.id === state.currentSheetId);
+  if (!s) return;
+  s.locked = false;
+  saveAllData();
+  _applyLockState(s); _renderSheetAttribution(s);
+  showToast('Unlocked — edit and re-lock when done', 'info');
+};
 
 export function loadSheet(id) {
   const s = state.sheets.find(x => x.id === id);
@@ -907,9 +953,9 @@ export function loadSheet(id) {
   document.getElementById('exportControls')?.classList.remove('hide');
   _updateAbstractBtn(s);
   _renderSheetAttribution(s);
-  document.getElementById('sheetStatusText').textContent = s.isBilled
-    ? `Loaded (Billed): ${s.sheetNum} -> Abstract: ${s.linkedAbstract}`
-    : 'Loaded Draft: ' + s.sheetNum;
+  _applyLockState(s);
+  document.getElementById('sheetStatusText').textContent = s.locked ? 'Verified & Locked'
+    : (s.isBilled ? `Loaded (Billed): ${s.sheetNum} -> Abstract: ${s.linkedAbstract}` : 'Loaded Draft: ' + s.sheetNum);
   window.switchView('entrySheet');
 }
 

@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.63"></script>
+    <script type="module" src="js/app.js?v=1.6.64"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -889,7 +889,9 @@
                 <button onclick="saveEntries()" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-700 font-bold shadow-md transition text-sm">Save Draft</button>
               </div>
             </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-200 mb-4 flex flex-wrap gap-3 items-center" id="sheetActionToolbar"><span class="text-sm font-bold text-slate-500 uppercase mr-2">Quick Actions:</span><button onclick="convertSheetToEstimate()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded font-bold hover:bg-emerald-100 text-sm shadow-sm flex items-center gap-2">📝 Convert to Estimate</button><button onclick="directInvoiceFromSheet()" class="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded font-bold hover:bg-blue-100 text-sm shadow-sm flex items-center gap-2">⚡ Direct Invoice</button><button id="btnGenerateAbstract" onclick="generateAbstractFromSheet()" class="bg-green-600 text-white px-4 py-2 rounded font-bold shadow-sm hover:bg-green-700 text-sm ml-auto hide">🧾 Bill to Abstract</button></div>
+            <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-200 mb-4 flex flex-wrap gap-3 items-center" id="sheetActionToolbar"><span class="text-sm font-bold text-slate-500 uppercase mr-2">Quick Actions:</span><button onclick="convertSheetToEstimate()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded font-bold hover:bg-emerald-100 text-sm shadow-sm flex items-center gap-2">📝 Convert to Estimate</button><button onclick="directInvoiceFromSheet()" class="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded font-bold hover:bg-blue-100 text-sm shadow-sm flex items-center gap-2">⚡ Direct Invoice</button><button id="btnGenerateAbstract" onclick="generateAbstractFromSheet()" class="bg-green-600 text-white px-4 py-2 rounded font-bold shadow-sm hover:bg-green-700 text-sm ml-auto hide">🧾 Bill to Abstract</button>
+              <button id="btnVerifyLock" onclick="window._verifyLockSheet&&window._verifyLockSheet()" class="bg-rose-600 text-white px-4 py-2 rounded font-bold shadow-sm hover:bg-rose-700 text-sm hide">🔒 Verify &amp; Lock</button>
+              <button id="btnUnlockSheet" onclick="window._unlockSheet&&window._unlockSheet()" class="bg-amber-500 text-white px-4 py-2 rounded font-bold shadow-sm hover:bg-amber-600 text-sm hide">🔓 Unlock (PM)</button></div>
             <div id="sheetAttribution" class="hide flex flex-wrap gap-2 mb-4"></div>
             <input type="hidden" id="sheetProjectSelect"><input type="hidden" id="sheetClientSelect">
             <!-- Project & WO Info Banner -->
