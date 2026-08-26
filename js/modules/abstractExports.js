@@ -96,9 +96,63 @@ export function exportAbstractPlantPdf(id) {
   }
 }
 
+/**
+ * Abstract — "New Format" template (client's Excel style): logo + Document
+ * ID/Status/Version header, ruled item grid, and a highlighted
+ * "Total Amount In Words … | ₹ | total" row.
+ */
+export function exportAbstractFlintPdf(id) {
+  try {
+    const a = state.abstracts.find(x => x.id === id);
+    if (!a) return showToast('Abstract not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const c = state.clients.find(x => x.id === a.clientId);
+    const proj = state.projects.find(p => p.id === a.projectId);
+    const clientName = c?.name || proj?.clientName || a.clientName || '—';
+    const doc = new window.jspdf.jsPDF('portrait');
+    const pw = doc.internal.pageSize.getWidth();
+    const status = a.status || (a.reviewedBy ? 'Reviewed' : 'Draft');
+    const hdr = (typeof window !== 'undefined' && window._flintDocHeader) ? window._flintDocHeader : null;
+    let y = hdr ? hdr(doc, { title: 'Abstract', docId: 'ABS/' + (a.abstractNum || ''), status, version: '1.0' }) : (getCompanyHeaderForPDF(doc) + 6);
+
+    // Compact meta line
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(60);
+    doc.text(`TO : ${clientName}`, 14, y + 4);
+    doc.text(`Date : ${_fmtDMY(a.date)}`, pw - 14, y + 4, { align: 'right' });
+    doc.text(`Ref. Measurement No. : ${a.sheetNum || '—'}`, pw - 14, y + 9, { align: 'right' });
+    y += 12;
+
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    doc.autoTable({
+      startY: y, head: [['Sr No.', 'Description', 'UOM', 'Qty', 'Rate', 'Amount']], body: rows, theme: 'grid',
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 1.8, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
+      columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 36, halign: 'right' } },
+      margin: { left: 14, right: 14 }
+    });
+    const fy = doc.lastAutoTable.finalY;
+    const HL = [254, 235, 200]; // peach highlight, matching the Excel total row
+    doc.autoTable({
+      startY: fy, theme: 'grid',
+      body: [[
+        { content: 'Total Amount In Words : ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold', fillColor: HL } },
+        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: HL } }
+      ]],
+      styles: { fontSize: 9.5, cellPadding: 2.2, lineColor: [0, 0, 0], lineWidth: 0.15 },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
+      margin: { left: 14, right: 14 }
+    });
+    mobileSavePDF(doc, `${a.abstractNum || 'Abstract'}.pdf`);
+  } catch (err) {
+    console.error('New-format abstract PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
 export function exportAbstractPDF(id) {
   try {
-  // Route to the Plant/Tabular template when selected in Settings.
+  // Route to the selected template in Settings.
+  if ((state.printSettings?.docTemplate) === 'flint') return exportAbstractFlintPdf(id);
   if ((state.printSettings?.docTemplate) === 'plant') return exportAbstractPlantPdf(id);
   const a = state.abstracts.find(x => x.id === id);
   if (!a) return showToast('Abstract not found', 'error');

@@ -84,7 +84,7 @@ window._setDocTemplate = function(v) {
   state.printSettings.docTemplate = v;
   saveAllData();
   renderPrintConfigTab();
-  showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : 'Standard'), 'success');
+  showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : v === 'flint' ? 'New Format' : 'Standard'), 'success');
 };
 
 window._setInvoicePrefix = function(v) {
@@ -323,10 +323,11 @@ function renderPrintConfigTab() {
         <span class="text-base">&#129534;</span>
         <h4 class="font-bold text-sm text-slate-800">Measurement &amp; Abstract &mdash; Document Template</h4>
       </div>
-      <p class="text-[11px] text-slate-400 mb-3">Layout used when you export/print a measurement sheet or abstract. <b>Plant (Tabular)</b> is the ruled-grid format with grouped items (F1, F2&hellip;) and a per-item Total Qty column. The letterhead uses your Company Profile.</p>
+      <p class="text-[11px] text-slate-400 mb-3">Layout used when you export/print a measurement sheet or abstract. <b>Plant (Tabular)</b> is the ruled-grid format with grouped items (F1, F2&hellip;) and a per-item Total Qty column. <b>New Format</b> adds a Document&nbsp;ID / Status / Version header and highlighted item-total rows. The letterhead uses your Company Profile.</p>
       <div class="flex gap-2 flex-wrap">
         <button onclick="window._setDocTemplate('standard')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'standard' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Standard</button>
         <button onclick="window._setDocTemplate('plant')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'plant' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Plant (Tabular)</button>
+        <button onclick="window._setDocTemplate('flint')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'flint' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">New Format</button>
       </div>
     </div>
     ${docColorsPanelHTML()}

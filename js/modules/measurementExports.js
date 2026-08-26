@@ -121,9 +121,97 @@ export function exportMeasurementPlantPdf(id) {
   }
 }
 
+// Shared "New Format" header: company logo top-left + Document ID / Status /
+// Version block top-right, a rule, and the sheet title. Matches the client's
+// Excel layout. Returns the y below the header.
+function _flintHeader(doc, { title, docId, status, version }) {
+  const cp = state.companyProfile || {};
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = 14, mr = 14;
+  let y = 12;
+  let logoBottom = y;
+  if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, y, 34, 22); logoBottom = y + 22; } catch {} }
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30);
+  const rx = pw - mr;
+  doc.text('Document ID : ' + (docId || ''), rx, y + 4, { align: 'right' });
+  doc.text('Status : ' + (status || 'Draft'), rx, y + 10, { align: 'right' });
+  doc.text('Version : ' + (version || '1.0'), rx, y + 16, { align: 'right' });
+  y = Math.max(logoBottom, y + 18) + 2;
+  doc.setDrawColor(0); doc.setLineWidth(0.5); doc.line(ml, y, pw - mr, y);
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text(title, pw / 2, y + 6, { align: 'center' });
+  return y + 10;
+}
+if (typeof window !== 'undefined') window._flintDocHeader = _flintHeader;
+
+/**
+ * Measurement Sheet — "New Format" template (client's Excel style): logo +
+ * Document ID/Status/Version header, ruled grid of grouped items with F-lines,
+ * and a full-width highlighted "Total <item>" row per item.
+ */
+export function exportMeasurementFlintPdf(id) {
+  try {
+    const sheetId = id || state.currentSheetId;
+    if (!sheetId) return showToast('Save sheet before exporting', 'error');
+    const s = state.sheets.find(x => x.id === sheetId);
+    if (!s) return showToast('Sheet not found', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const doc = new window.jspdf.jsPDF('portrait');
+    const status = s.locked ? 'Verified & Locked' : (s.status || 'Draft');
+    let y = _flintHeader(doc, { title: 'Measurement Sheet', docId: 'MES/' + (s.sheetNum || ''), status, version: '1.0' });
+
+    const groups = groupSheetEntries(s.entries || []);
+    const head = [['Sr.No', 'Description', 'UOM', 'Nos.', 'Length', 'Width', 'Height /Thk.', 'Coeff./Size', 'Qty']];
+    const body = [];
+    const HL = [219, 234, 254]; // highlighted total-row tint
+    let itemNum = 0;
+    Object.keys(groups).forEach(key => {
+      const lines = groups[key];
+      const first = lines[0] || {};
+      itemNum++;
+      let total = 0; lines.forEach(e => total += (e.qty || 0));
+      body.push([
+        { content: itemNum, styles: { halign: 'center', fontStyle: 'bold' } },
+        { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
+        { content: (first.uom || ''), styles: { halign: 'center', fontStyle: 'bold' } },
+        '', '', '', '', '', ''
+      ]);
+      lines.forEach(e => {
+        body.push([
+          '',
+          { content: e.remarks || '', styles: { halign: 'center' } },
+          '',
+          { content: e.nos || '', styles: { halign: 'center' } },
+          { content: e.l || '', styles: { halign: 'center' } },
+          { content: e.b || '', styles: { halign: 'center' } },
+          { content: e.h || '', styles: { halign: 'center' } },
+          '',
+          { content: (e.qty != null && e.qty !== '') ? _qtyDp(e.qty) : '', styles: { halign: 'center' } }
+        ]);
+      });
+      body.push([
+        { content: 'Total  ' + (first.description || first.code || ''), colSpan: 8, styles: { fontStyle: 'bold', fillColor: HL } },
+        { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: HL } }
+      ]);
+    });
+    doc.autoTable({
+      startY: y, head, body, theme: 'grid',
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
+      columnStyles: { 0: { cellWidth: 11, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 14, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' }, 5: { cellWidth: 18, halign: 'center' }, 6: { cellWidth: 18, halign: 'center' }, 7: { cellWidth: 16, halign: 'center' }, 8: { cellWidth: 20, halign: 'center' } },
+      margin: { left: 14, right: 14 }
+    });
+    mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
+  } catch (err) {
+    console.error('New-format measurement PDF failed:', err);
+    showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
 export function exportSimpleMeasurementPdf(id) {
   try {
   // Route to the Plant/Tabular template when selected in Settings.
+  if ((state.printSettings?.docTemplate) === 'flint') return exportMeasurementFlintPdf(id);
   if ((state.printSettings?.docTemplate) === 'plant') return exportMeasurementPlantPdf(id);
   const sheetId = id || state.currentSheetId;
   if (!sheetId) return showToast('Save sheet before exporting', 'error');
