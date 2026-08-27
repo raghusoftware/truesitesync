@@ -109,38 +109,89 @@ export function exportAbstractFlintPdf(id) {
     const c = state.clients.find(x => x.id === a.clientId);
     const proj = state.projects.find(p => p.id === a.projectId);
     const clientName = c?.name || proj?.clientName || a.clientName || '—';
+    const cp = state.companyProfile || {};
     const doc = new window.jspdf.jsPDF('portrait');
     const pw = doc.internal.pageSize.getWidth();
-    const status = a.status || (a.reviewedBy ? 'Reviewed' : 'Draft');
-    const hdr = (typeof window !== 'undefined' && window._flintDocHeader) ? window._flintDocHeader : null;
-    let y = hdr ? hdr(doc, { title: 'Abstract', docId: 'ABS/' + (a.abstractNum || ''), status, version: '1.0' }) : (getCompanyHeaderForPDF(doc) + 6);
+    const ml = 14, mr = 14;
+    const PEACH = [253, 235, 214], ORANGE = [247, 148, 30], NAVY = [30, 55, 100], BLUE = [40, 90, 170];
 
-    // Compact meta line
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(60);
-    doc.text(`TO : ${clientName}`, 14, y + 4);
-    doc.text(`Date : ${_fmtDMY(a.date)}`, pw - 14, y + 4, { align: 'right' });
-    doc.text(`Ref. Measurement No. : ${a.sheetNum || '—'}`, pw - 14, y + 9, { align: 'right' });
-    y += 12;
+    // ── Peach header band with a slanted lower edge ──
+    const bandH = 46;
+    doc.setFillColor(PEACH[0], PEACH[1], PEACH[2]);
+    doc.rect(0, 0, pw, bandH, 'F');
+    doc.triangle(0, bandH, pw, bandH, pw, bandH + 9, 'F'); // slant down to the right
+    // Logo (left)
+    let ty = 8;
+    if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, 7, 30, 30); } catch {} }
+    // "ABSTRACT SHEET" title (right)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(ORANGE[0], ORANGE[1], ORANGE[2]);
+    doc.text('ABSTRACT SHEET', pw - mr, 16, { align: 'right' });
+    // Company contact block (right, under title)
+    doc.setFontSize(9.5); doc.setTextColor(ORANGE[0], ORANGE[1], ORANGE[2]);
+    let cy = 24; const rx = pw - mr;
+    if (cp.Address) { doc.splitTextToSize(cp.Address, pw / 2).forEach(ln => { doc.text(ln, rx, cy, { align: 'right' }); cy += 5; }); }
+    const contact = [];
+    if (cp.Email) contact.push('E-mail : ' + cp.Email);
+    if (cp.Phone) contact.push('Ph: ' + cp.Phone);
+    if (contact.length) { doc.text(contact.join('  |  '), rx, cy, { align: 'right' }); cy += 5; }
+    let y = Math.max(bandH + 12, cy + 6);
 
-    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
-    doc.autoTable({
-      startY: y, head: [['Sr No.', 'Description', 'UOM', 'Qty', 'Rate', 'Amount']], body: rows, theme: 'grid',
-      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9 },
-      styles: { fontSize: 9, cellPadding: 1.8, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
-      columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 36, halign: 'right' } },
-      margin: { left: 14, right: 14 }
+    // Date (right)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(50);
+    doc.text('Date : ' + _fmtDMY(a.date), pw - mr, y, { align: 'right' });
+    y += 5;
+
+    // ── Three rounded reference boxes ──
+    const gap = 6;
+    const boxW = (pw - ml - mr - 2 * gap) / 3;
+    const boxH = 20;
+    const boxes = [
+      ['TO,', clientName],
+      ['MEASUREMENT\nREFERENCE NO.', a.sheetNum || '—'],
+      ['ABSTRACT NO.', a.abstractNum || '—']
+    ];
+    doc.setDrawColor(BLUE[0], BLUE[1], BLUE[2]); doc.setLineWidth(0.5);
+    boxes.forEach((b, i) => {
+      const bx = ml + i * (boxW + gap);
+      doc.roundedRect(bx, y, boxW, boxH, 2.5, 2.5, 'S');
+      const cxx = bx + boxW / 2;
+      // Label (upper part)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70);
+      const labelLines = String(b[0]).split('\n');
+      let ly = y + 6;
+      labelLines.forEach(ln => { doc.text(ln, cxx, ly, { align: 'center' }); ly += 4.2; });
+      // Value (bold, shrunk to fit; wrapped and bottom-anchored inside the box)
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+      let vSize = 10.5, vLines;
+      do { doc.setFontSize(vSize); vLines = doc.splitTextToSize(String(b[1]), boxW - 5); vSize -= 0.7; }
+      while (vLines.length > 2 && vSize > 6.5);
+      const lh = vSize * 0.45 + 1.4;
+      let vy = y + boxH - 3.5 - (vLines.length - 1) * lh;
+      vLines.forEach(ln => { doc.text(ln, cxx, vy, { align: 'center' }); vy += lh; });
     });
+    doc.setLineWidth(0.2);
+    y += boxH + 3;
+
+    // ── Main table (navy header) ──
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), 'Rs. ' + _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    doc.autoTable({
+      startY: y, head: [['Sr.No', 'Description', 'UOM', 'Quantity', 'Rate', 'Amount']], body: rows, theme: 'grid',
+      headStyles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: NAVY, lineWidth: 0.1, fontSize: 9.5 },
+      styles: { fontSize: 9, cellPadding: 2.2, lineColor: [220, 224, 230], lineWidth: 0.1, textColor: [30, 40, 55], valign: 'middle' },
+      columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 16, halign: 'center' }, 3: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 28, halign: 'right' }, 5: { cellWidth: 34, halign: 'right' } },
+      margin: { left: ml, right: mr }
+    });
+    // ── Peach "Total Amount In Words" row ──
     const fy = doc.lastAutoTable.finalY;
-    const HL = [254, 235, 200]; // peach highlight, matching the Excel total row
     doc.autoTable({
       startY: fy, theme: 'grid',
       body: [[
-        { content: 'Total Amount In Words : ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold', fillColor: HL } },
-        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: HL } }
+        { content: 'Total Amount In Words : ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold', fillColor: PEACH, textColor: [90, 60, 20] } },
+        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: PEACH, textColor: [90, 60, 20] } }
       ]],
-      styles: { fontSize: 9.5, cellPadding: 2.2, lineColor: [0, 0, 0], lineWidth: 0.15 },
-      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
-      margin: { left: 14, right: 14 }
+      styles: { fontSize: 9.5, cellPadding: 2.4, lineColor: [220, 224, 230], lineWidth: 0.1 },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 34, halign: 'right' } },
+      margin: { left: ml, right: mr }
     });
     mobileSavePDF(doc, `${a.abstractNum || 'Abstract'}.pdf`);
   } catch (err) {

@@ -121,33 +121,85 @@ export function exportMeasurementPlantPdf(id) {
   }
 }
 
-// Shared "New Format" header: company logo top-left + Document ID / Status /
-// Version block top-right, a rule, and the sheet title. Matches the client's
-// Excel layout. Returns the y below the header.
-function _flintHeader(doc, { title, docId, status, version }) {
+// ── "New Format" palette (matches the client's Jay Ambe PDF) ──
+const _FL_TEAL = [23, 162, 184];
+const _FL_ORANGE = [247, 148, 30];
+const _FL_LABEL = [90, 100, 115];
+const _FL_HEADFILL = [238, 240, 242];
+const _FL_TOTFILL = [222, 235, 255];
+const _FL_TOTTEXT = [30, 64, 150];
+const _FL_PEACH = [253, 235, 214];
+const _FL_NAVY = [30, 55, 100];
+
+// Shared "New Format" top band: company logo top-left, company name in orange
+// beside it, and a right-aligned Document ID / Status / Version block, closed by
+// a teal rule and the document title. Returns the y below the rule+title.
+function _flintTopBand(doc, { title, docId, status, version }) {
   const cp = state.companyProfile || {};
   const pw = doc.internal.pageSize.getWidth();
   const ml = 14, mr = 14;
-  let y = 12;
-  let logoBottom = y;
-  if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, y, 34, 22); logoBottom = y + 22; } catch {} }
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30);
+  const topY = 12;
+  let logoBottom = topY, nameRight = ml;
+  if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, topY, 30, 22); logoBottom = topY + 22; nameRight = ml + 34; } catch { nameRight = ml; } }
+  // Company name in orange, wrapped beside the logo.
+  if (cp.CompanyName) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.setTextColor(_FL_ORANGE[0], _FL_ORANGE[1], _FL_ORANGE[2]);
+    const nameW = (pw / 2) - nameRight;
+    const lines = doc.splitTextToSize(String(cp.CompanyName).toUpperCase(), nameW > 30 ? nameW : 60);
+    let ny = topY + 6;
+    lines.forEach(ln => { doc.text(ln, nameRight, ny); ny += 6.5; });
+    logoBottom = Math.max(logoBottom, ny - 4);
+  }
+  // Right-aligned document meta block.
   const rx = pw - mr;
-  doc.text('Document ID : ' + (docId || ''), rx, y + 4, { align: 'right' });
-  doc.text('Status : ' + (status || 'Draft'), rx, y + 10, { align: 'right' });
-  doc.text('Version : ' + (version || '1.0'), rx, y + 16, { align: 'right' });
-  y = Math.max(logoBottom, y + 18) + 2;
-  doc.setDrawColor(0); doc.setLineWidth(0.5); doc.line(ml, y, pw - mr, y);
-  doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
-  doc.text(title, pw / 2, y + 6, { align: 'center' });
-  return y + 10;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(_FL_LABEL[0], _FL_LABEL[1], _FL_LABEL[2]);
+  doc.text('Document ID :', rx - 26, topY + 5, { align: 'right' });
+  doc.text('Status :', rx - 26, topY + 12, { align: 'right' });
+  doc.text('Version :', rx - 26, topY + 19, { align: 'right' });
+  doc.setTextColor(40); doc.setFont('helvetica', 'normal');
+  doc.text(String(docId || ''), rx - 22, topY + 5);
+  doc.text(String(status || 'Draft'), rx - 22, topY + 12);
+  doc.text(String(version || '1.0'), rx - 22, topY + 19);
+  let y = Math.max(logoBottom, topY + 22) + 3;
+  // Teal rule.
+  doc.setDrawColor(_FL_TEAL[0], _FL_TEAL[1], _FL_TEAL[2]); doc.setLineWidth(1.1);
+  doc.line(ml, y, pw - mr, y);
+  // Title in teal.
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(_FL_TEAL[0], _FL_TEAL[1], _FL_TEAL[2]);
+  doc.text(title, ml + 4, y + 7);
+  doc.setLineWidth(0.2);
+  return y + 11;
 }
-if (typeof window !== 'undefined') window._flintDocHeader = _flintHeader;
+if (typeof window !== 'undefined') { window._flintTopBand = _flintTopBand; window._flintPalette = { _FL_TEAL, _FL_ORANGE, _FL_LABEL, _FL_HEADFILL, _FL_TOTFILL, _FL_TOTTEXT, _FL_PEACH, _FL_NAVY }; }
+
+// Rounded info box with two label/value columns (Project/Engineer etc.).
+function _flintInfoBox(doc, y, pairsL, pairsR) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = 14, mr = 14;
+  const rows = Math.max(pairsL.length, pairsR.length);
+  const h = 8 + rows * 7;
+  doc.setDrawColor(170, 180, 195); doc.setLineWidth(0.3);
+  doc.roundedRect(ml, y, pw - ml - mr, h, 2.5, 2.5, 'S');
+  const colX = (pw - ml - mr) / 2;
+  const draw = (pairs, lx) => pairs.forEach((p, i) => {
+    const ry = y + 8 + i * 7;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(_FL_LABEL[0], _FL_LABEL[1], _FL_LABEL[2]);
+    doc.text(p[0], lx, ry);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(40);
+    doc.text(String(p[1] == null ? '' : p[1]), lx + 32, ry);
+  });
+  draw(pairsL, ml + 4);
+  draw(pairsR, ml + colX + 4);
+  doc.setLineWidth(0.2);
+  return y + h + 4;
+}
 
 /**
- * Measurement Sheet — "New Format" template (client's Excel style): logo +
- * Document ID/Status/Version header, ruled grid of grouped items with F-lines,
- * and a full-width highlighted "Total <item>" row per item.
+ * Measurement Sheet — "New Format" template (client's Jay Ambe PDF): logo +
+ * orange company name + Document ID/Status/Version, teal rule & title, a rounded
+ * Project/Engineer info box, then a grouped grid with teal-accented item headers
+ * and a light-blue "TOTAL <item>" row per item.
  */
 export function exportMeasurementFlintPdf(id) {
   try {
@@ -156,20 +208,28 @@ export function exportMeasurementFlintPdf(id) {
     const s = state.sheets.find(x => x.id === sheetId);
     if (!s) return showToast('Sheet not found', 'error');
     if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const proj = state.projects.find(p => p.id === s.projectId);
+    const client = state.clients.find(x => x.id === s.clientId);
+    const clientName = client?.name || proj?.clientName || '';
     const doc = new window.jspdf.jsPDF('portrait');
     const status = s.locked ? 'Verified & Locked' : (s.status || 'Draft');
-    let y = _flintHeader(doc, { title: 'Measurement Sheet', docId: 'MES/' + (s.sheetNum || ''), status, version: '1.0' });
+    let y = _flintTopBand(doc, { title: 'Measurement Sheet', docId: 'MES/' + (s.sheetNum || ''), status, version: '1.0' });
+    y = _flintInfoBox(doc, y,
+      [['Project Name :', proj?.name || clientName || '—'], ['Site Location:', proj?.siteLocation || s.area || '—'], ['Area :', s.area || '']],
+      [['Engineer:', s.engineer || ''], ['Date:', s.date || ''], ['Sheet:', s.sheetNum || '']]
+    );
 
     const groups = groupSheetEntries(s.entries || []);
     const head = [['Sr.No', 'Description', 'UOM', 'Nos.', 'Length', 'Width', 'Height /Thk.', 'Coeff./Size', 'Qty']];
     const body = [];
-    const HL = [219, 234, 254]; // highlighted total-row tint
+    const groupRows = []; // body-row indices that are item headers (for the teal accent bar)
     let itemNum = 0;
     Object.keys(groups).forEach(key => {
       const lines = groups[key];
       const first = lines[0] || {};
       itemNum++;
       let total = 0; lines.forEach(e => total += (e.qty || 0));
+      groupRows.push(body.length);
       body.push([
         { content: itemNum, styles: { halign: 'center', fontStyle: 'bold' } },
         { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
@@ -185,21 +245,28 @@ export function exportMeasurementFlintPdf(id) {
           { content: e.l || '', styles: { halign: 'center' } },
           { content: e.b || '', styles: { halign: 'center' } },
           { content: e.h || '', styles: { halign: 'center' } },
-          '',
+          { content: e.coeff || e.size || '', styles: { halign: 'center' } },
           { content: (e.qty != null && e.qty !== '') ? _qtyDp(e.qty) : '', styles: { halign: 'center' } }
         ]);
       });
       body.push([
-        { content: 'Total  ' + (first.description || first.code || ''), colSpan: 8, styles: { fontStyle: 'bold', fillColor: HL } },
-        { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: HL } }
+        { content: 'TOTAL ' + String(first.description || first.code || '').toUpperCase(), colSpan: 8, styles: { fontStyle: 'bold', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } },
+        { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } }
       ]);
     });
     doc.autoTable({
       startY: y, head, body, theme: 'grid',
-      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5 },
-      styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
-      columnStyles: { 0: { cellWidth: 11, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 14, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' }, 5: { cellWidth: 18, halign: 'center' }, 6: { cellWidth: 18, halign: 'center' }, 7: { cellWidth: 16, halign: 'center' }, 8: { cellWidth: 20, halign: 'center' } },
-      margin: { left: 14, right: 14 }
+      headStyles: { fillColor: _FL_HEADFILL, textColor: [40, 40, 40], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [210, 215, 222], lineWidth: 0.1, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [225, 228, 233], lineWidth: 0.1, textColor: [30, 40, 55] },
+      columnStyles: { 0: { cellWidth: 11, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' }, 4: { cellWidth: 17, halign: 'center' }, 5: { cellWidth: 17, halign: 'center' }, 6: { cellWidth: 17, halign: 'center' }, 7: { cellWidth: 16, halign: 'center' }, 8: { cellWidth: 18, halign: 'center' } },
+      margin: { left: 14, right: 14 },
+      didParseCell: (d) => { if (d.section === 'body' && groupRows.includes(d.row.index)) d.cell.styles.fontStyle = 'bold'; },
+      didDrawCell: (d) => {
+        if (d.section === 'body' && d.column.index === 0 && groupRows.includes(d.row.index)) {
+          doc.setFillColor(_FL_TEAL[0], _FL_TEAL[1], _FL_TEAL[2]);
+          doc.rect(d.cell.x + 0.4, d.cell.y + 0.8, 1.4, d.cell.height - 1.6, 'F');
+        }
+      }
     });
     mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
   } catch (err) {
