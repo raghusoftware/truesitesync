@@ -1,7 +1,9 @@
 name: Build Desktop App
 
 on:
-  workflow_dispatch:   # manual only — tags build the AAB, not the desktop app
+  workflow_dispatch:   # manual trigger
+  push:
+    tags: ['v*']       # a version tag also builds & publishes the desktop exe
 
 jobs:
   build-windows:

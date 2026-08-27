@@ -1,7 +1,9 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:   # manual only — tags build the AAB, not the APK
+  workflow_dispatch:   # manual trigger
+  push:
+    tags: ['v*']       # a version tag also builds & attaches the APK to the release
 
 jobs:
   build-android:
