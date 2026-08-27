@@ -250,7 +250,7 @@ export function exportMeasurementFlintPdf(id) {
         ]);
       });
       body.push([
-        { content: 'TOTAL ' + String(first.description || first.code || '').toUpperCase(), colSpan: 8, styles: { fontStyle: 'bold', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } },
+        { content: 'TOTAL ' + String(first.description || first.code || '').toUpperCase(), colSpan: 8, styles: { fontStyle: 'bold', halign: 'left', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } },
         { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } }
       ]);
     });
