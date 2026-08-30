@@ -167,11 +167,44 @@ export function exportPurchaseOrderPDF(id) {
 }
 window.exportPurchaseOrderPDF = exportPurchaseOrderPDF;
 
+/**
+ * Fulfillment of a Purchase Order = how much of each ordered item has actually
+ * been received against it. "Received" sums every GRN linked to the PO
+ * (g.poId === po.id) by material — this covers both manual GRNs (PO picked on
+ * the receipt) and the auto-GRNs a purchase bill creates for a PO it references.
+ * Returns per-item ordered/received/remaining plus an overall % and status.
+ */
+export function poFulfillment(po) {
+  const grns = (state.grnRecords || []).filter(g => g.poId === po.id);
+  const recvByMat = {};
+  grns.forEach(g => { recvByMat[g.matId] = (recvByMat[g.matId] || 0) + (Number(g.qty) || 0); });
+  let orderedTotal = 0, receivedClamped = 0;
+  const items = (po.items || []).map(it => {
+    const rm = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
+    const ordered = Number(it.qty) || 0;
+    const received = recvByMat[it.rawMatId] || 0;
+    orderedTotal += ordered; receivedClamped += Math.min(received, ordered);
+    return { matId: it.rawMatId, name: rm?.name || it.rawMatId, unit: rm?.unit || '', ordered, received, remaining: Math.max(0, ordered - received), rate: it.rate || 0 };
+  });
+  // Materials received against this PO that weren't on the original order (extras).
+  Object.keys(recvByMat).forEach(mid => {
+    if (!(po.items || []).some(it => it.rawMatId === mid)) {
+      const rm = (state.rawMaterials || []).find(r => r.id === mid);
+      items.push({ matId: mid, name: (rm?.name || mid) + ' (extra)', unit: rm?.unit || '', ordered: 0, received: recvByMat[mid], remaining: 0, rate: 0, extra: true });
+    }
+  });
+  const pct = orderedTotal > 0 ? Math.min(100, Math.round((receivedClamped / orderedTotal) * 100)) : (grns.length ? 100 : 0);
+  const status = pct >= 100 && (orderedTotal > 0 || grns.length) ? 'Completed' : (receivedClamped > 0 ? 'Partial' : 'Pending');
+  return { items, orderedTotal, receivedTotal: receivedClamped, pct, status, grns };
+}
+window.poFulfillment = poFulfillment;
+
 export function renderPurchaseOrders() {
   if (!state.purchaseOrders) state.purchaseOrders = [];
   const orders = [...state.purchaseOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
-  const pending = orders.filter(o => o.deliveryStatus === 'Pending').length;
-  const completed = orders.filter(o => o.deliveryStatus === 'Completed').length;
+  const _fmap = new Map(orders.map(o => [o.id, poFulfillment(o)]));
+  const completed = orders.filter(o => _fmap.get(o.id).status === 'Completed').length;
+  const pending = orders.length - completed;
   const totalVal = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
   if (document.getElementById('poOrdTotal')) document.getElementById('poOrdTotal').textContent = orders.length;
   if (document.getElementById('poOrdPending')) document.getElementById('poOrdPending').textContent = pending;
@@ -190,16 +223,24 @@ export function renderPurchaseOrders() {
   if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-12 text-center text-slate-400 font-medium">No purchase orders found.</td></tr>'; return; }
   filtered.forEach(o => {
     const v = state.vendors.find(x => x.id === o.vendorId);
-    const dBadge = o.deliveryStatus === 'Completed' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Completed</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
+    const f = _fmap.get(o.id);
+    const barColor = f.status === 'Completed' ? '#16a34a' : (f.status === 'Partial' ? '#f59e0b' : '#cbd5e1');
+    const chip = f.status === 'Completed'
+      ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">Completed</span>'
+      : (f.status === 'Partial'
+        ? `<span class="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded font-bold">Partial ${f.pct}%</span>`
+        : '<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded font-bold">Pending</span>');
+    const dCell = `<div class="flex flex-col items-center gap-1">${chip}<div style="width:78px;height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden;"><div style="width:${f.pct}%;height:100%;background:${barColor};"></div></div><span class="text-[9px] text-slate-400">recv ${(+f.receivedTotal.toFixed(2))}/${(+f.orderedTotal.toFixed(2))}</span></div>`;
     const pBadge = o.paymentStatus === 'Paid' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Paid</span>' : '<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">Unpaid</span>';
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
       <td class="px-4 py-3 font-mono font-bold text-blue-700">${o.poNo}</td>
       <td class="px-4 py-3 font-bold text-slate-700">${v?.name || 'Unknown'}</td>
       <td class="px-4 py-3 text-slate-500">${o.date}</td>
       <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(o.totalAmount || 0).toLocaleString('en-IN')}</td>
-      <td class="px-4 py-3 text-center">${dBadge}</td>
+      <td class="px-4 py-3 text-center">${dCell}</td>
       <td class="px-4 py-3 text-center">${pBadge}</td>
       <td class="px-4 py-3 text-center whitespace-nowrap">
+        <button onclick="viewPurchaseOrderReport('${o.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 text-[10px] px-2 py-1 rounded font-bold mr-1">📊 Track</button>
         <button onclick="openPurchaseOrderForm('${o.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold mr-1">Edit</button>
         <button onclick="exportPurchaseOrderPDF('${o.id}')" class="text-slate-700 bg-slate-100 hover:bg-slate-200 text-[10px] px-2 py-1 rounded font-bold mr-1">PDF</button>
         <button onclick="deletePurchaseOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button>
@@ -207,6 +248,117 @@ export function renderPurchaseOrders() {
     </tr>`;
   });
 }
+
+/** Detail modal: PO items ordered/received/remaining + linked GRNs & bills. */
+export function viewPurchaseOrderReport(id) {
+  const po = (state.purchaseOrders || []).find(o => o.id === id);
+  if (!po) return showToast('Purchase Order not found', 'error');
+  const v = state.vendors.find(x => x.id === po.vendorId);
+  const f = poFulfillment(po);
+  const bills = (state.vendorMaterials || []).filter(b => b.poId === po.id);
+  const cur = getCurrencySymbol();
+  const qn = n => (+(Number(n) || 0).toFixed(2)).toLocaleString('en-IN');
+  const statusColor = f.status === 'Completed' ? '#16a34a' : (f.status === 'Partial' ? '#f59e0b' : '#64748b');
+  const itemRows = f.items.map(it => {
+    const rc = it.remaining <= 0 && it.ordered > 0 ? '#16a34a' : (it.received > 0 ? '#f59e0b' : '#94a3b8');
+    return `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td class="px-3 py-2 font-bold text-slate-700">${it.name}</td>
+      <td class="px-3 py-2 text-center">${it.unit || ''}</td>
+      <td class="px-3 py-2 text-right">${qn(it.ordered)}</td>
+      <td class="px-3 py-2 text-right font-bold" style="color:${rc}">${qn(it.received)}</td>
+      <td class="px-3 py-2 text-right font-bold ${it.remaining > 0 ? 'text-rose-600' : 'text-green-600'}">${qn(it.remaining)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="px-3 py-4 text-center text-slate-400">No items on this PO.</td></tr>';
+  const grnRows = f.grns.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(g => {
+    const m = state.rawMaterials.find(r => r.id === g.matId);
+    return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-1.5 font-mono text-blue-700">${g.grnNo || '—'}</td><td class="px-3 py-1.5">${g.date || ''}</td><td class="px-3 py-1.5">${m?.name || g.category || '—'}</td><td class="px-3 py-1.5 text-right font-bold">${qn(g.qty)} ${m?.unit || ''}</td><td class="px-3 py-1.5 text-center">${g.billed ? '<span class="text-green-600 font-bold">Billed</span>' : '<span class="text-rose-600 font-bold">Unbilled</span>'}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="px-3 py-3 text-center text-slate-400">No goods received against this PO yet.</td></tr>';
+  const billRows = bills.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(b => `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-1.5 font-mono text-blue-700">${b.billNo || '—'}</td><td class="px-3 py-1.5">${b.date || ''}</td><td class="px-3 py-1.5 text-right font-bold">${cur}${qn(b.totalAmount)}</td></tr>`).join('') || '<tr><td colspan="3" class="px-3 py-3 text-center text-slate-400">No purchase bills reference this PO yet.</td></tr>';
+
+  let modal = document.getElementById('poTrackModal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'poTrackModal';
+  modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center';
+  modal.style.zIndex = '199999';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
+      <div class="flex items-center gap-3 px-5 py-4 border-b" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg">📊</div>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-extrabold text-slate-800">PO Tracking — <span class="font-mono text-indigo-700">${po.poNo}</span></h3>
+          <p class="text-xs text-slate-500">${v?.name || 'Unknown supplier'} &middot; ${po.date || ''}</p>
+        </div>
+        <span class="text-[11px] px-2.5 py-1 rounded-full font-bold text-white" style="background:${statusColor}">${f.status} · ${f.pct}%</span>
+        <button onclick="document.getElementById('poTrackModal').remove()" class="ml-1 text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="p-5 space-y-5">
+        <div>
+          <div class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wide mb-2">Items — Ordered vs Received</div>
+          <div class="overflow-x-auto border border-slate-100 rounded-xl"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+            <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Item</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Unit</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Ordered</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Received</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Remaining</th>
+          </tr></thead><tbody>${itemRows}</tbody></table></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <div class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wide mb-2">Goods Received (GRNs)</div>
+            <div class="overflow-x-auto border border-slate-100 rounded-xl"><table class="w-full text-[11px]"><thead class="bg-slate-50"><tr><th class="px-3 py-1.5 text-left font-bold uppercase text-slate-500">GRN</th><th class="px-3 py-1.5 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-1.5 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-1.5 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-1.5 text-center font-bold uppercase text-slate-500">Bill</th></tr></thead><tbody>${grnRows}</tbody></table></div>
+          </div>
+          <div>
+            <div class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wide mb-2">Purchase Bills</div>
+            <div class="overflow-x-auto border border-slate-100 rounded-xl"><table class="w-full text-[11px]"><thead class="bg-slate-50"><tr><th class="px-3 py-1.5 text-left font-bold uppercase text-slate-500">Bill No</th><th class="px-3 py-1.5 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-1.5 text-right font-bold uppercase text-slate-500">Amount</th></tr></thead><tbody>${billRows}</tbody></table></div>
+          </div>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t bg-slate-50 flex justify-end gap-2">
+        <button onclick="exportPOTrackingPDF('${po.id}')" class="px-4 py-2 rounded-lg font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700">🖨️ PDF</button>
+        <button onclick="document.getElementById('poTrackModal').remove()" class="px-4 py-2 rounded-lg font-bold text-xs text-slate-600 bg-white border border-slate-200 hover:bg-slate-100">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+window.viewPurchaseOrderReport = viewPurchaseOrderReport;
+
+/** PDF of the PO tracking report (items ordered/received/remaining + GRNs). */
+export function exportPOTrackingPDF(id) {
+  const po = (state.purchaseOrders || []).find(o => o.id === id);
+  if (!po) return showToast('Purchase Order not found', 'error');
+  const v = state.vendors.find(x => x.id === po.vendorId);
+  const f = poFulfillment(po);
+  const sym = getPdfCurrency().trim();
+  const qn = n => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new window.jspdf.jsPDF();
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(14); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
+  doc.text('PURCHASE ORDER — TRACKING', 105, y + 5, null, null, 'center');
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text(`PO No: ${po.poNo || ''}`, 14, y + 14); doc.text(`Date: ${po.date || ''}`, 14, y + 19);
+  doc.text(`Supplier: ${v?.name || '—'}`, 14, y + 24);
+  doc.text(`Status: ${f.status} (${f.pct}% received)`, 140, y + 14);
+  const rows = f.items.map((it, i) => [i + 1, it.name, it.unit || '', qn(it.ordered), qn(it.received), qn(it.remaining)]);
+  doc.autoTable({
+    startY: y + 30, head: [['#', 'Item', 'Unit', 'Ordered', 'Received', 'Remaining']], body: rows, theme: 'grid',
+    headStyles: { fillColor: [79, 70, 229], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 70 }, 2: { cellWidth: 20, halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }
+  });
+  let gy = doc.lastAutoTable.finalY + 8;
+  const grns = f.grns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  if (grns.length) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Goods Received', 14, gy); gy += 2;
+    const grows = grns.map(g => { const m = state.rawMaterials.find(r => r.id === g.matId); return [g.grnNo || '—', g.date || '', m?.name || g.category || '—', `${qn(g.qty)} ${m?.unit || ''}`, g.billed ? 'Billed' : 'Unbilled']; });
+    doc.autoTable({ startY: gy + 2, head: [['GRN', 'Date', 'Material', 'Qty', 'Bill']], body: grows, theme: 'grid', headStyles: { fillColor: [100, 116, 139], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2 }, columnStyles: { 3: { halign: 'right' }, 4: { halign: 'center' } } });
+    gy = doc.lastAutoTable.finalY + 8;
+  }
+  const bills = (state.vendorMaterials || []).filter(b => b.poId === po.id);
+  if (bills.length) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Purchase Bills', 14, gy);
+    const brows = bills.map(b => [b.billNo || '—', b.date || '', `${sym} ${qn(b.totalAmount)}`]);
+    doc.autoTable({ startY: gy + 4, head: [['Bill No', 'Date', 'Amount']], body: brows, theme: 'grid', headStyles: { fillColor: [30, 64, 175], fontSize: 8 }, styles: { fontSize: 8, cellPadding: 2 }, columnStyles: { 2: { halign: 'right' } } });
+  }
+  mobileSavePDF(doc, `${po.poNo || 'PO'}-tracking.pdf`);
+}
+window.exportPOTrackingPDF = exportPOTrackingPDF;
 
 export function clearPOFilters() {
   ['poOrderSearch', 'poOrderStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });

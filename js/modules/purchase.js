@@ -617,7 +617,7 @@ export function savePanelPurchaseBill() {
       siteId, matId: it.rawMatId, category: '', qty: baseQty,
       expectedQty: 0, rate: baseRate, amount: it.amount,
       enteredQty: it.qty, entryUnit: it.unit,
-      challanNo: billNo, supplierId: vendorId, vehicleNo: '', driver: '',
+      challanNo: billNo, supplierId: vendorId, poId: rec.poId || '', poNo: rec.poNo || '', vehicleNo: '', driver: '',
       projectId,
       challanPhoto: null, condPhoto: null,
       billed: true, // billed at source — it came from a purchase bill
