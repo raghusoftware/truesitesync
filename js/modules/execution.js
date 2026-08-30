@@ -14,7 +14,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, mobileSavePDF } from './utils.js';
 import { getCurrentUser } from './rbac.js';
-import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
+import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
 
 // ── option lists ───────────────────────────────────────────
 const POUR_ELEMENTS = ['Footing', 'Column', 'Beam', 'Slab', 'Raft', 'Pile / Pile Cap', 'Retaining Wall', 'Plinth Beam', 'Staircase', 'Pedestal', 'Other'];
@@ -99,6 +99,7 @@ export function renderExecution() {
   if (_section === 'pour') return _renderPours(root);
   if (_section === 'quality') return _renderQuality(root);
   if (_section === 'safety') return _renderSafety(root);
+  if (_section === 'staff') return _renderStaff(root);
   return _renderHome(root);
 }
 window._exOpen = function (s) { _section = s; renderExecution(); };
@@ -127,6 +128,7 @@ function _renderHome(root) {
       ${card('&#129521;', '#f97316', 'Concrete Pour Card', 'Pour records & checks', 'pour', _arr('concretePours').length)}
       ${card('&#9989;', '#10b981', 'Quality', 'Cube tests, NCR, checks', 'quality', _arr('qualityChecks').length)}
       ${card('&#9937;', '#ef4444', 'Safety', 'Incidents & PPE', 'safety', _arr('incidents').length)}
+      ${card('&#128100;', '#7c3aed', 'Staff & Attendance', 'GPS punch in/out & pay', 'staff', _arr('staffMaster').length)}
     </div>`;
 }
 
@@ -803,4 +805,204 @@ window._exSSave = function (id) {
   if (id) { const r = state.incidents.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.incidents.push({ id: 'inc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
   _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Safety record saved', 'success'); renderExecution();
+};
+
+// ══════════════════════════════════════════════════════════
+//  STAFF & ATTENDANCE — GPS + camera punch in/out, present-for-day, OT pay
+// ══════════════════════════════════════════════════════════
+const _STD_HRS = 8;
+function _staffToday(staffId, date) { date = date || _today(); return (state.staffAttendance || []).find(a => a.staffId === staffId && a.date === date); }
+function _hm(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return '—'; } }
+function _money(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
+
+/** Day pay + overtime for an attendance record, from the staff member's config.
+ *  Two worlds, per staff: fixed daily/monthly wage (present = full day) OR
+ *  hourly. Extra hours beyond the standard day are paid as OT only when the
+ *  staff member has overtime enabled — otherwise they're presence-only. */
+function _staffComputePay(staff, hours) {
+  const std = _num(staff.standardHours) || _STD_HRS;
+  const otAllowed = !!staff.otAllowed;
+  const otHours = Math.max(0, +(hours - std).toFixed(2));
+  const rate = _num(staff.rate);
+  const mode = staff.wageMode || 'daily';
+  let base = 0, perHour = 0;
+  if (mode === 'hourly') { perHour = rate; base = Math.min(hours, std) * rate; }
+  else if (mode === 'monthly') { perHour = (rate / 30) / std; base = rate / 30; }
+  else { perHour = std ? rate / std : 0; base = rate; } // daily: present = full day
+  const otRate = _num(staff.otRate) || +(perHour * 1.5).toFixed(2);
+  const otPay = otAllowed ? +(otHours * otRate).toFixed(2) : 0;
+  return { std, otHours: otAllowed ? otHours : 0, otRate, dayPay: +base.toFixed(2), otPay, totalPay: +(base + otPay).toFixed(2) };
+}
+
+function _renderStaff(root) {
+  const staff = _arr('staffMaster');
+  const month = _today().slice(0, 7);
+  const cards = staff.map(s => {
+    const a = _staffToday(s.id);
+    let statusHtml, action;
+    if (!a || !a.inAt) {
+      statusHtml = `<span style="color:#94a3b8;font-weight:700;">Not marked</span>`;
+      action = `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>`;
+    } else if (!a.outAt) {
+      statusHtml = `<span style="color:#16a34a;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
+      action = `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>`;
+    } else {
+      statusHtml = `<span style="color:#16a34a;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
+      action = `<span style="font-size:13px;font-weight:800;color:#0f172a;">${_money(a.totalPay)}</span>`;
+    }
+    const wage = s.wageMode || 'daily';
+    const wageLabel = wage === 'hourly' ? `${_money(s.rate)}/hr` : (wage === 'monthly' ? `${_money(s.rate)}/mo` : `${_money(s.rate)}/day`);
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:#7c3aed15;border:2px solid #7c3aed30;display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;">${s.photo ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}</div>
+        <div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div><div style="font-size:11px;color:#64748b;">${_esc(s.designation || 'Staff')} · ${wageLabel}${s.otAllowed ? ' · <span style="color:#d97706;font-weight:700;">OT✓</span>' : ''}</div></div>
+        <button onclick="_staffHistory('${s.id}')" title="History" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">🗓</button>
+        <button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9;">
+        <div style="font-size:12px;">${statusHtml}</div>${action}
+      </div>
+    </div>`;
+  }).join('');
+  const rows = staff.map(s => {
+    const recs = (state.staffAttendance || []).filter(a => a.staffId === s.id && (a.date || '').startsWith(month) && a.inAt);
+    const present = recs.length;
+    if (!present) return '';
+    const hours = recs.reduce((t, a) => t + _num(a.hours), 0);
+    const ot = recs.reduce((t, a) => t + _num(a.otHours), 0);
+    const pay = recs.reduce((t, a) => t + _num(a.totalPay), 0);
+    return `<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:8px 10px;font-weight:700;">${_esc(s.name)}</td><td style="padding:8px 10px;text-align:center;">${present}</td><td style="padding:8px 10px;text-align:right;">${hours.toFixed(1)}</td><td style="padding:8px 10px;text-align:right;color:#d97706;">${ot.toFixed(1)}</td><td style="padding:8px 10px;text-align:right;font-weight:800;">${_money(pay)}</td></tr>`;
+  }).join('');
+  const payroll = rows ? `<div style="margin-top:20px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+    <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#0f172a;font-size:14px;">📅 Payroll this month (${month})</div>
+    <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:8px 10px;text-align:left;">Staff</th><th style="padding:8px 10px;">Present</th><th style="padding:8px 10px;text-align:right;">Hours</th><th style="padding:8px 10px;text-align:right;">OT hrs</th><th style="padding:8px 10px;text-align:right;">Pay</th></tr></thead><tbody>${rows}</tbody></table></div></div>` : '';
+  root.innerHTML = `${_backBar('Staff & Attendance')}
+    <div style="margin-bottom:14px;"><button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>
+    <span style="margin-left:10px;font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">No staff yet. Tap “+ Add Staff”.</div>'}</div>
+    ${payroll}`;
+}
+
+window._staffForm = function (id) {
+  const s = id ? (state.staffMaster || []).find(x => x.id === id) : null;
+  const sel = (opts, cur) => opts.map(o => `<option value="${o.v}" ${cur === o.v ? 'selected' : ''}>${o.t}</option>`).join('');
+  _modal(`${_head(s ? 'Edit Staff' : 'Add Staff')}<div style="padding:20px;">
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Name *</label><input id="stfName" style="${_inp}" value="${s ? _esc(s.name) : ''}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Designation</label><input id="stfDesig" style="${_inp}" placeholder="Site Engineer…" value="${s ? _esc(s.designation || '') : ''}"></div>
+      <div><label style="${_lbl}">Phone</label><input id="stfPhone" style="${_inp}" value="${s ? _esc(s.phone || '') : ''}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Wage Mode</label><select id="stfMode" style="${_inp}" onchange="_staffModeHint()">${sel([{ v: 'daily', t: 'Daily wage' }, { v: 'monthly', t: 'Monthly salary' }, { v: 'hourly', t: 'Hourly' }], (s && s.wageMode) || 'daily')}</select></div>
+      <div><label style="${_lbl}"><span id="stfRateLbl">Rate (₹/day)</span></label><input id="stfRate" type="number" style="${_inp}" value="${s ? _num(s.rate) : ''}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Standard hours / day</label><input id="stfStd" type="number" style="${_inp}" value="${s ? (_num(s.standardHours) || 8) : 8}"></div>
+      <div><label style="${_lbl}">OT rate (₹/hr)</label><input id="stfOtRate" type="number" style="${_inp}" placeholder="auto 1.5×" value="${s && s.otRate ? _num(s.otRate) : ''}"></div>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:16px;cursor:pointer;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:11px;"><input type="checkbox" id="stfOt" ${s && s.otAllowed ? 'checked' : ''} style="width:18px;height:18px;margin-top:1px;"><span style="font-size:12px;color:#334155;"><b>Overtime pay allowed</b> — extra hours beyond the standard day are paid at the OT rate. Leave off for staff who are present-for-day only (no extra pay for extra hours).</span></label>
+    <button onclick="_staffSave('${id || ''}')" style="width:100%;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Staff'}</button>
+    ${s ? `<button onclick="_staffDelete('${s.id}')" style="width:100%;margin-top:8px;padding:9px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:10px;font-weight:700;cursor:pointer;">Delete staff</button>` : ''}
+  </div>`);
+  setTimeout(_staffModeHint, 30);
+};
+window._staffModeHint = function () {
+  const m = document.getElementById('stfMode')?.value;
+  const l = document.getElementById('stfRateLbl');
+  if (l) l.textContent = m === 'hourly' ? 'Rate (₹/hour)' : (m === 'monthly' ? 'Salary (₹/month)' : 'Rate (₹/day)');
+};
+window._staffSave = function (id) {
+  const v = i => (document.getElementById(i)?.value || '').trim();
+  const name = v('stfName'); if (!name) { showToast('Name required', 'error'); return; }
+  const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
+  if (!state.staffMaster) state.staffMaster = [];
+  if (id) { const r = state.staffMaster.find(x => x.id === id); if (r) Object.assign(r, data); }
+  else state.staffMaster.push({ id: 'stf_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
+  saveAllData(); _exCloseModal(); showToast('Staff saved', 'success'); renderExecution();
+};
+window._staffDelete = function (id) {
+  if (!confirm('Delete this staff member? Their attendance history stays in records.')) return;
+  state.staffMaster = (state.staffMaster || []).filter(x => x.id !== id);
+  saveAllData(); _exCloseModal(); showToast('Staff deleted'); renderExecution();
+};
+
+// ── GPS + camera punch flow ──
+let _punchPhoto = null, _punchGps = null;
+window._staffPunch = async function (staffId, kind) {
+  const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
+  _punchPhoto = null; _punchGps = null;
+  const isIn = kind === 'in';
+  _modal(`${_head((isIn ? 'Punch In' : 'Punch Out') + ' — ' + _esc(s.name))}<div style="padding:20px;">
+    <div style="text-align:center;margin-bottom:14px;"><div style="font-size:34px;font-weight:800;color:${isIn ? '#16a34a' : '#dc2626'};">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div style="font-size:12px;color:#94a3b8;">${_today()}</div></div>
+    <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#64748b;">📍 <span id="punchGpsTxt">Getting location…</span></div>
+    <label style="display:block;border:2px dashed #c4b5fd;background:#faf5ff;border-radius:12px;padding:16px;text-align:center;cursor:pointer;margin-bottom:14px;">
+      <div style="font-size:26px;">📷</div><div style="font-size:12px;font-weight:700;color:#6d28d9;">Tap to capture photo *</div>
+      <input type="file" accept="image/*" capture="user" onchange="_staffPunchPhoto(this)" style="display:none;"><div id="punchPrev" style="margin-top:8px;"></div></label>
+    <button onclick="_staffPunchSave('${staffId}','${kind}')" style="width:100%;padding:12px;background:${isIn ? '#16a34a' : '#dc2626'};color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Confirm ${isIn ? 'Punch In' : 'Punch Out'}</button>
+  </div>`);
+  const gps = await getGps();
+  _punchGps = gps;
+  const t = document.getElementById('punchGpsTxt');
+  if (t) t.textContent = gps ? gpsLabel(gps) : 'Location unavailable — will save without GPS';
+};
+window._staffPunchPhoto = function (input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 720, sc = Math.min(1, max / (img.width || max));
+      const w = Math.round(img.width * sc), h = Math.round(img.height * sc);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      try { _punchPhoto = cv.toDataURL('image/jpeg', 0.55); } catch { _punchPhoto = null; }
+      const p = document.getElementById('punchPrev');
+      if (p && _punchPhoto) p.innerHTML = `<img src="${_punchPhoto}" style="max-height:120px;border-radius:10px;">`;
+    };
+    img.onerror = () => { _punchPhoto = null; };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+window._staffPunchSave = function (staffId, kind) {
+  const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
+  if (!_punchPhoto) { showToast('Capture a photo to verify the punch', 'error'); return; }
+  const now = new Date().toISOString(), date = _today();
+  if (!state.staffAttendance) state.staffAttendance = [];
+  let a = _staffToday(staffId, date);
+  if (kind === 'in') {
+    if (a && a.inAt) { showToast('Already punched in today', 'info'); return; }
+    if (!a) { a = { id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }; state.staffAttendance.push(a); }
+    a.inAt = now; a.inGps = _punchGps || null; a.inPhoto = _punchPhoto; a.status = 'Present';
+  } else {
+    if (!a || !a.inAt) { showToast('Punch in first', 'error'); return; }
+    a.outAt = now; a.outGps = _punchGps || null; a.outPhoto = _punchPhoto;
+    a.hours = Math.max(0, +((new Date(a.outAt) - new Date(a.inAt)) / 3600000).toFixed(2));
+    const pay = _staffComputePay(s, a.hours);
+    a.otHours = pay.otHours; a.otRate = pay.otRate; a.dayPay = pay.dayPay; a.otPay = pay.otPay; a.totalPay = pay.totalPay;
+  }
+  _punchPhoto = null; _punchGps = null;
+  saveAllData(); _exCloseModal();
+  showToast(kind === 'in' ? `${s.name} marked Present` : `${s.name} punched out · ${a.hours}h`, 'success');
+  renderExecution();
+};
+window._staffHistory = function (id) {
+  const s = (state.staffMaster || []).find(x => x.id === id); if (!s) return;
+  const recs = (state.staffAttendance || []).filter(a => a.staffId === id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 60);
+  const rows = recs.map(a => `<tr style="border-bottom:1px solid #f1f5f9;">
+    <td style="padding:6px 8px;">${a.date}</td>
+    <td style="padding:6px 8px;">${_hm(a.inAt)}${a.inGps ? ` <span title="${gpsLabel(a.inGps)}" style="color:#7c3aed;">📍</span>` : ''}${a.inPhoto ? ` <span onclick="_staffPhotoView('${a.id}','in')" style="cursor:pointer;">📷</span>` : ''}</td>
+    <td style="padding:6px 8px;">${_hm(a.outAt)}${a.outGps ? ` <span title="${gpsLabel(a.outGps)}" style="color:#7c3aed;">📍</span>` : ''}${a.outPhoto ? ` <span onclick="_staffPhotoView('${a.id}','out')" style="cursor:pointer;">📷</span>` : ''}</td>
+    <td style="padding:6px 8px;text-align:right;">${a.hours != null ? a.hours + 'h' : '—'}</td>
+    <td style="padding:6px 8px;text-align:right;color:#d97706;">${a.otHours ? a.otHours + 'h' : ''}</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:700;">${a.totalPay != null ? _money(a.totalPay) : '—'}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">No attendance yet.</td></tr>';
+  _modal(`${_head('Attendance — ' + _esc(s.name))}<div style="padding:16px 20px;max-height:70vh;overflow:auto;"><div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:6px 8px;text-align:left;">Date</th><th style="padding:6px 8px;text-align:left;">In</th><th style="padding:6px 8px;text-align:left;">Out</th><th style="padding:6px 8px;text-align:right;">Hrs</th><th style="padding:6px 8px;text-align:right;">OT</th><th style="padding:6px 8px;text-align:right;">Pay</th></tr></thead><tbody>${rows}</tbody></table></div></div>`);
+};
+window._staffPhotoView = function (attId, which) {
+  const a = (state.staffAttendance || []).find(x => x.id === attId); if (!a) return;
+  const src = which === 'in' ? a.inPhoto : a.outPhoto; if (!src) return;
+  let lb = document.getElementById('exLightbox');
+  if (!lb) { lb = document.createElement('div'); lb.id = 'exLightbox'; lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;'; lb.addEventListener('click', () => lb.remove()); document.body.appendChild(lb); }
+  lb.innerHTML = `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;">`;
 };
