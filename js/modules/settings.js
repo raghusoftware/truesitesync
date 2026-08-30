@@ -29,7 +29,32 @@ export function openSettingsSection(tabId) {
   if (tabId === 'settCompany' && typeof window.loadCompanyProfile === 'function') window.loadCompanyProfile();
   if (tabId === 'settOrg' && typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
   if (tabId === 'settUnits') renderUnitsTab();
+  if (tabId === 'settInventory') renderInventorySettingsTab();
 }
+
+// ─── INVENTORY / STORE SETTINGS ───
+export function renderInventorySettingsTab() {
+  const box = document.getElementById('settInventoryContent');
+  if (!box) return;
+  const on = !!(state.printSettings && state.printSettings.grnQcApproval);
+  box.innerHTML = `
+    <p class="text-sm text-slate-500 mb-4">Store-keeping controls for goods receipt (GRN) and stock.</p>
+    <label class="flex items-start gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer max-w-xl">
+      <input type="checkbox" id="settGrnQcApproval" ${on ? 'checked' : ''} onchange="window._setGrnQcApproval(this.checked)" style="width:20px;height:20px;margin-top:1px;">
+      <span>
+        <span class="block font-bold text-slate-800 text-sm">Require QC approval for GRN stock</span>
+        <span class="block text-xs text-slate-500 mt-0.5">When ON, every goods receipt is marked <b>Pending QC</b> and a store-keeper must tap <b>Approve</b> in the GRN register before it reads as inspected. Stock still updates on receipt; this adds an inspection gate for records &amp; accountability.</span>
+      </span>
+    </label>`;
+}
+window.renderInventorySettingsTab = renderInventorySettingsTab;
+
+window._setGrnQcApproval = function (checked) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.grnQcApproval = !!checked;
+  saveAllData();
+  showToast(checked ? 'QC approval required for new GRNs' : 'QC approval turned off — GRNs auto-accept', 'success');
+};
 
 // ─── UNITS OF MEASURE MASTER ───
 export function renderUnitsTab() {

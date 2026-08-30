@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.75"></script>
+    <script type="module" src="js/app.js?v=1.6.76"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1254,6 +1254,11 @@
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Units</h4>
                 <p class="text-[10px] text-slate-400 mt-0.5">Units of measure master</p>
               </div>
+              <div onclick="openSettingsSection('settInventory')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
+                <div style="width:44px;height:44px;background:#0ea5e912;border:2px solid #0ea5e925;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#128230;</div>
+                <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Inventory</h4>
+                <p class="text-[10px] text-slate-400 mt-0.5">GRN QC approval & store rules</p>
+              </div>
               <div onclick="openSettingsSection('settBackup')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
                 <div style="width:44px;height:44px;background:#64748b12;border:2px solid #64748b25;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#128190;</div>
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Backup</h4>
@@ -1309,6 +1314,14 @@
                 <p class="text-[10px] text-slate-400">Document numbering prefixes and sequences</p></div>
               </div>
               <div id="settAutoNumContent"></div>
+            </div>
+            <div id="settInventory" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">&#128230;</span>
+                <div><h3 class="text-base font-bold text-slate-800">Inventory & Store</h3>
+                <p class="text-[10px] text-slate-400">Goods-receipt QC approval and store-keeping rules</p></div>
+              </div>
+              <div id="settInventoryContent"></div>
             </div>
             <div id="settBackup" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
               <div class="flex items-center gap-2 mb-3">

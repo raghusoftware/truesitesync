@@ -2084,6 +2084,8 @@ window._exportStockStatementPDF = function () {
 let _grnChallanPhoto = null, _grnCondPhoto = null;
 // Set while an existing GRN is being edited; null when creating a new one.
 let _grnEditingId = null;
+// Row-id sequence for the multi-item GRN table.
+let _grnRowSeq = 0;
 // Filters for the GRN register — supplier / material / date range.
 let _grnFilters = { supplier: '', material: '', from: '', to: '' };
 
@@ -2162,22 +2164,33 @@ function _renderGRN() {
         ${_sec('Receipt Details')}
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label><input id="grnDate" type="date" value="${_grnDateVal}" onchange="_grnDateChanged()" class="${_fld}"></div>
-          <div><label class="${_lbl}">Site / Store</label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
-          <div><label class="${_lbl}">Supplier <span class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select supplier —</option>${supplierOpts}</select></div>
+          <div><label class="${_lbl}">Store / Site <span class="text-rose-400">*</span></label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
+          <div><label class="${_lbl}">Source Type <span class="text-rose-400">*</span></label><select id="grnSource" onchange="_grnSourceChanged()" class="${_fld} bg-white"><option value="Supplier">Supplier</option><option value="Rent">Rent</option><option value="STN">STN (Stock Transfer)</option></select></div>
+          <div><label class="${_lbl}"><span id="grnSupLabel">Supplier</span> <span id="grnSupStar" class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select —</option>${supplierOpts}</select></div>
+          <div><label class="${_lbl}">Mode of Receipt</label><select id="grnMode" class="${_fld} bg-white"><option value="Transport">Transport</option><option value="Self">Self</option><option value="Field">Field</option></select></div>
           <div><label class="${_lbl}">Purchase Order <span class="text-slate-300 normal-case font-medium">(opt)</span></label><select id="grnPO" onchange="_grnPOChanged()" class="${_fld} bg-white"><option value="">— None —</option></select><div id="grnPOHint" class="text-[10px] text-slate-400 mt-0.5"></div></div>
           <div><label class="${_lbl}">Challan / Invoice No</label><input id="grnChallan" placeholder="e.g. INV-2045" class="${_fld}"></div>
           <div><label class="${_lbl}">Vehicle No</label><input id="grnVehicle" placeholder="e.g. GJ-01-AB-1234" class="${_fld}"></div>
           <div><label class="${_lbl}">Driver Contact <span class="text-slate-300 normal-case font-medium">(opt)</span></label><input id="grnDriver" placeholder="Phone / name" class="${_fld}"></div>
         </div>
 
-        ${_sec('Material Received')}
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div><label class="${_lbl}">Material <span class="text-rose-400">*</span></label><select id="grnMat" onchange="syncUnitPicker('grnMat','grnQtyUnit')" class="${_fld} bg-white">${_matOptions()}</select></div>
-          <div><label class="${_lbl}">Category</label><input id="grnCat" placeholder="Steel / Cement…" class="${_fld}"></div>
-          <div><label class="${_lbl}">Qty Received <span class="text-rose-400">*</span></label><div class="flex gap-1.5"><input id="grnQty" type="number" placeholder="0" class="${_fld} flex-1"><select id="grnQtyUnit" title="Unit" class="px-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"></select></div></div>
-          <div><label class="${_lbl}">Expected (PO) <span class="text-slate-300 normal-case font-medium">(opt)</span></label><input id="grnExpected" type="number" placeholder="0" class="${_fld}"></div>
-          <div><label class="${_lbl}">Rate <span class="text-slate-400 normal-case font-medium">${cur}/unit (opt)</span></label><input id="grnRate" type="number" placeholder="0.00" class="${_fld}"></div>
+        ${_sec('Materials Received')}
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50"><tr>
+              <th class="px-2 py-2 text-center font-bold uppercase text-slate-400 w-8">#</th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Material <span class="text-rose-400">*</span></th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Category</th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Qty <span class="text-rose-400">*</span></th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Unit</th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Exp.</th>
+              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Rate</th>
+              <th class="px-2 py-2 w-8"></th>
+            </tr></thead>
+            <tbody id="grnItemsBody"></tbody>
+          </table>
         </div>
+        <button type="button" onclick="_grnAddItemRow()" class="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200">+ Add item</button>
 
         ${_sec('Documentation')}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2212,11 +2225,65 @@ function _renderGRN() {
       <div id="grnListWrap"></div>
     </div>`;
   _renderGrnList();
-  syncUnitPicker('grnMat', 'grnQtyUnit');
-  // Prefill the supplier on edit BEFORE the PO list is built (so the right POs show).
-  if (_grnEdit0) { const sup = document.getElementById('grnSupplier'); if (sup) sup.value = _grnEdit0.supplierId || ''; }
+  // Build the item rows: one prefilled row when editing a line, else one blank row.
+  _grnRowSeq = 0;
+  const body = document.getElementById('grnItemsBody'); if (body) body.innerHTML = '';
+  if (_grnEdit0) {
+    const m = state.rawMaterials.find(r => r.id === _grnEdit0.matId);
+    const entered = _grnEdit0.enteredQty != null ? _grnEdit0.enteredQty : _grnEdit0.qty;
+    _grnAddItemRow({ matId: _grnEdit0.matId, category: _grnEdit0.category, enteredQty: entered, entryUnit: _grnEdit0.entryUnit || (m && m.unit) || '', expected: _grnEdit0.expectedQty || '', rate: (entered > 0 && _grnEdit0.amount) ? (_grnEdit0.amount / entered) : (_grnEdit0.rate || '') });
+    const sup = document.getElementById('grnSupplier'); if (sup) sup.value = _grnEdit0.supplierId || '';
+    const src = document.getElementById('grnSource'); if (src) src.value = _grnEdit0.sourceType || 'Supplier';
+    const mode = document.getElementById('grnMode'); if (mode) mode.value = _grnEdit0.modeOfReceipt || 'Transport';
+    _grnSourceChanged();
+  } else {
+    _grnAddItemRow();
+  }
   _grnFillPO(document.getElementById('grnSupplier')?.value || '', _grnEdit0?.poId || '');
 }
+
+/** Append one material row to the GRN items table (optionally prefilled). */
+function _grnAddItemRow(data) {
+  const body = document.getElementById('grnItemsBody'); if (!body) return;
+  const i = _grnRowSeq++;
+  const inp = 'w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400';
+  const tr = document.createElement('tr');
+  tr.className = 'grn-item-row'; tr.style.borderTop = '1px solid #f1f5f9';
+  tr.innerHTML =
+    `<td class="px-2 py-1 text-center text-slate-400 grn-rn"></td>`
+    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="syncUnitPicker('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
+    + `<td class="px-2 py-1"><input class="grn-cat ${inp}" placeholder="Steel / Cement…"></td>`
+    + `<td class="px-2 py-1"><input type="number" class="grn-qty ${inp}" style="min-width:70px" placeholder="0"></td>`
+    + `<td class="px-2 py-1"><select id="grnUnit_${i}" class="grn-unit ${inp} font-bold" style="min-width:70px"></select></td>`
+    + `<td class="px-2 py-1"><input type="number" class="grn-exp ${inp}" style="min-width:60px" placeholder="0"></td>`
+    + `<td class="px-2 py-1"><input type="number" class="grn-rate ${inp}" style="min-width:70px" placeholder="0.00"></td>`
+    + `<td class="px-2 py-1 text-center"><button type="button" onclick="this.closest('tr').remove();_grnRenumberRows();" class="text-rose-400 hover:bg-rose-50 px-1.5 py-1 rounded font-bold">✕</button></td>`;
+  body.appendChild(tr);
+  if (data && data.matId) { const ms = tr.querySelector('.grn-mat'); if (ms) ms.value = data.matId; }
+  syncUnitPicker(`grnMat_${i}`, `grnUnit_${i}`);
+  if (data) {
+    if (data.category != null) tr.querySelector('.grn-cat').value = data.category;
+    if (data.enteredQty != null) tr.querySelector('.grn-qty').value = data.enteredQty;
+    if (data.entryUnit) { const us = tr.querySelector('.grn-unit'); if (us) us.value = data.entryUnit; }
+    if (data.expected != null && data.expected !== '') tr.querySelector('.grn-exp').value = data.expected;
+    if (data.rate != null && data.rate !== '') tr.querySelector('.grn-rate').value = data.rate;
+  }
+  _grnRenumberRows();
+  return tr;
+}
+window._grnAddItemRow = _grnAddItemRow;
+function _grnRenumberRows() { document.querySelectorAll('#grnItemsBody .grn-item-row .grn-rn').forEach((c, idx) => c.textContent = idx + 1); }
+window._grnRenumberRows = _grnRenumberRows;
+
+/** Source type changed → Supplier is only mandatory for a Supplier receipt;
+ *  for Rent/STN the party field is optional and relabelled. */
+window._grnSourceChanged = function () {
+  const src = document.getElementById('grnSource')?.value || 'Supplier';
+  const star = document.getElementById('grnSupStar');
+  const label = document.getElementById('grnSupLabel');
+  if (label) label.textContent = src === 'STN' ? 'From Store / Party' : (src === 'Rent' ? 'Rented From' : 'Supplier');
+  if (star) star.style.display = src === 'Supplier' ? '' : 'none';
+};
 
 /** Fill the GRN form's Purchase Order dropdown with the chosen supplier's POs. */
 function _grnFillPO(supplierId, selectedPoId) {
@@ -2236,16 +2303,20 @@ window._grnSupplierChanged = function () {
   _grnFillPO(document.getElementById('grnSupplier')?.value || '', '');
 };
 
-/** PO picked → prefill Expected qty & Rate from the matching PO line, if any. */
+/** PO picked → prefill any BLANK item row whose material matches a PO line
+ *  (Expected qty + Rate) so the storekeeper sees what was ordered. */
 window._grnPOChanged = function () {
   const poId = document.getElementById('grnPO')?.value || '';
-  const matId = document.getElementById('grnMat')?.value || '';
-  if (!poId || !matId) return;
+  if (!poId) return;
   const po = (state.purchaseOrders || []).find(o => o.id === poId);
-  const line = (po?.items || []).find(it => it.rawMatId === matId);
-  if (!line) return;
-  const expEl = document.getElementById('grnExpected'); if (expEl && !expEl.value) expEl.value = line.qty ?? '';
-  const rateEl = document.getElementById('grnRate'); if (rateEl && !rateEl.value) rateEl.value = line.rate ?? '';
+  if (!po) return;
+  document.querySelectorAll('#grnItemsBody .grn-item-row').forEach(tr => {
+    const matId = tr.querySelector('.grn-mat')?.value;
+    const line = (po.items || []).find(it => it.rawMatId === matId);
+    if (!line) return;
+    const expEl = tr.querySelector('.grn-exp'); if (expEl && !expEl.value) expEl.value = line.qty ?? '';
+    const rateEl = tr.querySelector('.grn-rate'); if (rateEl && !rateEl.value) rateEl.value = line.rate ?? '';
+  });
 };
 
 /** Current-project GRNs narrowed by the supplier / material / date-range filters. */
@@ -2271,7 +2342,7 @@ function _renderGrnList() {
   wrap.innerHTML = `
     <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
     <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
     </tbody></table></div>`;
 }
 
@@ -2425,7 +2496,7 @@ function _renderGrnRegister() {
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Action</th>
         </tr></thead>
         <tbody>
-        ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?'<span class="text-amber-600 font-bold">⏳ Pending</span>':'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
+        ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
           <td class="px-3 py-2.5 font-mono text-indigo-700 font-bold">${g.grnNo||'—'}</td>
           <td class="px-3 py-2.5 text-slate-600">${_grnFmtDate(g.date)}</td>
           <td class="px-3 py-2.5">${sup?.name||'—'}</td>
@@ -2518,31 +2589,20 @@ window._grnEdit = function (id) {
   _grnChallanPhoto = g.challanPhoto || null;
   _grnCondPhoto = g.condPhoto || null;
 
+  // Header + the single editable item row are rebuilt by _renderGRN() from the
+  // editing record; here we only set the header inputs it doesn't default.
   const _gd = document.getElementById('grnDate'); if (_gd) _gd.value = g.date || '';
   document.getElementById('grnSite').value = g.siteId || '';
   document.getElementById('grnSupplier').value = g.supplierId || '';
+  const src = document.getElementById('grnSource'); if (src) src.value = g.sourceType || 'Supplier';
+  const mode = document.getElementById('grnMode'); if (mode) mode.value = g.modeOfReceipt || 'Transport';
+  window._grnSourceChanged && window._grnSourceChanged();
   _grnFillPO(g.supplierId || '', g.poId || '');
   document.getElementById('grnChallan').value = g.challanNo || '';
   document.getElementById('grnVehicle').value = g.vehicleNo || '';
   document.getElementById('grnDriver').value = g.driver || '';
-  document.getElementById('grnCat').value = g.category || '';
-  document.getElementById('grnMat').value = g.matId || '';
-  syncUnitPicker('grnMat', 'grnQtyUnit');
 
-  const mat = state.rawMaterials.find(r => r.id === g.matId);
-  // Show the qty in the unit it was entered in. Records saved before the unit
-  // picker existed only have the base qty.
-  const entered = g.enteredQty != null ? g.enteredQty : g.qty;
-  const eu = g.entryUnit || (mat && mat.unit) || '';
-  if (eu) document.getElementById('grnQtyUnit').value = eu;
-  document.getElementById('grnQty').value = entered;
-  // rate is stored per BASE unit; redisplay it per entered unit.
-  document.getElementById('grnRate').value = (entered > 0 && g.amount) ? (g.amount / entered) : (g.rate || '');
-  const expBase = g.expectedQty || 0;
-  const factor = entered > 0 ? (g.qty / entered) : 1;
-  document.getElementById('grnExpected').value = expBase ? (factor ? expBase / factor : expBase) : '';
-
-  document.getElementById('grnCat').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('grnSite').scrollIntoView({ behavior: 'smooth', block: 'center' });
   showToast('Editing ' + g.grnNo, 'info');
 };
 
@@ -2564,100 +2624,110 @@ window._saveGRN = function() {
   if (_grnEditingId && !editing) { _grnEditingId = null; return showToast('That GRN no longer exists', 'error'); }
   if (editing && editing.billed) return showToast('This GRN is already billed — unbill it before editing', 'error');
 
-  const siteId=document.getElementById('grnSite').value, matId=document.getElementById('grnMat').value;
-  // Qty is typed in the picked unit; stock is always stored in the base unit.
-  const enteredQty=parseFloat(document.getElementById('grnQty').value)||0;
-  const entryUnit=pickedUnit('grnQtyUnit');
-  const qty=pickedQtyToBase('grnMat', enteredQty, 'grnQtyUnit');
-  const rate=parseFloat(document.getElementById('grnRate').value)||0;
-  const supplierId=document.getElementById('grnSupplier').value;
-  const poId=document.getElementById('grnPO')?.value||'';
-  const poNo=(state.purchaseOrders||[]).find(o=>o.id===poId)?.poNo||'';
-  const challanNo=document.getElementById('grnChallan').value.trim();
-  // ── Validation: vendor and quantity are mandatory ──
-  if(!supplierId){showToast('Select a vendor/supplier','error');return;}
-  if(!matId||qty<=0){showToast('Select material and a quantity > 0','error');return;}
-  // Receipt date is user-entered; fall back to today (or the original on edit).
-  const date=(document.getElementById('grnDate')?.value||'').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
-  // Duplicate-receipt guard — a supplier's challan/invoice number is a unique
-  // document, so re-entering the same number from the same supplier is almost
-  // always a mistake. Warn and let the user decide (some suppliers legitimately
-  // reuse a challan across split deliveries). Skip when challan is blank, and
-  // ignore the record being edited.
-  if (challanNo) {
-    const dup = (state.grnRecords || []).find(g =>
-      g.id !== _grnEditingId &&
-      g.supplierId === supplierId &&
-      String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase()
-    );
+  // ── Shared receipt header ──
+  const siteId = document.getElementById('grnSite').value;
+  const supplierId = document.getElementById('grnSupplier').value;
+  const sourceType = document.getElementById('grnSource')?.value || 'Supplier';
+  const modeOfReceipt = document.getElementById('grnMode')?.value || '';
+  const poId = document.getElementById('grnPO')?.value || '';
+  const poNo = (state.purchaseOrders || []).find(o => o.id === poId)?.poNo || '';
+  const challanNo = document.getElementById('grnChallan').value.trim();
+  const vehicleNo = document.getElementById('grnVehicle').value.trim();
+  const driver = document.getElementById('grnDriver').value.trim();
+  const date = (document.getElementById('grnDate')?.value || '').trim() || (editing ? editing.date : new Date().toISOString().split('T')[0]);
+
+  // ── Header validation: store always; supplier only for a Supplier receipt ──
+  if (!siteId) { showToast('Select a store / site', 'error'); return; }
+  if (sourceType === 'Supplier' && !supplierId) { showToast('Select a supplier for a Supplier receipt', 'error'); return; }
+
+  // ── Collect the item rows ──
+  const items = [];
+  for (const tr of document.querySelectorAll('#grnItemsBody .grn-item-row')) {
+    const matSel = tr.querySelector('.grn-mat'); const matId = matSel?.value || '';
+    const enteredQty = parseFloat(tr.querySelector('.grn-qty')?.value) || 0;
+    if (!matId || enteredQty <= 0) continue;
+    const matSelId = matSel.id, unitSelId = tr.querySelector('.grn-unit')?.id;
+    const entryUnit = pickedUnit(unitSelId);
+    const qty = pickedQtyToBase(matSelId, enteredQty, unitSelId);
+    const rate = parseFloat(tr.querySelector('.grn-rate')?.value) || 0;
+    const category = (tr.querySelector('.grn-cat')?.value || '').trim();
+    const expectedQty = pickedQtyToBase(matSelId, parseFloat(tr.querySelector('.grn-exp')?.value) || 0, unitSelId);
+    items.push({ matId, enteredQty, entryUnit, qty, rate, category, expectedQty });
+  }
+  if (!items.length) { showToast('Add at least one material with quantity > 0', 'error'); return; }
+
+  // Duplicate-challan guard (once for the whole receipt; new receipts only).
+  if (challanNo && !editing) {
+    const dup = (state.grnRecords || []).find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase());
     if (dup) {
-      const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this supplier';
-      const dupMat = state.rawMaterials.find(r => r.id === dup.matId);
-      const sameDay = (dup.date || '') === date;
-      const msg =
-        `⚠ Duplicate challan\n\n` +
-        `Challan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo}\n` +
-        `(dated ${_grnFmtDate(dup.date) || '—'}, ${dup.qty} ${dupMat?.unit || ''} ${dupMat?.name || dup.category || ''}).` +
-        (sameDay ? `\n\nThis new entry is on the SAME date.` : '') +
-        `\n\nThe same challan has already been entered. Do you still want to add another?`;
+      const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this party';
+      const msg = `⚠ Duplicate challan\n\nChallan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo} (dated ${_grnFmtDate(dup.date) || '—'}).\n\nAdd this receipt anyway?`;
       if (!confirm(msg)) { showToast('Duplicate GRN not added', 'info'); return; }
     }
   }
-  const vehicleNo=document.getElementById('grnVehicle').value.trim();
-  const driver=document.getElementById('grnDriver').value.trim();
-  const category=document.getElementById('grnCat').value.trim();
-  const expectedQty=pickedQtyToBase('grnMat', parseFloat(document.getElementById('grnExpected').value)||0, 'grnQtyUnit');
-  const mat=state.rawMaterials.find(r=>r.id===matId);
-  // Rate is quoted per entered unit (e.g. ₹/Tonne) — restate it per base unit.
-  const baseRate = enteredQty > 0 ? (enteredQty * rate) / qty : rate;
-  const entryNote = (entryUnit && mat && entryUnit !== mat.unit) ? ` (${enteredQty} ${entryUnit})` : '';
-  const grnNo=editing ? editing.grnNo : _grnNextNumber(date);
-  const testable=_grnIsTestable(category+' '+(mat?.name||''));
-  const amount=enteredQty*rate;
+
+  // QC approval setting: ON → new/edited receipts land as "Pending Inspection".
+  const qcRequired = !!(state.printSettings && state.printSettings.grnQcApproval);
 
   if (editing) {
-    // Update the GRN in place, then bring its stock movement back in step —
-    // otherwise the ledger keeps crediting the original quantity.
+    // Edit = single line (the register row). Take the first item row.
+    const it = items[0];
+    const mat = state.rawMaterials.find(r => r.id === it.matId);
+    const baseRate = it.enteredQty > 0 ? (it.enteredQty * it.rate) / it.qty : it.rate;
+    const amount = it.enteredQty * it.rate;
+    const grnNo = editing.grnNo;
+    const entryNote = (it.entryUnit && mat && it.entryUnit !== mat.unit) ? ` (${it.enteredQty} ${it.entryUnit})` : '';
+    const testable = _grnIsTestable(it.category + ' ' + (mat?.name || ''));
     const prevQc = editing.qcStatus;
     Object.assign(editing, {
-      date, siteId, matId, category, qty, expectedQty, rate: baseRate, amount, enteredQty, entryUnit,
-      challanNo, supplierId, poId, poNo, vehicleNo, driver,
+      date, siteId, supplierId, sourceType, modeOfReceipt, poId, poNo, challanNo, vehicleNo, driver,
+      matId: it.matId, category: it.category, qty: it.qty, expectedQty: it.expectedQty, rate: baseRate, amount, enteredQty: it.enteredQty, entryUnit: it.entryUnit,
       challanPhoto: _grnChallanPhoto, condPhoto: _grnCondPhoto,
-      // Only re-arm QC if the material became testable; never silently clear a
-      // completed inspection.
-      qcStatus: testable ? (prevQc === 'Accepted' ? 'Pending Inspection' : prevQc) : 'Accepted',
+      qcStatus: qcRequired ? (prevQc === 'Accepted' ? 'Pending Inspection' : (prevQc || 'Pending Inspection')) : 'Accepted',
       updatedAt: new Date().toISOString(),
     });
     const tx = _grnLinkedTx(editing);
-    if (tx) Object.assign(tx, { date, siteId, rawMaterialId: matId, qty, rate: baseRate, grnId: editing.id, ref: `${grnNo} ${challanNo||''}${entryNote}`.trim() });
-    else state.inventoryTx.push({id:'tx_grn_'+Date.now(),grnId:editing.id,date,siteId,rawMaterialId:matId,type:'IN',qty,rate:baseRate,ref:`${grnNo} ${challanNo||''}${entryNote}`.trim()});
+    if (tx) Object.assign(tx, { date, siteId, rawMaterialId: it.matId, qty: it.qty, rate: baseRate, grnId: editing.id, ref: `${grnNo} ${challanNo || ''}${entryNote}`.trim() });
+    else state.inventoryTx.push({ id: 'tx_grn_' + Date.now(), grnId: editing.id, date, siteId, rawMaterialId: it.matId, type: 'IN', qty: it.qty, rate: baseRate, ref: `${grnNo} ${challanNo || ''}${entryNote}`.trim() });
     const qc = _grnLinkedQc(editing);
-    if (qc && testable) Object.assign(qc, { grnId: editing.id, element: mat?.name||category, grade: category, result: `Awaiting test — ${grnNo} (${qty} ${mat?.unit||''})` });
+    if (qc && testable) Object.assign(qc, { grnId: editing.id, element: mat?.name || it.category, grade: it.category, result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` });
     else if (qc && !testable) state.qualityChecks = state.qualityChecks.filter(q => q !== qc);
-    else if (!qc && testable) {
-      if(!state.qualityChecks)state.qualityChecks=[];
-      state.qualityChecks.push({id:'qc_grn_'+Date.now(),grnId:editing.id,projectId:state.currentProjectId,createdAt:Date.now(),date,element:mat?.name||category,type:'Material Inspection',grade:category,status:'Pending',result:`Awaiting test — ${grnNo} (${qty} ${mat?.unit||''})`});
-    }
+    else if (!qc && testable) { if (!state.qualityChecks) state.qualityChecks = []; state.qualityChecks.push({ id: 'qc_grn_' + Date.now(), grnId: editing.id, projectId: state.currentProjectId, createdAt: Date.now(), date, element: mat?.name || it.category, type: 'Material Inspection', grade: it.category, status: 'Pending', result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` }); }
     _grnEditingId = null; _grnChallanPhoto = null; _grnCondPhoto = null;
     saveAllData(); _renderGRN(); renderLiveInventory();
-    showToast(`${grnNo} updated`,'success');
+    showToast(`${grnNo} updated`, 'success');
     return;
   }
 
-  const qcStatus=testable?'Pending Inspection':'Accepted';
-  const grnId='grn_'+Date.now();
-  // GRN record (with cross-module flags: billed=false for accounts, qcStatus for QC)
-  state.grnRecords.push({id:grnId,grnNo,date,receivedAt:new Date().toISOString(),siteId,matId,category,qty,expectedQty,rate:baseRate,amount,enteredQty,entryUnit,challanNo,supplierId,poId,poNo,vehicleNo,driver,projectId:state.currentProjectId,challanPhoto:_grnChallanPhoto,condPhoto:_grnCondPhoto,billed:false,qcStatus});
-  // Inventory: increment stock on hand for this site/material
-  state.inventoryTx.push({id:'tx_grn_'+Date.now(),grnId,date,siteId,rawMaterialId:matId,type:'IN',qty,rate:baseRate,ref:`${grnNo} ${challanNo||''}${entryNote}`.trim()});
-  // Quality Control: testable materials (cement/steel…) → Pending Inspection alert
-  if(testable){
-    if(!state.qualityChecks)state.qualityChecks=[];
-    state.qualityChecks.push({id:'qc_grn_'+Date.now(),grnId,projectId:state.currentProjectId,createdAt:Date.now(),date,element:mat?.name||category,type:'Material Inspection',grade:category,status:'Pending',result:`Awaiting test — ${grnNo} (${qty} ${mat?.unit||''})`});
-  }
+  // ── New receipt: one GRN record per item line, sharing the header + grnNo ──
+  const receiptId = 'rcpt_' + Date.now();
+  const grnNo = _grnNextNumber(date);
+  const qcStatusDefault = qcRequired ? 'Pending Inspection' : 'Accepted';
+  const stamp = Date.now();
+  items.forEach((it, idx) => {
+    const mat = state.rawMaterials.find(r => r.id === it.matId);
+    const baseRate = it.enteredQty > 0 ? (it.enteredQty * it.rate) / it.qty : it.rate;
+    const amount = it.enteredQty * it.rate;
+    const entryNote = (it.entryUnit && mat && it.entryUnit !== mat.unit) ? ` (${it.enteredQty} ${it.entryUnit})` : '';
+    const testable = _grnIsTestable(it.category + ' ' + (mat?.name || ''));
+    const grnId = 'grn_' + stamp + '_' + idx;
+    state.grnRecords.push({ id: grnId, grnNo, receiptId, line: idx + 1, date, receivedAt: new Date().toISOString(), siteId, matId: it.matId, category: it.category, qty: it.qty, expectedQty: it.expectedQty, rate: baseRate, amount, enteredQty: it.enteredQty, entryUnit: it.entryUnit, challanNo, supplierId, poId, poNo, sourceType, modeOfReceipt, vehicleNo, driver, projectId: state.currentProjectId, challanPhoto: _grnChallanPhoto, condPhoto: _grnCondPhoto, billed: false, qcStatus: qcStatusDefault });
+    state.inventoryTx.push({ id: 'tx_grn_' + stamp + '_' + idx, grnId, date, siteId, rawMaterialId: it.matId, type: 'IN', qty: it.qty, rate: baseRate, ref: `${grnNo} ${challanNo || ''}${entryNote}`.trim() });
+    if (testable) { if (!state.qualityChecks) state.qualityChecks = []; state.qualityChecks.push({ id: 'qc_grn_' + stamp + '_' + idx, grnId, projectId: state.currentProjectId, createdAt: Date.now(), date, element: mat?.name || it.category, type: 'Material Inspection', grade: it.category, status: 'Pending', result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` }); }
+  });
   _grnChallanPhoto = null; _grnCondPhoto = null;
   saveAllData(); _renderGRN(); renderLiveInventory();
-  showToast(`${grnNo} received${testable?' · QC inspection pending':''}`,'success');
+  showToast(`${grnNo} received · ${items.length} item${items.length > 1 ? 's' : ''}${qcRequired ? ' · QC approval pending' : ''}`, 'success');
+};
+
+/** Storekeeper approves a pending GRN's QC → mark Accepted. */
+window._grnApproveQc = function (id) {
+  const g = (state.grnRecords || []).find(x => x.id === id); if (!g) return;
+  g.qcStatus = 'Accepted'; g.qcApprovedAt = new Date().toISOString();
+  saveAllData();
+  try { _renderGrnList(); } catch {}
+  try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
+  showToast(`QC approved — ${g.grnNo || 'GRN'}`, 'success');
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───

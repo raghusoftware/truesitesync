@@ -405,8 +405,11 @@ function _pendingGrnsForVendor(vendorId) {
   const usedGrnIds = new Set(
     [...document.querySelectorAll('#plFormTableBody tr')].map(tr => tr.dataset.grnId).filter(Boolean)
   );
+  // Only Supplier-source receipts feed the purchase-bill flow. Rent / STN
+  // receipts are stock-in but carry no vendor bill, so they never appear here.
   return (state.grnRecords || []).filter(g =>
     g.supplierId === vendorId && !g.billed && g.source !== 'purchase' && !usedGrnIds.has(g.id)
+    && (g.sourceType === undefined || g.sourceType === 'Supplier')
   );
 }
 
