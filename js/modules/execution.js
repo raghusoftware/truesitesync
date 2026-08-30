@@ -12,7 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, mobileSavePDF } from './utils.js';
+import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
 
@@ -837,15 +837,16 @@ function _staffComputePay(staff, hours) {
 function _renderStaff(root) {
   const staff = _arr('staffMaster');
   const month = _today().slice(0, 7);
+  const canManage = typeof window.canManageStaff !== 'function' || window.canManageStaff();
   const cards = staff.map(s => {
     const a = _staffToday(s.id);
     let statusHtml, action;
     if (!a || !a.inAt) {
       statusHtml = `<span style="color:#94a3b8;font-weight:700;">Not marked</span>`;
-      action = `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>`;
+      action = canManage ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
     } else if (!a.outAt) {
       statusHtml = `<span style="color:#16a34a;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
-      action = `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>`;
+      action = canManage ? `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
     } else {
       statusHtml = `<span style="color:#16a34a;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
       action = `<span style="font-size:13px;font-weight:800;color:#0f172a;">${_money(a.totalPay)}</span>`;
@@ -857,7 +858,7 @@ function _renderStaff(root) {
         <div style="width:40px;height:40px;border-radius:12px;background:#7c3aed15;border:2px solid #7c3aed30;display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;">${s.photo ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}</div>
         <div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div><div style="font-size:11px;color:#64748b;">${_esc(s.designation || 'Staff')} · ${wageLabel}${s.otAllowed ? ' · <span style="color:#d97706;font-weight:700;">OT✓</span>' : ''}</div></div>
         <button onclick="_staffHistory('${s.id}')" title="History" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">🗓</button>
-        <button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>
+        ${canManage ? `<button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>` : ''}
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9;">
         <div style="font-size:12px;">${statusHtml}</div>${action}
@@ -877,13 +878,97 @@ function _renderStaff(root) {
     <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#0f172a;font-size:14px;">📅 Payroll this month (${month})</div>
     <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:8px 10px;text-align:left;">Staff</th><th style="padding:8px 10px;">Present</th><th style="padding:8px 10px;text-align:right;">Hours</th><th style="padding:8px 10px;text-align:right;">OT hrs</th><th style="padding:8px 10px;text-align:right;">Pay</th></tr></thead><tbody>${rows}</tbody></table></div></div>` : '';
   root.innerHTML = `${_backBar('Staff & Attendance')}
-    <div style="margin-bottom:14px;"><button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>
-    <span style="margin-left:10px;font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">No staff yet. Tap “+ Add Staff”.</div>'}</div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
+      ${canManage ? `<button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>` : `<span style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-weight:700;">🔒 View only — your role can't mark or edit attendance</span>`}
+      <span style="font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span>
+      <span style="margin-left:auto;display:flex;gap:8px;">
+        <button onclick="_staffExportExcel()" style="padding:8px 12px;background:#059669;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Excel</button>
+        <button onclick="_staffExportPDF()" style="padding:8px 12px;background:#dc2626;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ PDF</button>
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">No staff yet.' + (canManage ? ' Tap “+ Add Staff”.' : '') + '</div>'}</div>
     ${payroll}`;
 }
 
+/** Month attendance/payroll dataset for exports: per-staff totals + day-wise hours. */
+function _staffMonthData(month) {
+  month = month || _today().slice(0, 7);
+  const [y, m] = month.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  const staff = _arr('staffMaster');
+  const rows = staff.map(s => {
+    const recs = (state.staffAttendance || []).filter(a => a.staffId === s.id && (a.date || '').startsWith(month) && a.inAt);
+    const byDay = {};
+    recs.forEach(a => { const d = +(a.date.slice(8, 10)); byDay[d] = (a.hours != null ? a.hours : 'P'); });
+    return {
+      name: s.name, designation: s.designation || '', wageMode: s.wageMode || 'daily', rate: _num(s.rate),
+      present: recs.length,
+      hours: +recs.reduce((t, a) => t + _num(a.hours), 0).toFixed(2),
+      ot: +recs.reduce((t, a) => t + _num(a.otHours), 0).toFixed(2),
+      dayPay: +recs.reduce((t, a) => t + _num(a.dayPay), 0).toFixed(2),
+      otPay: +recs.reduce((t, a) => t + _num(a.otPay), 0).toFixed(2),
+      total: +recs.reduce((t, a) => t + _num(a.totalPay), 0).toFixed(2),
+      byDay
+    };
+  });
+  return { month, days, rows };
+}
+
+window._staffExportExcel = function () {
+  const XLSX = window.XLSX; if (!XLSX) { showToast('Excel library not loaded', 'error'); return; }
+  const { month, days, rows } = _staffMonthData();
+  if (!rows.length) { showToast('No staff to export', 'warning'); return; }
+  const proj = (state.projects || []).find(p => p.id === _pid());
+  // Sheet 1: Payroll summary
+  const sum = [['STAFF ATTENDANCE & PAYROLL'], [`${proj?.name || ''}  |  Month: ${month}`], [],
+    ['Staff', 'Designation', 'Wage', 'Present', 'Hours', 'OT hrs', 'Day Pay', 'OT Pay', 'Total Pay']];
+  rows.forEach(r => sum.push([r.name, r.designation, r.wageMode, r.present, r.hours, r.ot, r.dayPay, r.otPay, r.total]));
+  sum.push(['TOTAL', '', '', '', '', '', '', '', +rows.reduce((t, r) => t + r.total, 0).toFixed(2)]);
+  const ws1 = XLSX.utils.aoa_to_sheet(sum);
+  ws1['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 11 }, { wch: 10 }, { wch: 12 }];
+  // Sheet 2: Daily muster grid (hours per day; P = present w/o hours)
+  const head = ['Staff', ...Array.from({ length: days }, (_, i) => String(i + 1))];
+  const grid = [[`Muster — ${month}`], head];
+  rows.forEach(r => grid.push([r.name, ...Array.from({ length: days }, (_, i) => (r.byDay[i + 1] != null ? r.byDay[i + 1] : ''))]));
+  const ws2 = XLSX.utils.aoa_to_sheet(grid);
+  ws2['!cols'] = [{ wch: 22 }, ...Array.from({ length: days }, () => ({ wch: 4 }))];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Payroll');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Muster');
+  mobileSaveXLSX(wb, `Attendance_${month}.xlsx`);
+  showToast('Excel exported', 'success');
+};
+
+window._staffExportPDF = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded', 'error'); return; }
+  const { month, rows } = _staffMonthData();
+  if (!rows.length) { showToast('No staff to export', 'warning'); return; }
+  const proj = (state.projects || []).find(p => p.id === _pid());
+  const n2 = x => (Number(x) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new window.jspdf.jsPDF('landscape');
+  let y = getCompanyHeaderForPDF(doc);
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('STAFF ATTENDANCE & PAYROLL', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(`${proj?.name || ''}   |   Month: ${month}`, pw / 2, y + 10, { align: 'center' });
+  const body = rows.map(r => [r.name, r.designation, r.wageMode, r.present, r.hours, r.ot, 'Rs. ' + n2(r.dayPay), 'Rs. ' + n2(r.otPay), 'Rs. ' + n2(r.total)]);
+  body.push([{ content: 'TOTAL', colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }, { content: 'Rs. ' + n2(rows.reduce((t, r) => t + r.total, 0)), styles: { fontStyle: 'bold', halign: 'right' } }]);
+  doc.autoTable({
+    startY: y + 14,
+    head: [['Staff', 'Designation', 'Wage', 'Present', 'Hours', 'OT hrs', 'Day Pay', 'OT Pay', 'Total Pay']],
+    body, theme: 'grid',
+    headStyles: { fillColor: [124, 58, 237], textColor: 255, fontSize: 9, halign: 'center' },
+    styles: { fontSize: 8.5, cellPadding: 2.5 },
+    columnStyles: { 0: { cellWidth: 'auto' }, 3: { halign: 'center' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+    margin: { left: 10, right: 10 }
+  });
+  mobileSavePDF(doc, `Attendance_${month}.pdf`);
+  showToast('PDF exported', 'success');
+};
+
 window._staffForm = function (id) {
+  if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to manage staff', 'error'); return; }
   const s = id ? (state.staffMaster || []).find(x => x.id === id) : null;
   const sel = (opts, cur) => opts.map(o => `<option value="${o.v}" ${cur === o.v ? 'selected' : ''}>${o.t}</option>`).join('');
   _modal(`${_head(s ? 'Edit Staff' : 'Add Staff')}<div style="padding:20px;">
@@ -912,6 +997,7 @@ window._staffModeHint = function () {
   if (l) l.textContent = m === 'hourly' ? 'Rate (₹/hour)' : (m === 'monthly' ? 'Salary (₹/month)' : 'Rate (₹/day)');
 };
 window._staffSave = function (id) {
+  if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to manage staff', 'error'); return; }
   const v = i => (document.getElementById(i)?.value || '').trim();
   const name = v('stfName'); if (!name) { showToast('Name required', 'error'); return; }
   const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
@@ -927,10 +1013,12 @@ window._staffDelete = function (id) {
 };
 
 // ── GPS + camera punch flow ──
-let _punchPhoto = null, _punchGps = null;
+// _punchFile = the raw File (uploaded to Supabase Storage on confirm, keeping the
+// record light); _punchPhoto = a small base64 fallback used only when offline.
+let _punchPhoto = null, _punchGps = null, _punchFile = null;
 window._staffPunch = async function (staffId, kind) {
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
-  _punchPhoto = null; _punchGps = null;
+  _punchPhoto = null; _punchGps = null; _punchFile = null;
   const isIn = kind === 'in';
   _modal(`${_head((isIn ? 'Punch In' : 'Punch Out') + ' — ' + _esc(s.name))}<div style="padding:20px;">
     <div style="text-align:center;margin-bottom:14px;"><div style="font-size:34px;font-weight:800;color:${isIn ? '#16a34a' : '#dc2626'};">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div style="font-size:12px;color:#94a3b8;">${_today()}</div></div>
@@ -947,6 +1035,7 @@ window._staffPunch = async function (staffId, kind) {
 };
 window._staffPunchPhoto = function (input) {
   const file = input.files && input.files[0]; if (!file) return;
+  _punchFile = file;   // uploaded to Storage on confirm
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
@@ -964,24 +1053,30 @@ window._staffPunchPhoto = function (input) {
   };
   reader.readAsDataURL(file);
 };
-window._staffPunchSave = function (staffId, kind) {
+window._staffPunchSave = async function (staffId, kind) {
+  if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to mark attendance', 'error'); return; }
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
-  if (!_punchPhoto) { showToast('Capture a photo to verify the punch', 'error'); return; }
+  if (!_punchPhoto && !_punchFile) { showToast('Capture a photo to verify the punch', 'error'); return; }
   const now = new Date().toISOString(), date = _today();
   if (!state.staffAttendance) state.staffAttendance = [];
   let a = _staffToday(staffId, date);
+  if (kind === 'in' && a && a.inAt) { showToast('Already punched in today', 'info'); return; }
+  if (kind === 'out' && (!a || !a.inAt)) { showToast('Punch in first', 'error'); return; }
+  // Upload the photo to Supabase Storage (light record); fall back to base64 if
+  // offline so the punch still works on site.
+  let path = null;
+  if (_punchFile) { try { const ref = await uploadExecMedia(_punchFile, 'staff', 'staff'); if (ref) path = ref.path; } catch {} }
+  const photoB64 = path ? null : _punchPhoto;   // only keep base64 when upload didn't happen
   if (kind === 'in') {
-    if (a && a.inAt) { showToast('Already punched in today', 'info'); return; }
     if (!a) { a = { id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }; state.staffAttendance.push(a); }
-    a.inAt = now; a.inGps = _punchGps || null; a.inPhoto = _punchPhoto; a.status = 'Present';
+    a.inAt = now; a.inGps = _punchGps || null; a.inPhotoPath = path; a.inPhoto = photoB64; a.status = 'Present';
   } else {
-    if (!a || !a.inAt) { showToast('Punch in first', 'error'); return; }
-    a.outAt = now; a.outGps = _punchGps || null; a.outPhoto = _punchPhoto;
+    a.outAt = now; a.outGps = _punchGps || null; a.outPhotoPath = path; a.outPhoto = photoB64;
     a.hours = Math.max(0, +((new Date(a.outAt) - new Date(a.inAt)) / 3600000).toFixed(2));
     const pay = _staffComputePay(s, a.hours);
     a.otHours = pay.otHours; a.otRate = pay.otRate; a.dayPay = pay.dayPay; a.otPay = pay.otPay; a.totalPay = pay.totalPay;
   }
-  _punchPhoto = null; _punchGps = null;
+  _punchPhoto = null; _punchGps = null; _punchFile = null;
   saveAllData(); _exCloseModal();
   showToast(kind === 'in' ? `${s.name} marked Present` : `${s.name} punched out · ${a.hours}h`, 'success');
   renderExecution();
@@ -991,18 +1086,20 @@ window._staffHistory = function (id) {
   const recs = (state.staffAttendance || []).filter(a => a.staffId === id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 60);
   const rows = recs.map(a => `<tr style="border-bottom:1px solid #f1f5f9;">
     <td style="padding:6px 8px;">${a.date}</td>
-    <td style="padding:6px 8px;">${_hm(a.inAt)}${a.inGps ? ` <span title="${gpsLabel(a.inGps)}" style="color:#7c3aed;">📍</span>` : ''}${a.inPhoto ? ` <span onclick="_staffPhotoView('${a.id}','in')" style="cursor:pointer;">📷</span>` : ''}</td>
-    <td style="padding:6px 8px;">${_hm(a.outAt)}${a.outGps ? ` <span title="${gpsLabel(a.outGps)}" style="color:#7c3aed;">📍</span>` : ''}${a.outPhoto ? ` <span onclick="_staffPhotoView('${a.id}','out')" style="cursor:pointer;">📷</span>` : ''}</td>
+    <td style="padding:6px 8px;">${_hm(a.inAt)}${a.inGps ? ` <span title="${gpsLabel(a.inGps)}" style="color:#7c3aed;">📍</span>` : ''}${(a.inPhoto || a.inPhotoPath) ? ` <span onclick="_staffPhotoView('${a.id}','in')" style="cursor:pointer;">📷</span>` : ''}</td>
+    <td style="padding:6px 8px;">${_hm(a.outAt)}${a.outGps ? ` <span title="${gpsLabel(a.outGps)}" style="color:#7c3aed;">📍</span>` : ''}${(a.outPhoto || a.outPhotoPath) ? ` <span onclick="_staffPhotoView('${a.id}','out')" style="cursor:pointer;">📷</span>` : ''}</td>
     <td style="padding:6px 8px;text-align:right;">${a.hours != null ? a.hours + 'h' : '—'}</td>
     <td style="padding:6px 8px;text-align:right;color:#d97706;">${a.otHours ? a.otHours + 'h' : ''}</td>
     <td style="padding:6px 8px;text-align:right;font-weight:700;">${a.totalPay != null ? _money(a.totalPay) : '—'}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">No attendance yet.</td></tr>';
   _modal(`${_head('Attendance — ' + _esc(s.name))}<div style="padding:16px 20px;max-height:70vh;overflow:auto;"><div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:6px 8px;text-align:left;">Date</th><th style="padding:6px 8px;text-align:left;">In</th><th style="padding:6px 8px;text-align:left;">Out</th><th style="padding:6px 8px;text-align:right;">Hrs</th><th style="padding:6px 8px;text-align:right;">OT</th><th style="padding:6px 8px;text-align:right;">Pay</th></tr></thead><tbody>${rows}</tbody></table></div></div>`);
 };
-window._staffPhotoView = function (attId, which) {
+window._staffPhotoView = async function (attId, which) {
   const a = (state.staffAttendance || []).find(x => x.id === attId); if (!a) return;
-  const src = which === 'in' ? a.inPhoto : a.outPhoto; if (!src) return;
+  let src = which === 'in' ? a.inPhoto : a.outPhoto;
+  const path = which === 'in' ? a.inPhotoPath : a.outPhotoPath;
   let lb = document.getElementById('exLightbox');
   if (!lb) { lb = document.createElement('div'); lb.id = 'exLightbox'; lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;'; lb.addEventListener('click', () => lb.remove()); document.body.appendChild(lb); }
-  lb.innerHTML = `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;">`;
+  if (!src && path) { lb.innerHTML = '<div style="color:#fff;font-size:13px;opacity:.7;">Loading photo…</div>'; src = await signedExecUrl(path); if (!document.getElementById('exLightbox')) return; }
+  lb.innerHTML = src ? `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:12px;">` : '<div style="color:#fff;">Could not load photo</div>';
 };

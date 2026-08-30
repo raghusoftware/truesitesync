@@ -24,6 +24,7 @@ export const ACCESS_MODULES = [
   { id: 'recipeView', label: 'Recipes', group: 'Project' },
   { id: 'assetsView', label: 'Tools & Assets', group: 'Project' },
   { id: 'stockTransferAction', label: 'Stock Transfer', group: 'Project' },
+  { id: 'staffAttendanceAction', label: 'Staff & Attendance', group: 'Project' },
   { id: 'measurementListView', label: 'Measurement', group: 'Project' },
   { id: 'abstractsView', label: 'Abstracts', group: 'Project' },
   { id: 'documentsView', label: 'Documents', group: 'Project' },
@@ -102,10 +103,10 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Project Manager': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
   ]},
   Engineer: { permissions: [
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'reportsView',
@@ -129,10 +130,16 @@ export function isProjectManager() {
 export function canTransferStock() {
   return hasAccess('stockTransferAction');
 }
+/** May the current user add/edit staff and punch attendance? Configurable per
+ *  role via 'staffAttendanceAction' (Admin/CEO/Owner always). */
+export function canManageStaff() {
+  return hasAccess('staffAttendanceAction');
+}
 if (typeof window !== 'undefined') {
   window.canBillToAbstract = canBillToAbstract;
   window.isProjectManager = isProjectManager;
   window.canTransferStock = canTransferStock;
+  window.canManageStaff = canManageStaff;
 }
 
 // ── Cached auth user ──
@@ -200,6 +207,18 @@ export function initRBAC() {
       }
     });
     state.rbacFlags.stockTransferGrantV1 = true;
+    _rolesChanged = true;
+  }
+  // One-time: grant the new 'staffAttendanceAction' permission to the default
+  // operational roles on existing workspaces.
+  if (!state.rbacFlags.staffAttendanceGrantV1) {
+    ['Project Manager', 'Site Supervisor'].forEach(rn => {
+      const r = state.rbacRoles[rn];
+      if (r && Array.isArray(r.permissions) && !r.permissions.includes('staffAttendanceAction')) {
+        r.permissions.push('staffAttendanceAction'); _rolesChanged = true;
+      }
+    });
+    state.rbacFlags.staffAttendanceGrantV1 = true;
     _rolesChanged = true;
   }
   if (_rolesChanged) saveAllData();
