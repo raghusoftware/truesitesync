@@ -302,6 +302,34 @@ window._purFillPO = function (vendorId, selectedPoId) {
   if (hint) hint.textContent = !vendorId ? '' : (pos.length ? `${pos.length} purchase order${pos.length > 1 ? 's' : ''} for this supplier` : 'No purchase orders on file for this supplier');
 };
 
+/** User picked a PO on the bill → load that PO's items (qty + rate) as bill lines.
+ *  Skips materials already on the bill (e.g. pulled from a GRN) so nothing is
+ *  duplicated. Fires only on manual change — setting .value in code does not. */
+window._purPOChanged = function () {
+  const poId = document.getElementById('plFormPO')?.value || '';
+  if (!poId) return;
+  const po = (state.purchaseOrders || []).find(o => o.id === poId);
+  if (!po || !(po.items || []).length) return;
+  // Drop empty starter rows so we don't leave blanks above the loaded lines.
+  [...document.querySelectorAll('#plFormTableBody tr')]
+    .filter(tr => !tr.querySelector('.pur-mat')?.value && !tr.querySelector('.pur-qty')?.value)
+    .forEach(tr => tr.remove());
+  const existingMats = new Set(
+    [...document.querySelectorAll('#plFormTableBody tr .pur-mat')].map(s => s.value).filter(Boolean)
+  );
+  let added = 0;
+  po.items.forEach(it => {
+    if (!it.rawMatId || existingMats.has(it.rawMatId)) return; // already on the bill
+    const m = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
+    _addPurRow({ rawMatId: it.rawMatId, qty: it.qty, rate: it.rate || 0, unit: m?.unit || '' });
+    added++;
+  });
+  if (!document.querySelectorAll('#plFormTableBody tr').length) addPurchaseRowToPanel(1);
+  updatePanelRowNums();
+  calcPanelPurchaseTotal();
+  showToast(added ? `${added} item${added > 1 ? 's' : ''} loaded from ${po.poNo}` : `All ${po.poNo} items are already on this bill`, added ? 'success' : 'info');
+};
+
 export function closePurchaseFormPanel() {
   const panel = document.getElementById('purchaseFormPanel');
   panel.classList.add('hidden');
