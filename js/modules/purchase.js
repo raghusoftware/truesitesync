@@ -321,7 +321,9 @@ window._purPOChanged = function () {
   po.items.forEach(it => {
     if (!it.rawMatId || existingMats.has(it.rawMatId)) return; // already on the bill
     const m = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
-    _addPurRow({ rawMatId: it.rawMatId, qty: it.qty, rate: it.rate || 0, unit: m?.unit || '' });
+    // Load the material + rate from the PO, but leave QTY BLANK — the quantity
+    // comes from the GRN (received) or is keyed in manually on the bill.
+    _addPurRow({ rawMatId: it.rawMatId, rate: it.rate || 0, unit: m?.unit || '' });
     added++;
   });
   if (!document.querySelectorAll('#plFormTableBody tr').length) addPurchaseRowToPanel(1);
