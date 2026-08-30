@@ -244,8 +244,11 @@ export function openPurchaseFormPanel(editId) {
   const vendorSel = document.getElementById('plFormVendor');
   vendorSel.innerHTML = '<option value="">-- Select Vendor --</option>';
   state.vendors.forEach(v => vendorSel.innerHTML += `<option value="${v.id}">${v.name}</option>`);
-  // Refresh the pending-GRN picker whenever the vendor changes.
-  vendorSel.onchange = () => window._purRefreshGrnPicker && window._purRefreshGrnPicker();
+  // Refresh the pending-GRN picker AND the PO dropdown whenever the vendor changes.
+  vendorSel.onchange = () => {
+    window._purRefreshGrnPicker && window._purRefreshGrnPicker();
+    window._purFillPO && window._purFillPO(vendorSel.value, '');
+  };
 
   // Populate site dropdown
   const siteSel = document.getElementById('plFormSite');
@@ -282,7 +285,22 @@ export function openPurchaseFormPanel(editId) {
   calcPanelPurchaseTotal();
   // Show any GRNs already received from this vendor that haven't been billed yet.
   if (window._purRefreshGrnPicker) window._purRefreshGrnPicker();
+  // Populate the Purchase Order dropdown for the (existing) vendor.
+  if (window._purFillPO) window._purFillPO(existing?.vendorId || '', existing?.poId || '');
 }
+
+/** Fill the bill's Purchase Order dropdown with the vendor's POs (+ count hint). */
+window._purFillPO = function (vendorId, selectedPoId) {
+  const sel = document.getElementById('plFormPO'); if (!sel) return;
+  const hint = document.getElementById('plFormPOHint');
+  const cur = getCurrencySymbol();
+  const pos = (state.purchaseOrders || []).filter(o => o.vendorId === vendorId);
+  sel.innerHTML = '<option value="">— None —</option>' + pos.map(o =>
+    `<option value="${o.id}">${o.poNo || o.id} · ${_purFmtDate(o.date) || ''} · ${cur}${(o.totalAmount || 0).toLocaleString('en-IN')}</option>`
+  ).join('');
+  if (selectedPoId) sel.value = selectedPoId;
+  if (hint) hint.textContent = !vendorId ? '' : (pos.length ? `${pos.length} purchase order${pos.length > 1 ? 's' : ''} for this supplier` : 'No purchase orders on file for this supplier');
+};
 
 export function closePurchaseFormPanel() {
   const panel = document.getElementById('purchaseFormPanel');
@@ -399,17 +417,22 @@ window._purAddSelectedGrns = function() {
   // If there are only blank starter rows, clear them so we don't leave empties.
   const blankRows = [...document.querySelectorAll('#plFormTableBody tr')].filter(tr => !tr.querySelector('.pur-mat')?.value && !tr.querySelector('.pur-qty')?.value);
   blankRows.forEach(tr => tr.remove());
-  let firstSite = '';
+  let firstSite = '', firstPoId = '';
   checked.forEach(gid => {
     const g = (state.grnRecords || []).find(x => x.id === gid);
     if (!g) return;
     if (!firstSite && g.siteId) firstSite = g.siteId;
+    if (!firstPoId && g.poId) firstPoId = g.poId;
     const m = (state.rawMaterials || []).find(r => r.id === g.matId);
     _addPurRow({ rawMatId: g.matId, qty: g.qty, rate: g.rate || 0, unit: m?.unit || '', grnId: g.id });
   });
   // Default the bill's site to the GRN's site if none chosen yet.
   const siteSel = document.getElementById('plFormSite');
   if (siteSel && !siteSel.value && firstSite) siteSel.value = firstSite;
+  // Auto-fill the bill's Purchase Order from the selected GRN (if it carried one
+  // and the user hasn't already picked a PO). Otherwise they can pick one below.
+  const poSel = document.getElementById('plFormPO');
+  if (poSel && !poSel.value && firstPoId) { if ([...poSel.options].some(o => o.value === firstPoId)) poSel.value = firstPoId; }
   updatePanelRowNums();
   calcPanelPurchaseTotal();
   window._purRefreshGrnPicker();
@@ -528,8 +551,10 @@ export function savePanelPurchaseBill() {
   const existing = editId ? (state.vendorMaterials || []).find(m => m.id === editId) : null;
   const billId = existing ? existing.id : ('pb_' + Date.now());
 
+  const poId = document.getElementById('plFormPO')?.value || '';
+  const poNo = (state.purchaseOrders || []).find(o => o.id === poId)?.poNo || '';
   const rec = {
-    id: billId, vendorId, siteId, billNo, date, items: purItems,
+    id: billId, vendorId, siteId, billNo, date, poId, poNo, items: purItems,
     grossTotal: Math.round(gross * 100) / 100, totalDiscount: Math.round(discount * 100) / 100,
     taxableAmount: Math.round(taxable * 100) / 100, cgst: Math.round(cgst * 100) / 100,
     sgst: Math.round(sgst * 100) / 100, igst: Math.round(igst * 100) / 100,
