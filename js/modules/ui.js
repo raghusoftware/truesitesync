@@ -2839,61 +2839,247 @@ window._grnApproveQc = function (id) {
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───
+// Row-id sequence for the multi-item Material Issue table.
+let _miRowSeq = 0;
+const _DEPTS = ['Civil', 'Structural', 'RCC', 'Finishing', 'Electrical', 'Plumbing', 'HVAC', 'Fabrication', 'Painting', 'Waterproofing', 'Site Office', 'Safety', 'Stores'];
+/** Next Material Issue number for the current project (MI/NN). */
+function _miNextNo() {
+  const n = (state.materialIssues || []).filter(i => (i.projectId === state.currentProjectId) && i.issueNo).length + 1;
+  return 'MI/' + String(n).padStart(3, '0');
+}
+/** Names that can appear in the "Requested by" suggestions (staff + gangs). */
+function _miRequesterNames() {
+  const names = new Set();
+  (state.staffMaster || []).filter(s => s.projectId === state.currentProjectId).forEach(s => s.name && names.add(s.name));
+  _projectContractors().forEach(g => g.name && names.add(g.name));
+  return [...names];
+}
+
 function _renderGangMaterial() {
   const c = document.getElementById('gangMatContent'); if (!c) return;
-  const gangs=_projectContractors();
-  const gangOpts=gangs.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')||'<option value="">No gangs</option>';
-  const issues=(state.materialIssues||[]).filter(i=>i.projectId===state.currentProjectId).slice(-15).reverse();
-  c.innerHTML=`
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">🧱 Issue / Return Material to Gang</h4>
-      <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
-        <select id="gmGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
-        <select id="gmMat" onchange="syncUnitPicker('gmMat','gmQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
-        <select id="gmType" class="p-2 border rounded-lg text-sm bg-white"><option value="ISSUE">Issue (−stock)</option><option value="RETURN">Return (+stock)</option></select>
-        <input id="gmQty" type="number" placeholder="Qty" class="p-2 border rounded-lg text-sm outline-none">
-        ${_unitPicker('gmQtyUnit')}
-        <button onclick="_saveGangMat()" class="bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600">Save</button>
+  _miRowSeq = 0;
+  const gangs = _projectContractors();
+  const gangOpts = gangs.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  const issues = (state.materialIssues || []).filter(i => i.projectId === state.currentProjectId).slice(-15).reverse();
+  const today = new Date().toISOString().split('T')[0];
+  const fld = 'w-full p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100';
+  const lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1';
+  c.innerHTML = `
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-4">
+      <div class="flex items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+        <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg">🧱</div>
+        <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Material Issue / Requisition</h4><p class="text-[11px] text-slate-500">Who requested it, where it goes, who received it — stock deducts from the chosen store</p></div>
+        <div class="text-right"><div class="text-[9px] font-bold text-slate-400 uppercase">Issue No.</div><div id="miNoBadge" class="font-mono font-extrabold text-amber-700 text-sm">${_miNextNo()}</div></div>
       </div>
-      <input id="gmPurpose" placeholder="Purpose (e.g. blockwork 2nd floor)" class="w-full mt-2 p-2 border rounded-lg text-sm outline-none">
+      <div class="p-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div><label class="${lbl}">Date</label><input id="miDate" type="date" value="${today}" class="${fld}"></div>
+          <div><label class="${lbl}">Type</label><select id="miType" class="${fld}"><option value="ISSUE">Issue (− stock)</option><option value="RETURN">Return (+ stock)</option></select></div>
+          <div><label class="${lbl}">Requested By <span class="text-rose-400">*</span></label><input id="miReqBy" list="miReqList" placeholder="Name / indenter" class="${fld}"><datalist id="miReqList">${_miRequesterNames().map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('')}</datalist></div>
+          <div><label class="${lbl}">Department / Work</label><input id="miDept" list="miDeptList" placeholder="e.g. RCC" class="${fld}"><datalist id="miDeptList">${_DEPTS.map(d => `<option value="${d}">`).join('')}</datalist></div>
+          <div><label class="${lbl}">Issue From (Store) <span class="text-rose-400">*</span></label><select id="miFrom" onchange="_miRefreshAvail()" class="${fld}"><option value="">— Select store —</option>${_invSiteOptions()}</select></div>
+          <div><label class="${lbl}">Issue To (Location)</label><select id="miTo" class="${fld}"><option value="">—</option>${_invSiteOptions()}</select></div>
+          <div><label class="${lbl}">Gang / Sub-contractor</label><select id="miGang" class="${fld}"><option value="">—</option>${gangOpts}</select></div>
+          <div><label class="${lbl}">Receiver Name</label><input id="miReceiver" placeholder="Who received it" class="${fld}"></div>
+          <div><label class="${lbl}">Vehicle No.</label><input id="miVehicle" placeholder="e.g. GJ-01-AB-1234" class="${fld}"></div>
+          <div><label class="${lbl}">Authorized By</label><input id="miAuth" placeholder="Approved by" class="${fld}"></div>
+          <div class="md:col-span-2"><label class="${lbl}">Remarks</label><input id="miRemarks" placeholder="Purpose / notes" class="${fld}"></div>
+        </div>
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+            <th class="px-2 py-2 text-center font-bold uppercase text-slate-400 w-8">#</th>
+            <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Material <span class="text-rose-400">*</span></th>
+            <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Available</th>
+            <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Req. Qty</th>
+            <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Issue Qty <span class="text-rose-400">*</span></th>
+            <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Unit</th>
+            <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Remark</th>
+            <th class="px-2 py-2 w-8"></th>
+          </tr></thead><tbody id="miItemsBody"></tbody></table>
+        </div>
+        <button type="button" onclick="_miAddRow()" class="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200">+ Add item</button>
+        <div class="flex flex-wrap gap-2 mt-4">
+          <button onclick="_saveMaterialIssue(false)" class="px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-amber-500 hover:bg-amber-600 shadow-sm">✓ Post Issue</button>
+          <button onclick="_saveMaterialIssue(true)" class="px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-slate-700 hover:bg-slate-800 shadow-sm">🖨️ Post &amp; Print Slip</button>
+        </div>
+      </div>
     </div>
-    <div class="bg-white border rounded-xl p-4 mb-4">
+    <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
       <h4 class="font-bold text-slate-700 text-sm mb-2">📉 Wastage Check</h4>
-      <p class="text-[11px] text-slate-400 mb-2">Compares material issued to a gang vs. approved work done. Flags excess wastage for deduction.</p>
+      <p class="text-[11px] text-slate-400 mb-2">Net material issued to a gang — review against approved work done and issue a Deduction (Labour) if it exceeds your wastage norm.</p>
       <div class="flex gap-2 flex-wrap">
-        <select id="gmwGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
-        <button onclick="_calcWastage()" class="bg-rose-500 text-white px-4 rounded-lg font-bold text-sm hover:bg-rose-600">Calculate Wastage</button>
+        <select id="gmwGang" class="p-2 border rounded-lg text-sm bg-white"><option value="">Select gang</option>${gangOpts}</select>
+        <button onclick="_calcWastage()" class="bg-rose-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-rose-600">Calculate</button>
       </div>
       <div id="wastageResult" class="mt-3"></div>
     </div>
-    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent Issues / Returns</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Gang</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th></tr></thead><tbody>
-      ${issues.map(i=>{const m=state.rawMaterials.find(r=>r.id===i.matId);const g=(state.labourContractors||[]).find(x=>x.id===i.gangId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${g?.name||'—'}</td><td class="px-3 py-2">${m?.name||'—'}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type==='ISSUE'?'#ea580c':'#059669'};">${i.type}</span></td><td class="px-3 py-2 text-right font-bold">${i.qty} ${m?.unit||''}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No records.</td></tr>'}
-      </tbody></table></div>`;
-  syncUnitPicker('gmMat', 'gmQtyUnit');
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Recent Material Issues</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">No.</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Requested By</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Dept</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">From → To</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Items</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Slip</th></tr></thead><tbody>
+      ${issues.map(i => {
+        const items = i.items || (i.matId ? [{ matId: i.matId, qty: i.qty }] : []);
+        const first = state.rawMaterials.find(r => r.id === items[0]?.matId);
+        const itemsTxt = (first?.name || '—') + (items.length > 1 ? ` +${items.length - 1}` : '');
+        const g = (state.labourContractors || []).find(x => x.id === i.gangId);
+        const fromN = i.fromStoreId ? _invSiteName(i.fromStoreId) : '—';
+        const toN = i.toLocId ? _invSiteName(i.toLocId) : (g?.name || (i.purpose || '—'));
+        return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-amber-700">${i.issueNo || '—'}</td><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${i.requestedBy || g?.name || '—'}</td><td class="px-3 py-2">${i.department || '—'}</td><td class="px-3 py-2 text-slate-500">${fromN} → ${toN}</td><td class="px-3 py-2 font-bold">${itemsTxt}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type === 'ISSUE' ? '#ea580c' : '#059669'};">${i.type || 'ISSUE'}</span></td><td class="px-3 py-2 text-center">${i.items ? `<button onclick="_printMaterialIssue('${i.id}')" class="text-blue-600 hover:underline">print</button>` : '—'}</td></tr>`;
+      }).join('') || '<tr><td colspan="8" class="p-5 text-center text-slate-400">No material issues yet.</td></tr>'}
+      </tbody></table></div></div>`;
+  _miAddRow();
 }
-window._saveGangMat=function(){
-  const gangId=document.getElementById('gmGang').value, matId=document.getElementById('gmMat').value;
-  const type=document.getElementById('gmType').value;
-  const qty=pickedQtyToBase('gmMat', parseFloat(document.getElementById('gmQty').value)||0, 'gmQtyUnit');
-  const purpose=document.getElementById('gmPurpose').value.trim();
-  if(!gangId){showToast('Select gang','error');return;}
-  if(!matId||qty<=0){showToast('Select material and qty','error');return;}
-  const date=new Date().toISOString().split('T')[0];
-  state.materialIssues.push({id:'mi_'+Date.now(),date,gangId,matId,type,qty,purpose,projectId:state.currentProjectId});
-  // Stock movement
-  state.inventoryTx.push({id:'tx_mi_'+Date.now(),date,siteId:'',rawMaterialId:matId,type:type==='ISSUE'?'OUT':'IN',qty,ref:`Gang ${type}`});
-  saveAllData(); _renderGangMaterial();
-  showToast(`Material ${type.toLowerCase()}d`,'success');
+
+/** Append one item row to the Material Issue table. */
+function _miAddRow(data) {
+  const body = document.getElementById('miItemsBody'); if (!body) return;
+  const i = _miRowSeq++;
+  const inp = 'w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-amber-400';
+  const tr = document.createElement('tr');
+  tr.className = 'mi-item-row'; tr.style.borderTop = '1px solid #f1f5f9';
+  tr.innerHTML =
+    `<td class="px-2 py-1 text-center text-slate-400 mi-rn"></td>`
+    + `<td class="px-2 py-1"><select id="miMat_${i}" class="mi-mat ${inp} font-bold" onchange="_miMatChanged('${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
+    + `<td class="px-2 py-1 text-right font-bold mi-avail" style="white-space:nowrap;color:#0369a1;">—</td>`
+    + `<td class="px-2 py-1"><input type="number" class="mi-req ${inp}" style="min-width:60px" placeholder="0"></td>`
+    + `<td class="px-2 py-1"><input type="number" class="mi-qty ${inp}" style="min-width:64px" placeholder="0" oninput="_miCheckRow(this)"></td>`
+    + `<td class="px-2 py-1"><select id="miUnit_${i}" class="mi-unit ${inp} font-bold" style="min-width:64px"></select></td>`
+    + `<td class="px-2 py-1"><input class="mi-remark ${inp}" placeholder="—"></td>`
+    + `<td class="px-2 py-1 text-center"><button type="button" onclick="this.closest('tr').remove();_miRenumber();" class="text-rose-400 hover:bg-rose-50 px-1.5 py-1 rounded font-bold">✕</button></td>`;
+  body.appendChild(tr);
+  if (data && data.matId) { const ms = tr.querySelector('.mi-mat'); if (ms) ms.value = data.matId; _miMatChanged(String(i)); }
+  else syncUnitPicker(`miMat_${i}`, `miUnit_${i}`);
+  _miRenumber();
+  return tr;
+}
+window._miAddRow = _miAddRow;
+function _miRenumber() { document.querySelectorAll('#miItemsBody .mi-item-row .mi-rn').forEach((c, idx) => c.textContent = idx + 1); }
+window._miRenumber = _miRenumber;
+/** Material chosen → sync its unit picker and show available stock at the store. */
+window._miMatChanged = function (i) {
+  syncUnitPicker(`miMat_${i}`, `miUnit_${i}`);
+  const tr = document.getElementById(`miMat_${i}`)?.closest('tr'); if (tr) _miRowAvail(tr);
+};
+/** Recompute the "Available" cell for every row against the selected store. */
+window._miRefreshAvail = function () { document.querySelectorAll('#miItemsBody .mi-item-row').forEach(_miRowAvail); };
+function _miRowAvail(tr) {
+  const matId = tr.querySelector('.mi-mat')?.value;
+  const cell = tr.querySelector('.mi-avail'); if (!cell) return;
+  const store = document.getElementById('miFrom')?.value || '';
+  if (!matId) { cell.textContent = '—'; cell.style.color = '#0369a1'; return; }
+  const mat = state.rawMaterials.find(r => r.id === matId);
+  const soh = store ? _materialSOH(matId, store) : (state.rawMaterials || []).length ? _materialSOH(matId, '') : 0;
+  cell.textContent = `${(+soh.toFixed(2)).toLocaleString('en-IN')} ${mat?.unit || ''}`;
+  cell.style.color = soh <= 0 ? '#dc2626' : '#0369a1';
+  _miCheckRow(tr.querySelector('.mi-qty'));
+}
+/** Turn the issue-qty red when it exceeds available at the chosen store. */
+window._miCheckRow = function (qtyInput) {
+  if (!qtyInput) return;
+  const tr = qtyInput.closest('tr'); if (!tr) return;
+  const matSel = tr.querySelector('.mi-mat'); const unitSel = tr.querySelector('.mi-unit');
+  const store = document.getElementById('miFrom')?.value || '';
+  const type = document.getElementById('miType')?.value || 'ISSUE';
+  const base = pickedQtyToBase(matSel?.id, parseFloat(qtyInput.value) || 0, unitSel?.id);
+  const soh = (matSel?.value && store) ? _materialSOH(matSel.value, store) : Infinity;
+  qtyInput.style.color = (type === 'ISSUE' && base > soh) ? '#dc2626' : '';
+  qtyInput.style.fontWeight = (type === 'ISSUE' && base > soh) ? '800' : '';
+};
+
+window._saveMaterialIssue = function (print) {
+  const V = id => (document.getElementById(id)?.value || '').trim();
+  const type = V('miType') || 'ISSUE';
+  const date = V('miDate') || new Date().toISOString().split('T')[0];
+  const requestedBy = V('miReqBy');
+  const fromStoreId = V('miFrom');
+  if (!requestedBy) { showToast('Enter who requested the material', 'error'); return; }
+  if (type === 'ISSUE' && !fromStoreId) { showToast('Select the store the material is issued from', 'error'); return; }
+  // Collect items
+  const items = [];
+  for (const tr of document.querySelectorAll('#miItemsBody .mi-item-row')) {
+    const matSel = tr.querySelector('.mi-mat'); const matId = matSel?.value || '';
+    const issueEntered = parseFloat(tr.querySelector('.mi-qty')?.value) || 0;
+    if (!matId || issueEntered <= 0) continue;
+    const unitSel = tr.querySelector('.mi-unit');
+    const unit = unitSel ? unitSel.value : '';
+    const qty = pickedQtyToBase(matSel.id, issueEntered, unitSel?.id);
+    const reqQty = pickedQtyToBase(matSel.id, parseFloat(tr.querySelector('.mi-req')?.value) || 0, unitSel?.id);
+    items.push({ matId, qty, reqQty, enteredQty: issueEntered, unit, remark: (tr.querySelector('.mi-remark')?.value || '').trim() });
+  }
+  if (!items.length) { showToast('Add at least one material with an issue quantity', 'error'); return; }
+  // Stock-availability guard for issues — warn on shortfalls, let the user decide.
+  if (type === 'ISSUE' && fromStoreId) {
+    const short = items.map(it => { const soh = _materialSOH(it.matId, fromStoreId); return soh < it.qty ? { name: state.rawMaterials.find(r => r.id === it.matId)?.name || it.matId, soh, need: it.qty, unit: state.rawMaterials.find(r => r.id === it.matId)?.unit || '' } : null; }).filter(Boolean);
+    if (short.length) {
+      const msg = '⚠ Not enough stock at this store:\n\n' + short.map(s => `• ${s.name}: have ${(+s.soh.toFixed(2))}, issuing ${(+s.need.toFixed(2))} ${s.unit}`).join('\n') + '\n\nIssue anyway (stock will go negative)?';
+      if (!confirm(msg)) { showToast('Issue cancelled — adjust quantities', 'info'); return; }
+    }
+  }
+  const issueNo = _miNextNo();
+  const id = 'mi_' + Date.now();
+  const rec = {
+    id, issueNo, date, type, requestedBy,
+    department: V('miDept'), fromStoreId, toLocId: V('miTo'), gangId: V('miGang'),
+    receiverName: V('miReceiver'), vehicleNo: V('miVehicle'), authorizedBy: V('miAuth'), remarks: V('miRemarks'),
+    items, projectId: state.currentProjectId
+  };
+  if (!state.materialIssues) state.materialIssues = [];
+  state.materialIssues.push(rec);
+  // Stock movements — one per item, debited from / credited to the chosen store.
+  const stamp = Date.now();
+  items.forEach((it, idx) => {
+    state.inventoryTx.push({ id: 'tx_mi_' + stamp + '_' + idx, date, siteId: fromStoreId || '', rawMaterialId: it.matId, type: type === 'ISSUE' ? 'OUT' : 'IN', qty: it.qty, ref: `${issueNo} ${type === 'ISSUE' ? 'issue' : 'return'}${requestedBy ? ' · ' + requestedBy : ''}` });
+  });
+  saveAllData();
+  _renderGangMaterial();
+  if (typeof renderLiveInventory === 'function') { try { renderLiveInventory(); } catch {} }
+  showToast(`${issueNo} posted · ${items.length} item${items.length > 1 ? 's' : ''}`, 'success');
+  if (print) _printMaterialIssue(id);
+};
+
+/** Print / PDF a Material Issue slip (gate-pass style). */
+window._printMaterialIssue = function (id) {
+  const i = (state.materialIssues || []).find(x => x.id === id); if (!i) { showToast('Issue not found', 'error'); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded', 'error'); return; }
+  const items = i.items || (i.matId ? [{ matId: i.matId, qty: i.qty }] : []);
+  const g = (state.labourContractors || []).find(x => x.id === i.gangId);
+  const doc = new window.jspdf.jsPDF();
+  let y = getCompanyHeaderForPDF(doc);
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text(i.type === 'RETURN' ? 'MATERIAL RETURN NOTE' : 'MATERIAL ISSUE SLIP', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(60);
+  const L = 14, R = pw - 14; let ry = y + 13;
+  const pair = (lk, lv, rk, rv) => { doc.setFont('helvetica', 'bold'); doc.text(lk, L, ry); doc.setFont('helvetica', 'normal'); doc.text(String(lv || '—'), L + 30, ry); if (rk) { doc.setFont('helvetica', 'bold'); doc.text(rk, pw / 2 + 4, ry); doc.setFont('helvetica', 'normal'); doc.text(String(rv || '—'), pw / 2 + 34, ry); } ry += 6; };
+  pair('Issue No:', i.issueNo, 'Date:', i.date);
+  pair('Requested By:', i.requestedBy, 'Department:', i.department);
+  pair('Issue From:', i.fromStoreId ? _invSiteName(i.fromStoreId) : '—', 'Issue To:', i.toLocId ? _invSiteName(i.toLocId) : (g?.name || '—'));
+  pair('Receiver:', i.receiverName, 'Vehicle No:', i.vehicleNo);
+  pair('Authorized By:', i.authorizedBy, 'Gang:', g?.name);
+  if (i.remarks) { doc.setFont('helvetica', 'bold'); doc.text('Remarks:', L, ry); doc.setFont('helvetica', 'normal'); doc.text(String(i.remarks), L + 30, ry, { maxWidth: R - L - 30 }); ry += 6; }
+  const rows = items.map((it, n) => { const m = state.rawMaterials.find(r => r.id === it.matId); return [n + 1, m?.name || it.matId, m?.unit || it.unit || '', it.reqQty != null && it.reqQty ? (+it.reqQty.toFixed(2)) : '', +(Number(it.qty) || 0).toFixed(2), it.remark || '']; });
+  doc.autoTable({
+    startY: ry + 2, head: [['#', 'Material', 'Unit', 'Req. Qty', 'Issued Qty', 'Remark']], body: rows, theme: 'grid',
+    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5 },
+    columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 20, halign: 'center' }, 3: { cellWidth: 24, halign: 'right' }, 4: { cellWidth: 26, halign: 'right' }, 5: { cellWidth: 40 } }
+  });
+  let sy = doc.lastAutoTable.finalY + 20;
+  doc.setFontSize(9); doc.setTextColor(80);
+  doc.text('Issued By: ______________', L, sy);
+  doc.text('Received By: ______________', pw / 2 - 10, sy);
+  doc.text('Authorized: ______________', R - 60, sy);
+  mobileSavePDF(doc, `${(i.issueNo || 'Material_Issue').replace(/\//g, '-')}.pdf`);
 };
 window._calcWastage=function(){
   const gangId=document.getElementById('gmwGang').value;
   const box=document.getElementById('wastageResult');
   if(!gangId){showToast('Select gang','error');return;}
   const cur=getCurrencySymbol();
-  // Net issued per material
+  // Net issued per material (handles both new multi-item vouchers and old records)
   const issued={};
-  (state.materialIssues||[]).filter(i=>i.gangId===gangId).forEach(i=>{issued[i.matId]=(issued[i.matId]||0)+(i.type==='ISSUE'?i.qty:-i.qty);});
+  (state.materialIssues||[]).filter(i=>i.gangId===gangId).forEach(i=>{
+    const sign = (i.type==='RETURN') ? -1 : 1;
+    const items = i.items || (i.matId ? [{matId:i.matId, qty:i.qty}] : []);
+    items.forEach(it=>{ issued[it.matId]=(issued[it.matId]||0)+sign*(Number(it.qty)||0); });
+  });
   // Theoretical from approved measurements × recipe (if any). Simple: show issued + a wastage % threshold note.
   const rows=Object.entries(issued).filter(([,q])=>q>0).map(([matId,q])=>{
     const m=state.rawMaterials.find(r=>r.id===matId);
