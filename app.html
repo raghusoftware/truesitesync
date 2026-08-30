@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.74"></script>
+    <script type="module" src="js/app.js?v=1.6.75"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -697,6 +697,10 @@
                 <div style="width:50px;height:50px;background:#dc262615;border:2px solid #dc262630;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
                 <div style="font-size:13px;font-weight:700;color:#0f172a;">Physical Audit</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Reconcile book vs actual</div>
               </div>
+              <div onclick="_openInvSection('statement')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+                <div style="width:50px;height:50px;background:#0ea5e915;border:2px solid #0ea5e930;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📊</div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;">Stock Statement</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Filter & export (Excel / PDF)</div>
+              </div>
             </div>
 
             <button id="invBackBtn" onclick="_openInvSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Inventory</button>
@@ -741,6 +745,9 @@
                 </div>
             </div>
             </div><!-- /invSecStock -->
+
+            <!-- Section: Stock Statement (filter + export) -->
+            <div id="invSecStatement" class="inv-section hide"><div id="stmtContent"></div></div>
 
             <!-- Section: Goods Receipt (GRN) -->
             <div id="invSecGrn" class="inv-section hide"><div id="grnContent"></div></div>

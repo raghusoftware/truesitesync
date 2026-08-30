@@ -1891,15 +1891,192 @@ window._openInvSection = function(section) {
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
   if (grid) grid.style.display='none'; if (back) back.style.display='inline-block';
-  const map = { stock:'invSecStock', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
+  const map = { stock:'invSecStock', statement:'invSecStatement', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'stock') renderLiveInventory();
+  else if (section === 'statement') _renderStockStatement();
   else if (section === 'grn') _renderGRN();
   else if (section === 'grnregister') _renderGrnRegister();
   else if (section === 'gang') _renderGangMaterial();
   else if (section === 'tools') _renderTools();
   else if (section === 'transfer') _renderInvTransfer();
   else if (section === 'audit') _renderInvAudit();
+};
+
+// ═══════════════════════════════════════════════════════════
+// STOCK STATEMENT — filterable (period / type / material / party / site)
+// per-material Opening · Inward · Outward · Closing · Value, exportable to
+// Excel & PDF.
+// ═══════════════════════════════════════════════════════════
+const _stmtN2 = x => (Number(x) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Resolve the supplier/party for an inventory transaction (inward only). */
+function _stmtTxParty(tx) {
+  if (tx.type !== 'IN') return '';
+  if (tx.grnId) { const g = (state.grnRecords || []).find(x => x.id === tx.grnId); if (g) return g.supplierId || ''; }
+  if (tx.refBillId) { const b = (state.vendorMaterials || []).find(x => x.id === tx.refBillId); if (b) return b.vendorId || ''; }
+  return '';
+}
+
+function _stmtFilters() {
+  const v = id => (document.getElementById(id)?.value || '');
+  return { from: v('stmtFrom'), to: v('stmtTo'), matType: v('stmtType'), matId: v('stmtMat'), partyId: v('stmtParty'), siteId: v('stmtSite') };
+}
+
+/** Compute the statement rows + grand totals for the current filters. */
+function _computeStockStatement(f) {
+  const mats = (state.rawMaterials || []).filter(m => (!f.matId || m.id === f.matId) && (!f.matType || m.type === f.matType));
+  const rows = [];
+  let totVal = 0, totIn = 0, totOut = 0;
+  mats.forEach(m => {
+    let opening = 0, inward = 0, outward = 0, lastRate = m.rate || 0;
+    (state.inventoryTx || []).forEach(tx => {
+      if (tx.rawMaterialId !== m.id) return;
+      if (f.siteId && tx.siteId !== f.siteId) return;
+      const isIn = tx.type === 'IN';
+      const isOut = tx.type === 'OUT' || tx.type === 'CONSUME' || tx.type === 'ISSUE';
+      if (f.partyId) { if (!isIn) return; if (_stmtTxParty(tx) !== f.partyId) return; } // party = inward from that supplier
+      const d = tx.date || '';
+      const q = Number(tx.qty) || 0;
+      const before = f.from && d < f.from;
+      const inPeriod = (!f.from || d >= f.from) && (!f.to || d <= f.to);
+      if (before) { opening += isIn ? q : (isOut ? -q : 0); }
+      else if (inPeriod) { if (isIn) { inward += q; if (tx.rate) lastRate = tx.rate; } else if (isOut) { outward += q; } }
+    });
+    if (!(opening || inward || outward)) return;
+    const closing = opening + inward - outward;
+    const value = closing * (lastRate || 0);
+    totVal += value; totIn += inward; totOut += outward;
+    rows.push({ name: m.name, unit: m.unit || '', type: m.type || '', opening, inward, outward, closing, rate: lastRate || 0, value });
+  });
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+  return { rows, totals: { value: totVal, inward: totIn, outward: totOut }, f };
+}
+
+/** Build the Stock Statement section (filter bar + results table). */
+function _renderStockStatement() {
+  const c = document.getElementById('stmtContent'); if (!c) return;
+  const today = new Date().toISOString().split('T')[0];
+  const fld = 'px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
+  const lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1';
+  const matOpts = (state.rawMaterials || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  const partyOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+  c.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+        <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-lg">📊</div>
+        <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stock Statement</h4><p class="text-[11px] text-slate-500">Filter by period, type, material or party — then download</p></div>
+        <button onclick="window._exportStockStatementXLSX()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬇ Excel</button>
+        <button onclick="window._exportStockStatementPDF()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-rose-600 hover:bg-rose-700 shadow-sm">⬇ PDF</button>
+      </div>
+      <div class="p-4 grid grid-cols-2 md:grid-cols-6 gap-3 border-b border-slate-100 bg-slate-50/60">
+        <div><label class="${lbl}">From</label><input type="date" id="stmtFrom" class="${fld} w-full" onchange="window._genStockStatement()"></div>
+        <div><label class="${lbl}">To</label><input type="date" id="stmtTo" value="${today}" class="${fld} w-full" onchange="window._genStockStatement()"></div>
+        <div><label class="${lbl}">Material Type</label><select id="stmtType" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All types</option><option value="Raw Material">Raw Material</option><option value="Tools">Tools</option><option value="Miscellaneous">Miscellaneous</option></select></div>
+        <div><label class="${lbl}">Material</label><select id="stmtMat" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All materials</option>${matOpts}</select></div>
+        <div><label class="${lbl}">Party / Supplier</label><select id="stmtParty" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All parties</option>${partyOpts}</select></div>
+        <div><label class="${lbl}">Site / Store</label><select id="stmtSite" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All sites</option>${_invSiteOptions()}</select></div>
+      </div>
+      <div id="stmtResult"></div>
+    </div>`;
+  _renderStockStatementTable();
+}
+
+function _renderStockStatementTable() {
+  const wrap = document.getElementById('stmtResult'); if (!wrap) return;
+  const { rows, totals, f } = _computeStockStatement(_stmtFilters());
+  const cur = getCurrencySymbol();
+  const partyNote = f.partyId ? ' <span class="text-[10px] text-amber-600 font-bold">(party filter shows inward receipts only)</span>' : '';
+  if (!rows.length) { wrap.innerHTML = `<div class="p-8 text-center text-slate-400">No stock movement for these filters.</div>`; return; }
+  wrap.innerHTML = `
+    <div class="px-4 py-2 text-[11px] text-slate-500 bg-white border-b">${rows.length} material${rows.length === 1 ? '' : 's'}${partyNote}</div>
+    <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-100"><tr>
+      <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th>
+      <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Unit</th>
+      <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Opening</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-green-700">Inward</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-rose-600">Outward</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-blue-700">Closing</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Rate</th>
+      <th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th>
+    </tr></thead><tbody>
+    ${rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td class="px-3 py-2 font-bold text-slate-700">${r.name}</td>
+      <td class="px-3 py-2 text-center">${r.unit}</td>
+      <td class="px-3 py-2 text-center text-slate-500">${r.type}</td>
+      <td class="px-3 py-2 text-right">${_stmtN2(r.opening)}</td>
+      <td class="px-3 py-2 text-right font-bold text-green-700">${_stmtN2(r.inward)}</td>
+      <td class="px-3 py-2 text-right font-bold text-rose-600">${_stmtN2(r.outward)}</td>
+      <td class="px-3 py-2 text-right font-extrabold text-blue-700">${_stmtN2(r.closing)}</td>
+      <td class="px-3 py-2 text-right text-slate-500">${cur}${_stmtN2(r.rate)}</td>
+      <td class="px-3 py-2 text-right font-bold">${cur}${_stmtN2(r.value)}</td>
+    </tr>`).join('')}
+    </tbody><tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;">
+      <td class="px-3 py-2 font-extrabold text-slate-700" colspan="4">TOTAL</td>
+      <td class="px-3 py-2 text-right font-extrabold text-green-700">${_stmtN2(totals.inward)}</td>
+      <td class="px-3 py-2 text-right font-extrabold text-rose-600">${_stmtN2(totals.outward)}</td>
+      <td class="px-3 py-2" colspan="2"></td>
+      <td class="px-3 py-2 text-right font-extrabold text-slate-800">${cur}${_stmtN2(totals.value)}</td>
+    </tr></tfoot></table></div>`;
+}
+window._genStockStatement = function () { _renderStockStatementTable(); };
+
+/** Human-readable description of the active filters (for the export headers). */
+function _stmtFilterCaption(f) {
+  const parts = [];
+  parts.push(`Period: ${f.from || 'Beginning'} to ${f.to || 'Today'}`);
+  if (f.matType) parts.push(`Type: ${f.matType}`);
+  if (f.matId) parts.push(`Material: ${(state.rawMaterials.find(m => m.id === f.matId)?.name) || ''}`);
+  if (f.partyId) parts.push(`Party: ${(state.vendors.find(v => v.id === f.partyId)?.name) || ''}`);
+  if (f.siteId) parts.push(`Site: ${_invSiteName(f.siteId)}`);
+  return parts.join('   |   ');
+}
+
+window._exportStockStatementXLSX = function () {
+  const XLSX = window.XLSX; if (!XLSX) return showToast('Excel library not loaded', 'error');
+  const { rows, totals, f } = _computeStockStatement(_stmtFilters());
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const aoa = [];
+  aoa.push(['STOCK STATEMENT']);
+  aoa.push([_stmtFilterCaption(f)]);
+  aoa.push([]);
+  aoa.push(['Material', 'Unit', 'Type', 'Opening', 'Inward', 'Outward', 'Closing', 'Rate', 'Value']);
+  rows.forEach(r => aoa.push([r.name, r.unit, r.type, +r.opening.toFixed(2), +r.inward.toFixed(2), +r.outward.toFixed(2), +r.closing.toFixed(2), +r.rate.toFixed(2), +r.value.toFixed(2)]));
+  aoa.push(['TOTAL', '', '', '', +totals.inward.toFixed(2), +totals.outward.toFixed(2), '', '', +totals.value.toFixed(2)]);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 28 }, { wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stock Statement');
+  mobileSaveXLSX(wb, `Stock_Statement_${f.to || 'all'}.xlsx`);
+  showToast('Excel exported', 'success');
+};
+
+window._exportStockStatementPDF = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded', 'error');
+  const { rows, totals, f } = _computeStockStatement(_stmtFilters());
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const doc = new window.jspdf.jsPDF('landscape');
+  let y = getCompanyHeaderForPDF(doc);
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('STOCK STATEMENT', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(_stmtFilterCaption(f), pw / 2, y + 10, { align: 'center' });
+  const body = rows.map(r => [r.name, r.unit, r.type, _stmtN2(r.opening), _stmtN2(r.inward), _stmtN2(r.outward), _stmtN2(r.closing), 'Rs. ' + _stmtN2(r.rate), 'Rs. ' + _stmtN2(r.value)]);
+  body.push([{ content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold' } }, { content: _stmtN2(totals.inward), styles: { fontStyle: 'bold', halign: 'right' } }, { content: _stmtN2(totals.outward), styles: { fontStyle: 'bold', halign: 'right' } }, '', '', { content: 'Rs. ' + _stmtN2(totals.value), styles: { fontStyle: 'bold', halign: 'right' } }]);
+  doc.autoTable({
+    startY: y + 14,
+    head: [['Material', 'Unit', 'Type', 'Opening', 'Inward', 'Outward', 'Closing', 'Rate', 'Value']],
+    body, theme: 'grid',
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontSize: 8.5, halign: 'center' },
+    styles: { fontSize: 8, cellPadding: 2 },
+    columnStyles: { 0: { cellWidth: 'auto' }, 1: { halign: 'center', cellWidth: 16 }, 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 24 }, 4: { halign: 'right', cellWidth: 24 }, 5: { halign: 'right', cellWidth: 24 }, 6: { halign: 'right', cellWidth: 24 }, 7: { halign: 'right', cellWidth: 26 }, 8: { halign: 'right', cellWidth: 30 } },
+    margin: { left: 10, right: 10 }
+  });
+  mobileSavePDF(doc, `Stock_Statement_${f.to || 'all'}.pdf`);
+  showToast('PDF exported', 'success');
 };
 
 // ─── 1. Goods Receipt Note (GRN) ───
