@@ -1891,9 +1891,16 @@ window._openInvSection = function(section) {
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
   if (grid) grid.style.display='none'; if (back) back.style.display='inline-block';
-  const map = { stock:'invSecStock', statement:'invSecStatement', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
+  // Stock transfer is permission-gated — block the section for roles without it.
+  if (section === 'transfer' && typeof window.canTransferStock === 'function' && !window.canTransferStock()) {
+    if (grid) grid.style.display = 'grid'; if (back) back.style.display = 'none';
+    showToast('You do not have permission to transfer stock', 'error');
+    return;
+  }
+  const map = { stock:'invSecStock', stores:'invSecStores', statement:'invSecStatement', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
   if (section === 'stock') renderLiveInventory();
+  else if (section === 'stores') _renderStores();
   else if (section === 'statement') _renderStockStatement();
   else if (section === 'grn') _renderGRN();
   else if (section === 'grnregister') _renderGrnRegister();
@@ -1901,6 +1908,107 @@ window._openInvSection = function(section) {
   else if (section === 'tools') _renderTools();
   else if (section === 'transfer') _renderInvTransfer();
   else if (section === 'audit') _renderInvAudit();
+};
+
+// ═══════════════════════════════════════════════════════════
+// STORES — all sites/stores as cards; add a store; transfer (role-gated)
+// ═══════════════════════════════════════════════════════════
+/** Stock-on-hand summary at one site: distinct in-stock items + total value. */
+function _storeStockSummary(siteId) {
+  let items = 0, value = 0, qty = 0;
+  (state.rawMaterials || []).forEach(m => {
+    const soh = _materialSOH(m.id, siteId);
+    if (soh > 0.0001) { items++; qty += soh; value += soh * (_matLastRate(m.id) || m.rate || 0); }
+  });
+  return { items, value, qty };
+}
+/** Latest known IN rate for a material (any site), for a rough stock valuation. */
+function _matLastRate(matId) {
+  let rate = 0, best = '';
+  (state.inventoryTx || []).forEach(tx => {
+    if (tx.rawMaterialId === matId && tx.type === 'IN' && tx.rate && (tx.date || '') >= best) { best = tx.date || ''; rate = tx.rate; }
+  });
+  return rate;
+}
+
+function _renderStores() {
+  const c = document.getElementById('storesContent'); if (!c) return;
+  const cur = getCurrencySymbol();
+  const canTx = typeof window.canTransferStock !== 'function' || window.canTransferStock();
+  const locs = getAllLocations();
+  const n2 = x => (Number(x) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const cards = locs.map(l => {
+    const s = _storeStockSummary(l.id);
+    const isStore = (l.type !== 'Project');
+    const icon = isStore ? '🏬' : '🏗️';
+    const typeBadge = isStore
+      ? `<span class="text-[9px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">STORE</span>`
+      : `<span class="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">SITE</span>`;
+    const delBtn = isStore ? `<button onclick="event.stopPropagation();_deleteStore('${l.id}')" title="Delete store" class="text-rose-400 hover:text-rose-600 text-xs">🗑</button>` : '';
+    const txBtn = canTx
+      ? `<button onclick="_storeTransfer('${l.id}')" class="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-cyan-600 hover:bg-cyan-700">🔄 Transfer</button>`
+      : `<button disabled title="No transfer permission" class="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-slate-400 bg-slate-100 cursor-not-allowed">🔒 Transfer</button>`;
+    return `<div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
+      <div class="flex items-start gap-2.5 mb-3">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:${isStore ? '#0d948815' : '#6366f115'};border:2px solid ${isStore ? '#0d948830' : '#6366f130'};">${icon}</div>
+        <div class="flex-1 min-w-0"><div class="font-extrabold text-slate-800 text-sm leading-tight truncate">${l.name}</div><div class="mt-0.5 flex items-center gap-1.5">${typeBadge}</div></div>
+        ${delBtn}
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="bg-slate-50 rounded-lg px-2.5 py-2"><div class="text-[9px] font-bold uppercase text-slate-400">In stock</div><div class="text-sm font-extrabold text-slate-700">${s.items} item${s.items === 1 ? '' : 's'}</div></div>
+        <div class="bg-slate-50 rounded-lg px-2.5 py-2"><div class="text-[9px] font-bold uppercase text-slate-400">Value</div><div class="text-sm font-extrabold text-slate-700">${cur}${n2(s.value)}</div></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="_storeViewStock('${l.id}')" class="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">📊 Stock</button>
+        ${txBtn}
+      </div>
+    </div>`;
+  }).join('');
+  c.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+      <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#ecfeff,#cffafe);">
+        <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-lg">🏬</div>
+        <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stores &amp; Sites</h4><p class="text-[11px] text-slate-500">${locs.length} location${locs.length === 1 ? '' : 's'}${canTx ? '' : ' · transfer locked for your role'}</p></div>
+        <div class="flex items-center gap-2">
+          <input id="newStoreName" placeholder="New store name…" class="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-teal-400" onkeydown="if(event.key==='Enter')_addStore()">
+          <button onclick="_addStore()" class="px-3 py-2 rounded-lg text-xs font-bold text-white bg-teal-600 hover:bg-teal-700">+ Add Store</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;">${cards || '<div class="text-slate-400 p-6">No stores or sites yet. Add a store above, or create a project.</div>'}</div>`;
+}
+
+/** Add a dedicated store/warehouse (appears in every store dropdown). */
+window._addStore = function () {
+  const inp = document.getElementById('newStoreName');
+  const name = (inp?.value || '').trim();
+  if (!name) { showToast('Enter a store name', 'error'); return; }
+  if ((state.locations || []).some(l => (l.name || '').toLowerCase() === name.toLowerCase())) { showToast('A store with that name already exists', 'warning'); return; }
+  if (!state.locations) state.locations = [];
+  state.locations.push({ id: 'loc_' + Date.now(), name, type: 'Store' });
+  saveAllData();
+  try { window.populateDropdowns && window.populateDropdowns(); } catch {}
+  _renderStores();
+  showToast(`Store "${name}" added`, 'success');
+};
+window._deleteStore = function (id) {
+  const l = (state.locations || []).find(x => x.id === id); if (!l) return;
+  if (!confirm(`Delete store "${l.name}"?\n\nStock records stay in the ledger; you can restore the store from the Recycle Bin.`)) return;
+  window.recycleDelete && window.recycleDelete('locations', id, 'Store');
+  saveAllData();
+  try { window.populateDropdowns && window.populateDropdowns(); } catch {}
+  _renderStores();
+};
+/** Open the Stock Statement pre-filtered to this store. */
+window._storeViewStock = function (siteId) {
+  window._openInvSection('statement');
+  setTimeout(() => { const s = document.getElementById('stmtSite'); if (s) { s.value = siteId; window._genStockStatement && window._genStockStatement(); } }, 40);
+};
+/** Open the transfer screen with this store preselected as source (role-gated). */
+window._storeTransfer = function (fromId) {
+  if (typeof window.canTransferStock === 'function' && !window.canTransferStock()) { showToast('You do not have permission to transfer stock', 'error'); return; }
+  window._openInvSection('transfer');
+  setTimeout(() => { const f = document.getElementById('itFrom'); if (f) f.value = fromId; }, 40);
 };
 
 // ═══════════════════════════════════════════════════════════

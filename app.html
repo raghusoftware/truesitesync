@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.76"></script>
+    <script type="module" src="js/app.js?v=1.6.77"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -673,6 +673,10 @@
                 <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📦</div>
                 <div style="font-size:13px;font-weight:700;color:#0f172a;">Stock & Adjust</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Live stock & manual entry</div>
               </div>
+              <div onclick="_openInvSection('stores')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
+                <div style="width:50px;height:50px;background:#0d948815;border:2px solid #0d948830;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🏬</div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;">Stores</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">All sites, add store & transfer</div>
+              </div>
               <div onclick="_openInvSection('grn')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
                 <div style="width:50px;height:50px;background:#2563eb15;border:2px solid #2563eb30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🚚</div>
                 <div style="font-size:13px;font-weight:700;color:#0f172a;">Goods Receipt</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">GRN — inbound logistics</div>
@@ -745,6 +749,9 @@
                 </div>
             </div>
             </div><!-- /invSecStock -->
+
+            <!-- Section: Stores (all sites/stores, add store, transfer) -->
+            <div id="invSecStores" class="inv-section hide"><div id="storesContent"></div></div>
 
             <!-- Section: Stock Statement (filter + export) -->
             <div id="invSecStatement" class="inv-section hide"><div id="stmtContent"></div></div>

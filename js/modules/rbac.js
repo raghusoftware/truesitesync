@@ -23,6 +23,7 @@ export const ACCESS_MODULES = [
   { id: 'inventoryView', label: 'Inventory', group: 'Project' },
   { id: 'recipeView', label: 'Recipes', group: 'Project' },
   { id: 'assetsView', label: 'Tools & Assets', group: 'Project' },
+  { id: 'stockTransferAction', label: 'Stock Transfer', group: 'Project' },
   { id: 'measurementListView', label: 'Measurement', group: 'Project' },
   { id: 'abstractsView', label: 'Abstracts', group: 'Project' },
   { id: 'documentsView', label: 'Documents', group: 'Project' },
@@ -101,10 +102,10 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Project Manager': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
   ]},
   Engineer: { permissions: [
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'reportsView',
@@ -123,9 +124,15 @@ export function isProjectManager() {
   const u = getCurrentUser();
   return !!u && u.role === 'Project Manager';
 }
+/** May the current user transfer stock between stores/sites? Configurable per
+ *  role via the 'stockTransferAction' permission (Admin/CEO/Owner always). */
+export function canTransferStock() {
+  return hasAccess('stockTransferAction');
+}
 if (typeof window !== 'undefined') {
   window.canBillToAbstract = canBillToAbstract;
   window.isProjectManager = isProjectManager;
+  window.canTransferStock = canTransferStock;
 }
 
 // ── Cached auth user ──
@@ -180,6 +187,19 @@ export function initRBAC() {
       }
     });
     state.rbacFlags.hideAbstractFromSiteRolesV1 = true;
+    _rolesChanged = true;
+  }
+  // One-time: grant the new 'stockTransferAction' permission to the default
+  // operational roles on existing workspaces (Admin/CEO/Owner already covered by
+  // the ALL_MODULE_IDS migration above). Admins can revoke it later via the matrix.
+  if (!state.rbacFlags.stockTransferGrantV1) {
+    ['Project Manager', 'Site Supervisor'].forEach(rn => {
+      const r = state.rbacRoles[rn];
+      if (r && Array.isArray(r.permissions) && !r.permissions.includes('stockTransferAction')) {
+        r.permissions.push('stockTransferAction'); _rolesChanged = true;
+      }
+    });
+    state.rbacFlags.stockTransferGrantV1 = true;
     _rolesChanged = true;
   }
   if (_rolesChanged) saveAllData();
