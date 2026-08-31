@@ -10,54 +10,119 @@
 
 import { state } from './state.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.89';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category
 // ────────────────────────────────────────────
+const _R = (id, name) => ({ id, name, type: 'table' });
 export const REPORT_CATEGORIES = [
+  {
+    id: 'project', name: 'Project & Profitability', icon: '🏢', color: '#6366f1',
+    reports: [
+      _R('project_profitability', 'Project Profitability (Cost vs Billed)'),
+      _R('mis_project_profit', 'MIS — Portfolio Profitability & Margin'),
+      _R('earned_value', 'Earned Value Analysis (SPI / CPI)'),
+      _R('wip_report', 'Work-in-Progress (WIP) Report'),
+      _R('pl_statement', 'Profit & Loss Statement'),
+    ],
+  },
+  {
+    id: 'finance', name: 'Finance & Cash', icon: '🏦', color: '#0ea5e9',
+    reports: [
+      _R('expense_register', 'Expense Register (All Expenses)'),
+      _R('expense_analysis', 'Expense Analysis (by Head)'),
+      _R('cash_book', 'Cash Book'),
+      _R('cash_flow', 'Cash Flow Statement'),
+      _R('retention_recovery', 'Retention Recovery Register'),
+    ],
+  },
+  {
+    id: 'sales', name: 'Sales & Receivables', icon: '💰', color: '#3b82f6',
+    reports: [
+      _R('invoice_register', 'Sales Invoice Register'),
+      _R('client_outstanding', 'Client Outstanding (Receivables)'),
+      _R('aging_analysis', 'Receivables Aging Analysis'),
+      _R('sales_pipeline', 'Sales Pipeline'),
+      _R('lead_register', 'Lead Register'),
+      _R('tender_register', 'Tender Register'),
+    ],
+  },
+  {
+    id: 'purchase', name: 'Purchase & Suppliers', icon: '🛒', color: '#8b5cf6',
+    reports: [
+      _R('purchase_bill_rpt', 'Purchase Bill Register (Material by Supplier)'),
+      _R('vendor_outstanding', 'Supplier Outstanding (Payables)'),
+    ],
+  },
+  {
+    id: 'labour', name: 'Labour & Payroll', icon: '👷', color: '#f59e0b',
+    reports: [
+      _R('labour_muster', 'Labour Muster (Attendance)'),
+      _R('wage_register', 'Wage Register'),
+      _R('salary_register', 'Salary Register'),
+      _R('payroll_summary', 'Payroll Summary'),
+      _R('labour_productivity', 'Labour Productivity'),
+      _R('pf_report', 'PF Report'),
+      _R('esic_register', 'ESIC Register'),
+    ],
+  },
+  {
+    id: 'stores', name: 'Inventory & Materials', icon: '📦', color: '#10b981',
+    reports: [
+      _R('stock_register', 'Stock Register'),
+      _R('cement_reconciliation', 'Cement Reconciliation'),
+      _R('steel_reconciliation', 'Steel Reconciliation'),
+    ],
+  },
+  {
+    id: 'equipment', name: 'Equipment & Machinery', icon: '🚜', color: '#ea580c',
+    reports: [
+      _R('equipment_register', 'Equipment Register'),
+      _R('equipment_utilization', 'Equipment Utilization'),
+      _R('idle_machinery_cost', 'Idle Machinery Cost'),
+      _R('fuel_consumption', 'Fuel Consumption'),
+    ],
+  },
   {
     id: 'execution', name: 'Site Execution', icon: '🏗️', color: '#f97316',
     reports: [
-      { id: 'dpr_report', name: 'Daily Progress Report (DPR)', type: 'table', dataSource: 'dailyProgress' },
-      { id: 'concrete_pour', name: 'Concrete Pour Card Report', type: 'table', dataSource: 'concretePours' },
-      { id: 'measurement_report', name: 'Measurement Report', type: 'table', dataSource: 'sheets' },
-      { id: 'abstract_report', name: 'Abstract Report', type: 'table', dataSource: 'abstracts' },
+      _R('dpr', 'Daily Progress Report (DPR)'),
+      _R('activity_progress', 'Activity Progress'),
+      _R('weekly_progress', 'Weekly Progress'),
+      _R('delay_analysis', 'Delay Analysis'),
+      _R('milestone_tracking', 'Milestone Tracking'),
     ],
   },
   {
-    id: 'sales', name: 'Sales & GST', icon: '💰', color: '#3b82f6',
+    id: 'measurement', name: 'Measurement & Billing', icon: '📐', color: '#0891b2',
     reports: [
-      { id: 'sale_invoice_report', name: 'Sale Invoice Report', type: 'table', dataSource: 'saleInvoices' },
-      { id: 'gstr1', name: 'GSTR-1 (Outward Supplies)', type: 'table', dataSource: 'saleInvoices' },
+      _R('mb_report', 'Measurement Book (MB) Report'),
+      _R('detailed_measurement', 'Detailed Measurement Sheet'),
+      _R('ra_bill', 'RA Bill'),
+      _R('abstract_measurement', 'Abstract of Measurement'),
+      _R('bbs_report', 'Bar Bending Schedule (BBS)'),
     ],
   },
   {
-    id: 'purchase', name: 'Purchase', icon: '🛒', color: '#8b5cf6',
+    id: 'gst', name: 'GST & Statutory', icon: '🧾', color: '#7c3aed',
     reports: [
-      { id: 'purchase_invoice_report', name: 'Purchase Invoice Report', type: 'table', dataSource: 'vendorMaterials' },
+      _R('gstr1', 'GSTR-1 (Outward Supplies)'),
+      _R('gstr3b', 'GSTR-3B'),
+      _R('gst_summary', 'GST Summary'),
+      _R('gst_hsn', 'HSN Summary'),
+      _R('gst_input_credit', 'Input Tax Credit (ITC) Register'),
+      _R('tds_deduction', 'TDS Deduction Report'),
     ],
   },
   {
-    id: 'stores', name: 'Inventory & Tools', icon: '📦', color: '#10b981',
+    id: 'quality', name: 'Quality & Safety', icon: '✅', color: '#16a34a',
     reports: [
-      { id: 'inventory_report', name: 'Inventory Report', type: 'table', dataSource: 'inventoryTx' },
-      { id: 'tools_report', name: 'Tools Report', type: 'table', dataSource: 'rawMaterials' },
-    ],
-  },
-  {
-    id: 'finance', name: 'Finance', icon: '🏦', color: '#0ea5e9',
-    reports: [
-      { id: 'petty_cash_report', name: 'Petty Cash Report', type: 'table', dataSource: 'pettyCashTxns' },
-      { id: 'parties_statement', name: 'Parties Statement', type: 'table', dataSource: 'clients' },
-      { id: 'bank_statement', name: 'Bank Statement', type: 'table', dataSource: 'accounts' },
-      { id: 'cash_flow_forecast', name: 'Cash Flow Forecast', type: 'table', dataSource: 'paymentsIn' },
-    ],
-  },
-  {
-    id: 'project', name: 'Project', icon: '🏢', color: '#6366f1',
-    reports: [
-      { id: 'project_report', name: 'Project Report (Master)', type: 'table', dataSource: 'projects' },
+      _R('cube_test', 'Cube Test Report'),
+      _R('ncr_report', 'NCR Report'),
+      _R('qaqc_inspection', 'QA/QC Inspection'),
+      _R('incident_report', 'Safety Incident Report'),
+      _R('ppe_compliance', 'PPE Compliance'),
     ],
   },
 ];
@@ -969,7 +1034,7 @@ export class ReportEngine {
       const materialCost = (state.vendorMaterials || []).filter(v => v.siteId === p.id).reduce((s, v) => s + (parseFloat(v.totalAmount) || 0), 0);
       const labourCost = (state.labourSalaries || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.netPay) || 0), 0);
       const equipmentCost = (state.equipmentLogs || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.cost) || 0), 0);
-      const overheads = (state.expenses || []).filter(e => e.projectId === p.id).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const overheads = (state.expenses || []).filter(e => e.projectId === p.id || e.siteId === p.id).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
       const totalCost = materialCost + labourCost + equipmentCost + overheads;
       const profit = totalBilled - totalCost;
       let contractValue = 0;
@@ -1420,6 +1485,30 @@ export class ReportEngine {
     const total = Object.values(headMap).reduce((s, h) => s + h.ytd, 0);
     const rows = Object.values(headMap).map(h => ({ ...h, pctTotal: total ? +(h.ytd / total * 100).toFixed(1) : 0 }));
     return { rows };
+  }
+
+  // ── Expense Register (every expense, line by line) ──
+  computeExpenseRegister(params = {}) {
+    const rows = this._filterByParams(state.expenses || [], params).map(e => ({
+      date: e.date || '',
+      expNo: e.expNo || e.id,
+      category: e.category || 'General',
+      party: e.party || '—',
+      site: e.siteName || (e.siteId ? this._resolveSite(e.siteId) : '—'),
+      payType: e.payType || '—',
+      amount: parseFloat(e.amount) || 0,
+      paid: parseFloat(e.paid) || 0,
+      balance: parseFloat(e.balance) || 0,
+      status: e.status || (parseFloat(e.balance) > 0 ? 'Unpaid' : 'Paid'),
+    })).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    return {
+      rows,
+      kpis: {
+        totalExpense: rows.reduce((s, r) => s + r.amount, 0),
+        outstanding: rows.reduce((s, r) => s + r.balance, 0),
+        records: rows.length,
+      },
+    };
   }
 
   // ── Equipment Utilization ──

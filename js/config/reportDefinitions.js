@@ -1008,6 +1008,30 @@ export const REPORT_DEFINITIONS = {
     compute: 'computeExpenseAnalysis',
   },
 
+  expense_register: {
+    exportTitle: 'Expense Register',
+    notes: 'Every expense recorded — including site-tagged expenses (e.g. site rent).',
+    filters: ['dateRange', 'siteId', 'category'],
+    columns: [
+      { key: 'date',     label: 'Date',        type: D, width: 90 },
+      { key: 'expNo',    label: 'Exp No.',     type: T, width: 90 },
+      { key: 'category', label: 'Category',    type: T, width: 130 },
+      { key: 'party',    label: 'Party',       type: T, width: 130 },
+      { key: 'site',     label: 'Site',        type: T, width: 130 },
+      { key: 'payType',  label: 'Pay Type',    type: B, width: 80 },
+      { key: 'amount',   label: 'Amount (₹)',  type: C, width: 100, align: 'right' },
+      { key: 'paid',     label: 'Paid (₹)',    type: C, width: 100, align: 'right' },
+      { key: 'balance',  label: 'Balance (₹)', type: C, width: 100, align: 'right' },
+      { key: 'status',   label: 'Status',      type: B, width: 70 },
+    ],
+    aggregates: [
+      { key: 'amount', fn: 'sum' },
+      { key: 'paid', fn: 'sum' },
+      { key: 'balance', fn: 'sum' },
+    ],
+    compute: 'computeExpenseRegister',
+  },
+
   // ═══════════════════════════════════════════════
   //  EQUIPMENT — Utilization, Breakdown, Maintenance
   // ═══════════════════════════════════════════════
