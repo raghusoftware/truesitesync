@@ -26,7 +26,7 @@ import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF } f
 import { uploadExecMedia, openExecMedia, removeExecMedia, getGps, gpsLabel, startVoice, stopVoice, isRecording } from './execMedia.js';
 
 /* ── constants ─────────────────────────────────────────── */
-const TRADES = ['Mason', 'Bar Bender', 'Shuttering Carpenter', 'Steel Fixer', 'Plumber', 'Electrician', 'Painter', 'Welder', 'Operator', 'Skilled Helper', 'Unskilled Helper', 'Mistri', 'Supervisor', 'Engineer'];
+const TRADES = ['Mason', 'Bar Bender', 'Steel Fixer', 'Shuttering Carpenter', 'Carpenter', 'Fitter', 'Welder', 'Gas Cutter', 'Grinder', 'Fabricator', 'Rigger', 'Scaffolder', 'Plasterer', 'Tiles Mason', 'Painter', 'Waterproofing Applicator', 'Plumber', 'Pipe Fitter', 'Electrician', 'Wireman', 'HVAC / Duct Fitter', 'Crane Operator', 'JCB / Excavator Operator', 'Operator', 'Driver', 'Signalman', 'Foreman', 'Mistri', 'Supervisor', 'Surveyor', 'Engineer', 'Skilled Helper', 'Unskilled Helper', 'Female Helper', 'Watchman'];
 const CHANGE_REASONS = ['Rain / Weather', 'Client Change', 'Drawing Revision', 'Equipment Breakdown', 'Labour Shortage', 'Material Delay', 'Safety Issue', 'Access Restriction', 'Utility Conflict', 'Productivity Improvement', 'Emergency Work', 'Other'];
 const WEATHER = ['Clear', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Hot', 'Windy'];
 const INSPECTIONS = ['Not Required', 'Pending', 'Passed', 'Failed'];

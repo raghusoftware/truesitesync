@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.87"></script>
+    <script type="module" src="js/app.js?v=1.6.88"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2469,12 +2469,40 @@
             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Trade / Skill *</label>
             <select id="labTrade" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
               <option value="">-- Select Trade --</option>
-              <option>Mason</option><option>Bar Bender</option><option>Shuttering Carpenter</option>
-              <option>Carpenter</option><option>Steel Fixer</option><option>Plumber</option>
-              <option>Electrician</option><option>Painter</option><option>Tiles Mason</option>
-              <option>Welder</option><option>Operator</option><option>Driver</option>
-              <option>Mistri (Supervisor)</option><option>Skilled Helper</option><option>Unskilled Helper</option>
-              <option>Female Helper</option><option>Watchman</option><option>Other</option>
+              <optgroup label="Structural / RCC / Steel">
+                <option>Mason</option><option>Bar Bender</option><option>Steel Fixer</option>
+                <option>Shuttering Carpenter</option><option>Carpenter</option><option>Fitter</option>
+                <option>Structural Fitter</option><option>Welder</option><option>Gas Cutter</option>
+                <option>Grinder</option><option>Fabricator</option><option>Rigger</option>
+                <option>Scaffolder</option><option>Blacksmith</option><option>Concrete Finisher</option>
+              </optgroup>
+              <optgroup label="Finishing">
+                <option>Plasterer</option><option>Tiles Mason</option><option>Marble / Stone Mason</option>
+                <option>Painter</option><option>POP / Gypsum</option><option>False Ceiling</option>
+                <option>Waterproofing Applicator</option><option>Aluminium Fabricator</option>
+                <option>Glazier</option><option>Flooring / Kota</option>
+              </optgroup>
+              <optgroup label="MEP (Plumbing / Electrical / HVAC)">
+                <option>Plumber</option><option>Sanitary Fitter</option><option>Pipe Fitter</option>
+                <option>Electrician</option><option>Wireman</option><option>Cable Puller</option>
+                <option>HVAC / Duct Fitter</option><option>Fire Fighting Fitter</option>
+              </optgroup>
+              <optgroup label="Operators / Drivers">
+                <option>Crane Operator</option><option>JCB / Excavator Operator</option>
+                <option>Batching Plant Operator</option><option>Concrete Pump Operator</option>
+                <option>Hoist / Winch Operator</option><option>Operator</option><option>Driver</option>
+                <option>Signalman</option>
+              </optgroup>
+              <optgroup label="Supervision / Support">
+                <option>Foreman</option><option>Mistri (Supervisor)</option><option>Supervisor</option>
+                <option>Surveyor</option><option>Chainman</option><option>Safety Steward</option>
+                <option>Store Keeper</option><option>Time Keeper</option>
+              </optgroup>
+              <optgroup label="Helpers / General">
+                <option>Skilled Helper</option><option>Unskilled Helper</option><option>Female Helper</option>
+                <option>Watchman</option><option>Housekeeping</option><option>Gardener</option>
+              </optgroup>
+              <option>Other</option>
             </select>
           </div>
           <div>
