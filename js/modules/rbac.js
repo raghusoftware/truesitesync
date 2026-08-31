@@ -1160,13 +1160,17 @@ export function renderUsersRolesPanel() {
     <div class="bg-white rounded-xl shadow-sm border p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 class="font-bold text-lg text-slate-800">Role &amp; Access Control</h3>
-        <div class="flex items-center gap-3 text-[11px] font-bold">
-          <span class="flex items-center gap-1.5 text-blue-600"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>View</span>
-          <span class="flex items-center gap-1.5 text-amber-600"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>Edit</span>
-          <span class="flex items-center gap-1.5 text-rose-600"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>Delete</span>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 text-[11px] font-bold">
+            <span class="flex items-center gap-1.5 text-blue-600"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>View</span>
+            <span class="flex items-center gap-1.5 text-amber-600"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>Edit</span>
+            <span class="flex items-center gap-1.5 text-rose-600"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>Delete</span>
+          </div>
+          <span id="rbacDirtyNote" style="display:none;" class="text-[11px] font-bold text-amber-600">● Unsaved changes</span>
+          <button id="rbacSaveBtn" onclick="window._rbacSavePermissions()" disabled class="px-3.5 py-1.5 rounded-lg font-bold text-xs text-white bg-emerald-600 transition" style="opacity:.55;cursor:default;">✓ Saved</button>
         </div>
       </div>
-      <p class="text-xs text-slate-400 mb-4">Set exactly what each role can <b>view</b>, <b>edit</b> and <b>delete</b> per module. Edit &amp; Delete require View. <b>Admin</b> always has full access and can't be limited.</p>
+      <p class="text-xs text-slate-400 mb-4">Set exactly what each role can <b>view</b>, <b>edit</b> and <b>delete</b> per module. Edit &amp; Delete require View. Changes apply when you press <b>Save</b>. <b>Admin</b> always has full access and can't be limited.</p>
       <div class="space-y-3">
         ${(() => { const _allMods = getAccessModules(); const _allIds = new Set(_allMods.map(m => m.id)); const total = _allMods.length; return Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
           const role = roles[roleName];
@@ -1175,6 +1179,7 @@ export function renderUsersRolesPanel() {
           const viewN = perms.length;
           const editN = perms.filter(id => (caps[id]?.edit) !== false).length;
           const delN = perms.filter(id => (caps[id]?.delete) !== false).length;
+          const sid = roleName.replace(/[^a-zA-Z0-9]/g, '_');
           return `<div class="border border-slate-200 rounded-xl overflow-hidden">
             <div class="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-white cursor-pointer select-none" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
               <div class="flex items-center gap-3 min-w-0">
@@ -1182,17 +1187,17 @@ export function renderUsersRolesPanel() {
                 <span class="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-extrabold flex-shrink-0">${roleName.slice(0,2).toUpperCase()}</span>
                 <div class="min-w-0"><div class="font-bold text-sm text-slate-800 truncate">${roleName}</div>
                 <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">${viewN} view</span>
-                  <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${editN} edit</span>
-                  <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">${delN} delete</span>
+                  <span id="chipV_${sid}" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">${viewN} view</span>
+                  <span id="chipE_${sid}" class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${editN} edit</span>
+                  <span id="chipD_${sid}" class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">${delN} delete</span>
                 </div></div>
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden hidden sm:block"><div class="h-full bg-blue-500 rounded-full" style="width:${total?Math.round((viewN/total)*100):0}%"></div></div>
+                <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden hidden sm:block"><div id="prog_${sid}" class="h-full bg-blue-500 rounded-full" style="width:${total?Math.round((viewN/total)*100):0}%"></div></div>
               </div>
             </div>
             <div class="hidden">
-              ${_renderPermissionMatrix(roleName, role)}
+              <div id="matrix_${sid}">${_renderPermissionMatrix(roleName, role)}</div>
             </div>
           </div>`;
         }).join(''); })()}
@@ -1421,18 +1426,49 @@ export function closeUserForm() {
 
 // ── Permission toggles ──
 
+// Permission edits are held in memory and re-painted in place (no accordion
+// collapse / scroll jump); the user presses Save to persist + re-enforce.
+let _rbacDirty = false;
+function _rbacMarkDirty() {
+  _rbacDirty = true;
+  const b = document.getElementById('rbacSaveBtn');
+  if (b) { b.disabled = false; b.textContent = '💾 Save Changes'; b.style.opacity = '1'; b.style.cursor = 'pointer'; }
+  const n = document.getElementById('rbacDirtyNote'); if (n) n.style.display = '';
+}
+/** Re-paint ONLY one role's matrix + header chips, keeping it expanded/in place. */
+function _rbacRerenderRole(roleName) {
+  const role = (state.rbacRoles || {})[roleName]; if (!role) return;
+  const sid = roleName.replace(/[^a-zA-Z0-9]/g, '_');
+  const mx = document.getElementById('matrix_' + sid);
+  if (mx) mx.innerHTML = _renderPermissionMatrix(roleName, role);
+  const allIds = new Set(getAccessModules().map(m => m.id));
+  const perms = (role.permissions || []).filter(p => allIds.has(p));
+  const caps = role.caps || {};
+  const viewN = perms.length;
+  const editN = perms.filter(id => caps[id]?.edit !== false).length;
+  const delN = perms.filter(id => caps[id]?.delete !== false).length;
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('chipV_' + sid, viewN + ' view'); set('chipE_' + sid, editN + ' edit'); set('chipD_' + sid, delN + ' delete');
+  const pr = document.getElementById('prog_' + sid); if (pr) pr.style.width = (allIds.size ? Math.round(viewN / allIds.size * 100) : 0) + '%';
+}
+window._rbacSavePermissions = function () {
+  saveAllData();
+  hideRestrictedSidebar();
+  _rbacDirty = false;
+  const b = document.getElementById('rbacSaveBtn');
+  if (b) { b.disabled = true; b.textContent = '✓ Saved'; b.style.opacity = '.55'; b.style.cursor = 'default'; }
+  const n = document.getElementById('rbacDirtyNote'); if (n) n.style.display = 'none';
+  showToast('Permissions saved', 'success');
+};
+
 export function togglePermission(roleName, moduleId, checked) {
   const role = (state.rbacRoles || {})[roleName];
   if (!role) return;
   if (!role.permissions) role.permissions = [];
-  if (checked && !role.permissions.includes(moduleId)) {
-    role.permissions.push(moduleId);
-  } else if (!checked) {
-    role.permissions = role.permissions.filter(p => p !== moduleId);
-  }
-  saveAllData();
-  hideRestrictedSidebar();
-  renderUsersRolesPanel();
+  if (checked && !role.permissions.includes(moduleId)) role.permissions.push(moduleId);
+  else if (!checked) role.permissions = role.permissions.filter(p => p !== moduleId);
+  _rbacRerenderRole(roleName);
+  _rbacMarkDirty();
 }
 
 export function toggleGroupPermissions(roleName, group, checked) {
@@ -1440,14 +1476,10 @@ export function toggleGroupPermissions(roleName, group, checked) {
   if (!role) return;
   if (!role.permissions) role.permissions = [];
   const groupModuleIds = getAccessModules().filter(m => m.group === group).map(m => m.id);
-  if (checked) {
-    groupModuleIds.forEach(id => { if (!role.permissions.includes(id)) role.permissions.push(id); });
-  } else {
-    role.permissions = role.permissions.filter(p => !groupModuleIds.includes(p));
-  }
-  saveAllData();
-  hideRestrictedSidebar();
-  renderUsersRolesPanel();
+  if (checked) groupModuleIds.forEach(id => { if (!role.permissions.includes(id)) role.permissions.push(id); });
+  else role.permissions = role.permissions.filter(p => !groupModuleIds.includes(p));
+  _rbacRerenderRole(roleName);
+  _rbacMarkDirty();
 }
 
 /** Toggle a single Edit/Delete capability for a module on a role. */
@@ -1457,8 +1489,8 @@ window._rbacToggleCap = function (roleName, moduleId, cap, checked) {
   if (!role.caps) role.caps = {};
   if (!role.caps[moduleId]) role.caps[moduleId] = {};
   role.caps[moduleId][cap] = !!checked;
-  saveAllData();
-  renderUsersRolesPanel();
+  _rbacRerenderRole(roleName);
+  _rbacMarkDirty();
 };
 
 /** Master column toggle for a role: apply View / Edit / Delete to every module. */
@@ -1474,7 +1506,6 @@ window._rbacToggleColumn = function (roleName, col, checked) {
     if (!role.caps) role.caps = {};
     ids.forEach(id => { if (!role.caps[id]) role.caps[id] = {}; role.caps[id][col] = !!checked; });
   }
-  saveAllData();
-  hideRestrictedSidebar();
-  renderUsersRolesPanel();
+  _rbacRerenderRole(roleName);
+  _rbacMarkDirty();
 };
