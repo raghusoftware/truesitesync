@@ -135,11 +135,34 @@ export function canTransferStock() {
 export function canManageStaff() {
   return hasAccess('staffAttendanceAction');
 }
+/**
+ * Granular capability check. `action` ∈ 'view' | 'edit' | 'delete'.
+ *  - view   → the module is in the role's permissions (access).
+ *  - edit/delete → the role must have View AND the capability isn't turned off.
+ * Default is permissive: granting View implies Edit + Delete unless an admin
+ * explicitly un-checks them in the matrix (role.caps[moduleId].edit/delete=false).
+ * Admin/CEO/Owner (full-access roles) always pass.
+ */
+export function can(action, moduleId) {
+  const user = getCurrentUser();
+  if (!user) return false;
+  if (user.role === 'Admin') return true;
+  if (action === 'view') return hasAccess(moduleId);
+  if (!hasAccess(moduleId)) return false; // can't edit/delete what you can't view
+  const role = (state.rbacRoles || {})[user.role];
+  const caps = (role && role.caps && role.caps[moduleId]) || {};
+  return caps[action] !== false;
+}
+export function canEdit(moduleId) { return can('edit', moduleId); }
+export function canDelete(moduleId) { return can('delete', moduleId); }
 if (typeof window !== 'undefined') {
   window.canBillToAbstract = canBillToAbstract;
   window.isProjectManager = isProjectManager;
   window.canTransferStock = canTransferStock;
   window.canManageStaff = canManageStaff;
+  window.rbacCan = can;
+  window.canEdit = canEdit;
+  window.canDelete = canDelete;
 }
 
 // ── Cached auth user ──
@@ -1135,28 +1158,41 @@ export function renderUsersRolesPanel() {
 
     <!-- Role Permissions Section -->
     <div class="bg-white rounded-xl shadow-sm border p-6">
-      <h3 class="font-bold text-lg text-slate-800 mb-4">Role Permissions</h3>
-      <p class="text-xs text-slate-400 mb-4">Configure which modules each role can access. Admin always has full access.</p>
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-bold text-lg text-slate-800">Role &amp; Access Control</h3>
+        <div class="flex items-center gap-3 text-[11px] font-bold">
+          <span class="flex items-center gap-1.5 text-blue-600"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>View</span>
+          <span class="flex items-center gap-1.5 text-amber-600"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>Edit</span>
+          <span class="flex items-center gap-1.5 text-rose-600"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>Delete</span>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 mb-4">Set exactly what each role can <b>view</b>, <b>edit</b> and <b>delete</b> per module. Edit &amp; Delete require View. <b>Admin</b> always has full access and can't be limited.</p>
       <div class="space-y-3">
-        ${(() => { const _allMods = getAccessModules(); const _allIds = new Set(_allMods.map(m => m.id)); return Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
+        ${(() => { const _allMods = getAccessModules(); const _allIds = new Set(_allMods.map(m => m.id)); const total = _allMods.length; return Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
           const role = roles[roleName];
-          const perms = role.permissions || [];
-          const total = _allMods.length;
-          // Count only permissions that map to a real, currently-registered module.
-          const granted = perms.filter(p => _allIds.has(p)).length;
-          return `<div class="border rounded-xl overflow-hidden">
-            <div class="flex items-center justify-between p-3 bg-slate-50 cursor-pointer select-none" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
-              <div class="flex items-center gap-3">
-                <span class="role-chev text-slate-400 text-[10px] transition-transform rotate-90">&#9654;</span>
-                <span class="font-bold text-sm text-slate-700">${roleName}</span>
-                <span class="text-[10px] text-slate-400">${granted}/${total} modules</span>
+          const perms = (role.permissions || []).filter(p => _allIds.has(p));
+          const caps = role.caps || {};
+          const viewN = perms.length;
+          const editN = perms.filter(id => (caps[id]?.edit) !== false).length;
+          const delN = perms.filter(id => (caps[id]?.delete) !== false).length;
+          return `<div class="border border-slate-200 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-white cursor-pointer select-none" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="role-chev text-slate-400 text-[10px] transition-transform">&#9654;</span>
+                <span class="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-extrabold flex-shrink-0">${roleName.slice(0,2).toUpperCase()}</span>
+                <div class="min-w-0"><div class="font-bold text-sm text-slate-800 truncate">${roleName}</div>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">${viewN} view</span>
+                  <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${editN} edit</span>
+                  <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">${delN} delete</span>
+                </div></div>
               </div>
-              <div class="flex items-center gap-2">
-                <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:${Math.round((granted/total)*100)}%"></div></div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden hidden sm:block"><div class="h-full bg-blue-500 rounded-full" style="width:${total?Math.round((viewN/total)*100):0}%"></div></div>
               </div>
             </div>
-            <div class="p-4 border-t">
-              ${_renderPermissionGrid(roleName, perms)}
+            <div class="hidden">
+              ${_renderPermissionMatrix(roleName, role)}
             </div>
           </div>`;
         }).join(''); })()}
@@ -1165,28 +1201,52 @@ export function renderUsersRolesPanel() {
   `;
 }
 
-function _renderPermissionGrid(roleName, perms) {
+/** Premium per-role permission matrix: rows = modules (grouped), columns =
+ *  View / Edit / Delete with column + group master toggles. */
+function _renderPermissionMatrix(roleName, role) {
+  const perms = new Set(role.permissions || []);
+  const caps = role.caps || {};
   const groups = {};
-  getAccessModules().forEach(m => {
-    if (!groups[m.group]) groups[m.group] = [];
-    groups[m.group].push(m);
+  getAccessModules().forEach(m => { (groups[m.group] = groups[m.group] || []).push(m); });
+  const allIds = getAccessModules().map(m => m.id);
+  const rn = roleName.replace(/'/g, "\\'");
+  const colAllView = allIds.every(id => perms.has(id));
+  const colAllEdit = allIds.length && allIds.every(id => perms.has(id) && caps[id]?.edit !== false);
+  const colAllDel = allIds.length && allIds.every(id => perms.has(id) && caps[id]?.delete !== false);
+  const cbx = (checked, disabled, on, accent) => `<input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="${on}" style="width:16px;height:16px;accent-color:${accent};cursor:${disabled ? 'not-allowed' : 'pointer'};${disabled ? 'opacity:.35;' : ''}">`;
+  const th = 'padding:8px 10px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;';
+  let body = '';
+  Object.entries(groups).forEach(([group, modules]) => {
+    const gAll = modules.every(m => perms.has(m.id));
+    const gEsc = group.replace(/'/g, "\\'");
+    body += `<tr style="background:#f8fafc;">
+      <td style="padding:7px 12px;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">${group}</td>
+      <td style="text-align:center;">${cbx(gAll, false, `window._rbacToggleGroup('${rn}','${gEsc}',this.checked)`, '#2563eb')}</td>
+      <td colspan="2"></td>
+    </tr>`;
+    modules.forEach(m => {
+      const v = perms.has(m.id);
+      const e = v && caps[m.id]?.edit !== false;
+      const d = v && caps[m.id]?.delete !== false;
+      body += `<tr style="border-top:1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+        <td style="padding:8px 12px;font-size:13px;color:#334155;font-weight:600;">${m.label}</td>
+        <td style="text-align:center;">${cbx(v, false, `window._rbacTogglePerm('${rn}','${m.id}',this.checked)`, '#2563eb')}</td>
+        <td style="text-align:center;">${cbx(e, !v, `window._rbacToggleCap('${rn}','${m.id}','edit',this.checked)`, '#f59e0b')}</td>
+        <td style="text-align:center;">${cbx(d, !v, `window._rbacToggleCap('${rn}','${m.id}','delete',this.checked)`, '#e11d48')}</td>
+      </tr>`;
+    });
   });
-
-  return Object.entries(groups).map(([group, modules]) => {
-    const allChecked = modules.every(m => perms.includes(m.id));
-    return `<div class="mb-3">
-      <div class="flex items-center gap-2 mb-2">
-        <input type="checkbox" ${allChecked ? 'checked' : ''} onchange="window._rbacToggleGroup('${roleName}','${group}',this.checked)" class="accent-blue-600">
-        <span class="text-[10px] font-bold uppercase text-slate-500 tracking-wider">${group}</span>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-1 pl-5">
-        ${modules.map(m => `<label class="flex items-center gap-2 text-xs text-slate-600 py-1 px-2 rounded hover:bg-slate-50 cursor-pointer">
-          <input type="checkbox" value="${m.id}" ${perms.includes(m.id) ? 'checked' : ''} onchange="window._rbacTogglePerm('${roleName}','${m.id}',this.checked)" class="accent-blue-600">
-          ${m.label}
-        </label>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
+  return `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;min-width:420px;">
+      <thead><tr style="background:#0f172a;color:#fff;position:sticky;top:0;">
+        <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">Module</th>
+        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#93c5fd;">View</span>${cbx(colAllView, false, `window._rbacToggleColumn('${rn}','view',this.checked)`, '#2563eb')}</div></th>
+        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#fcd34d;">Edit</span>${cbx(colAllEdit, false, `window._rbacToggleColumn('${rn}','edit',this.checked)`, '#f59e0b')}</div></th>
+        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#fda4af;">Delete</span>${cbx(colAllDel, false, `window._rbacToggleColumn('${rn}','delete',this.checked)`, '#e11d48')}</div></th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
 }
 
 // ── User CRUD ──
@@ -1389,3 +1449,32 @@ export function toggleGroupPermissions(roleName, group, checked) {
   hideRestrictedSidebar();
   renderUsersRolesPanel();
 }
+
+/** Toggle a single Edit/Delete capability for a module on a role. */
+window._rbacToggleCap = function (roleName, moduleId, cap, checked) {
+  const role = (state.rbacRoles || {})[roleName];
+  if (!role) return;
+  if (!role.caps) role.caps = {};
+  if (!role.caps[moduleId]) role.caps[moduleId] = {};
+  role.caps[moduleId][cap] = !!checked;
+  saveAllData();
+  renderUsersRolesPanel();
+};
+
+/** Master column toggle for a role: apply View / Edit / Delete to every module. */
+window._rbacToggleColumn = function (roleName, col, checked) {
+  const role = (state.rbacRoles || {})[roleName];
+  if (!role) return;
+  const ids = getAccessModules().map(m => m.id);
+  if (col === 'view') {
+    if (!role.permissions) role.permissions = [];
+    if (checked) { ids.forEach(id => { if (!role.permissions.includes(id)) role.permissions.push(id); }); }
+    else { role.permissions = role.permissions.filter(p => !ids.includes(p)); }
+  } else {
+    if (!role.caps) role.caps = {};
+    ids.forEach(id => { if (!role.caps[id]) role.caps[id] = {}; role.caps[id][col] = !!checked; });
+  }
+  saveAllData();
+  hideRestrictedSidebar();
+  renderUsersRolesPanel();
+};
