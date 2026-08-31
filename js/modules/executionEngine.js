@@ -163,6 +163,17 @@ function totalCost(a) {
 /* ═══════════════════════════════════════════════════════
  *  MAIN RENDER — tab shell
  * ═══════════════════════════════════════════════════════ */
+/** Planning → Scheduling → Execution flow stepper (shared look; `active` marks
+ *  the current step). Each step navigates to its module. */
+function _psStepper(active) {
+  const step = (key, label, view) => {
+    const on = active === key;
+    return `<button onclick="window.switchView&&window.switchView('${view}')" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;border:1px solid ${on ? '#7c3aed' : '#e2e8f0'};background:${on ? '#7c3aed' : '#fff'};color:${on ? '#fff' : '#64748b'};white-space:nowrap;">${label}</button>`;
+  };
+  const arr = `<span style="color:#cbd5e1;font-weight:800;">→</span>`;
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${step('plan', '① Planning', 'execEngineView')}${arr}${step('sched', '② Scheduling', 'scheduleBuilderView')}${arr}${step('exec', '③ Execution', 'executionView')}</div>`;
+}
+
 export function renderExecEngine(tab) {
   _ensureArrays();
   if (tab) _ui.tab = tab;
@@ -180,8 +191,9 @@ export function renderExecEngine(tab) {
       <div class="ee-head">
         <div>
           <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
-          <h2 class="text-2xl font-extrabold text-slate-800">Execution Intelligence</h2>
-          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || 'Project')} · Original Plan → Execution Plan → Actual, fully tracked</p>
+          ${_psStepper('plan')}
+          <h2 class="text-2xl font-extrabold text-slate-800">Planning</h2>
+          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || 'Project')} · define activities, quantities, resources &amp; durations — then schedule them</p>
         </div>
       </div>
       <div class="ee-tabs">

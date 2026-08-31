@@ -14,8 +14,8 @@ import { getSupabase } from '../database/supabase.js';
 // ── Module definitions for access control ──
 export const ACCESS_MODULES = [
   { id: 'projectDashboard', label: 'Dashboard', group: 'Project' },
-  { id: 'execEngineView', label: 'Planning & Execution', group: 'Project' },
-  { id: 'scheduleBuilderView', label: 'Schedule Builder', group: 'Project' },
+  { id: 'execEngineView', label: 'Planning', group: 'Project' },
+  { id: 'scheduleBuilderView', label: 'Scheduling', group: 'Project' },
   { id: 'issuesView', label: 'Issues', group: 'Project' },
   { id: 'pettyCashView', label: 'Petty Cash', group: 'Project' },
   { id: 'labourView', label: 'Labour', group: 'Project' },

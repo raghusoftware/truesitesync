@@ -36,7 +36,7 @@ const STD_TASKS = [
   ['Plumbing', '🚰', 'MEP'], ['Electrical', '⚡', 'MEP'],
   ['HVAC', '🌀', 'MEP'], ['Fire Fighting', '🧯', 'MEP'],
 ];
-const CATEGORIES = ['All', 'BOQ', 'Substructure', 'Superstructure', 'Finishing', 'MEP'];
+const CATEGORIES = ['All', 'Planned', 'BOQ', 'Substructure', 'Superstructure', 'Finishing', 'MEP'];
 
 /* ── module UI state ── */
 let _sbLocId = null;      // selected location
@@ -88,6 +88,15 @@ function catFor(name) {
 function palette() {
   const out = [];
   const seen = new Set();
+  // 1) Planned activities from the Planning module come FIRST — scheduling is
+  //    sequencing what was planned. Each carries its planned qty/unit/duration.
+  const _pid = proj()?.id;
+  (state.execActivities || []).filter(a => a.projectId === _pid && (a.name || a.code)).forEach(a => {
+    const name = a.name || a.code;
+    const key = (a.code || name).toLowerCase();
+    if (seen.has(key)) return; seen.add(key);
+    out.push({ masterTaskId: a.id, name, icon: iconFor(name), category: 'Planned', unit: (a.qty && a.qty.unit) || '', qty: num(a.qty && a.qty.plannedQty), duration: num(a.schedule && a.schedule.duration) || 0, planned: true });
+  });
   (proj()?.boqs || []).forEach(g => (g.items || []).forEach(it => {
     const name = it.description || it.desc || it.name || it.code || '';
     if (!name) return;
@@ -117,6 +126,16 @@ function fmtNice(s) { if (!s) return '—'; const d = new Date(s); return isNaN(
 /* ═══════════════════════════════════════════════════════
  *  MAIN RENDER
  * ═══════════════════════════════════════════════════════ */
+/** Planning → Scheduling → Execution flow stepper. */
+function _psStepper(active) {
+  const step = (key, label, view) => {
+    const on = active === key;
+    return `<button onclick="window.switchView&&window.switchView('${view}')" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;border:1px solid ${on ? '#7c3aed' : '#e2e8f0'};background:${on ? '#7c3aed' : '#fff'};color:${on ? '#fff' : '#64748b'};white-space:nowrap;">${label}</button>`;
+  };
+  const arr = `<span style="color:#cbd5e1;font-weight:800;">&rarr;</span>`;
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${step('plan', '① Planning', 'execEngineView')}${arr}${step('sched', '② Scheduling', 'scheduleBuilderView')}${arr}${step('exec', '③ Execution', 'executionView')}</div>`;
+}
+
 export function renderScheduleBuilder() {
   ensure();
   const host = document.getElementById('scheduleBuilderContent');
@@ -132,8 +151,9 @@ export function renderScheduleBuilder() {
       <div class="sb-head">
         <div>
           <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
-          <h2 class="text-2xl font-extrabold text-slate-800">Schedule Builder</h2>
-          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · drag tasks onto each location, then Auto-Schedule</p>
+          ${_psStepper('sched')}
+          <h2 class="text-2xl font-extrabold text-slate-800">Scheduling</h2>
+          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · drag your planned activities onto each location, then Auto-Schedule</p>
         </div>
         <div class="flex gap-2">
           ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbExportPDF()">⬇ Gantt PDF</button>` : ''}
@@ -163,14 +183,16 @@ function _paletteHtml() {
   // in an HTML attribute (its double-quotes would break the attribute).
   _sbPalMap = {};
   items.forEach(t => { _sbPalMap[t.masterTaskId] = t; });
+  const plannedCount = palette().filter(t => t.planned).length;
   return `
     <div class="sb-pal-head">Task Palette</div>
+    <p class="sb-mini" style="padding:0 2px 8px;color:#94a3b8;">${plannedCount ? `${plannedCount} planned activit${plannedCount === 1 ? 'y' : 'ies'} from Planning — drag onto a location.` : 'No planned activities yet — add them in Planning, or drag from BOQ / the library below.'}</p>
     <input class="sb-search" placeholder="Search tasks…" value="${esc(_sbSearch)}" oninput="window._sbSearchInput(this.value)">
     <div class="sb-cats">${CATEGORIES.map(c => `<button class="sb-cat ${_sbCat === c ? 'active' : ''}" onclick="window._sbCatSet('${c}')">${c}</button>`).join('')}</div>
     <div class="sb-pal-list">
       ${items.length ? items.map(t => `
-        <div class="sb-chip" draggable="true" data-mtid="${esc(t.masterTaskId)}" ondragstart="window._sbPalDragStart(event, this.getAttribute('data-mtid'))" title="Drag onto a location">
-          <span class="sb-chip-ic">${t.icon}</span><span class="sb-chip-nm">${esc(t.name)}</span>
+        <div class="sb-chip" draggable="true" data-mtid="${esc(t.masterTaskId)}" ondragstart="window._sbPalDragStart(event, this.getAttribute('data-mtid'))" title="${t.planned ? 'Planned activity — drag onto a location' : 'Drag onto a location'}" ${t.planned ? 'style="border-left:3px solid #7c3aed;"' : ''}>
+          <span class="sb-chip-ic">${t.icon}</span><span class="sb-chip-nm">${esc(t.name)}${t.planned ? ` <span style="font-size:9px;color:#7c3aed;font-weight:700;">•${t.duration || '?'}d</span>` : ''}</span>
         </div>`).join('')
       : `<p class="sb-mini" style="padding:12px">No tasks in this category.</p>`}
     </div>`;
@@ -281,7 +303,7 @@ window._sbDrop = function (ev, beforeIndex) {
   loc.tasks = loc.tasks || [];
   if (_sbDrag.type === 'new') {
     const t = _sbDrag.task;
-    const nt = { id: uid('t'), masterTaskId: t.masterTaskId, name: t.name, icon: t.icon, category: t.category || catFor(t.name), duration: 1, startDate: '', deps: [] };
+    const nt = { id: uid('t'), masterTaskId: t.masterTaskId, name: t.name, icon: t.icon, category: t.category || catFor(t.name), duration: (t.duration && t.duration > 0) ? t.duration : 1, startDate: '', deps: [], planned: !!t.planned, plannedActId: t.planned ? t.masterTaskId : '' };
     _insert(loc, nt, beforeIndex);
   } else if (_sbDrag.type === 'move') {
     const idx = loc.tasks.findIndex(x => x.id === _sbDrag.taskId);

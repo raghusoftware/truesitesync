@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.83"></script>
+    <script type="module" src="js/app.js?v=1.6.84"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -142,9 +142,10 @@
           </div>
           <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Project Modules</p>
           <button onclick="switchView('projectDashboard')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="projectDashboard"><span style="font-size:13px">&#128200;</span> Dashboard</button>
-          <button onclick="switchView('execEngineView'); window.renderExecEngine&&window.renderExecEngine('baseline')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="execEngineView"><span style="font-size:13px">&#128197;</span> Planning &amp; Execution</button>
-          <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
+          <button onclick="switchView('execEngineView'); window.renderExecEngine&&window.renderExecEngine('baseline')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="execEngineView"><span style="font-size:13px">&#128203;</span> Planning</button>
+          <button onclick="switchView('scheduleBuilderView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="scheduleBuilderView"><span style="font-size:13px">&#128197;</span> Scheduling</button>
           <button onclick="switchView('executionView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="executionView"><span style="font-size:13px">&#127959;</span> Execution</button>
+          <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
           <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> Equipment</button>
           <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> Inventory</button>
