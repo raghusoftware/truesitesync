@@ -136,44 +136,122 @@ function _psStepper(active) {
   return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${step('plan', '① Planning', 'execEngineView')}${arr}${step('sched', '② Scheduling', 'scheduleBuilderView')}${arr}${step('exec', '③ Execution', 'executionView')}</div>`;
 }
 
+/* ═══════════════════════════════════════════════════════════
+ *  SIMPLE SCHEDULING — sequence the SAME planned activities on a timeline.
+ *  Editing a start/duration writes straight to the activity, so Planning and
+ *  Scheduling always agree (no separate task lists to reconcile).
+ * ═══════════════════════════════════════════════════════════ */
+function _sbActs() { return (state.execActivities || []).filter(a => a.projectId === pid()); }
+function _sbFinish(a) { const s = (a.schedule && a.schedule.plannedStart) || ''; if (!s) return ''; return fmtISO(addDays(s, Math.max(0, num(a.schedule && a.schedule.duration)))); }
+
 export function renderScheduleBuilder() {
   ensure();
   const host = document.getElementById('scheduleBuilderContent');
   if (!host) return;
   const p = proj();
   if (!p) { host.innerHTML = `<div class="sb-empty"><div style="font-size:34px">🗓️</div><p class="font-bold text-slate-700">Select a project first</p></div>`; return; }
-  const list = locs();
-  if (_sbLocId && !locById(_sbLocId)) _sbLocId = null;
-  if (!_sbLocId && list.length) _sbLocId = list[0].id;
-
+  const list = _sbActs();
+  const projStart = p.startDate || '';
+  const idate = 'padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;';
+  let minD = null, maxD = null;
+  list.forEach(a => { const s = a.schedule && a.schedule.plannedStart; if (!s) return; const sd = new Date(s), ed = addDays(s, Math.max(0, num(a.schedule.duration))); if (!minD || sd < minD) minD = sd; if (!maxD || ed > maxD) maxD = ed; });
+  const totalDays = (minD && maxD) ? Math.max(1, Math.round((maxD - minD) / 86400000)) : 1;
+  const rows = list.map((a, i) => {
+    const s = (a.schedule && a.schedule.plannedStart) || '';
+    const d = num(a.schedule && a.schedule.duration);
+    return `<tr style="border-top:1px solid #f1f5f9;">
+      <td style="padding:7px 10px;color:#94a3b8;">${i + 1}</td>
+      <td style="padding:7px 10px;font-weight:700;color:#0f172a;">${esc(a.name || 'Untitled')}</td>
+      <td style="padding:7px 10px;"><input type="date" value="${esc(s)}" onchange="window._sbSetStart('${a.id}',this.value)" style="${idate}"></td>
+      <td style="padding:7px 10px;"><input type="number" min="1" value="${d || ''}" onchange="window._sbSetDur('${a.id}',this.value)" style="${idate}width:64px;" placeholder="days"></td>
+      <td style="padding:7px 10px;color:#64748b;white-space:nowrap;">${s ? fmtNice(_sbFinish(a)) : '—'}</td>
+    </tr>`;
+  }).join('');
+  const gantt = list.filter(a => a.schedule && a.schedule.plannedStart).map(a => {
+    const s = new Date(a.schedule.plannedStart), d = Math.max(1, num(a.schedule.duration) || 1);
+    const off = minD ? Math.round((s - minD) / 86400000) : 0;
+    const left = totalDays ? (off / totalDays * 100) : 0;
+    const width = totalDays ? (d / totalDays * 100) : 100;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="width:150px;flex-shrink:0;font-size:11px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.name || '')}</div>
+      <div style="flex:1;position:relative;height:18px;background:#f1f5f9;border-radius:6px;">
+        <div title="${fmtNice(a.schedule.plannedStart)} → ${fmtNice(_sbFinish(a))} (${d}d)" style="position:absolute;left:${left}%;width:${Math.max(2, width)}%;top:0;bottom:0;background:#7c3aed;border-radius:6px;"></div>
+      </div></div>`;
+  }).join('');
   host.innerHTML = `
     <div class="sb-wrap">
-      <div class="sb-head">
-        <div>
-          <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
-          ${_psStepper('sched')}
-          <h2 class="text-2xl font-extrabold text-slate-800">Scheduling</h2>
-          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · drag your planned activities onto each location, then Auto-Schedule</p>
-        </div>
-        <div class="flex gap-2 flex-wrap">
-          ${_sbHasPlannedLinks() ? `<button class="sb-btn-ghost" onclick="window._sbPushToPlanning()" title="Update the linked Planning activities' start / finish dates from this schedule">⤴ Push dates to Planning</button>` : ''}
-          ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbExportPDF()">⬇ Gantt PDF</button>` : ''}
-          ${list.length ? `<button id="sbSaveBtn" class="sb-btn-save ${_sbDirty ? 'sb-dirty' : ''}" onclick="window._sbSaveAll()">${_sbDirty ? '💾 Save changes •' : '💾 Saved'}</button>` : ''}
-          <button class="sb-btn-primary" onclick="window._sbAddLocation()">+ New Location</button>
+      <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
+      ${_psStepper('sched')}
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px;">
+        <div><h2 class="text-2xl font-extrabold text-slate-800">Scheduling</h2>
+        <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · set each activity's start &amp; duration (or Auto-Schedule) — dates sync straight to Planning.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${list.length ? `<label style="font-size:11px;font-weight:700;color:#64748b;display:flex;align-items:center;gap:5px;">Project start <input type="date" value="${esc(projStart)}" onchange="window._sbSetProjStart(this.value)" style="${idate}"></label>` : ''}
+          ${list.length ? `<button class="sb-btn-ok" onclick="window._sbAutoScheduleAll()" title="Sequence all activities from the project start using their durations">⚡ Auto-Schedule</button>` : ''}
+          ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbGanttPDF()">⬇ Gantt PDF</button>` : ''}
         </div>
       </div>
       ${!list.length
-      ? `<div class="sb-empty"><div style="font-size:34px">📍</div><p class="font-bold text-slate-700">No locations yet</p><p class="text-xs text-slate-400 mt-1">Create a location (e.g. “Building A – Ground Floor”), then drag tasks from the palette onto its timeline.</p><button class="sb-btn-primary mt-3" onclick="window._sbAddLocation()">+ New Location</button></div>`
-      : `<div class="sb-body">
-          <aside class="sb-palette">${_paletteHtml()}</aside>
-          <section class="sb-main">
-            <div class="sb-loctabs">${list.map(_locTab).join('')}</div>
-            ${_sbLocId ? _dropZone(locById(_sbLocId)) : ''}
-          </section>
-        </div>`}
+        ? `<div class="sb-empty"><div style="font-size:34px">📋</div><p class="font-bold text-slate-700">No activities to schedule yet</p><p class="text-xs text-slate-400 mt-1">Add your work activities in <b>Planning</b> first — they appear here to sequence on a timeline.</p><button class="sb-btn-primary mt-3" onclick="window.switchView&&window.switchView('execEngineView')">Go to Planning →</button></div>`
+        : `<div style="display:flex;flex-direction:column;gap:16px;">
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px;">
+              <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:7px 10px;text-align:left;">#</th><th style="padding:7px 10px;text-align:left;">Activity</th><th style="padding:7px 10px;text-align:left;">Start</th><th style="padding:7px 10px;text-align:left;">Days</th><th style="padding:7px 10px;text-align:left;">Finish</th></tr></thead>
+              <tbody>${rows}</tbody></table></div></div>
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;">
+              <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:10px;">Timeline${minD ? ` · ${fmtNice(fmtISO(minD))} → ${fmtNice(fmtISO(maxD))}` : ''}</div>
+              ${gantt || '<p style="font-size:12px;color:#94a3b8;">Set start dates (or Auto-Schedule) to see the timeline.</p>'}
+            </div>
+          </div>`}
     </div>`;
 }
 window.renderScheduleBuilder = renderScheduleBuilder;
+
+window._sbSetStart = function (id, val) {
+  const a = (state.execActivities || []).find(x => x.id === id); if (!a) return;
+  a.schedule = a.schedule || {}; a.schedule.plannedStart = val;
+  a.schedule.plannedFinish = val ? fmtISO(addDays(val, Math.max(0, num(a.schedule.duration)))) : '';
+  saveAllData(); renderScheduleBuilder();
+};
+window._sbSetDur = function (id, val) {
+  const a = (state.execActivities || []).find(x => x.id === id); if (!a) return;
+  a.schedule = a.schedule || {}; a.schedule.duration = num(val);
+  if (a.schedule.plannedStart) a.schedule.plannedFinish = fmtISO(addDays(a.schedule.plannedStart, Math.max(0, num(val))));
+  saveAllData(); renderScheduleBuilder();
+};
+window._sbSetProjStart = function (val) { const p = proj(); if (p) { p.startDate = val; saveAllData(); } };
+window._sbAutoScheduleAll = function () {
+  const list = _sbActs(); if (!list.length) { showToast('Add activities in Planning first', 'info'); return; }
+  const p = proj(); const start0 = (p && p.startDate) ? new Date(p.startDate) : new Date();
+  const ordered = list.slice().sort((a, b) => {
+    const sa = (a.schedule && a.schedule.plannedStart) || '9999-12-31', sb = (b.schedule && b.schedule.plannedStart) || '9999-12-31';
+    return sa.localeCompare(sb) || (a.createdAt || '').localeCompare(b.createdAt || '');
+  });
+  let prevEnd = new Date(start0);
+  ordered.forEach((a, i) => {
+    a.schedule = a.schedule || {};
+    const d = Math.max(1, num(a.schedule.duration) || 1);
+    const s = i === 0 ? new Date(start0) : new Date(prevEnd);
+    a.schedule.plannedStart = fmtISO(s); a.schedule.duration = d;
+    const e = addDays(s, d); a.schedule.plannedFinish = fmtISO(e); prevEnd = e;
+  });
+  saveAllData(); renderScheduleBuilder();
+  showToast(`Auto-scheduled ${ordered.length} activit${ordered.length === 1 ? 'y' : 'ies'}`, 'success');
+};
+window._sbGanttPDF = function () {
+  const ns = window.jspdf; if (!ns) { showToast('PDF engine not ready', 'error'); return; }
+  const list = _sbActs().filter(a => a.schedule && a.schedule.plannedStart);
+  if (!list.length) { showToast('Nothing scheduled yet', 'warning'); return; }
+  const doc = new ns.jsPDF('landscape');
+  const pw = doc.internal.pageSize.getWidth();
+  let y = getCompanyHeaderForPDF(doc);
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('PROJECT SCHEDULE', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(proj()?.name || '', pw / 2, y + 10, { align: 'center' });
+  const body = list.map((a, i) => [i + 1, a.name || '', fmtNice(a.schedule.plannedStart), num(a.schedule.duration) || 1, fmtNice(_sbFinish(a))]);
+  doc.autoTable({ startY: y + 14, head: [['#', 'Activity', 'Start', 'Days', 'Finish']], body, theme: 'grid', headStyles: { fillColor: [124, 58, 237], textColor: 255, fontSize: 9 }, styles: { fontSize: 8.5, cellPadding: 2.5 }, columnStyles: { 0: { cellWidth: 10 }, 3: { halign: 'center' } }, margin: { left: 12, right: 12 } });
+  mobileSavePDF(doc, `Schedule-${(proj()?.name || 'project').replace(/[^a-z0-9]+/gi, '-')}.pdf`);
+};
 
 /* ── palette ── */
 function _paletteHtml() {

@@ -174,50 +174,140 @@ function _psStepper(active) {
   return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${step('plan', '① Planning', 'execEngineView')}${arr}${step('sched', '② Scheduling', 'scheduleBuilderView')}${arr}${step('exec', '③ Execution', 'executionView')}</div>`;
 }
 
-export function renderExecEngine(tab) {
+/* ═══════════════════════════════════════════════════════════
+ *  SIMPLE PLANNING — one activity list (name · unit · qty · dates).
+ *  Progress rolls up live from the DPR (executed quantity by BOQ code).
+ * ═══════════════════════════════════════════════════════════ */
+const _EE_IN = 'width:100%;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;';
+function _eeAddDays(iso, n) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; d.setDate(d.getDate() + Math.max(0, num(n))); return d.toISOString().slice(0, 10); }
+function _eeDMY(iso) { if (!iso) return '—'; const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }); }
+/** Executed quantity for an activity = DPR measured qty on the same BOQ code
+ *  (or, for a manual/non-BOQ activity, by matching name). This is the live link
+ *  from Execution (DPR) back to Planning. */
+function actDoneQty(a) {
+  const code = (a.code || a.boqRef || '').trim();
+  let sum = 0;
+  (state.dailyProgress || []).filter(d => d.projectId === pid()).forEach(d => (d.measurements || []).forEach(m => {
+    if (code) { if ((m.code || '') === code) sum += num(m.qty); }
+    else if (m.description === a.name || (m.code || '') === 'NB:' + a.name) sum += num(m.qty);
+  }));
+  return sum;
+}
+window.execActDoneQty = actDoneQty;
+
+export function renderExecEngine() {
   _ensureArrays();
-  if (tab) _ui.tab = tab;
   const host = document.getElementById('execEngineContent');
   if (!host) return;
   const p = proj();
   if (!p) { host.innerHTML = _noProject(); return; }
-
-  const tabs = [
-    ['baseline', '📐 Baseline'], ['plan', '📋 Execution Plan'], ['actuals', '⚙️ Actuals'],
-    ['compare', '📊 Compare & Variance'], ['dashboard', '📈 Dashboard'], ['insights', '🧠 Insights']
-  ];
+  const list = acts();
+  const seedable = ((p.boqItems) || []).length;
+  let totPct = 0;
+  const rows = list.map((a, i) => {
+    const pq = num(a.qty && a.qty.plannedQty), dq = actDoneQty(a);
+    const pct = pq > 0 ? Math.min(100, Math.round(dq / pq * 100)) : 0;
+    totPct += pct;
+    const start = (a.schedule && a.schedule.plannedStart) || '';
+    const dur = num(a.schedule && a.schedule.duration);
+    const fin = (a.schedule && a.schedule.plannedFinish) || _eeAddDays(start, dur);
+    const barC = pct >= 100 ? '#16a34a' : (pct > 0 ? '#f59e0b' : '#cbd5e1');
+    return `<tr style="border-top:1px solid #f1f5f9;">
+      <td style="padding:8px 10px;color:#94a3b8;">${i + 1}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${esc(a.name || 'Untitled')}${a.boqRef ? ` <span style="font-size:9px;color:#7c3aed;background:#f5f3ff;border-radius:5px;padding:1px 5px;">${esc(a.boqRef)}</span>` : ''}</td>
+      <td style="padding:8px 10px;text-align:center;color:#64748b;">${esc((a.qty && a.qty.unit) || '')}</td>
+      <td style="padding:8px 10px;text-align:right;">${fmtN(pq)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;color:#0369a1;">${fmtN(dq)}</td>
+      <td style="padding:8px 10px;min-width:120px;"><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:6px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${barC};"></div></div><span style="font-size:11px;font-weight:700;color:${barC};">${pct}%</span></div></td>
+      <td style="padding:8px 10px;color:#64748b;white-space:nowrap;">${_eeDMY(start)}</td>
+      <td style="padding:8px 10px;text-align:center;color:#64748b;">${dur || '—'}</td>
+      <td style="padding:8px 10px;color:#64748b;white-space:nowrap;">${_eeDMY(fin)}</td>
+      <td style="padding:8px 10px;text-align:right;white-space:nowrap;"><button onclick="window._execActForm('${a.id}')" style="border:none;background:#eff6ff;color:#1d4ed8;border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">Edit</button> <button onclick="window._execDelActivity('${a.id}')" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">🗑️</button></td>
+    </tr>`;
+  }).join('');
+  const overall = list.length ? Math.round(totPct / list.length) : 0;
   host.innerHTML = `
     <div class="ee-wrap">
-      <div class="ee-head">
+      <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
+      ${_psStepper('plan')}
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <div>
-          <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
-          ${_psStepper('plan')}
           <h2 class="text-2xl font-extrabold text-slate-800">Planning</h2>
-          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || 'Project')} · define activities, quantities, resources &amp; durations — then schedule them</p>
+          <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || 'Project')} · list the work with quantity &amp; duration — then Schedule it and track daily via DPR.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${seedable ? `<button class="ee-btn-ghost" onclick="window._execAddFromBOQ()">+ From BOQ (${seedable})</button>` : ''}
+          <button class="ee-btn-primary" onclick="window._execActForm()">+ Add Activity</button>
         </div>
       </div>
-      <div class="ee-tabs">
-        ${tabs.map(([k, l]) => `<button class="ee-tab ${_ui.tab === k ? 'active' : ''}" onclick="window._execTab('${k}')">${l}</button>`).join('')}
+      ${list.length ? `<div style="margin-bottom:12px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:12px;font-weight:700;color:#64748b;">Overall progress</span>
+        <div style="flex:1;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div style="width:${overall}%;height:100%;background:${overall >= 100 ? '#16a34a' : '#7c3aed'};"></div></div>
+        <span style="font-size:14px;font-weight:800;color:#0f172a;">${overall}%</span>
+        <span style="font-size:11px;color:#94a3b8;">${list.length} activit${list.length === 1 ? 'y' : 'ies'}</span>
+      </div>` : ''}
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+        <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px;">
+          <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;letter-spacing:.03em;">
+            <th style="padding:8px 10px;text-align:left;">#</th><th style="padding:8px 10px;text-align:left;">Activity</th><th style="padding:8px 10px;text-align:center;">Unit</th><th style="padding:8px 10px;text-align:right;">Planned</th><th style="padding:8px 10px;text-align:right;">Done</th><th style="padding:8px 10px;text-align:left;">Progress</th><th style="padding:8px 10px;text-align:left;">Start</th><th style="padding:8px 10px;text-align:center;">Days</th><th style="padding:8px 10px;text-align:left;">Finish</th><th style="padding:8px 10px;"></th>
+          </tr></thead>
+          <tbody>${rows || `<tr><td colspan="10" style="padding:40px;text-align:center;color:#94a3b8;">No activities yet. Tap <b>+ Add Activity</b> or <b>+ From BOQ</b>.</td></tr>`}</tbody>
+        </table></div>
       </div>
-      <div id="eeBody" class="ee-body"></div>
     </div>`;
-  _renderBody();
 }
 window.renderExecEngine = renderExecEngine;
 
-window._execTab = function (k) { _ui.tab = k; _ui.editActId = null; _ui.planActId = null; _ui.actualActId = null; _ui.assignMode = false; _draft = _planDraft = _actualDraft = null; renderExecEngine(); };
-
-function _renderBody() {
-  const b = document.getElementById('eeBody'); if (!b) return;
-  switch (_ui.tab) {
-    case 'baseline': b.innerHTML = _draft ? _baselineEditor() : _baselineList(); break;
-    case 'plan': b.innerHTML = _ui.assignMode ? _assignBoard() : (_planDraft ? _planEditor() : _planList()); break;
-    case 'actuals': b.innerHTML = _actualDraft ? _actualEditor() : _actualsList(); break;
-    case 'compare': b.innerHTML = _compareView(); break;
-    case 'dashboard': b.innerHTML = _dashboardView(); break;
-    case 'insights': b.innerHTML = _insightsView(); break;
-  }
-}
+/** Add / edit one activity — the simple form. */
+window._execActForm = function (id) {
+  const a = id ? actById(id) : null;
+  const boq = (proj() && proj().boqItems) || [];
+  const boqOpts = '<option value="">— Custom (type a name below) —</option>' + boq.map(it => `<option value="${esc(it.code || it.boqIndex || '')}" data-desc="${esc(it.description || it.desc || it.name || '')}" data-unit="${esc(it.uom || it.unit || '')}" data-qty="${num(it.qty)}">${esc(((it.code ? it.code + ' · ' : '')) + (it.description || it.desc || it.name || ''))}</option>`).join('');
+  const wrap = document.createElement('div'); wrap.className = 'ee-overlay'; wrap.id = 'eeActModal';
+  wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `<div class="ee-modal"><div class="ee-modal-h">${a ? 'Edit Activity' : 'Add Activity'}</div>
+    <div class="ee-modal-body" style="display:flex;flex-direction:column;gap:12px;">
+      ${!a && boq.length ? `<div><label style="font-size:11px;font-weight:700;color:#64748b;">Pick from BOQ (optional)</label><select id="eaBoq" onchange="window._execActPickBoq(this)" style="${_EE_IN}">${boqOpts}</select></div>` : ''}
+      <div><label style="font-size:11px;font-weight:700;color:#64748b;">Activity name *</label><input id="eaName" style="${_EE_IN}" value="${a ? esc(a.name) : ''}" placeholder="e.g. RCC Slab Casting"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Unit</label><input id="eaUnit" style="${_EE_IN}" value="${a ? esc((a.qty && a.qty.unit) || '') : ''}" placeholder="M3"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Planned Qty</label><input id="eaQty" type="number" style="${_EE_IN}" value="${a ? num(a.qty && a.qty.plannedQty) || '' : ''}"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Duration (days)</label><input id="eaDur" type="number" style="${_EE_IN}" value="${a ? num(a.schedule && a.schedule.duration) || '' : ''}"></div>
+      </div>
+      <div><label style="font-size:11px;font-weight:700;color:#64748b;">Planned Start</label><input id="eaStart" type="date" style="${_EE_IN}" value="${a ? esc((a.schedule && a.schedule.plannedStart) || '') : ''}"></div>
+    </div>
+    <div class="ee-modal-f"><button class="ee-btn-ghost" onclick="this.closest('.ee-overlay').remove()">Cancel</button><button class="ee-btn-primary" onclick="window._execActSave('${id || ''}')">${a ? 'Save' : 'Add Activity'}</button></div>
+  </div>`;
+  document.body.appendChild(wrap);
+  setTimeout(() => document.getElementById('eaName')?.focus(), 40);
+};
+window._execActPickBoq = function (sel) {
+  const o = sel.selectedOptions[0]; if (!o) return;
+  const g = i => document.getElementById(i);
+  if (g('eaName') && (!g('eaName').value || !sel.dataset.touched)) g('eaName').value = o.dataset.desc || g('eaName').value;
+  if (sel.value) { if (g('eaUnit')) g('eaUnit').value = o.dataset.unit || ''; if (g('eaQty') && !g('eaQty').value) g('eaQty').value = o.dataset.qty || ''; }
+  sel.dataset.touched = '1'; sel.setAttribute('data-code', sel.value || '');
+};
+window._execActSave = function (id) {
+  const val = i => (document.getElementById(i)?.value || '').trim();
+  const name = val('eaName'); if (!name) { showToast('Activity name required', 'error'); return; }
+  const a = id ? actById(id) : blankActivity();
+  if (!a) { showToast('Activity not found', 'error'); return; }
+  a.name = name;
+  if (!id) { const bs = document.getElementById('eaBoq'); if (bs && bs.value) { a.code = bs.value; a.boqRef = bs.value; } }
+  a.qty = a.qty || {}; a.qty.unit = val('eaUnit'); a.qty.plannedQty = num(val('eaQty'));
+  a.schedule = a.schedule || {}; a.schedule.plannedStart = val('eaStart'); a.schedule.duration = num(val('eaDur'));
+  a.schedule.plannedFinish = _eeAddDays(a.schedule.plannedStart, a.schedule.duration);
+  if (!id) state.execActivities.push(a);
+  saveAllData(); document.getElementById('eeActModal')?.remove();
+  showToast(id ? 'Activity updated' : 'Activity added', 'success'); renderExecEngine();
+};
+window._execDelActivity = function (id) {
+  const a = actById(id); if (!a) return;
+  if (!confirm(`Delete "${a.name || 'activity'}"? It stays recoverable in the Recycle Bin.`)) return;
+  window.recycleDelete && window.recycleDelete('execActivities', id, 'Activity', a.name);
+  saveAllData(); renderExecEngine();
+};
 
 function _noProject() {
   return `<div class="ee-empty"><div class="text-4xl mb-2">🏗️</div><p class="font-bold text-slate-700">Select a project first</p><p class="text-xs text-slate-400 mt-1">Open a project, then plan and execute its activities here.</p></div>`;
