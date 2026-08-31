@@ -12,10 +12,16 @@ import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.
 import { getReportDefinition } from '../config/reportDefinitions.js';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
-import { formatINR, showToast, printReport, getCompanyHeaderForPDF } from '../modules/utils.js';
+import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF } from '../modules/utils.js';
 import { getEntryFormButton, hasEntryForm } from '../modules/formEngine.js';
 
 const engine = new ReportEngine();
+
+// Last executed report result — powers the five-zone A4 PDF export.
+let _currentResult = null;
+let _currentCat = null;
+let _currentReportDef = null;
+let _currentParams = {};
 
 // Executive MIS / Dashboard reports now live in the dedicated Analytics page.
 // Exclude that category from the Reports module so it shows operational reports only.
@@ -229,6 +235,12 @@ export function runReport(reportId, params = {}) {
 
   // Domain definition
   const domainDef = result.domainDef || getReportDefinition(reportId);
+
+  // Cache for the five-zone A4 PDF export.
+  _currentResult = result;
+  _currentCat = cat;
+  _currentReportDef = reportDef;
+  _currentParams = params || {};
 
   let html = `
     <div class="rpt-breadcrumb">
@@ -728,22 +740,234 @@ export function clearFilters() {
 // ────────────────────────────────────────────
 //  EXPORT
 // ────────────────────────────────────────────
-export function exportReportPDF(reportId) {
-  const reportDef = _findReport(reportId);
-  if (!reportDef) return;
-  try {
-    const doc = new window.jspdf.jsPDF('l', 'mm', 'a4');
-    const y = getCompanyHeaderForPDF(doc);
-    doc.setFontSize(14);
-    doc.text(reportDef.name, 14, y + 8);
-    doc.setFontSize(9);
-    doc.text('Generated: ' + new Date().toLocaleString(), 14, y + 14);
+// ────────────────────────────────────────────
+//  FIVE-ZONE A4 REPORT — shared skeleton for all reports
+//  Zone 1 Title Block · Zone 2 Snapshot · Zone 4 Evidence · Footer trail
+//  (see design reference "Report Doctrine", TSS-RPT-DR-001)
+// ────────────────────────────────────────────
+const _PDF_INK = [20, 24, 31];        // near-black slate
+const _PDF_ACCENT = [33, 72, 111];    // blueprint indigo
+const _PDF_SPARK = [244, 195, 0];     // hi-vis site yellow
+const _PDF_MUTE = [108, 117, 128];    // muted ink
+const _PDF_LINE = [205, 211, 219];    // hairline
+const _PDF_RED = [196, 61, 46];
+const _PDF_AMBER = [217, 122, 43];
+const _PDF_GREEN = [47, 133, 90];
 
-    const tableEl = document.querySelector('#reportTableArea table');
-    if (tableEl) {
-      doc.autoTable({ html: tableEl, startY: y + 20, styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' }, headStyles: { fillColor: [15, 23, 42], fontSize: 7 }, margin: { left: 8, right: 8 } });
+function _pdfDocNo(reportDef) {
+  const abbr = (reportDef.name || 'REP').replace(/[^A-Za-z ]/g, '').split(/\s+/)
+    .filter(Boolean).slice(0, 3).map(w => w[0]).join('').toUpperCase() || 'REP';
+  const d = new Date();
+  const ymd = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  return `TSS-${abbr}-${ymd}`;
+}
+
+// PDF-safe number formatter (jsPDF core fonts lack the ₹ glyph → use "Rs.")
+function _pdfCell(val, type) {
+  if (val === undefined || val === null || val === '—' || val === '') return type && type !== 'text' && type !== 'date' && type !== 'badge' ? '—' : (val || '—');
+  if (type === 'currency') { const n = parseFloat(val) || 0; return 'Rs. ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+  if (type === 'number') { const n = parseFloat(val); return isNaN(n) ? String(val) : n.toLocaleString('en-IN'); }
+  if (type === 'percent') { const n = parseFloat(val); return isNaN(n) ? String(val) : n.toFixed(1) + '%'; }
+  if (type === 'badge' && typeof val === 'string') return val.replace(/<[^>]*>/g, '');
+  return String(val).replace(/<[^>]*>/g, '');
+}
+
+// Applied-filter summary line (Zone 1 metadata)
+function _pdfPeriodLabel(params) {
+  const dr = params && params.dateRange;
+  if (dr && (dr.start || dr.end)) {
+    const f = dr.start ? dr.start : '…';
+    const t = dr.end ? dr.end : '…';
+    return `${f}  to  ${t}`;
+  }
+  return 'All dates';
+}
+
+function _pdfScopeLabel(params) {
+  const f = (params && params.filters) || {};
+  const bits = [];
+  if (f.projectId) { const p = (state.projects || []).find(x => x.id === f.projectId); bits.push(p ? p.name : 'Project'); }
+  if (f.clientId) { const c = (state.clients || []).find(x => x.id === f.clientId); bits.push(c ? (c.name || c.CompanyName) : 'Client'); }
+  if (f.vendorId) bits.push('Supplier'); if (f.siteId) bits.push('Site'); if (f.rawMaterialId) bits.push('Material');
+  return bits.length ? bits.join(' · ') : 'All records (organization-wide)';
+}
+
+function _pdfCurrentUser() {
+  try { const u = (state.rbacUsers || []).find(x => x.id === state.currentUserId) || (state.rbacUsers || [])[0]; if (u) return u.name || u.username || u.email; } catch (_) {}
+  return (state.companyProfile && state.companyProfile.CompanyName) || '—';
+}
+
+/** Zone 1 (title block) + Zone 2 (snapshot band). Returns the Y to start the table at. */
+function _pdfTitleBlock(doc, { reportDef, cat, result, params, docNo }) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = 14, mr = 14;
+  let y = getCompanyHeaderForPDF(doc);
+  y += 2;
+
+  // Accent spine + hi-vis tick
+  const barTop = y, barH = 15;
+  doc.setFillColor(_PDF_ACCENT[0], _PDF_ACCENT[1], _PDF_ACCENT[2]);
+  doc.rect(ml, barTop, 3, barH, 'F');
+  doc.setFillColor(_PDF_SPARK[0], _PDF_SPARK[1], _PDF_SPARK[2]);
+  doc.rect(ml, barTop, 3, 3.2, 'F');
+
+  // Report name + category eyebrow
+  doc.setTextColor(_PDF_ACCENT[0], _PDF_ACCENT[1], _PDF_ACCENT[2]);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+  doc.text(String((cat && cat.name) || 'Report').toUpperCase(), ml + 7, barTop + 3.5);
+  doc.setTextColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text(String(reportDef.name), ml + 7, barTop + 11);
+
+  // Status chip (right)
+  const kpiCount = result && result.kpis ? Object.keys(result.kpis).length : 0;
+  const recCount = (result && result.rows) ? result.rows.length : 0;
+  const chipTxt = recCount ? `${recCount} RECORD${recCount !== 1 ? 'S' : ''}` : 'NO DATA';
+  const chipCol = recCount ? _PDF_GREEN : _PDF_AMBER;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+  const cw = doc.getTextWidth(chipTxt) + 8;
+  doc.setFillColor(chipCol[0], chipCol[1], chipCol[2]);
+  doc.roundedRect(pw - mr - cw, barTop + 1, cw, 6, 1.2, 1.2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.text(chipTxt, pw - mr - cw + 4, barTop + 5.1);
+
+  y = barTop + barH + 2;
+
+  // Metadata grid — DOC NO / REV / PERIOD / SCOPE / PREPARED BY / GENERATED
+  const meta = [
+    ['DOC NO', docNo], ['REV', 'A'],
+    ['PERIOD', _pdfPeriodLabel(params)], ['SCOPE', _pdfScopeLabel(params)],
+    ['PREPARED BY', _pdfCurrentUser()], ['GENERATED', new Date().toLocaleString('en-IN')],
+  ];
+  doc.setDrawColor(_PDF_LINE[0], _PDF_LINE[1], _PDF_LINE[2]); doc.setLineWidth(0.2);
+  doc.line(ml, y, pw - mr, y);
+  y += 3.5;
+  const colW = (pw - ml - mr) / 2;
+  for (let i = 0; i < meta.length; i += 2) {
+    const rowY = y + (i / 2) * 5.2;
+    [0, 1].forEach(j => {
+      const cell = meta[i + j]; if (!cell) return;
+      const x = ml + j * colW;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.2); doc.setTextColor(_PDF_MUTE[0], _PDF_MUTE[1], _PDF_MUTE[2]);
+      doc.text(cell[0], x, rowY);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]);
+      doc.text(doc.splitTextToSize(String(cell[1]), colW - 24)[0] || '—', x + 22, rowY);
+    });
+  }
+  y += (meta.length / 2) * 5.2 + 1;
+  doc.setDrawColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]); doc.setLineWidth(0.5);
+  doc.line(ml, y, pw - mr, y);
+  y += 5;
+
+  // Zone 2 — Snapshot band (KPI cards)
+  if (kpiCount) {
+    const entries = Object.entries(result.kpis).slice(0, 5);
+    const gap = 3, n = entries.length;
+    const cardW = (pw - ml - mr - gap * (n - 1)) / n;
+    const cardH = 15;
+    entries.forEach(([k, v], i) => {
+      const x = ml + i * (cardW + gap);
+      doc.setDrawColor(_PDF_LINE[0], _PDF_LINE[1], _PDF_LINE[2]); doc.setLineWidth(0.2);
+      doc.roundedRect(x, y, cardW, cardH, 1.5, 1.5, 'S');
+      doc.setFillColor(_PDF_ACCENT[0], _PDF_ACCENT[1], _PDF_ACCENT[2]);
+      doc.rect(x, y, 1.4, cardH, 'F');
+      const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.8); doc.setTextColor(_PDF_MUTE[0], _PDF_MUTE[1], _PDF_MUTE[2]);
+      doc.text(doc.splitTextToSize(label.toUpperCase(), cardW - 6), x + 4, y + 4);
+      let val = v;
+      if (typeof v === 'number') val = v > 1000 ? 'Rs. ' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : String(v);
+      else val = String(v).replace(/<[^>]*>/g, '');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]);
+      const vLines = doc.splitTextToSize(String(val), cardW - 6);
+      doc.text(vLines[0], x + 4, y + 11.5);
+    });
+    y += cardH + 5;
+  }
+
+  return y;
+}
+
+/** Footer + running header stamped on every page after the table is laid out. */
+function _pdfStampChrome(doc, { reportDef, docNo }) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const ml = 14, mr = 14;
+  const total = doc.internal.getNumberOfPages();
+  const cut = 'Cut-off ' + new Date().toLocaleString('en-IN');
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    // Running header on continuation pages
+    if (p > 1) {
+      doc.setDrawColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]); doc.setLineWidth(0.4);
+      doc.line(ml, 12, pw - mr, 12);
+      doc.setFillColor(_PDF_ACCENT[0], _PDF_ACCENT[1], _PDF_ACCENT[2]); doc.rect(ml, 8.2, 3, 3, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]);
+      doc.text(String(reportDef.name) + '  (continued)', ml + 5, 11);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(_PDF_MUTE[0], _PDF_MUTE[1], _PDF_MUTE[2]);
+      doc.text(docNo, pw - mr, 11, { align: 'right' });
     }
-    doc.save(reportDef.name.replace(/\s+/g, '_') + '.pdf');
+    // Footer
+    doc.setDrawColor(_PDF_LINE[0], _PDF_LINE[1], _PDF_LINE[2]); doc.setLineWidth(0.2);
+    doc.line(ml, ph - 11, pw - mr, ph - 11);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2); doc.setTextColor(_PDF_MUTE[0], _PDF_MUTE[1], _PDF_MUTE[2]);
+    doc.text('True Site Sync  ·  ' + docNo, ml, ph - 7);
+    doc.text(cut, pw / 2, ph - 7, { align: 'center' });
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(_PDF_INK[0], _PDF_INK[1], _PDF_INK[2]);
+    doc.text(`Page ${p} of ${total}`, pw - mr, ph - 7, { align: 'right' });
+  }
+}
+
+export function exportReportPDF(reportId) {
+  const reportDef = _currentReportDef && _currentReportDef.id === reportId ? _currentReportDef : _findReport(reportId);
+  if (!reportDef) return;
+  const result = (_currentResult && _currentReportDef && _currentReportDef.id === reportId) ? _currentResult : null;
+  const cat = _currentCat || null;
+  const params = _currentParams || {};
+  try {
+    const useResult = result && result.rows && result.rows.length && result.columns && result.columns.length;
+    // Wide tables → landscape; otherwise portrait A4 (the doctrine default).
+    const colCount = useResult ? result.columns.length : (document.querySelectorAll('#reportTableArea thead th').length || 6);
+    const orient = colCount > 7 ? 'l' : 'p';
+    const doc = new window.jspdf.jsPDF(orient, 'mm', 'a4');
+    const docNo = _pdfDocNo(reportDef);
+
+    const startY = _pdfTitleBlock(doc, { reportDef, cat, result, params, docNo });
+
+    const tableCommon = {
+      startY,
+      margin: { left: 14, right: 14, top: 16, bottom: 14 },
+      styles: { fontSize: 7, cellPadding: 1.8, overflow: 'linebreak', lineColor: _PDF_LINE, lineWidth: 0.1, textColor: [57, 66, 78] },
+      headStyles: { fillColor: _PDF_INK, textColor: [255, 255, 255], fontSize: 6.8, fontStyle: 'bold', halign: 'left' },
+      alternateRowStyles: { fillColor: [246, 247, 248] },
+    };
+
+    if (useResult) {
+      const cols = result.columns;
+      const head = [cols.map(c => c.label)];
+      const body = result.rows.map(r => cols.map(c => _pdfCell(r[c.key], c.type)));
+      if (result.aggregateRow && Object.keys(result.aggregateRow).length) {
+        body.push(cols.map((c, i) => i === 0 ? 'TOTAL' : (result.aggregateRow[c.key] !== undefined ? _pdfCell(result.aggregateRow[c.key], c.type || 'number') : '')));
+      }
+      const columnStyles = {};
+      cols.forEach((c, i) => { if (c.align === 'right' || c.type === 'currency' || c.type === 'number' || c.type === 'percent') columnStyles[i] = { halign: 'right' }; });
+      const totalIdx = result.aggregateRow && Object.keys(result.aggregateRow).length ? body.length - 1 : -1;
+      const totalRows = new Set(result.rows.map((r, i) => (r.type === 'Total' || r._isTotal) ? i : -1).filter(i => i >= 0));
+      doc.autoTable({
+        ...tableCommon, head, body, columnStyles,
+        didParseCell: (d) => {
+          if (d.section === 'body' && (d.row.index === totalIdx || totalRows.has(d.row.index))) {
+            d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [238, 242, 247]; d.cell.styles.textColor = _PDF_INK;
+          }
+        },
+      });
+    } else {
+      const tableEl = document.querySelector('#reportTableArea table');
+      if (tableEl) doc.autoTable({ ...tableCommon, html: tableEl });
+      else { doc.setFontSize(10); doc.setTextColor(_PDF_MUTE[0], _PDF_MUTE[1], _PDF_MUTE[2]); doc.text('No data found for this report.', 14, startY + 8); }
+    }
+
+    _pdfStampChrome(doc, { reportDef, docNo });
+    mobileSavePDF(doc, reportDef.name.replace(/\s+/g, '_') + '.pdf');
     showToast('PDF exported', 'success');
   } catch (e) { showToast('PDF export failed: ' + e.message, 'error'); }
 }
