@@ -120,6 +120,7 @@ function _renderHome(root) {
       <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</div>
     </div>`;
   root.innerHTML = `
+    <button onclick="window._navBack&&window._navBack()" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
     <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Site Execution</h2>
     <p class="text-sm text-slate-400 mb-5">Daily progress, concrete pours, quality & safety</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">

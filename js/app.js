@@ -68,10 +68,10 @@ import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.79';
+import { renderExecution } from './modules/execution.js?v=1.6.83';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.37';
-import './modules/mobileShell.js?v=1.5.3';
+import './modules/mobileShell.js?v=1.6.83';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -79,8 +79,8 @@ import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.6';
 import './modules/estimateFlow.js?v=1.0.3';
 import './modules/estimation.js?v=1.0.4';
-import './modules/executionEngine.js?v=1.0.2';
-import './modules/scheduleBuilder.js?v=1.0.3';
+import './modules/executionEngine.js?v=1.6.83';
+import './modules/scheduleBuilder.js?v=1.6.83';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.51';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
@@ -749,7 +749,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.82';
+const APP_VERSION = '1.6.83';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

@@ -231,6 +231,12 @@ if (typeof window !== 'undefined') {
   window.handleAppBack = handleBack;
   window.goBackView = goBackView;
   window.highlightBottomNav = highlightBottomNav;
+  // Generic "back" for in-view back buttons: return to the previous view in
+  // history, or fall back to the project dashboard when there's nowhere to pop.
+  window._navBack = function () {
+    if ((window.__viewHistory || []).length) goBackView();
+    else if (typeof window.switchView === 'function') window.switchView('projectDashboard');
+  };
 }
 
 // Auto-init once the DOM is ready (app.js also calls initMobileShell after boot).

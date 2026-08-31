@@ -131,6 +131,7 @@ export function renderScheduleBuilder() {
     <div class="sb-wrap">
       <div class="sb-head">
         <div>
+          <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
           <h2 class="text-2xl font-extrabold text-slate-800">Schedule Builder</h2>
           <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · drag tasks onto each location, then Auto-Schedule</p>
         </div>
