@@ -155,7 +155,8 @@ export function renderScheduleBuilder() {
           <h2 class="text-2xl font-extrabold text-slate-800">Scheduling</h2>
           <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · drag your planned activities onto each location, then Auto-Schedule</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
+          ${_sbHasPlannedLinks() ? `<button class="sb-btn-ghost" onclick="window._sbPushToPlanning()" title="Update the linked Planning activities' start / finish dates from this schedule">⤴ Push dates to Planning</button>` : ''}
           ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbExportPDF()">⬇ Gantt PDF</button>` : ''}
           ${list.length ? `<button id="sbSaveBtn" class="sb-btn-save ${_sbDirty ? 'sb-dirty' : ''}" onclick="window._sbSaveAll()">${_sbDirty ? '💾 Save changes •' : '💾 Saved'}</button>` : ''}
           <button class="sb-btn-primary" onclick="window._sbAddLocation()">+ New Location</button>
@@ -355,6 +356,44 @@ window._sbAutoSchedule = function (locId) {
   tasks.forEach(t => delete t._end);
   _sbTouch(); renderScheduleBuilder();
   showToast('Start dates auto-scheduled from durations & dependencies', 'success');
+};
+
+/* ── push scheduled dates back into the Planning activities ── */
+/** Any scheduled task linked to a planned activity and carrying a start date? */
+function _sbHasPlannedLinks() {
+  return locs().some(l => (l.tasks || []).some(t => t.plannedActId && t.startDate));
+}
+window._sbPushToPlanning = function () {
+  // Aggregate each planned activity's placements: earliest start, latest finish
+  // (an activity can be scheduled across several locations).
+  const byAct = {};
+  locs().forEach(l => (l.tasks || []).forEach(t => {
+    if (!t.plannedActId || !t.startDate) return;
+    const s = new Date(t.startDate);
+    const f = addDays(t.startDate, Math.max(0, num(t.duration)));
+    const cur = byAct[t.plannedActId];
+    if (!cur) byAct[t.plannedActId] = { minStart: s, maxFinish: f };
+    else { if (s < cur.minStart) cur.minStart = s; if (f > cur.maxFinish) cur.maxFinish = f; }
+  }));
+  const ids = Object.keys(byAct);
+  if (!ids.length) { showToast('Nothing to push — drag planned activities onto locations and Auto-Schedule first.', 'info'); return; }
+  const acts = state.execActivities || [];
+  const linked = ids.filter(id => acts.some(a => a.id === id));
+  if (!linked.length) { showToast('Linked Planning activities were not found.', 'error'); return; }
+  if (!confirm(`Update ${linked.length} Planning activit${linked.length === 1 ? 'y' : 'ies'} with the start / finish dates from this schedule?\n\nThis overwrites their Planned Start, Planned Finish and Duration.`)) return;
+  let updated = 0;
+  linked.forEach(id => {
+    const a = acts.find(x => x.id === id); if (!a) return;
+    if (!a.schedule) a.schedule = {};
+    a.schedule.plannedStart = fmtISO(byAct[id].minStart);
+    a.schedule.plannedFinish = fmtISO(byAct[id].maxFinish);
+    a.schedule.duration = Math.max(1, Math.round((byAct[id].maxFinish - byAct[id].minStart) / 86400000));
+    a.schedule.datedFromSchedule = new Date().toISOString();
+    updated++;
+  });
+  saveAllData(); _sbDirty = false;
+  showToast(`Pushed schedule dates to ${updated} Planning activit${updated === 1 ? 'y' : 'ies'}`, 'success');
+  try { if (typeof window.renderExecEngine === 'function' && document.getElementById('execEngineContent')) window.renderExecEngine(); } catch {}
 };
 
 /* ── send location → Execution baseline (draft activities) ── */
