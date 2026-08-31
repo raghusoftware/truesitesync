@@ -20,6 +20,7 @@ export const REPORT_CATEGORIES = [
   {
     id: 'project', name: 'Project & Profitability', icon: '🏢', color: '#6366f1',
     reports: [
+      _R('project_report', 'Project Report (Master — full overview)'),
       _R('project_profitability', 'Project Profitability (Cost vs Billed)'),
       _R('mis_project_profit', 'MIS — Portfolio Profitability & Margin'),
       _R('earned_value', 'Earned Value Analysis (SPI / CPI)'),
