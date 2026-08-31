@@ -1132,11 +1132,16 @@ export function renderPaymentsHub() { window._openPaymentsSection(null); }
 // ==========================================
 // ANALYTICS / EXECUTIVE MIS DASHBOARD
 // ==========================================
+let _analyticsSite = '';
+window._setAnalyticsSite = function (v) { _analyticsSite = v || ''; renderAnalyticsDashboard(); };
+
 export function renderAnalyticsDashboard() {
   const c = document.getElementById('analyticsContent');
   if (!c) return;
   const cur = getCurrencySymbol();
   const fmt = (n) => cur + (n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const _site = _analyticsSite || '';
+  const _siteExp = (arr) => _site ? (arr || []).filter(e => e.siteId === _site) : (arr || []);
 
   // ── Compute company-wide metrics ──
   const projects = state.projects || [];
@@ -1149,9 +1154,9 @@ export function renderAnalyticsDashboard() {
   (state.paymentsIn || []).forEach(p => totalReceived += (parseFloat(p.amount) || 0));
   const outstanding = totalBilled - totalReceived;
 
-  // Expenses
+  // Expenses (respect the site filter)
   let totalExpenses = 0, totalPurchases = 0, totalLabour = 0;
-  (state.expenses || []).forEach(e => totalExpenses += (parseFloat(e.amount) || 0));
+  _siteExp(state.expenses).forEach(e => totalExpenses += (parseFloat(e.amount) || 0));
   (state.vendorMaterials || []).forEach(m => totalPurchases += (m.totalAmount || parseFloat(m.amount) || 0));
   (state.labourPayments || []).forEach(l => totalLabour += (parseFloat(l.amount) || 0));
   const netProfit = totalReceived - totalExpenses - totalPurchases - totalLabour;
@@ -1188,7 +1193,24 @@ export function renderAnalyticsDashboard() {
       <p style="font-size:22px;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">${value}</p>
     </div>`;
 
+  // Site-wise expense breakdown (all sites, independent of the active filter).
+  const _siteMap = {};
+  (state.expenses || []).forEach(e => { const k = e.siteName || (e.siteId ? '(removed site)' : 'General / Unallocated'); _siteMap[k] = (_siteMap[k] || 0) + (parseFloat(e.amount) || 0); });
+  const _siteRows = Object.entries(_siteMap).sort((a, b) => b[1] - a[1]);
+  const _locLabel = l => l.projectName ? l.name + ' — ' + l.projectName : l.name;
+  const _locOpts = getAllLocations().map(l => `<option value="${l.id}" ${_site === l.id ? 'selected' : ''}>${_locLabel(l)}</option>`).join('');
+  const _siteName = _site ? (() => { const l = getAllLocations().find(x => x.id === _site); return l ? _locLabel(l) : 'Selected site'; })() : '';
+
   c.innerHTML = `
+    <!-- Site filter -->
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;">
+      <span style="font-size:12px;font-weight:700;color:#64748b;">📍 Site filter</span>
+      <select onchange="window._setAnalyticsSite(this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;">
+        <option value="">All sites</option>${_locOpts}
+      </select>
+      ${_site ? `<span style="font-size:11px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:4px 9px;">Expenses filtered to: ${_siteName}</span>` : '<span style="font-size:11px;color:#94a3b8;">Expense figures below reflect the chosen site.</span>'}
+    </div>
+
     <!-- Financial Hero Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
       ${hero('Total Billed', fmt(totalBilled), '#2563eb', 'Revenue across all projects')}
@@ -1202,9 +1224,19 @@ export function renderAnalyticsDashboard() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
       ${stat('🛒', 'Purchases', fmt(totalPurchases), '#f59e0b')}
       ${stat('👷', 'Labour Paid', fmt(totalLabour), '#8b5cf6')}
-      ${stat('🧾', 'Expenses', fmt(totalExpenses), '#ef4444')}
+      ${stat('🧾', 'Expenses' + (_site ? ' · ' + _siteName : ''), fmt(totalExpenses), '#ef4444')}
       ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#10b981')}
     </div>
+
+    <!-- Expenses by Site -->
+    ${_siteRows.length ? `<h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📍 Expenses by Site</h3>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;"><div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f8fafc;">
+        <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Site / Project</th>
+        <th style="text-align:right;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Total Expense</th>
+      </tr></thead><tbody>
+      ${_siteRows.map(([nm, amt]) => `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:9px 14px;font-weight:600;color:#0f172a;">${nm}</td><td style="padding:9px 14px;text-align:right;font-weight:800;color:#ef4444;">${fmt(amt)}</td></tr>`).join('')}
+      </tbody></table></div></div>` : ''}
 
     <!-- Operational Stats -->
     <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📊 Operations</h3>

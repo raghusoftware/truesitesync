@@ -21,7 +21,7 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
-    <script type="module" src="js/app.js?v=1.6.86"></script>
+    <script type="module" src="js/app.js?v=1.6.87"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2756,6 +2756,7 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Expense Category *</label><input type="text" id="expFormCategory" placeholder="" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-blue-500" list="expCatSuggestions"><datalist id="expCatSuggestions"></datalist></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Party Name</label><input type="text" id="expFormParty" placeholder="" class="w-full p-2.5 border rounded-lg outline-none focus:border-blue-500"></div>
+                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Site / Project <span class="text-slate-400 normal-case font-medium">(for site rent, etc.)</span></label><select id="expFormSite" class="w-full p-2.5 border rounded-lg font-bold text-teal-700 outline-none focus:border-teal-500"><option value="">— No site / General —</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date *</label><input type="date" id="expFormDate" class="w-full p-2.5 border rounded-lg outline-none focus:border-blue-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Type</label><select id="expFormPayType" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-blue-500"><option value="Cash">Cash</option><option value="Bank">Bank Transfer</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option><option value="Credit">Credit (Unpaid)</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (₹) *</label><input type="number" id="expFormAmount" placeholder="0.00" class="w-full p-3 border rounded-lg font-extrabold text-2xl text-red-600 outline-none focus:border-red-400"></div>

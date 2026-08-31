@@ -8,7 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, getAllLocations } from './utils.js';
 import { _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, closeFullScreenForm } from './formHelpers.js';
 
 export function openPaymentOutForm(editId) {
@@ -143,6 +143,12 @@ export function openExpenseForm() {
   document.getElementById('expFormDate').value = new Date().toISOString().split('T')[0];
   ['expFormCategory','expFormParty','expFormAmount','expFormRemarks','expFormDueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('expFormPayType').value = 'Cash';
+  // Site / project this expense belongs to (e.g. site rent) — optional.
+  const siteSel = document.getElementById('expFormSite');
+  if (siteSel) {
+    siteSel.innerHTML = '<option value="">— No site / General —</option>' + getAllLocations().map(l => `<option value="${l.id}">${l.projectName ? l.name + ' — ' + l.projectName : l.name}</option>`).join('');
+    if (state.currentProjectId && getAllLocations().some(l => l.id === state.currentProjectId)) siteSel.value = state.currentProjectId;
+  }
   // Populate category suggestions
   const cats = [...new Set((state.expenses || []).map(e => e.category))].filter(Boolean);
   const dl = document.getElementById('expCatSuggestions');
@@ -158,11 +164,15 @@ export function saveExpenseForm() {
   const amount = parseFloat(document.getElementById('expFormAmount').value) || 0;
   const dueDate = document.getElementById('expFormDueDate').value;
   const remarks = document.getElementById('expFormRemarks').value.trim();
+  const siteId = document.getElementById('expFormSite')?.value || '';
+  const _loc = siteId ? getAllLocations().find(l => l.id === siteId) : null;
+  const siteName = _loc ? (_loc.projectName || _loc.name || '') : '';
   if (!category || amount <= 0) return showToast('Category and valid Amount required!', 'error');
   if (!state.expenses) state.expenses = [];
   const paid = payType !== 'Credit' ? amount : 0;
   state.expenses.push({
     id: 'exp_' + Date.now(), category, party, date, payType, amount, paid, balance: amount - paid, dueDate, remarks,
+    siteId, siteName,
     expNo: 'EXP-' + (state.expenses.length + 1).toString().padStart(3, '0'),
     status: paid >= amount ? 'Paid' : 'Unpaid'
   });
@@ -226,7 +236,7 @@ export function renderExpenseTransactions() {
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
       <td class="px-4 py-3 text-slate-500">${e.date || '-'}</td>
       <td class="px-4 py-3 font-mono font-bold text-blue-700">${e.expNo || '-'}</td>
-      <td class="px-4 py-3 font-bold text-slate-700">${e.party || '-'}</td>
+      <td class="px-4 py-3 font-bold text-slate-700">${e.party || '-'}${e.siteName ? ` <span class="text-[9px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded align-middle">📍 ${e.siteName}</span>` : ''}</td>
       <td class="px-4 py-3 text-slate-500 text-xs">${e.payType || '-'}</td>
       <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(e.amount || 0).toLocaleString('en-IN')}</td>
       <td class="px-4 py-3 text-right ${e.balance > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${(e.balance || 0).toLocaleString('en-IN')}</td>
