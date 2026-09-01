@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="css/style.css?v=1.6.55">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.95">
-    <script type="module" src="js/app.js?v=1.6.95"></script>
+    <script type="module" src="js/app.js?v=1.6.96"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -978,7 +978,7 @@
             <div id="customColumnsModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">
               <div class="bg-white rounded-xl w-full max-w-md p-6">
                 <h3 class="text-xl font-bold mb-4 text-slate-800">Custom Columns</h3>
-                <p class="text-xs text-slate-500 mb-4">Add extra columns to this measurement sheet. They will appear after Remarks and be included in PDF & Excel exports.</p>
+                <p class="text-xs text-slate-500 mb-4">Add your own columns to this measurement sheet (e.g. Dia, Weight, Grade). Choose where it sits and whether it multiplies into Qty. Custom columns are included in the Detailed PDF &amp; Excel exports.</p>
                 <div id="customColList" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
                 <div class="space-y-2 mb-4">
                   <div class="flex gap-2">
@@ -988,17 +988,23 @@
                       <option value="number">Number</option>
                     </select>
                   </div>
-                  <div class="flex gap-2">
-                    <select id="newCustomColPosition" class="flex-1 p-2.5 border rounded text-sm font-medium">
-                      <option value="after-nos">After Nos (multiplies into Qty)</option>
-                      <option value="after-l">After L (multiplies into Qty)</option>
-                      <option value="after-b">After B (multiplies into Qty)</option>
-                      <option value="after-h" selected>After H (multiplies into Qty)</option>
-                      <option value="after-qty">After Qty (data only)</option>
-                      <option value="after-remarks">After Remarks (data only)</option>
+                  <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Position in the sheet</label>
+                    <select id="newCustomColPosition" class="w-full p-2.5 border rounded text-sm font-medium mt-1">
+                      <option value="after-nos">Beside Nos</option>
+                      <option value="after-l">Beside L</option>
+                      <option value="after-b">Beside B</option>
+                      <option value="after-h" selected>Beside H</option>
+                      <option value="after-qty">After Qty</option>
+                      <option value="after-remarks">After Remarks</option>
                     </select>
-                    <button onclick="addCustomColumn()" class="px-4 py-2.5 bg-blue-600 text-white rounded font-bold text-sm hover:bg-blue-700">Add</button>
                   </div>
+                  <label class="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border cursor-pointer select-none">
+                    <input type="checkbox" id="newCustomColCalc" class="w-4 h-4">
+                    <span class="text-sm font-bold text-slate-700">✖️ Multiply into Qty</span>
+                    <span class="text-[11px] text-slate-400">— on: acts like L·B·H (dimension). off: plain data column, never multiplied.</span>
+                  </label>
+                  <button onclick="addCustomColumn()" class="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">+ Add Column</button>
                 </div>
                 <div class="flex justify-end gap-2 pt-3 border-t">
                   <button onclick="closeCustomColumnsModal()" class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded text-sm">Close</button>

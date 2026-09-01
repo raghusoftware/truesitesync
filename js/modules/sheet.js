@@ -523,6 +523,9 @@ let _customColumns = []; // [{id, name, type, position}]
 const _COL_ORDER = { 'after-nos': 3.5, 'after-l': 4.5, 'after-b': 5.5, 'after-h': 6.5, 'after-qty': 8.5, 'after-remarks': 9.5 };
 const _COL_LABELS = { 'after-nos': 'After Nos', 'after-l': 'After L', 'after-b': 'After B', 'after-h': 'After H', 'after-qty': 'After Qty', 'after-remarks': 'After Remarks' };
 function _isDimensionCol(col) { return (_COL_ORDER[col.position] || 9.5) < 8; }
+// Whether a custom column multiplies into Qty. Explicit `calc` flag wins; older
+// saved columns (no flag) fall back to the position-based rule for compatibility.
+function _colCalc(col) { return typeof col.calc === 'boolean' ? col.calc : _isDimensionCol(col); }
 
 // Reference cell class for each position
 const _POS_REF_CLASS = { 'after-nos': '.nos-input', 'after-l': '.l-input', 'after-b': '.b-input', 'after-h': '.h-input', 'after-qty': '.qty-input', 'after-remarks': '.remarks-input' };
@@ -546,10 +549,10 @@ function _renderCustomColList() {
     return;
   }
   container.innerHTML = _customColumns.map((col, i) => {
-    const isDim = _isDimensionCol(col);
+    const isDim = _colCalc(col);
     const badge = isDim
-      ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">CALC</span>'
-      : '<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">DATA</span>';
+      ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold" title="Multiplies into Qty">✖ CALC</span>'
+      : '<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold" title="Plain data — never multiplied">DATA</span>';
     return `<div class="flex items-center gap-2 p-2 bg-slate-50 rounded border">
       <span class="flex-1 font-bold text-sm text-slate-700">${col.name}</span>
       ${badge}
@@ -567,10 +570,12 @@ export function addCustomColumn() {
   const name = nameInput.value.trim();
   if (!name) return showToast('Enter a column name', 'error');
   if (_customColumns.some(c => c.name.toLowerCase() === name.toLowerCase())) return showToast('Column already exists', 'error');
-  const col = { id: 'cc_' + Date.now(), name, type: typeSelect.value, position: posSelect.value };
+  const calcEl = document.getElementById('newCustomColCalc');
+  const col = { id: 'cc_' + Date.now(), name, type: typeSelect.value, position: posSelect.value, calc: !!(calcEl && calcEl.checked) };
   _customColumns.push(col);
   _customColumns.sort((a, b) => (_COL_ORDER[a.position] || 9.5) - (_COL_ORDER[b.position] || 9.5));
   nameInput.value = '';
+  if (calcEl) calcEl.checked = false;
   _renderCustomColList();
   _rebuildTableColumns();
 }
@@ -608,7 +613,7 @@ function _rebuildTableColumns() {
 
   // Insert sorted custom columns at correct positions
   _customColumns.forEach(col => {
-    const isDim = _isDimensionCol(col);
+    const isDim = _colCalc(col);
     const inputClass = isDim ? 'custom-dim-input' : 'custom-col-input';
 
     // Header
@@ -638,7 +643,7 @@ function _rebuildTableColumns() {
 
 function _buildCustomCellsForPosition(position, entryData) {
   return _customColumns.filter(col => col.position === position).map(col => {
-    const isDim = _isDimensionCol(col);
+    const isDim = _colCalc(col);
     const inputClass = isDim ? 'custom-dim-input' : 'custom-col-input';
     const val = entryData?.customData?.[col.id] || '';
     const oninput = isDim ? ' oninput="calcQty(this)"' : '';
