@@ -105,6 +105,7 @@ function _allRecipes() {
  *  (est.recipeMap[i]) → exact client+code → code (any owner) → description (any owner). */
 function _resolveRecipe(est, it, i, idx) {
   const sel = (est.recipeMap || {})[i];
+  if (sel === '__none__') return null;   // explicitly skipped — no materials, no PO
   if (sel) { const [cid, code] = sel.split('||'); const r = state.recipes?.[cid]?.[code]; if (r && (r.ingredients || []).length) return r; }
   let r = it.code ? state.recipes?.[est.clientId]?.[it.code] : null;
   if (r && (r.ingredients || []).length) return r;
@@ -121,7 +122,11 @@ function _explode(est) {
   const idx = _recipeIndex();
   (est.items || []).forEach((it, i) => {
     const recipe = _resolveRecipe(est, it, i, idx);
-    if (!recipe || !(recipe.ingredients || []).length) { noRecipe.push(it.desc || it.code || '—'); return; }
+    if (!recipe || !(recipe.ingredients || []).length) {
+      // Explicitly skipped lines are intentional — don't flag them as missing recipes.
+      if ((est.recipeMap || {})[i] !== '__none__') noRecipe.push(it.desc || it.code || '—');
+      return;
+    }
     recipe.ingredients.forEach(ing => {
       const need = (it.qty || 0) * (ing.qty || 0) * (1 + (ing.wastage || 0) / 100);
       if (!ing.rawMatId || need <= 0) return;
@@ -204,10 +209,15 @@ export function openEstimateMaterials(estId) {
       <table class="w-full text-xs"><tbody>
         ${(est.items || []).map((it, i) => {
           const sel = (est.recipeMap || {})[i] || '';
+          const isNone = sel === '__none__';
           const autoR = _resolveRecipe({ clientId: est.clientId, recipeMap: {} }, it, i, idx);
-          const status = sel ? '<span class="text-blue-600 font-bold">manual</span>' : (autoR ? '<span class="text-emerald-600 font-bold">auto</span>' : '<span class="text-orange-500 font-bold">none</span>');
-          const optHtml = ['<option value="">— Auto ' + (autoR ? '✓' : '(no match)') + ' —</option>']
-            .concat(opts.map(o => `<option value="${_esc(o.value)}" ${o.value === sel ? 'selected' : ''}>${_esc(o.label)}</option>`)).join('');
+          const status = isNone
+            ? '<span class="text-slate-400 font-bold">skipped</span>'
+            : (sel ? '<span class="text-blue-600 font-bold">manual</span>' : (autoR ? '<span class="text-emerald-600 font-bold">auto</span>' : '<span class="text-orange-500 font-bold">none</span>'));
+          const optHtml = [
+            '<option value="">— Auto ' + (autoR ? '✓' : '(no match)') + ' —</option>',
+            '<option value="__none__" ' + (isNone ? 'selected' : '') + '>— None (skip this line) —</option>',
+          ].concat(opts.map(o => `<option value="${_esc(o.value)}" ${o.value === sel ? 'selected' : ''}>${_esc(o.label)}</option>`)).join('');
           return `<tr class="border-t"><td class="px-3 py-1.5 font-semibold text-slate-700">${_esc(it.desc || it.code || '—')}</td><td class="px-2 py-1.5 w-14 text-center">${status}</td><td class="px-3 py-1.5"><select onchange="window._estSetRecipe('${est.id}',${i},this.value)" class="w-full p-1 border rounded text-xs bg-white">${optHtml}</select></td></tr>`;
         }).join('')}
       </tbody></table>
