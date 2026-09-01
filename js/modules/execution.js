@@ -251,17 +251,17 @@ window._dprMeasRow = function (loc, code, d) {
   const boqOpts = '<option value="">— BOQ item —</option>' + _dprBoqList().map(b =>
     `<option value="${_esc(b.code)}" data-uom="${_esc(b.uom || '')}" data-rate="${b.rate || 0}" data-desc="${_esc(b.description || '')}" ${!isOther && code === b.code ? 'selected' : ''}>${_esc(b.code)} — ${_esc(b.description || '')}</option>`).join('')
     + `<option value="__OTHER__" ${isOther ? 'selected' : ''}>✏️ Other (Non-BOQ)…</option>`;
-  const dim = (cls, val) => `<td style="padding:4px;"><input class="${cls}" type="number" min="0" step="0.001" value="${val != null && val !== '' ? _esc(val) : ''}" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:60px;text-align:right;"></td>`;
+  const dim = (cls, val, lbl) => `<td class="dpr-dim" data-l="${lbl}" style="padding:4px;"><input class="${cls}" type="number" min="0" step="0.001" value="${val != null && val !== '' ? _esc(val) : ''}" oninput="window._dprMeasCalc(this)" style="${_DPR_INP}width:60px;text-align:right;"></td>`;
   return `<tr>
-    <td style="padding:4px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:130px;"></td>
-    <td style="padding:4px;">
+    <td class="dpr-wide" data-l="Location" style="padding:4px;"><input class="dm-loc" list="dprLocList" value="${_esc(loc || '')}" placeholder="location" style="${_DPR_INP}width:130px;"></td>
+    <td class="dpr-wide" data-l="BOQ Item" style="padding:4px;">
       <select class="dm-boq" onchange="window._dprMeasPick(this)" style="${_DPR_INP}width:210px;">${boqOpts}</select>
       <input class="dm-otherdesc" value="${_esc(isOther ? (d.description || '') : '')}" placeholder="Type Non-BOQ item name…" style="${_DPR_INP}width:210px;margin-top:3px;display:${isOther ? 'block' : 'none'};">
     </td>
-    ${dim('dm-nos', d.nos)}${dim('dm-l', d.l)}${dim('dm-b', d.b)}${dim('dm-h', d.h)}
-    <td style="padding:4px;"><input class="dm-qty" type="number" min="0" step="0.001" value="${d.qty != null && d.qty !== '' ? _esc(d.qty) : ''}" placeholder="0" style="${_DPR_INP}width:78px;text-align:right;font-weight:800;color:#1d4ed8;background:#f8fafc;"></td>
-    <td style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" ${isOther ? '' : 'readonly'} style="${_DPR_INP}width:56px;background:${isOther ? '#fff' : '#f8fafc'};"></td>
-    <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
+    ${dim('dm-nos', d.nos, 'Nos')}${dim('dm-l', d.l, 'L')}${dim('dm-b', d.b, 'B')}${dim('dm-h', d.h, 'H')}
+    <td class="dpr-half" data-l="Qty" style="padding:4px;"><input class="dm-qty" type="number" min="0" step="0.001" value="${d.qty != null && d.qty !== '' ? _esc(d.qty) : ''}" placeholder="0" style="${_DPR_INP}width:78px;text-align:right;font-weight:800;color:#1d4ed8;background:#f8fafc;"></td>
+    <td class="dpr-half" data-l="Unit" style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" ${isOther ? '' : 'readonly'} style="${_DPR_INP}width:56px;background:${isOther ? '#fff' : '#f8fafc'};"></td>
+    <td class="dpr-del" style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
 window._dprAddMeas = function () { const tb = document.getElementById('dprMeasBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprMeasRow()); };
@@ -308,13 +308,13 @@ window._dprOhRow = function (o) {
     : `<select class="oh-res" onchange="window._dprOhRes(this)" style="${_DPR_INP}width:210px;">${_dprOhResOpts(type, o.resourceId)}</select>`;
   const qty = o.qty != null ? o.qty : 1, rate = o.rate != null ? o.rate : '', cost = Math.round((parseFloat(qty) || 0) * (parseFloat(rate) || 0)).toLocaleString('en-IN');
   return `<tr>
-    <td style="padding:4px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:110px;">${typeOpts}</select></td>
-    <td style="padding:4px;" class="oh-res-cell">${resCell}</td>
-    <td style="padding:4px;"><input class="oh-qty" type="number" min="0" step="0.01" value="${_esc(qty)}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
-    <td style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
-    <td style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
-    <td style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="" style="${_DPR_INP}width:130px;"></td>
-    <td style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
+    <td class="dpr-half" data-l="Type" style="padding:4px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:110px;">${typeOpts}</select></td>
+    <td class="dpr-wide oh-res-cell" data-l="Resource" style="padding:4px;">${resCell}</td>
+    <td class="dpr-half" data-l="Qty" style="padding:4px;"><input class="oh-qty" type="number" min="0" step="0.01" value="${_esc(qty)}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
+    <td class="dpr-half" data-l="Rate" style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
+    <td class="dpr-half" data-l="Cost" style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
+    <td class="dpr-wide" data-l="Note" style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="" style="${_DPR_INP}width:130px;"></td>
+    <td class="dpr-del" style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
 window._dprAddOh = function () { const tb = document.getElementById('dprOhBody'); if (tb) tb.insertAdjacentHTML('beforeend', window._dprOhRow()); };
@@ -373,7 +373,7 @@ window._exDprForm = function (id) {
         <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#dcfce7;color:#065f46;border:1px solid #bbf7d0;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
       </div>
       <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
-      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
+      <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-meas-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
         <th style="padding:3px;">Location</th><th style="padding:3px;">BOQ item</th><th style="padding:3px;">Nos</th><th style="padding:3px;">L</th><th style="padding:3px;">B</th><th style="padding:3px;">H</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprMeasBody">${measRows}</tbody></table></div>
     </div>
@@ -385,7 +385,7 @@ window._exDprForm = function (id) {
         <button onclick="window._dprAddOh()" style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add</button>
       </div>
       <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work NOT paid by the client. Pick <b>Labour / Equipment / Material</b> (or Other) — the rate auto-fills and cost = qty × rate. Tagged <b>Overhead</b>, it hits Cost &amp; Profit but never BOQ billing.</div>
-      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
+      <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-oh-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
         <th style="padding:3px;">Type</th><th style="padding:3px;">Resource</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Rate</th><th style="padding:3px;text-align:right;">Cost</th><th style="padding:3px;">Note</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprOhBody">${ohRows}</tbody></table></div>
     </div>

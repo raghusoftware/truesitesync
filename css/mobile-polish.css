@@ -118,6 +118,86 @@ button, a, [onclick], .cursor-pointer, label, select { touch-action: manipulatio
   }
 }
 
+/* ── 8. DPR measurement / overhead entry → large stacked cards ───
+   On desktop these are compact spreadsheet-style tables. On a phone
+   that means cramped, side-scrolling micro-inputs. Here each row
+   becomes a full-width card with big labelled fields — the same easy,
+   large-box feel as the mobile measurement sheet. */
+@media (max-width: 768px) {
+  .dpr-entry-table { min-width: 0 !important; width: 100% !important; }
+  .dpr-entry-table thead { display: none; }
+  .dpr-entry-table, .dpr-entry-table tbody { display: block; width: 100%; }
+
+  .dpr-entry-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px 8px 4px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, .06);
+    position: relative;
+    overflow: hidden;
+  }
+  .dpr-entry-table td {
+    flex: 0 0 100%;
+    box-sizing: border-box;
+    padding: 0 4px 12px !important;
+    text-align: left !important;
+  }
+  .dpr-entry-table td::before {
+    content: attr(data-l);
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  /* Field sizing */
+  .dpr-entry-table td input,
+  .dpr-entry-table td select {
+    width: 100% !important;
+    min-height: 48px;
+    font-size: 16px !important;
+    text-align: left !important;
+    box-sizing: border-box;
+  }
+  .dpr-entry-table td .dm-otherdesc { margin-top: 8px; }
+
+  /* Column layout inside each card */
+  .dpr-entry-table td.dpr-wide { flex: 0 0 100%; }
+  .dpr-entry-table td.dpr-dim  { flex: 0 0 25%; }       /* Nos · L · B · H — 4 up */
+  .dpr-entry-table td.dpr-half { flex: 0 0 50%; }       /* Qty · Unit / Type · Rate … */
+  .dpr-entry-table td.dpr-dim input { text-align: center !important; }
+
+  /* Overhead "Cost" cell is a value, not an input */
+  .dpr-entry-table td.dpr-half .oh-cost {
+    display: block; min-height: 44px; line-height: 44px;
+    font-size: 17px !important;
+  }
+
+  /* Delete → full-width "Remove" bar */
+  .dpr-entry-table td.dpr-del {
+    display: block; width: 100%;
+    text-align: center !important;
+    padding-top: 4px !important;
+    border-top: 1px dashed #f1f5f9;
+    margin-top: 2px;
+  }
+  .dpr-entry-table td.dpr-del::before { content: none; }
+  .dpr-entry-table td.dpr-del button {
+    width: 100%; min-height: 44px;
+    font-size: 13px !important; font-weight: 700;
+    color: #ef4444 !important; background: #fef2f2 !important;
+    border-radius: 10px !important;
+  }
+  .dpr-entry-table td.dpr-del button::after { content: " Remove row"; font-size: 13px; }
+}
+
 /* Very small phones — tighten type & spacing so nothing clips. */
 @media (max-width: 380px) {
   .bg-white.rounded-xl, .bg-white.rounded-2xl { padding: 16px !important; }

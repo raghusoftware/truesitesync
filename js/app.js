@@ -68,7 +68,7 @@ import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.83';
+import { renderExecution } from './modules/execution.js?v=1.6.95';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.37';
 import './modules/mobileShell.js?v=1.6.83';
@@ -749,7 +749,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.94';
+const APP_VERSION = '1.6.95';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {
