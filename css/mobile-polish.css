@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════════════════════════════
+   mobile-polish.css — Trillion-dollar mobile UX layer
+   ───────────────────────────────────────────────────────────────
+   Additive, defensive polish for the phone / APK experience. Loaded
+   AFTER style.css so it wins the cascade. Everything meaningful is
+   scoped to ≤768px so desktop is untouched. Targets the app's common
+   Tailwind-utility markup (modals: #xModal.fixed.inset-0 > .bg-white
+   card; controls: input/select/textarea) so it lifts every screen at
+   once — attendance, DPR, GRN entry, forms — without per-module edits.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Global (harmless everywhere): kill the grey tap flash, opt into
+   fast taps, smooth momentum scrolling. */
+* { -webkit-tap-highlight-color: transparent; }
+button, a, [onclick], .cursor-pointer, label, select { touch-action: manipulation; }
+.overflow-x-auto, .overflow-auto, .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 768px) {
+
+  /* ── 1. Touch-comfortable form controls ─────────────────────────
+     16px prevents iOS zoom-on-focus; 48px is the Apple/Material tap
+     minimum; a soft radius + clear focus ring reads modern. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: 48px;
+    border-radius: 12px !important;
+    padding-top: 10px; padding-bottom: 10px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  textarea { min-height: 96px; line-height: 1.5; }
+  input:focus, select:focus, textarea:focus {
+    outline: none !important;
+    border-color: #7c5cfc !important;
+    box-shadow: 0 0 0 3px rgba(124, 92, 252, .18) !important;
+  }
+  select {
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  /* ── 2. Comfortable, confident buttons ──────────────────────────
+     Full-width and modal buttons carry the primary actions — give
+     them real height and a satisfying press. Tiny inline/icon
+     buttons (mbn-*, table row actions) are left alone. */
+  button[class~="w-full"],
+  [id$="Modal"] .flex button,
+  [id$="Overlay"] button {
+    min-height: 48px;
+  }
+  button[class~="w-full"] { border-radius: 12px !important; font-weight: 700; }
+  button:not(.mbn-item):not(.mbn-fab):active { transform: scale(.97); }
+  button, [onclick] { transition: transform .08s ease; }
+
+  /* ── 3. Modals become bottom sheets ─────────────────────────────
+     The single biggest "native app" upgrade. The full-screen dim
+     backdrop pins its card to the bottom; the card slides up with a
+     rounded top and a grab handle, scrolls internally, and keeps its
+     last action clear of the home indicator. */
+  [id$="Modal"].fixed.inset-0,
+  [id$="Overlay"].fixed.inset-0 {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  [id$="Modal"].fixed.inset-0 > div,
+  [id$="Overlay"].fixed.inset-0 > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 22px 22px 0 0 !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+    box-shadow: 0 -12px 40px rgba(15, 23, 42, .28) !important;
+    animation: mp-sheet-up .3s cubic-bezier(.2, .8, .2, 1);
+  }
+  /* Grab handle */
+  [id$="Modal"].fixed.inset-0 > div::before,
+  [id$="Overlay"].fixed.inset-0 > div::before {
+    content: "";
+    display: block;
+    width: 42px; height: 5px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    margin: 0 auto 14px;
+  }
+  @keyframes mp-sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  /* ── 4. Cards & surfaces ────────────────────────────────────────
+     Softer corners and a lighter, layered shadow read premium. */
+  .bg-white.rounded-2xl, .bg-white.border.rounded-2xl { border-radius: 20px !important; }
+  .bg-white.rounded-xl, .bg-white.border.rounded-xl { border-radius: 16px !important; }
+
+  /* ── 5. Dense tables stay usable ────────────────────────────────
+     Wrap wide tables so the page body never scrolls sideways, and
+     give rows breathing room for fat fingers. */
+  table { min-width: max-content; }
+  .overflow-x-auto > table, .overflow-auto > table { min-width: 100%; }
+  td, th { white-space: nowrap; }
+
+  /* ── 6. Page rhythm ─────────────────────────────────────────────
+     A touch more vertical air between stacked blocks. */
+  #appContainer main { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* ── 7. Sticky section headers inside sheets read as native ──── */
+  [id$="Modal"].fixed.inset-0 > div > .flex.justify-between.items-center:first-of-type {
+    position: sticky; top: 0; z-index: 2;
+    background: #fff;
+    padding-top: 4px; padding-bottom: 10px;
+    margin-bottom: 10px !important;
+  }
+}
+
+/* Very small phones — tighten type & spacing so nothing clips. */
+@media (max-width: 380px) {
+  .bg-white.rounded-xl, .bg-white.rounded-2xl { padding: 16px !important; }
+  h2, h3 { line-height: 1.2; }
+}
