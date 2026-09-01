@@ -47,6 +47,9 @@ function _fmtDMY(iso) {
  * with F-lines and a per-item Total Qty spanning cell). Letterhead uses the
  * saved Company Profile. Selected via Settings → Print → Document Template.
  */
+// Custom label for a built-in dimension column ('nos'|'l'|'b'|'h'), else the export default.
+function _hl(s, key, def) { return (s && s.columnLabels && s.columnLabels[key]) ? s.columnLabels[key] : def; }
+
 export function exportMeasurementPlantPdf(id) {
   try {
     const sheetId = id || state.currentSheetId;
@@ -78,7 +81,7 @@ export function exportMeasurementPlantPdf(id) {
 
     // Grouped body: item header row + F-lines + a per-group Total Qty (rowSpan).
     const groups = groupSheetEntries(s.entries || []);
-    const head = [['Sr\nNo.', 'Description', 'UOM', 'Nos.', 'Length', 'Width', 'Height\nThk.', 'Coeff\nSize', 'Qty', 'Total\nQty']];
+    const head = [['Sr\nNo.', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height\nThk.'), 'Coeff\nSize', 'Qty', 'Total\nQty']];
     const body = [];
     let itemNum = 0;
     Object.keys(groups).forEach(key => {
@@ -220,7 +223,7 @@ export function exportMeasurementFlintPdf(id) {
     );
 
     const groups = groupSheetEntries(s.entries || []);
-    const head = [['Sr.No', 'Description', 'UOM', 'Nos.', 'Length', 'Width', 'Height /Thk.', 'Coeff./Size', 'Qty']];
+    const head = [['Sr.No', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height /Thk.'), 'Coeff./Size', 'Qty']];
     const body = [];
     const groupRows = []; // body-row indices that are item headers (for the teal accent bar)
     let itemNum = 0;
@@ -321,7 +324,7 @@ export function exportSimpleMeasurementPdf(id) {
 
   // Grouped (Measurement-Book) body: item entered once -> measurement lines -> Total Quantity
   const groups = groupSheetEntries(s.entries || []);
-  const head = [['Sr', 'Particulars of work', 'Nos', 'L', 'B', 'H', 'Qty', 'Unit']];
+  const head = [['Sr', 'Particulars of work', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), 'Qty', 'Unit']];
   const rows = [];
   let itemNum = 0;
   Object.keys(groups).forEach(key => {
@@ -447,7 +450,7 @@ export function exportDetailedMeasurementPdf(id) {
   // Build column positions dynamically based on custom columns
   const cc = s.customColumns || [];
   const baseColX = [ml, ml + 14, ml + 70, ml + 95, ml + 120, ml + 145, ml + 168];
-  const baseHeaders = ['Sr. No.', 'Description', 'Nos.', 'Length', 'Breadth', 'Height', 'Total'];
+  const baseHeaders = ['Sr. No.', 'Description', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Breadth'), _hl(s, 'h', 'Height'), 'Total'];
   const colX = [...baseColX];
   const colHeaders = [...baseHeaders];
   const ccStartX = baseColX[6] + 22;
@@ -595,7 +598,7 @@ export function exportDetailedMeasurementPdf(id) {
 export function exportToExcel() {
   if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
   const s = state.sheets.find(x => x.id === state.currentSheetId);
-  let csvContent = "data:text/csv;charset=utf-8,Code,Description,Unit,Nos,L,B,H,Qty,Remarks\n";
+  let csvContent = `data:text/csv;charset=utf-8,Code,Description,Unit,${_hl(s, 'nos', 'Nos')},${_hl(s, 'l', 'L')},${_hl(s, 'b', 'B')},${_hl(s, 'h', 'H')},Qty,Remarks\n`;
   s.entries.forEach(e => {
     let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
     csvContent += row.join(",") + "\n";
@@ -647,7 +650,7 @@ export function exportDetailedMeasurementExcel() {
   merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } }); r++;
 
   // Column headers
-  const baseHeaders = ['Sr. No.', 'Description', 'Nos.', 'Length', 'Breadth', 'Height', 'Total'];
+  const baseHeaders = ['Sr. No.', 'Description', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Breadth'), _hl(s, 'h', 'Height'), 'Total'];
   mesRows.push([...baseHeaders, ...cc.map(c => c.name)]);
   r++;
 

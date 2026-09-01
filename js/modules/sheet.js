@@ -472,6 +472,8 @@ export function createNewSheet() {
   addBBSRow(3);
   document.getElementById('attachmentsSection')?.classList.remove('hide');
   _customColumns = [];
+  _colHeaderLabels = { ..._DEF_COL_LABELS };
+  _applyColHeaderLabels();
   _rebuildTableColumns();
   _allSheetBoqItems = [];
   _currentSheetBoqItems = [];
@@ -517,7 +519,25 @@ export function handleSheetClientChange() {
 }
 
 // ═══════ CUSTOM COLUMNS ═══════
-let _customColumns = []; // [{id, name, type, position}]
+let _customColumns = []; // [{id, name, type, position, calc}]
+
+// ── Editable built-in dimension headers (Nos / L / B / H) ──────────
+// The user can rename these per sheet; the label is persisted on the sheet and
+// reflected in the PDF/Excel exports. Values default to the classic labels.
+const _DEF_COL_LABELS = { nos: 'Nos', l: 'L', b: 'B', h: 'H' };
+let _colHeaderLabels = { ..._DEF_COL_LABELS };
+export function getColumnLabels() { return { ..._colHeaderLabels }; }
+function _applyColHeaderLabels() {
+  document.querySelectorAll('#entryTableHead [data-hdr]').forEach(el => {
+    const k = el.getAttribute('data-hdr');
+    if (_colHeaderLabels[k] != null) el.textContent = _colHeaderLabels[k];
+  });
+}
+window._measHdrEdit = function (key, el) {
+  if (!(key in _DEF_COL_LABELS)) return;
+  const txt = (el.textContent || '').trim();
+  _colHeaderLabels[key] = txt || _DEF_COL_LABELS[key];
+};
 
 // Position order map — columns before Qty are dimensions (multiply into Qty)
 const _COL_ORDER = { 'after-nos': 3.5, 'after-l': 4.5, 'after-b': 5.5, 'after-h': 6.5, 'after-qty': 8.5, 'after-remarks': 9.5 };
@@ -815,6 +835,7 @@ export function saveEntries() {
     date: document.getElementById('sheetDate').value, sheetNum: sNum,
     area: document.getElementById('sheetArea').value, entries,
     customColumns: _customColumns.length ? [..._customColumns] : undefined,
+    columnLabels: (JSON.stringify(_colHeaderLabels) !== JSON.stringify(_DEF_COL_LABELS)) ? { ..._colHeaderLabels } : undefined,
     updatedAt: new Date().toISOString(), isBilled, linkedAbstract,
     createdBy, createdById, reviewedBy, reviewedAt, status,
     locked, verifiedBy, verifiedAt
@@ -937,6 +958,8 @@ export function loadSheet(id) {
 
   // Restore custom columns and rebuild headers
   _customColumns = s.customColumns ? [...s.customColumns] : [];
+  _colHeaderLabels = { ..._DEF_COL_LABELS, ...(s.columnLabels || {}) };
+  _applyColHeaderLabels();
   _rebuildTableColumns();
 
   const tbody = document.getElementById('entryTableBody');
