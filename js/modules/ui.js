@@ -4280,10 +4280,31 @@ export function saveLabour() {
     idDoc: _labIdDocData || '',
   };
 
+  // ── Rate governance: capture who entered the rate; a new/changed rate resets
+  //    approval so payroll always runs on a rate someone signed off on. ──
+  const _me = (window.getCurrentUser && window.getCurrentUser()) || {};
+  const _meId = _me.id || '';
+  const _meName = _me.name || _me.username || _me.email || 'Unknown';
+  const _now = new Date().toISOString();
+
   if (editId) {
     const l = state.labourMaster.find(x => x.id === editId);
-    if (l) Object.assign(l, profile);
-    showToast('Worker updated', 'success');
+    if (!l) return showToast('Worker not found', 'error');
+    const oldRate = parseFloat(l.dayRate) || 0;
+    Object.assign(l, profile);
+    const rateChanged = oldRate !== dayRate;
+    if (rateChanged || !Array.isArray(l.rateHistory) || !l.rateHistory.length) {
+      l.rateHistory = Array.isArray(l.rateHistory) ? l.rateHistory : [];
+      l.rateHistory.push({
+        rate: dayRate, action: l.rateHistory.length ? 'changed' : 'set',
+        by: _meId, byName: _meName, at: _now,
+        note: l.rateHistory.length ? ('Previous ' + getCurrencySymbol() + oldRate.toLocaleString('en-IN')) : ''
+      });
+      l.rateEnteredBy = _meId; l.rateEnteredByName = _meName; l.rateEnteredAt = _now;
+      l.rateStatus = 'Pending';
+      l.rateApprovedBy = ''; l.rateApprovedByName = ''; l.rateApprovedAt = '';
+    }
+    showToast(rateChanged ? 'Worker updated — rate pending approval' : 'Worker updated', 'success');
   } else {
     // Unique Labour ID: LAB-<projcode>-<seq>
     const seq = String((state.labourMaster || []).length + 1).padStart(3, '0');
@@ -4292,8 +4313,12 @@ export function saveLabour() {
     profile.projectId = state.currentProjectId || null;
     profile.status = 'Active';
     profile.joinedAt = new Date().toISOString().split('T')[0];
+    profile.rateHistory = [{ rate: dayRate, action: 'set', by: _meId, byName: _meName, at: _now, note: '' }];
+    profile.rateEnteredBy = _meId; profile.rateEnteredByName = _meName; profile.rateEnteredAt = _now;
+    profile.rateStatus = 'Pending';
+    profile.rateApprovedBy = ''; profile.rateApprovedByName = ''; profile.rateApprovedAt = '';
     state.labourMaster.push(profile);
-    showToast(`Worker onboarded (${profile.labourCode})`, 'success');
+    showToast(`Worker onboarded (${profile.labourCode}) — rate pending approval`, 'success');
   }
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
@@ -4309,22 +4334,26 @@ export function renderLabourMasterList() {
     container.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No labour added for this project yet.</p>';
     return;
   }
+  const _canApprove = (window.getCurrentUser?.()?.role === 'Admin') || !!window.rbacCan?.('edit', 'labourView');
   container.innerHTML = labours.map(l => {
     const avatar = l.photo
       ? `<img src="${l.photo}" style="width:38px;height:38px;border-radius:9px;object-fit:cover;flex-shrink:0;">`
       : `<div style="width:38px;height:38px;border-radius:9px;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-weight:700;color:#4f46e5;flex-shrink:0;">${(l.name||'?').charAt(0).toUpperCase()}</div>`;
-    return `<div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg border gap-2">
-      <div class="flex items-center gap-2.5 min-w-0">
-        ${avatar}
-        <div class="min-w-0">
-          <p class="font-bold text-slate-800 text-sm truncate">${l.name} ${l.labourCode ? `<span class="text-[9px] text-indigo-500 font-mono">${l.labourCode}</span>` : ''}</p>
-          <p class="text-[10px] text-slate-500">${l.trade} · ${getCurrencySymbol()}${l.dayRate}/day${l.phone ? ' · 📞 ' + l.phone : ''}${(() => { const c = (state.labourContractors||[]).find(x => x.id === l.contractorId); return c ? ' · 🧑‍🔧 ' + c.name : ''; })()}</p>
+    return `<div class="p-2.5 bg-slate-50 rounded-lg border">
+      <div class="flex justify-between items-center gap-2">
+        <div class="flex items-center gap-2.5 min-w-0">
+          ${avatar}
+          <div class="min-w-0">
+            <p class="font-bold text-slate-800 text-sm truncate">${l.name} ${l.labourCode ? `<span class="text-[9px] text-indigo-500 font-mono">${l.labourCode}</span>` : ''}</p>
+            <p class="text-[10px] text-slate-500">${l.trade}${l.phone ? ' · 📞 ' + l.phone : ''}${(() => { const c = (state.labourContractors||[]).find(x => x.id === l.contractorId); return c ? ' · 🧑‍🔧 ' + c.name : ''; })()}</p>
+          </div>
+        </div>
+        <div class="flex gap-1 flex-shrink-0">
+          <button onclick="openLabourModal('${l.id}')" class="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold">Edit</button>
+          <button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 px-2 py-1 rounded text-xs font-bold">Del</button>
         </div>
       </div>
-      <div class="flex gap-1 flex-shrink-0">
-        <button onclick="openLabourModal('${l.id}')" class="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold">Edit</button>
-        <button onclick="deleteLabour('${l.id}')" class="text-red-400 hover:text-red-600 px-2 py-1 rounded text-xs font-bold">Del</button>
-      </div>
+      ${_labRateGovHTML(l, _canApprove)}
     </div>${_ppeChipsForWorker(l.id)}`;
   }).join('');
 }
@@ -4335,6 +4364,102 @@ export function deleteLabour(id) {
   window.recycleDelete?.('labourMaster', id, 'Labourer', _l?.name || id);
   renderLabourMasterList(); renderMonthlyMuster();
 }
+
+// ═══ LABOUR RATE GOVERNANCE ═══════════════════════════════════
+// A worker's daily rate drives payroll, so it carries an audit trail:
+// who entered it, who approved it, and the full change history. A new or
+// changed rate is "Pending" until an authorised user approves it.
+const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function _labDateFmt(iso) {
+  if (!iso) return '—';
+  try { const d = new Date(iso); return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }); } catch { return '—'; }
+}
+function _labRateGovHTML(l, canApprove) {
+  const rate = parseFloat(l.dayRate) || 0;
+  const approved = l.rateStatus === 'Approved';
+  const pill = approved
+    ? `<span style="font-size:9px;font-weight:800;color:#166534;background:#dcfce7;border:1px solid #bbf7d0;padding:1px 7px;border-radius:20px;">✓ APPROVED</span>`
+    : `<span style="font-size:9px;font-weight:800;color:#9a3412;background:#ffedd5;border:1px solid #fed7aa;padding:1px 7px;border-radius:20px;">⏳ PENDING APPROVAL</span>`;
+  const enteredBy = l.rateEnteredByName ? `Entered by <b>${_esc(l.rateEnteredByName)}</b> · ${_labDateFmt(l.rateEnteredAt)}` : 'No entry record';
+  const approvedBy = approved
+    ? `<span style="color:#166534;">Approved by <b>${_esc(l.rateApprovedByName || '—')}</b> · ${_labDateFmt(l.rateApprovedAt)}</span>`
+    : `<span style="color:#c2410c;">Awaiting approval</span>`;
+  const nHist = Array.isArray(l.rateHistory) ? l.rateHistory.length : 0;
+  const approveBtn = (!approved && canApprove)
+    ? `<button onclick="window.approveLabourRate('${l.id}')" style="font-size:10px;font-weight:800;color:#fff;background:#16a34a;border:none;padding:4px 10px;border-radius:7px;cursor:pointer;">✓ Approve rate</button>`
+    : '';
+  const histBtn = nHist ? `<button onclick="window.showLabourRateHistory('${l.id}')" style="font-size:10px;font-weight:700;color:#4f46e5;background:#eef2ff;border:1px solid #e0e7ff;padding:4px 10px;border-radius:7px;cursor:pointer;">🕑 History (${nHist})</button>` : '';
+  return `
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:16px;font-weight:900;color:#0f172a;">${getCurrencySymbol()}${rate.toLocaleString('en-IN')}</span>
+          <span style="font-size:10px;color:#64748b;font-weight:600;">/ day</span>
+          ${pill}
+        </div>
+        <div style="display:flex;gap:6px;">${approveBtn}${histBtn}</div>
+      </div>
+      <div style="font-size:9.5px;color:#64748b;margin-top:5px;line-height:1.5;">
+        ${enteredBy}<br>${approvedBy}
+      </div>
+    </div>`;
+}
+
+window.approveLabourRate = function (id) {
+  const l = (state.labourMaster || []).find(x => x.id === id);
+  if (!l) return;
+  const canApprove = (window.getCurrentUser?.()?.role === 'Admin') || !!window.rbacCan?.('edit', 'labourView');
+  if (!canApprove) return showToast('You do not have permission to approve rates', 'error');
+  const me = (window.getCurrentUser && window.getCurrentUser()) || {};
+  const meName = me.name || me.username || me.email || 'Unknown';
+  const now = new Date().toISOString();
+  l.rateStatus = 'Approved';
+  l.rateApprovedBy = me.id || ''; l.rateApprovedByName = meName; l.rateApprovedAt = now;
+  l.rateHistory = Array.isArray(l.rateHistory) ? l.rateHistory : [];
+  l.rateHistory.push({ rate: parseFloat(l.dayRate) || 0, action: 'approved', by: me.id || '', byName: meName, at: now, note: '' });
+  saveLabourData();
+  renderLabourMasterList();
+  showToast(`Rate approved for ${l.name}`, 'success');
+};
+
+window.showLabourRateHistory = function (id) {
+  const l = (state.labourMaster || []).find(x => x.id === id);
+  if (!l) return;
+  const hist = (Array.isArray(l.rateHistory) ? l.rateHistory : []).slice().reverse();
+  const actMeta = {
+    set: { t: 'Rate set', c: '#4f46e5', bg: '#eef2ff' },
+    changed: { t: 'Rate changed', c: '#c2410c', bg: '#ffedd5' },
+    approved: { t: 'Approved', c: '#166534', bg: '#dcfce7' },
+  };
+  const rows = hist.length ? hist.map(h => {
+    const m = actMeta[h.action] || { t: h.action || '—', c: '#334155', bg: '#f1f5f9' };
+    return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:${m.c};margin-top:5px;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+          <span style="font-size:11px;font-weight:800;color:${m.c};background:${m.bg};padding:1px 8px;border-radius:20px;">${m.t}</span>
+          <span style="font-size:14px;font-weight:900;color:#0f172a;">${getCurrencySymbol()}${(parseFloat(h.rate) || 0).toLocaleString('en-IN')}</span>
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-top:4px;">By <b>${_esc(h.byName || '—')}</b> · ${_labDateFmt(h.at)}${h.note ? ' · ' + _esc(h.note) : ''}</div>
+      </div>
+    </div>`;
+  }).join('') : '<p style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">No rate history yet.</p>';
+  document.getElementById('labRateHistOverlay')?.remove();
+  const html = `
+    <div id="labRateHistOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:200001;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
+      <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:82vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+        <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:15px 18px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#0f172a;">Rate Audit Trail</div>
+            <div style="font-size:11px;color:#64748b;">${_esc(l.name)} ${l.labourCode ? '· ' + _esc(l.labourCode) : ''} · ${_esc(l.trade || '')}</div>
+          </div>
+          <button onclick="document.getElementById('labRateHistOverlay').remove()" style="color:#94a3b8;background:none;border:none;font-size:22px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:8px 18px 16px;">${rows}</div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
 
 /** Labour belonging to the current project (untagged legacy ones excluded once project scoping is active) */
 /**
