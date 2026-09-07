@@ -15,6 +15,7 @@ const MODULE_CARDS = [
   { id: 'execEngineView', icon: '&#128203;', label: 'Planning', desc: 'Activities, quantities, resources, durations & cost', color: '#7c3aed', stateKey: 'execActivities' },
   { id: 'scheduleBuilderView', icon: '&#128197;', label: 'Scheduling', desc: 'Sequence planned activities on a timeline', color: '#0ea5e9', stateKey: 'scheduleLocations' },
   { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
+  { id: 'chatView', icon: '&#128172;', label: 'Chat', desc: 'Site messaging, media & voice', color: '#2563eb', stateKey: 'chat' },
   { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
   { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
