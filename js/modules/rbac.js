@@ -17,6 +17,7 @@ export const ACCESS_MODULES = [
   { id: 'execEngineView', label: 'Planning', group: 'Project' },
   { id: 'scheduleBuilderView', label: 'Scheduling', group: 'Project' },
   { id: 'issuesView', label: 'Issues', group: 'Project' },
+  { id: 'chatView', label: 'Chat', group: 'Project' },
   { id: 'pettyCashView', label: 'Petty Cash', group: 'Project' },
   { id: 'labourView', label: 'Labour', group: 'Project' },
   { id: 'equipmentView', label: 'Equipment', group: 'Project' },
@@ -103,13 +104,13 @@ const DEFAULT_ROLES = {
     'partiesLedgerView', 'accountsManagerView', 'accountingView',
   ]},
   'Project Manager': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
   ]},
   'Site Supervisor': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
   ]},
   Engineer: { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'inventoryView', 'recipeView', 'measurementListView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'inventoryView', 'recipeView', 'measurementListView', 'reportsView',
   ]},
 };
 

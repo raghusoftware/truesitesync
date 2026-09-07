@@ -1404,6 +1404,7 @@ export function switchView(viewId) {
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
   if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
+  if (viewId === 'chatView') { if (typeof window.renderChat === 'function') window.renderChat(); }
   if (viewId === 'executionView') { if (typeof window.renderExecution === 'function') window.renderExecution(); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { if (typeof window.renderRecipeView === 'function') window.renderRecipeView(); }
