@@ -3299,6 +3299,9 @@ export function convertSheetToEstimate() {
     }
   });
   window.createNewEstimate();
+  // Remember the source measurement so the saved estimate links back to it —
+  // this drives the sheet's "Converted to Estimate" status (derived, not a flag).
+  state._estimateFromSheetId = s.id;
   document.getElementById('estClient').value = s.clientId;
   const tbody = document.getElementById('estTableBody');
   tbody.innerHTML = '';
@@ -3477,6 +3480,14 @@ export function sheetAbstract(sheet) {
     (a.sheetIds && a.sheetIds.includes(id)) || a.sheetId === id) || null;
 }
 export function isSheetBilled(sheet) { return !!sheetAbstract(sheet); }
+// An estimate drafted from a measurement links back via estimate.sheetId, so a
+// sheet is "Converted to Estimate" only once such an estimate actually exists
+// (derived, never a stored flag).
+export function estimateForSheet(sheet) {
+  if (!sheet) return null;
+  return (state.estimates || []).find(e => e.sheetId === sheet.id) || null;
+}
+export function isSheetConvertedToEstimate(sheet) { return !!estimateForSheet(sheet); }
 // An Abstract is "Invoiced" ONLY when a non-cancelled Invoice references it (via
 // abstractIds). Derived from state.invoices — never the stored a.isInvoiced flag,
 // which drifts (invoice made on another device, sync, cancel) and left invoiced
@@ -3486,7 +3497,7 @@ export function abstractInvoice(abstract) {
   return (state.invoices || []).find(inv => inv.status !== 'Cancelled' && (inv.abstractIds || []).includes(abstract.id)) || null;
 }
 export function isAbstractInvoiced(abstract) { return !!abstractInvoice(abstract); }
-if (typeof window !== 'undefined') { window.sheetAbstract = sheetAbstract; window.isSheetBilled = isSheetBilled; window.abstractInvoice = abstractInvoice; window.isAbstractInvoiced = isAbstractInvoiced; }
+if (typeof window !== 'undefined') { window.sheetAbstract = sheetAbstract; window.isSheetBilled = isSheetBilled; window.abstractInvoice = abstractInvoice; window.isAbstractInvoiced = isAbstractInvoiced; window.estimateForSheet = estimateForSheet; window.isSheetConvertedToEstimate = isSheetConvertedToEstimate; }
 
 export function healOrphanBilledSheets() {
   const abstracts = state.abstracts || [];

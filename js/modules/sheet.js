@@ -1051,11 +1051,17 @@ export function renderMeasurementList() {
     // Invoiced ⇔ a live invoice references this sheet's abstract (source of truth).
     const _inv = (billed && typeof window.abstractInvoice === 'function') ? window.abstractInvoice(_abs) : null;
     const invoiced = !!_inv;
-    const billedClass = invoiced ? 'border-l-indigo-500' : billed ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
+    // Converted to Estimate: an estimate was drafted from this sheet (and it isn't
+    // billed). Such sheets are not "pending to bill".
+    const _est = (!billed && typeof window.estimateForSheet === 'function') ? window.estimateForSheet(s) : null;
+    const converted = !!_est;
+    const billedClass = invoiced ? 'border-l-indigo-500' : billed ? 'border-l-green-500' : converted ? 'border-l-teal-400' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
     const statusBadge = invoiced
       ? `<span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Invoiced</span>`
       : billed
       ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Billed</span>`
+      : converted
+        ? `<span class="text-[10px] font-bold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full" title="A draft estimate was created from this measurement">Converted to Estimate</span>`
       : _running
         ? `<span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" title="Running measurement — bill from Micro-Planning → RA Billing">Running · RA Billing</span>`
         : `<span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>`;
@@ -1068,7 +1074,8 @@ export function renderMeasurementList() {
             <h4 class="font-extrabold text-slate-800 text-base">${s.sheetNum}</h4>
             ${statusBadge}
             ${invoiced ? `<span class="text-[10px] font-semibold text-slate-400">${_inv.invoiceNum || ''}${_abs && _abs.abstractNum ? ' · ' + _abs.abstractNum : ''}</span>`
-              : billed ? `<span class="text-[10px] font-semibold text-slate-400">${(_abs && _abs.abstractNum) || ''}</span>` : ''}
+              : billed ? `<span class="text-[10px] font-semibold text-slate-400">${(_abs && _abs.abstractNum) || ''}</span>`
+              : converted ? `<span class="text-[10px] font-semibold text-slate-400">${(_est && _est.estNum) || ''}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <span title="Date"><span class="font-bold text-slate-600">Date:</span> ${dateStr}</span>
