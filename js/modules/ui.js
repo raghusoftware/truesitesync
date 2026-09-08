@@ -3477,7 +3477,16 @@ export function sheetAbstract(sheet) {
     (a.sheetIds && a.sheetIds.includes(id)) || a.sheetId === id) || null;
 }
 export function isSheetBilled(sheet) { return !!sheetAbstract(sheet); }
-if (typeof window !== 'undefined') { window.sheetAbstract = sheetAbstract; window.isSheetBilled = isSheetBilled; }
+// An Abstract is "Invoiced" ONLY when a non-cancelled Invoice references it (via
+// abstractIds). Derived from state.invoices — never the stored a.isInvoiced flag,
+// which drifts (invoice made on another device, sync, cancel) and left invoiced
+// abstracts showing as Pending.
+export function abstractInvoice(abstract) {
+  if (!abstract) return null;
+  return (state.invoices || []).find(inv => inv.status !== 'Cancelled' && (inv.abstractIds || []).includes(abstract.id)) || null;
+}
+export function isAbstractInvoiced(abstract) { return !!abstractInvoice(abstract); }
+if (typeof window !== 'undefined') { window.sheetAbstract = sheetAbstract; window.isSheetBilled = isSheetBilled; window.abstractInvoice = abstractInvoice; window.isAbstractInvoiced = isAbstractInvoiced; }
 
 export function healOrphanBilledSheets() {
   const abstracts = state.abstracts || [];
@@ -3747,8 +3756,9 @@ export function renderAbstractsList() {
   const _escN = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
     const client = state.clients.find(c => c.id === a.clientId);
-    const _invoiced = a.isInvoiced || a.status === 'invoiced';
-    const _invNo = a.linkedInvoice || a.linkedInvoiceId || '';
+    const _inv = abstractInvoice(a);            // source of truth: a live invoice referencing this abstract
+    const _invoiced = !!_inv;
+    const _invNo = _inv ? _inv.invoiceNum : '';
     const statusBadge = _invoiced
       ? `<span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">&#10003; Invoiced${_invNo ? ': ' + _invNo : ''}</span>`
       : `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-xs px-3 py-1 rounded-full font-bold border border-amber-200">&#9679; Pending Invoice</span>`;
@@ -3798,7 +3808,7 @@ export function renderAbstractsList() {
                 <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="exportRABillExcel('${a.id}');this.parentElement.remove()" class="w-full text-left px-3 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-50 flex items-center gap-2.5"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block flex-shrink-0"></span> RA Bill Excel</button>
               </template>
-              ${a.isInvoiced ? '' : `<button onclick="openAbstractEditor('${a.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Abstract">
+              ${_invoiced ? '' : `<button onclick="openAbstractEditor('${a.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Abstract">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>`}
               <button onclick="deleteAbstract('${a.id}')" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Abstract">
@@ -3817,7 +3827,7 @@ export function renderAbstractsList() {
 export function deleteAbstract(id) {
   const abs = state.abstracts.find(a => a.id === id);
   if (!abs) return;
-  if (abs.isInvoiced) return showToast('Cannot delete! This abstract is locked inside an Invoice.', 'error');
+  if (isAbstractInvoiced(abs)) return showToast('Cannot delete! This abstract is locked inside an Invoice.', 'error');
   if (confirm(`Are you sure you want to delete Abstract ${abs.abstractNum}?`)) {
     // Restore EVERY sheet on this abstract to "pending for abstract" — multi-sheet
     // abstracts store sheetIds; fall back to the single sheetId for the classic flow.
@@ -3890,7 +3900,7 @@ export function calcAbstractEditRow(input) {
 export function openAbstractEditor(id) {
   const abs = state.abstracts.find(a => a.id === id);
   if (!abs) return showToast('Abstract not found', 'error');
-  if (abs.isInvoiced) return showToast('This abstract is locked inside an invoice and cannot be edited', 'error');
+  if (isAbstractInvoiced(abs)) return showToast('This abstract is locked inside an invoice and cannot be edited', 'error');
   _editingAbstractId = id;
   const client = state.clients.find(c => c.id === abs.clientId);
   document.getElementById('absEditNum').textContent = abs.abstractNum || '';
@@ -3984,7 +3994,7 @@ export function loadPendingAbstractsForBilling() {
   const _ret = document.getElementById('billRetention');
   if (_ret && _proj && (_proj.retention || 0) > 0 && !_ret.dataset.touched) _ret.value = _proj.retention;
 
-  const pending = state.abstracts.filter(a => a.clientId === cId && !a.isInvoiced);
+  const pending = state.abstracts.filter(a => a.clientId === cId && !isAbstractInvoiced(a));
   pending.forEach(a => {
     list.innerHTML += `<label class="flex items-center gap-3 p-3 border-b hover:bg-slate-100 cursor-pointer"><input type="checkbox" class="billing-checkbox w-5 h-5 accent-blue-600" value="${a.id}" onchange="calculateLiveBill()"><div><p class="font-bold text-slate-800">${a.abstractNum} - Area: ${a.area}</p><p class="text-sm font-extrabold text-blue-700">${getCurrencySymbol()}${a.totalAmount.toLocaleString('en-IN')}</p></div></label>`;
   });

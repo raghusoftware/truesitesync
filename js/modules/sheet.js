@@ -1048,8 +1048,13 @@ export function renderMeasurementList() {
     // the stored s.isBilled flag, which drifts and showed false "Billed".
     const _abs = (typeof window.sheetAbstract === 'function') ? window.sheetAbstract(s) : (s.isBilled ? { abstractNum: s.linkedAbstract } : null);
     const billed = !!_abs;
-    const billedClass = billed ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
-    const statusBadge = billed
+    // Invoiced ⇔ a live invoice references this sheet's abstract (source of truth).
+    const _inv = (billed && typeof window.abstractInvoice === 'function') ? window.abstractInvoice(_abs) : null;
+    const invoiced = !!_inv;
+    const billedClass = invoiced ? 'border-l-indigo-500' : billed ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
+    const statusBadge = invoiced
+      ? `<span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Invoiced</span>`
+      : billed
       ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Billed</span>`
       : _running
         ? `<span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" title="Running measurement — bill from Micro-Planning → RA Billing">Running · RA Billing</span>`
@@ -1062,7 +1067,8 @@ export function renderMeasurementList() {
           <div class="flex items-center gap-2 mb-1.5">
             <h4 class="font-extrabold text-slate-800 text-base">${s.sheetNum}</h4>
             ${statusBadge}
-            ${billed ? `<span class="text-[10px] font-semibold text-slate-400">${(_abs && _abs.abstractNum) || ''}</span>` : ''}
+            ${invoiced ? `<span class="text-[10px] font-semibold text-slate-400">${_inv.invoiceNum || ''}${_abs && _abs.abstractNum ? ' · ' + _abs.abstractNum : ''}</span>`
+              : billed ? `<span class="text-[10px] font-semibold text-slate-400">${(_abs && _abs.abstractNum) || ''}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <span title="Date"><span class="font-bold text-slate-600">Date:</span> ${dateStr}</span>
