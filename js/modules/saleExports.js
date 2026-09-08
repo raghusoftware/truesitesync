@@ -12,7 +12,7 @@ import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2, amountToWordsINR } from './format.js';
-import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js';
+import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.0';
 
 const _num2 = formatNumber2;
 

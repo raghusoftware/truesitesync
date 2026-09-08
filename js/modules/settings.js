@@ -117,7 +117,7 @@ window._setInvoiceTemplate = function(v) {
   state.printSettings.invoiceTemplate = v;
   saveAllData();
   renderPrintConfigTab();
-  const names = { standard: 'Standard', classic: 'Classic Professional', modern: 'Modern Minimal', formal: 'Traditional Formal', compact: 'Compact Single-Page', accent: 'Colour Accent' };
+  const names = { standard: 'Standard', classic: 'Corporate Classic', modern: 'Modern Band', sidebar: 'Left Sidebar', minimal: 'Minimal Mono', accent: 'Accent Brand' };
   showToast('Invoice design: ' + (names[v] || v), 'success');
 };
 
@@ -374,7 +374,7 @@ function renderPrintConfigTab() {
       </div>
       <p class="text-[11px] text-slate-500 mb-3">Choose the PDF layout for Tax Invoices. All designs are GST-compliant (Rule 46) and include CGST/SGST or IGST break-up, HSN/SAC, place of supply, amount in words, signature and reverse-charge note.</p>
       <div class="flex flex-wrap gap-2">
-        ${[['standard', 'Standard'], ['classic', 'Classic Professional'], ['modern', 'Modern Minimal'], ['formal', 'Traditional Formal'], ['compact', 'Compact Single-Page'], ['accent', 'Colour Accent']].map(([k, label]) =>
+        ${[['standard', 'Standard'], ['classic', 'Corporate Classic'], ['modern', 'Modern Band'], ['sidebar', 'Left Sidebar'], ['minimal', 'Minimal Mono'], ['accent', 'Accent Brand']].map(([k, label]) =>
           `<button onclick="window._setInvoiceTemplate('${k}')" class="px-4 py-2 rounded-lg text-sm font-bold border ${invTemplate === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">${label}</button>`
         ).join('')}
       </div>
