@@ -876,7 +876,8 @@ export function saveEntries() {
   _updateAbstractBtn(data);
   _renderSheetAttribution(data);
   _applyLockState(data);
-  document.getElementById('sheetStatusText').textContent = data.locked ? 'Verified & Locked' : (isBilled ? `Billed -> Abstract: ${linkedAbstract}` : 'Saved Draft: ' + sNum);
+  const _dAbs = (typeof window.sheetAbstract === 'function') ? window.sheetAbstract(data) : (isBilled ? { abstractNum: linkedAbstract } : null);
+  document.getElementById('sheetStatusText').textContent = data.locked ? 'Verified & Locked' : (_dAbs ? `Billed -> Abstract: ${_dAbs.abstractNum}` : 'Saved Draft: ' + sNum);
 }
 
 // Show "Bill to Abstract" only to roles allowed to bill (PM / Admin) and only
@@ -885,7 +886,16 @@ function _updateAbstractBtn(sheet) {
   const btn = document.getElementById('btnGenerateAbstract');
   if (!btn) return;
   const canBill = typeof window.canBillToAbstract === 'function' ? window.canBillToAbstract() : true;
-  btn.classList.toggle('hide', !(canBill && sheet && !sheet.isBilled));
+  const billed = typeof window.isSheetBilled === 'function' ? window.isSheetBilled(sheet) : (sheet && sheet.isBilled);
+  btn.classList.toggle('hide', !(canBill && sheet && !billed));
+}
+// Generate an Abstract for a sheet straight from the Measurement list: load it,
+// then open the existing abstract flow (which enforces the PM/Admin bill gate).
+if (typeof window !== 'undefined') {
+  window._genAbstractForSheet = function (id) {
+    try { loadSheet(id); } catch {}
+    setTimeout(() => { try { window.generateAbstractFromSheet && window.generateAbstractFromSheet(); } catch (e) { console.warn(e); } }, 60);
+  };
 }
 
 // "Measurement sheet uploaded by …" + (if reviewed/locked) the review/lock lines.
@@ -987,8 +997,9 @@ export function loadSheet(id) {
   _updateAbstractBtn(s);
   _renderSheetAttribution(s);
   _applyLockState(s);
+  const _lAbs = (typeof window.sheetAbstract === 'function') ? window.sheetAbstract(s) : (s.isBilled ? { abstractNum: s.linkedAbstract } : null);
   document.getElementById('sheetStatusText').textContent = s.locked ? 'Verified & Locked'
-    : (s.isBilled ? `Loaded (Billed): ${s.sheetNum} -> Abstract: ${s.linkedAbstract}` : 'Loaded Draft: ' + s.sheetNum);
+    : (_lAbs ? `Loaded (Billed): ${s.sheetNum} -> Abstract: ${_lAbs.abstractNum}` : 'Loaded Draft: ' + s.sheetNum);
   window.switchView('entrySheet');
 }
 
@@ -1033,12 +1044,17 @@ export function renderMeasurementList() {
     const dateStr = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const updatedStr = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     const _running = s._running || s.locationId;
-    const billedClass = s.isBilled ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
-    const statusBadge = s.isBilled
+    // Billed status derived from the Abstracts themselves (source of truth) — never
+    // the stored s.isBilled flag, which drifts and showed false "Billed".
+    const _abs = (typeof window.sheetAbstract === 'function') ? window.sheetAbstract(s) : (s.isBilled ? { abstractNum: s.linkedAbstract } : null);
+    const billed = !!_abs;
+    const billedClass = billed ? 'border-l-green-500' : (_running ? 'border-l-violet-400' : 'border-l-blue-400');
+    const statusBadge = billed
       ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Billed</span>`
       : _running
         ? `<span class="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" title="Running measurement — bill from Micro-Planning → RA Billing">Running · RA Billing</span>`
         : `<span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>`;
+    const _canBill = (typeof window.canBillToAbstract === 'function') ? window.canBillToAbstract() : true;
 
     return `<div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4 ${billedClass}">
       <div class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
@@ -1046,7 +1062,7 @@ export function renderMeasurementList() {
           <div class="flex items-center gap-2 mb-1.5">
             <h4 class="font-extrabold text-slate-800 text-base">${s.sheetNum}</h4>
             ${statusBadge}
-            ${s.isBilled ? `<span class="text-[10px] font-semibold text-slate-400">${s.linkedAbstract || ''}</span>` : ''}
+            ${billed ? `<span class="text-[10px] font-semibold text-slate-400">${(_abs && _abs.abstractNum) || ''}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <span title="Date"><span class="font-bold text-slate-600">Date:</span> ${dateStr}</span>
@@ -1058,6 +1074,7 @@ export function renderMeasurementList() {
           ${uniqueItems.length ? `<div class="flex flex-wrap gap-1 mt-2">${uniqueItems.slice(0, 5).map(c => `<span class="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">${c}</span>`).join('')}${uniqueItems.length > 5 ? `<span class="text-[10px] text-slate-400 font-semibold">+${uniqueItems.length - 5} more</span>` : ''}</div>` : ''}
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
+          ${(!billed && !_running && _canBill) ? `<button onclick="window._genAbstractForSheet('${s.id}')" class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-sm hover:bg-emerald-100 transition flex items-center gap-1.5" title="Convert this measurement into an Abstract">📑 Generate Abstract</button>` : ''}
           <button onclick="loadSheet('${s.id}')" class="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition flex items-center gap-1.5" title="Open & Edit">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             Open
@@ -1081,7 +1098,7 @@ function _sheetBilledInRA(s) {
 export function deleteMeasurementSheet(id) {
   const s = state.sheets.find(x => x.id === id);
   if (!s) return;
-  if (s.isBilled) {
+  if (typeof window.isSheetBilled === 'function' ? window.isSheetBilled(s) : s.isBilled) {
     showToast('Cannot delete a billed sheet. Remove the linked abstract first.', 'error');
     return;
   }

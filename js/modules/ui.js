@@ -3465,6 +3465,20 @@ function _absGroupFromSheets(sheets, proj, cItems) {
  * if a live abstract references it (by sheet id, or by the abstract number stored on it);
  * otherwise reset it to pending. Idempotent — saves only when it actually frees a sheet.
  */
+// ── Source-of-truth Billed status ──────────────────────────────────────────
+// A measurement sheet is "Billed" ONLY when an Abstract actually references it.
+// Deriving from state.abstracts (never a stored flag) makes the status immune to
+// drift from abstract deletion, offline/multi-device sync or stale re-saves —
+// the reason the old sheet.isBilled flag kept showing false "Billed".
+export function sheetAbstract(sheet) {
+  if (!sheet) return null;
+  const id = sheet.id;
+  return (state.abstracts || []).find(a =>
+    (a.sheetIds && a.sheetIds.includes(id)) || a.sheetId === id) || null;
+}
+export function isSheetBilled(sheet) { return !!sheetAbstract(sheet); }
+if (typeof window !== 'undefined') { window.sheetAbstract = sheetAbstract; window.isSheetBilled = isSheetBilled; }
+
 export function healOrphanBilledSheets() {
   const abstracts = state.abstracts || [];
   const liveNums = new Set(abstracts.map(a => a.abstractNum).filter(Boolean));

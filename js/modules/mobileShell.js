@@ -211,8 +211,22 @@ export function initMobileShell() {
   // Browser / PWA back: keep one extra history entry to intercept
   if (!isNativeApp()) {
     try {
+      // Android WebView/Chrome fire a spurious `popstate` when a native <select>
+      // dropdown is opened & dismissed. Without this guard the app treats that as
+      // a Back press and jumps to the previous screen. Record the last <select>
+      // interaction and ignore any popstate that lands right after one.
+      let _selectGuardTs = 0;
+      ['focusin', 'change', 'mousedown', 'touchstart'].forEach(ev =>
+        document.addEventListener(ev, (e) => {
+          if (e.target && e.target.tagName === 'SELECT') _selectGuardTs = Date.now();
+        }, true));
       history.pushState({ mShell: true }, '');
       window.addEventListener('popstate', () => {
+        if (Date.now() - _selectGuardTs < 1200) {
+          // Spurious popstate from a dropdown dismiss — stay on the page, re-arm.
+          history.pushState({ mShell: true }, '');
+          return;
+        }
         const handled = handleBack();
         // Re-arm so the next back press is also caught
         if (handled) history.pushState({ mShell: true }, '');
