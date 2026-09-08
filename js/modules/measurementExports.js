@@ -50,6 +50,20 @@ function _fmtDMY(iso) {
 // Custom label for a built-in dimension column ('nos'|'l'|'b'|'h'), else the export default.
 function _hl(s, key, def) { return (s && s.columnLabels && s.columnLabels[key]) ? s.columnLabels[key] : def; }
 
+// ── Dynamic column model ────────────────────────────────────────────────────
+// Exports must mirror the Measurement Sheet's ACTUAL configured columns — never
+// a fixed/assumed structure. The only user-configurable extras are the custom
+// columns (added via "+ Custom Columns"); these helpers surface them, in their
+// configured position order, so every template reproduces exactly what the sheet
+// shows. Renamed built-in headers (Nos/L/B/H) are already handled by _hl().
+const _CC_ORDER = { 'after-nos': 3.5, 'after-l': 4.5, 'after-b': 5.5, 'after-h': 6.5, 'after-qty': 8.5, 'after-remarks': 9.5 };
+/** Custom columns configured on a sheet, in their configured position order. */
+function _sheetCustomCols(s) {
+  return [...((s && s.customColumns) || [])].sort((a, b) => (_CC_ORDER[a.position] ?? 9.5) - (_CC_ORDER[b.position] ?? 9.5));
+}
+/** Value of a custom column for an entry line (blank when unset). */
+function _ccVal(e, col) { return (e && e.customData && e.customData[col.id] != null) ? e.customData[col.id] : ''; }
+
 export function exportMeasurementPlantPdf(id) {
   try {
     const sheetId = id || state.currentSheetId;
@@ -81,7 +95,10 @@ export function exportMeasurementPlantPdf(id) {
 
     // Grouped body: item header row + F-lines + a per-group Total Qty (rowSpan).
     const groups = groupSheetEntries(s.entries || []);
-    const head = [['Sr\nNo.', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height\nThk.'), 'Coeff\nSize', 'Qty', 'Total\nQty']];
+    // Columns come strictly from the sheet: fixed built-ins + any custom columns
+    // (in configured order). No hard-coded Coef/Size column.
+    const cc = _sheetCustomCols(s);
+    const head = [['Sr\nNo.', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height\nThk.'), ...cc.map(c => c.name), 'Qty', 'Total\nQty']];
     const body = [];
     let itemNum = 0;
     Object.keys(groups).forEach(key => {
@@ -93,7 +110,7 @@ export function exportMeasurementPlantPdf(id) {
         { content: itemNum, styles: { halign: 'center', fontStyle: 'bold' } },
         { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
         { content: (first.uom || ''), styles: { halign: 'center', fontStyle: 'bold' } },
-        '', '', '', '', '', '',
+        '', '', '', '', ...cc.map(() => ''), '',
         { content: _qtyDp(total), rowSpan: lines.length + 1, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } }
       ]);
       lines.forEach(e => {
@@ -105,16 +122,21 @@ export function exportMeasurementPlantPdf(id) {
           { content: e.l || '', styles: { halign: 'center' } },
           { content: e.b || '', styles: { halign: 'center' } },
           { content: e.h || '', styles: { halign: 'center' } },
-          '',
+          ...cc.map(col => ({ content: _ccVal(e, col), styles: { halign: 'center' } })),
           { content: (e.qty != null && e.qty !== '') ? _qtyDp(e.qty) : '', styles: { halign: 'center' } }
         ]);
       });
     });
+    // Column widths: fixed built-ins, then one slot per custom column, then Qty + Total.
+    const plantCS = { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 13, halign: 'center' }, 4: { cellWidth: 16, halign: 'center' }, 5: { cellWidth: 16, halign: 'center' }, 6: { cellWidth: 16, halign: 'center' } };
+    cc.forEach((_, i) => { plantCS[7 + i] = { cellWidth: 15, halign: 'center' }; });
+    plantCS[7 + cc.length] = { cellWidth: 18, halign: 'center' };
+    plantCS[8 + cc.length] = { cellWidth: 20, halign: 'center' };
     doc.autoTable({
       startY: ty + 6, head, body, theme: 'grid',
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5 },
       styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
-      columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 13, halign: 'center' }, 4: { cellWidth: 16, halign: 'center' }, 5: { cellWidth: 16, halign: 'center' }, 6: { cellWidth: 16, halign: 'center' }, 7: { cellWidth: 15, halign: 'center' }, 8: { cellWidth: 18, halign: 'center' }, 9: { cellWidth: 20, halign: 'center' } },
+      columnStyles: plantCS,
       margin: { left: 14, right: 14 }
     });
     mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
@@ -223,7 +245,10 @@ export function exportMeasurementFlintPdf(id) {
     );
 
     const groups = groupSheetEntries(s.entries || []);
-    const head = [['Sr.No', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height /Thk.'), 'Coeff./Size', 'Qty']];
+    // Columns strictly from the sheet: built-ins + custom columns (no Coef/Size).
+    const cc = _sheetCustomCols(s);
+    const head = [['Sr.No', 'Description', 'UOM', _hl(s, 'nos', 'Nos.'), _hl(s, 'l', 'Length'), _hl(s, 'b', 'Width'), _hl(s, 'h', 'Height /Thk.'), ...cc.map(c => c.name), 'Qty']];
+    const totalCols = head[0].length;            // total columns in the table
     const body = [];
     const groupRows = []; // body-row indices that are item headers (for the teal accent bar)
     let itemNum = 0;
@@ -237,7 +262,7 @@ export function exportMeasurementFlintPdf(id) {
         { content: itemNum, styles: { halign: 'center', fontStyle: 'bold' } },
         { content: (first.description || first.code || ''), styles: { fontStyle: 'bold' } },
         { content: (first.uom || ''), styles: { halign: 'center', fontStyle: 'bold' } },
-        '', '', '', '', '', ''
+        '', '', '', '', ...cc.map(() => ''), ''
       ]);
       lines.forEach(e => {
         body.push([
@@ -248,20 +273,23 @@ export function exportMeasurementFlintPdf(id) {
           { content: e.l || '', styles: { halign: 'center' } },
           { content: e.b || '', styles: { halign: 'center' } },
           { content: e.h || '', styles: { halign: 'center' } },
-          { content: e.coeff || e.size || '', styles: { halign: 'center' } },
+          ...cc.map(col => ({ content: _ccVal(e, col), styles: { halign: 'center' } })),
           { content: (e.qty != null && e.qty !== '') ? _qtyDp(e.qty) : '', styles: { halign: 'center' } }
         ]);
       });
       body.push([
-        { content: 'TOTAL ' + String(first.description || first.code || '').toUpperCase(), colSpan: 8, styles: { fontStyle: 'bold', halign: 'left', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } },
+        { content: 'TOTAL ' + String(first.description || first.code || '').toUpperCase(), colSpan: totalCols - 1, styles: { fontStyle: 'bold', halign: 'left', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } },
         { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: _FL_TOTFILL, textColor: _FL_TOTTEXT } }
       ]);
     });
+    const flintCS = { 0: { cellWidth: 11, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' }, 4: { cellWidth: 17, halign: 'center' }, 5: { cellWidth: 17, halign: 'center' }, 6: { cellWidth: 17, halign: 'center' } };
+    cc.forEach((_, i) => { flintCS[7 + i] = { cellWidth: 16, halign: 'center' }; });
+    flintCS[7 + cc.length] = { cellWidth: 18, halign: 'center' };
     doc.autoTable({
       startY: y, head, body, theme: 'grid',
       headStyles: { fillColor: _FL_HEADFILL, textColor: [40, 40, 40], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: [210, 215, 222], lineWidth: 0.1, fontSize: 8 },
       styles: { fontSize: 8, cellPadding: 1.5, lineColor: [225, 228, 233], lineWidth: 0.1, textColor: [30, 40, 55] },
-      columnStyles: { 0: { cellWidth: 11, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' }, 4: { cellWidth: 17, halign: 'center' }, 5: { cellWidth: 17, halign: 'center' }, 6: { cellWidth: 17, halign: 'center' }, 7: { cellWidth: 16, halign: 'center' }, 8: { cellWidth: 18, halign: 'center' } },
+      columnStyles: flintCS,
       margin: { left: 14, right: 14 },
       didParseCell: (d) => { if (d.section === 'body' && groupRows.includes(d.row.index)) d.cell.styles.fontStyle = 'bold'; },
       didDrawCell: (d) => {
@@ -324,7 +352,9 @@ export function exportSimpleMeasurementPdf(id) {
 
   // Grouped (Measurement-Book) body: item entered once -> measurement lines -> Total Quantity
   const groups = groupSheetEntries(s.entries || []);
-  const head = [['Sr', 'Particulars of work', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), 'Qty', 'Unit']];
+  // Columns strictly from the sheet: built-ins + custom columns (configured order).
+  const cc = _sheetCustomCols(s);
+  const head = [['Sr', 'Particulars of work', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), ...cc.map(c => c.name), 'Qty', 'Unit']];
   const rows = [];
   let itemNum = 0;
   Object.keys(groups).forEach(key => {
@@ -334,29 +364,31 @@ export function exportSimpleMeasurementPdf(id) {
     const title = (first.code ? first.code + ' — ' : '') + (first.description || first.code || '');
     rows.push([
       { content: itemNum, styles: { fontStyle: 'bold' } },
-      { content: title, colSpan: 7, styles: { fontStyle: 'bold', fillColor: itemLineFill, textColor: accent } }
+      { content: title, colSpan: 7 + cc.length, styles: { fontStyle: 'bold', fillColor: itemLineFill, textColor: accent } }
     ]);
     let total = 0;
     lines.forEach(e => {
       total += (e.qty || 0);
-      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', _qtyDp(e.qty), e.uom || first.uom || '']);
+      rows.push(['', e.remarks || '', e.nos || '', e.l || '', e.b || '', e.h || '', ...cc.map(col => _ccVal(e, col)), _qtyDp(e.qty), e.uom || first.uom || '']);
     });
     rows.push([
-      '', { content: 'Total Quantity', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
+      '', { content: 'Total Quantity', colSpan: 5 + cc.length, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: _qtyDp(total), styles: { fontStyle: 'bold', halign: 'center', fillColor: totalFill } },
       { content: first.uom || '', styles: { fontStyle: 'bold', halign: 'center' } }
     ]);
   });
+  const simpleCS = {
+    0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
+    2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 18, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' }, 5: { cellWidth: 18, halign: 'center' }
+  };
+  cc.forEach((_, i) => { simpleCS[6 + i] = { cellWidth: 16, halign: 'center' }; });
+  simpleCS[6 + cc.length] = { cellWidth: 22, halign: 'center', fontStyle: 'bold', textColor: accent };
+  simpleCS[7 + cc.length] = { cellWidth: 16, halign: 'center' };
   doc.autoTable({
     startY: y + 28, head, body: rows, theme: 'grid', tableWidth: 'auto',
     headStyles: { fillColor: accent, textColor: headTextCol, fontSize: isP ? 7 : 7.5, fontStyle: 'bold', halign: 'center', lineColor: border, lineWidth: 0.15 },
     styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, overflow: 'linebreak', textColor: fontCol, lineColor: border, lineWidth: 0.15 },
-    columnStyles: {
-      0: { cellWidth: 9, halign: 'center' }, 1: { cellWidth: 'auto', overflow: 'linebreak' },
-      2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 18, halign: 'center' }, 4: { cellWidth: 18, halign: 'center' },
-      5: { cellWidth: 18, halign: 'center' },
-      6: { cellWidth: 22, halign: 'center', fontStyle: 'bold', textColor: accent }, 7: { cellWidth: 16, halign: 'center' }
-    }
+    columnStyles: simpleCS
   });
 
   // BBS summary if exists
@@ -598,9 +630,13 @@ export function exportDetailedMeasurementPdf(id) {
 export function exportToExcel() {
   if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
   const s = state.sheets.find(x => x.id === state.currentSheetId);
-  let csvContent = `data:text/csv;charset=utf-8,Code,Description,Unit,${_hl(s, 'nos', 'Nos')},${_hl(s, 'l', 'L')},${_hl(s, 'b', 'B')},${_hl(s, 'h', 'H')},Qty,Remarks\n`;
+  // Columns strictly from the sheet: built-ins + custom columns (configured order).
+  const cc = _sheetCustomCols(s);
+  const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const headerCols = ['Code', 'Description', 'Unit', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), ...cc.map(c => c.name), 'Qty', 'Remarks'];
+  let csvContent = `data:text/csv;charset=utf-8,` + headerCols.map(csvCell).join(',') + `\n`;
   s.entries.forEach(e => {
-    let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
+    let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, ...cc.map(col => csvCell(_ccVal(e, col))), e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
     csvContent += row.join(",") + "\n";
   });
   const encodedUri = encodeURI(csvContent);
