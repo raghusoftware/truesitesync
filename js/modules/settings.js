@@ -215,6 +215,89 @@ const DOC_COLOR_DEFAULTS = {
 const DOC_COLOR_LABELS = { measurement: 'Measurement / RA', abstract: 'Abstract', invoice: 'Tax Invoice' };
 let _colorDoc = 'measurement';
 
+// ═══════════════════════════════════════════════════════════
+//  PRINT TAB — sub-tabs + visual design galleries
+// ═══════════════════════════════════════════════════════════
+let _printSubTab = 'invoice';
+window._printSubTab = function (t) { _printSubTab = t; if (typeof window.renderPrintConfigTab === 'function') renderPrintConfigTab(); };
+function _printTabBar() {
+  const tabs = [['invoice', '🧾 Invoice'], ['measure', '📐 Measurement & Abstract'], ['advanced', '🎨 Colours & Header']];
+  return `<div class="flex gap-2 mb-5 flex-wrap">${tabs.map(([k, l]) =>
+    `<button onclick="window._printSubTab('${k}')" class="px-4 py-2 rounded-lg text-sm font-bold border transition ${_printSubTab === k ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:border-blue-300'}">${l}</button>`).join('')}</div>`;
+}
+// Closes the previous group wrapper and opens the next one, toggled by display.
+function _pgw(g) { return `</div><div class="pgw" style="display:${_printSubTab === g ? '' : 'none'}">`; }
+
+// ── Mini thumbnails (pure HTML mocks of each PDF layout) ──
+function _bars(n, w) { let s = ''; for (let i = 0; i < n; i++) s += `<div style="height:3px;background:#e2e8f0;border-radius:2px;margin:2.5px 0;width:${w || (60 + (i * 13) % 35)}%"></div>`; return s; }
+function _thumbFrame(inner, pad) { return `<div style="border:1px solid #e5e9f0;border-radius:6px;overflow:hidden;height:104px;background:#fff;position:relative;padding:${pad == null ? 7 : pad}px;box-sizing:border-box;">${inner}</div>`; }
+function _invoiceThumb(key) {
+  const A = getDocColor('invoice', 'header') || '#1e3a8a';
+  const gold = '#b08d3e', navy = '#172b54', teal = '#0f766e', ink = '#111827';
+  const hdrRow = (c) => `<div style="display:flex;gap:3px;margin-bottom:3px">${[38, 12, 14, 16].map(w => `<div style="height:6px;width:${w}%;background:${c};border-radius:1px"></div>`).join('')}</div>`;
+  if (key === 'standard') return _thumbFrame(`<div style="height:8px;background:${A};border-radius:2px;margin-bottom:5px"></div>${hdrRow(A)}${_bars(4)}`);
+  if (key === 'classic') return _thumbFrame(`<div style="display:flex;justify-content:space-between;align-items:center"><div style="height:5px;width:34%;background:${navy};border-radius:1px"></div><div style="height:7px;width:30%;background:${navy};border-radius:1px"></div></div><div style="height:2px;background:${gold};margin:4px 0 5px"></div>${hdrRow(navy)}${_bars(3)}<div style="height:7px;background:${navy};border-radius:1px;margin-top:4px"></div>`);
+  if (key === 'modern') return _thumbFrame(`<div style="height:22px;background:${A};border-radius:2px;margin:-7px -7px 6px;display:flex;align-items:center;justify-content:flex-end;padding:0 6px"><div style="height:6px;width:34%;background:rgba(255,255,255,.85);border-radius:1px"></div></div>${hdrRow(A)}${_bars(3)}<div style="height:14px;width:46%;margin-left:54%;background:${A}22;border-radius:3px;margin-top:5px"></div>`, 7);
+  if (key === 'sidebar') return _thumbFrame(`<div style="position:absolute;left:0;top:0;bottom:0;width:32%;background:${A}"></div><div style="margin-left:36%"><div style="height:7px;width:60%;background:${A};border-radius:1px;margin-bottom:5px"></div>${hdrRow(A)}${_bars(4)}</div>`, 7);
+  if (key === 'minimal') return _thumbFrame(`<div style="display:flex;justify-content:space-between"><div style="height:4px;width:30%;background:${ink};border-radius:1px"></div><div style="height:6px;width:34%;background:${ink};border-radius:1px"></div></div><div style="height:1px;background:${ink};margin:6px 0"></div>${_bars(4, 100).replace(/#e2e8f0/g, '#eef1f5')}<div style="height:2px;width:32%;margin-left:68%;background:${A};margin-top:6px"></div>`);
+  if (key === 'accent') return _thumbFrame(`<div style="position:absolute;left:0;right:0;top:0;height:4px;background:${A}"></div><div style="position:absolute;left:0;right:0;bottom:0;height:4px;background:${A}"></div><div style="display:flex;justify-content:flex-end;margin-top:3px"><div style="height:13px;width:38%;background:${A};border-radius:2px"></div></div><div style="margin-top:5px">${hdrRow(A)}${_bars(3)}</div><div style="height:11px;width:46%;margin-left:54%;background:${A};border-radius:2px;margin-top:4px"></div>`, 7);
+  return _thumbFrame(_bars(5));
+}
+function _docThumb(key) {
+  const A = getDocColor('measurement', 'header') || '#f97316';
+  if (key === 'standard') return _thumbFrame(`<div style="height:7px;width:50%;margin:0 auto 5px;background:#0f172a;border-radius:1px"></div><div style="height:6px;background:${A};border-radius:1px;margin-bottom:3px"></div>${_bars(4)}`);
+  if (key === 'plant') { let g = ''; for (let r = 0; r < 5; r++) g += `<div style="display:flex;gap:2px;margin-bottom:2px">${[20, 30, 12, 12, 12, 14].map(w => `<div style="height:8px;width:${w}%;border:1px solid #cbd5e1;box-sizing:border-box"></div>`).join('')}</div>`; return _thumbFrame(`<div style="height:6px;width:45%;margin:0 auto 5px;background:#0f172a;border-radius:1px"></div>${g}`); }
+  if (key === 'flint') return _thumbFrame(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div style="height:6px;width:30%;background:${A};border-radius:1px"></div><div style="height:9px;width:26%;background:#e2e8f0;border-radius:2px"></div></div><div style="height:1.5px;background:${A};margin:4px 0"></div>${_bars(4)}`);
+  return _thumbFrame(_bars(5));
+}
+
+const _INV_DESIGNS = [
+  ['standard', 'Standard', 'Original built-in layout'],
+  ['classic', 'Corporate Classic', 'Serif letterhead · navy & gold'],
+  ['modern', 'Modern Band', 'Brand band header · totals card'],
+  ['sidebar', 'Left Sidebar', 'Coloured side panel'],
+  ['minimal', 'Minimal Mono', 'Clean whitespace · hairlines'],
+  ['accent', 'Accent Brand', 'Brand bars · your colour'],
+];
+const _DOC_TEMPLATES = [
+  ['standard', 'Standard', 'Clean measurement sheet'],
+  ['plant', 'Plant (Tabular)', 'Ruled grid · grouped items'],
+  ['flint', 'New Format', 'Doc ID / Status header'],
+];
+function _designCard(key, name, desc, sel, thumb, setFn, previewFn) {
+  return `<div role="button" tabindex="0" onclick="${setFn}('${key}')" class="text-left border rounded-xl p-2.5 cursor-pointer transition hover:shadow-md ${sel ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40' : 'border-slate-200 bg-white hover:border-blue-200'}">
+    ${thumb}
+    <div class="flex items-start justify-between mt-2 gap-2">
+      <div class="min-w-0">
+        <div class="text-xs font-bold text-slate-800 flex items-center gap-1">${name}${sel ? '<span class="text-blue-600">✓</span>' : ''}</div>
+        <div class="text-[10px] text-slate-400 truncate">${desc}</div>
+      </div>
+    </div>
+    <div class="mt-1.5"><span onclick="event.stopPropagation();${previewFn}('${key}')" class="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 cursor-pointer hover:underline">👁 Preview PDF</span></div>
+  </div>`;
+}
+function _invoiceDesignCardsHTML() {
+  const cur = (state.printSettings?.invoiceTemplate) || 'standard';
+  return `<div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+    <div class="flex items-center gap-2 mb-1"><span class="text-base">🧾</span><h4 class="font-bold text-sm text-slate-800">Tax Invoice — Design</h4></div>
+    <p class="text-[11px] text-slate-400 mb-3">Pick a look for your Tax Invoice PDFs. All are GST-compliant (Rule 46: CGST/SGST or IGST break-up, HSN/SAC, place of supply, amount in words, signature, reverse-charge note). Tap <b>Preview PDF</b> to see it with your data.</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+      ${_INV_DESIGNS.map(([k, n, d]) => _designCard(k, n, d, cur === k, _invoiceThumb(k), 'window._setInvoiceTemplate', 'window._previewInvoiceDesign')).join('')}
+    </div>
+    <p class="text-[10px] text-slate-400 mt-2">“Accent Brand” uses your Invoice accent colour (set it under the <b>Colours & Header</b> tab).</p>
+  </div>`;
+}
+function _docTemplateCardsHTML() {
+  const cur = (state.printSettings?.docTemplate) || 'standard';
+  return `<div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+    <div class="flex items-center gap-2 mb-1"><span class="text-base">📐</span><h4 class="font-bold text-sm text-slate-800">Measurement & Abstract — Template</h4></div>
+    <p class="text-[11px] text-slate-400 mb-3">Layout used when you export or print a measurement sheet / abstract. Tap <b>Preview PDF</b> to see a sample.</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+      ${_DOC_TEMPLATES.map(([k, n, d]) => _designCard(k, n, d, cur === k, _docThumb(k), 'window._setDocTemplate', 'window._previewMeasTemplate')).join('')}
+    </div>
+  </div>`;
+}
+
 export function getDocColor(docType, kind) {
   const key = DOC_COLOR_KEYS[docType]?.[kind];
   return (state.printSettings && state.printSettings[key]) || DOC_COLOR_DEFAULTS[docType][kind];
@@ -328,6 +411,8 @@ function renderPrintConfigTab() {
   const invNextNo = (state.printSettings?.invoiceNextNo || 1);
   const invPreview = (typeof window.nextInvoiceNumber === 'function') ? (function(){ try { return window.nextInvoiceNumber(); } catch { return invPrefix + invNextNo; } })() : (invPrefix + invNextNo);
   c.innerHTML = `
+    ${_printTabBar()}
+    <div class="pgw" style="display:${_printSubTab === 'invoice' ? '' : 'none'}">
     <!-- ═══ INVOICE NUMBERING ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-1">
@@ -352,34 +437,8 @@ function renderPrintConfigTab() {
     </div>
 `;
   c.innerHTML += `
-    <!-- ═══ DOCUMENT TEMPLATE ═══ -->
-    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
-      <div class="flex items-center gap-2 mb-1">
-        <span class="text-base">&#129534;</span>
-        <h4 class="font-bold text-sm text-slate-800">Measurement &amp; Abstract &mdash; Document Template</h4>
-      </div>
-      <p class="text-[11px] text-slate-400 mb-3">Layout used when you export/print a measurement sheet or abstract. <b>Plant (Tabular)</b> is the ruled-grid format with grouped items (F1, F2&hellip;) and a per-item Total Qty column. <b>New Format</b> adds a Document&nbsp;ID / Status / Version header and highlighted item-total rows. The letterhead uses your Company Profile.</p>
-      <div class="flex gap-2 flex-wrap">
-        <button onclick="window._setDocTemplate('standard')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'standard' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Standard</button>
-        <button onclick="window._setDocTemplate('plant')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'plant' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">Plant (Tabular)</button>
-        <button onclick="window._setDocTemplate('flint')" class="px-4 py-2 rounded-lg text-sm font-bold border ${docTemplate === 'flint' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">New Format</button>
-      </div>
-    </div>
-    ${docColorsPanelHTML()}
-    <!-- ═══ TAX INVOICE DESIGN ═══ -->
-    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-base">&#129534;</span>
-        <h4 class="font-bold text-sm text-slate-800">Tax Invoice &mdash; Design</h4>
-      </div>
-      <p class="text-[11px] text-slate-500 mb-3">Choose the PDF layout for Tax Invoices. All designs are GST-compliant (Rule 46) and include CGST/SGST or IGST break-up, HSN/SAC, place of supply, amount in words, signature and reverse-charge note.</p>
-      <div class="flex flex-wrap gap-2">
-        ${[['standard', 'Standard'], ['classic', 'Corporate Classic'], ['modern', 'Modern Band'], ['sidebar', 'Left Sidebar'], ['minimal', 'Minimal Mono'], ['accent', 'Accent Brand']].map(([k, label]) =>
-          `<button onclick="window._setInvoiceTemplate('${k}')" class="px-4 py-2 rounded-lg text-sm font-bold border ${invTemplate === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">${label}</button>`
-        ).join('')}
-      </div>
-      <p class="text-[10px] text-slate-400 mt-2">&ldquo;Colour Accent&rdquo; uses your invoice accent colour set below. Applies to every Tax Invoice PDF you download or print.</p>
-    </div>
+    ${_pgw('invoice')}
+    ${_invoiceDesignCardsHTML()}
     <!-- ═══ TAX INVOICE MIN ROWS ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">
@@ -396,6 +455,8 @@ function renderPrintConfigTab() {
       </label>
     </div>
 
+    ${_pgw('measure')}
+    ${_docTemplateCardsHTML()}
     <!-- ═══ NAME OF AUTHORITY ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">
@@ -431,6 +492,8 @@ function renderPrintConfigTab() {
       </div>
     </div>
 
+    ${_pgw('advanced')}
+    ${docColorsPanelHTML()}
     <!-- ═══ HEADER CONFIGURATION ═══ -->
     <div class="mb-8 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-4">
@@ -596,6 +659,7 @@ function renderPrintConfigTab() {
     <div class="mt-6 flex gap-3">
       <button onclick="savePrintConfig()" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition">Save Print Settings</button>
       <button onclick="resetPrintConfig()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-300 transition">Reset to Defaults</button>
+    </div>
     </div>`;
 }
 

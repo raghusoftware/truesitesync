@@ -874,3 +874,31 @@ export function exportDetailedMeasurementExcel() {
   showToast('Detailed RA Excel exported', 'success');
 }
 
+
+// ── Preview a measurement/abstract TEMPLATE from Settings (no state change) ──
+// Temporarily applies the chosen docTemplate, exports the latest sheet (or a
+// built-in sample added→removed without saving), then restores the setting.
+function _sampleSheet() {
+  return {
+    id: '_preview_sheet', sheetNum: 'SAMPLE-01', date: new Date().toLocaleDateString('en-GB'),
+    area: 'Block A — Ground Floor', clientId: (state.clients || [])[0]?.id, projectId: state.currentProjectId,
+    entries: [
+      { code: '4.2', description: 'RCC Slab M25', uom: 'Cum', nos: 4, l: 5, b: 4, h: 0.15, coef: '', qty: 12, remarks: 'Panel P1–P4' },
+      { code: '4.2', description: 'RCC Slab M25', uom: 'Cum', nos: 2, l: 6, b: 4, h: 0.15, coef: '', qty: 7.2, remarks: 'Panel P5–P6' },
+      { code: '5.1', description: 'Plaster 12mm CM 1:4', uom: 'Sqm', nos: 1, l: 42.5, b: 1, h: 1, coef: '', qty: 42.5, remarks: 'North wall' },
+    ],
+  };
+}
+window._previewMeasTemplate = function (key) {
+  if (!state.printSettings) state.printSettings = {};
+  const prev = state.printSettings.docTemplate;
+  state.printSettings.docTemplate = key;
+  let sheet = (state.sheets || [])[(state.sheets || []).length - 1];
+  let temp = false;
+  if (!sheet) { sheet = _sampleSheet(); state.sheets = state.sheets || []; state.sheets.push(sheet); temp = true; }
+  try { exportSimpleMeasurementPdf(sheet.id); }
+  finally {
+    state.printSettings.docTemplate = prev;
+    if (temp) { const i = state.sheets.indexOf(sheet); if (i >= 0) state.sheets.splice(i, 1); }
+  }
+};

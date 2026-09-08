@@ -190,6 +190,38 @@ export function printSaleInvoice(id) {
   exportSaleInvoicePDF(id);
 }
 
+// ── Preview an invoice DESIGN from Settings (no state change) ──
+// Uses the most recent real invoice if any, else a built-in sample, so a brand
+// new account can still preview each design. 'standard' uses the built-in export.
+function _sampleInvoice() {
+  const c = (state.clients || [])[0] || {};
+  return {
+    id: '_preview', clientId: c.id, clientName: c.name || 'Sample Client Pvt Ltd',
+    clientAddress: c.address || '12 Market Road, Pune, Maharashtra 411001',
+    invoiceNo: 'SAMPLE-001', date: new Date().toLocaleDateString('en-GB'),
+    stateOfSupply: 'Maharashtra', poNo: 'PO-1024', poDate: '', reverseCharge: 'No',
+    items: [
+      { desc: 'RCC M25 grade concrete work (with shuttering)', hsn: '995415', qty: 10, unit: 'Cum', rate: 6500, taxType: 'CGST_SGST', taxPct: 18, taxAmount: 11700, amount: 76700 },
+      { desc: 'TMT steel supply Fe500', hsn: '7214', qty: 2.5, unit: 'MT', rate: 62000, taxType: 'CGST_SGST', taxPct: 18, taxAmount: 27900, amount: 182900 },
+    ],
+    total: 259600, tcsAmount: 0, roundAmt: 0, notes: 'Sample invoice — for design preview only.',
+  };
+}
+window._previewInvoiceDesign = function (key) {
+  const latest = (state.saleInvoices || [])[(state.saleInvoices || []).length - 1];
+  const inv = latest || _sampleInvoice();
+  if (key === 'standard') return exportSaleInvoicePDF(inv.id === '_preview' ? _injectTemp(inv) : inv.id);
+  renderStyledInvoice(inv, key);
+};
+// exportSaleInvoicePDF needs an invoice that exists in state; for the sample we
+// temporarily add it, export, then remove it (never saved/synced).
+function _injectTemp(inv) {
+  state.saleInvoices = state.saleInvoices || [];
+  state.saleInvoices.push(inv);
+  setTimeout(() => { const i = state.saleInvoices.indexOf(inv); if (i >= 0) state.saleInvoices.splice(i, 1); }, 0);
+  return inv.id;
+}
+
 // ── Share Sale Invoice (copy link / use Web Share API) ──
 export function shareSaleInvoice(id) {
   const inv = (state.saleInvoices || []).find(i => i.id === id);
