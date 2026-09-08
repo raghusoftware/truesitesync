@@ -166,7 +166,7 @@ function _buildItemIndex(clientId) {
     (a.items || []).forEach(item => {
       const name = (item.description || item.code || '').trim();
       if (!name) return;
-      idx.push({ name, hsn: item.hsn || '', unit: item.uom || item.unit || 'Nos', rate: item.rate || 0, qty: item.totalQty || item.qty || 0, source: 'abstract', sourceLabel: a.name || a.id, abstractId: a.id, group: 'pending' });
+      idx.push({ name, hsn: item.hsn || '', unit: item.uom || item.unit || 'Nos', rate: item.rate || 0, qty: item.totalQty || item.qty || 0, source: 'abstract', sourceLabel: a.abstractNum || a.name || a.id, abstractNum: a.abstractNum || a.id, abstractId: a.id, group: 'pending' });
     });
   });
   // 2. Previously used items from itemsMaster (sorted by usage)
@@ -269,7 +269,10 @@ function _hl(text, q) {
 
 function _fillSIRowFromItem(row, item) {
   const nameInput = row.querySelector('.si-item-name');
-  if (nameInput) nameInput.value = item.name;
+  // When the item comes from an Abstract, stamp the ABS number into the line
+  // description so the ABS → Invoice → Payment link is visible on the invoice.
+  const _ref = item.abstractNum || '';
+  if (nameInput) nameInput.value = (_ref && item.name && !String(item.name).includes(_ref)) ? `${item.name} (Ref: ${_ref})` : item.name;
   const hsnInput = row.querySelector('.si-item-hsn');
   if (hsnInput) hsnInput.value = item.hsn || '';
   const unitSel = row.querySelector('.si-item-unit');
@@ -282,6 +285,7 @@ function _fillSIRowFromItem(row, item) {
   }
   // Store abstract ref
   if (item.abstractId) row.dataset.abstractId = item.abstractId;
+  if (_ref) row.dataset.ref = _ref;
   // Production item → remember its id so saving the invoice deducts its BOM from stock.
   if (item.isProduction && item.itemId) row.dataset.bomItemId = item.itemId;
   else delete row.dataset.bomItemId;
@@ -388,7 +392,8 @@ export function loadSIPendingItems() {
     return false;
   }).forEach(a => {
     const totalAmt = (a.items || []).reduce((s, item) => s + ((item.totalQty || item.qty || 0) * (item.rate || 0)), 0);
-    rows.push({ source: a.name || a.id, desc: 'Civil Work as per Annexure', hsn: '', qty: 1, rate: totalAmt, unit: 'LS', abstractId: a.id });
+    const _ref = a.abstractNum || a.id;
+    rows.push({ source: _ref, desc: `Civil Work as per Annexure (Ref: ${_ref})`, hsn: '', qty: 1, rate: totalAmt, unit: 'LS', abstractId: a.id, abstractNum: _ref });
   });
   if (!rows.length) { panel.classList.add('hidden'); tbody.innerHTML = ''; return; }
   // Check which abstracts are already added to the invoice
@@ -438,13 +443,14 @@ export function addSIPendingItem(idx) {
         const unitSel = row.querySelector('.si-item-unit'); if (unitSel) unitSel.value = r.unit || 'LS';
         const rateInput = row.querySelector('.si-item-rate'); if (rateInput) rateInput.value = r.rate;
         if (r.abstractId) row.dataset.abstractId = r.abstractId;
+        if (r.abstractNum) row.dataset.ref = r.abstractNum;
         filled = true;
         break;
       }
     }
     if (!filled) {
       // Insert at top of table
-      _addSIRowAt(0, { desc: r.desc, hsn: r.hsn || '', qty: r.qty, unit: r.unit || 'LS', rate: r.rate, discPct: 0, taxPct: 0, abstractId: r.abstractId || '' });
+      _addSIRowAt(0, { desc: r.desc, hsn: r.hsn || '', qty: r.qty, unit: r.unit || 'LS', rate: r.rate, discPct: 0, taxPct: 0, abstractId: r.abstractId || '', ref: r.abstractNum || '' });
     }
   }
   _renumberSIRows();
@@ -495,6 +501,7 @@ function _addSIRow(data = {}) {
   const row = tbody.insertRow();
   const num = tbody.rows.length;
   if (data.abstractId) row.dataset.abstractId = data.abstractId;
+  if (data.ref) row.dataset.ref = data.ref;
   row.innerHTML = _siRowHTML(num, data);
 }
 
@@ -503,6 +510,7 @@ function _addSIRowAt(position, data = {}) {
   if (!tbody) return;
   const row = tbody.insertRow(position);
   if (data.abstractId) row.dataset.abstractId = data.abstractId;
+  if (data.ref) row.dataset.ref = data.ref;
   row.innerHTML = _siRowHTML(position + 1, data);
 }
 
@@ -593,6 +601,8 @@ export function openSaleInvoiceForm(editId) {
       setF('.si-item-disc', it.discPct);
       setF('.si-item-tax', it.taxPct);
       setF('.si-item-taxtype', it.taxType || 'CGST_SGST');
+      if (it.ref) r.dataset.ref = it.ref;
+      if (it.abstractId) r.dataset.abstractId = it.abstractId;
     });
   } else {
     addSIFormRow(3);
@@ -714,7 +724,7 @@ export function saveSaleInvoiceForm() {
     const lineDisc = lineGross * discPct / 100;
     const taxable = lineGross - lineDisc;
     const lineTax = (taxType !== 'NONE' && taxPct > 0) ? taxable * taxPct / 100 : 0;
-    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax, bomItemId: r.dataset.bomItemId || undefined });
+    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax, ref: r.dataset.ref || '', bomItemId: r.dataset.bomItemId || undefined });
     grossTotal += lineGross; totalDiscount += lineDisc; totalLineTax += lineTax;
     if (r.dataset.abstractId) linkedAbstracts.add(r.dataset.abstractId);
   });

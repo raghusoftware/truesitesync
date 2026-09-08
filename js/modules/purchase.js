@@ -127,7 +127,7 @@ export function viewPurchaseBill(id) {
   html += `<div class="max-h-48 overflow-y-auto border rounded mb-3"><table class="w-full text-xs text-left"><thead class="bg-slate-100 sticky top-0"><tr><th class="p-2 border-b">Item</th><th class="p-2 border-b text-center">Qty</th><th class="p-2 border-b text-right">Rate</th><th class="p-2 border-b text-right">Amt</th></tr></thead><tbody class="divide-y">`;
   b.items.forEach(i => {
     const rm = state.rawMaterials.find(r => r.id === i.rawMatId);
-    html += `<tr><td class="p-2">${rm?.name || 'Unknown'}</td><td class="p-2 text-center font-bold">${i.qty}</td><td class="p-2 text-right">${getCurrencySymbol()}${i.rate}</td><td class="p-2 text-right font-bold text-slate-700">${getCurrencySymbol()}${i.amount}</td></tr>`;
+    html += `<tr><td class="p-2">${rm?.name || 'Unknown'}${i.ref ? `<div class="text-[10px] text-slate-400 font-mono">Ref: ${i.ref}</div>` : ''}</td><td class="p-2 text-center font-bold">${i.qty}</td><td class="p-2 text-right">${getCurrencySymbol()}${i.rate}</td><td class="p-2 text-right font-bold text-slate-700">${getCurrencySymbol()}${i.amount}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   html += `<div class="text-sm text-right space-y-1"><p><span class="text-slate-500 font-medium">Transport:</span> ${getCurrencySymbol()}${b.extras?.transport || 0}</p><p><span class="text-slate-500 font-medium">Loading:</span> ${getCurrencySymbol()}${b.extras?.loading || 0}</p><p><span class="text-slate-500 font-medium">GST:</span> ${getCurrencySymbol()}${b.extras?.gst || 0}</p><p class="text-xl font-extrabold text-blue-800 border-t pt-2 mt-2">Grand Total: ${getCurrencySymbol()}${b.totalAmount.toLocaleString('en-IN')}</p></div>`;
@@ -158,7 +158,7 @@ function _buildPurchaseBillDoc(id) {
   if (site?.name) doc.text(`Site/Project: ${site.name}`, 140, y + 21);
   const rows = (b.items || []).map((it, i) => {
     const rm = (state.rawMaterials || []).find(r => r.id === it.rawMatId);
-    return [i + 1, rm?.name || 'Unknown', `${it.qty || 0} ${rm?.unit || ''}`.trim(), n2(it.rate), n2(it.amount ?? (it.qty || 0) * (it.rate || 0))];
+    return [i + 1, (rm?.name || 'Unknown') + (it.ref ? `\nRef: ${it.ref}` : ''), `${it.qty || 0} ${rm?.unit || ''}`.trim(), n2(it.rate), n2(it.amount ?? (it.qty || 0) * (it.rate || 0))];
   });
   doc.autoTable({
     startY: y + 33, head: [['#', 'Material', 'Qty', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid',
@@ -365,6 +365,7 @@ function _addPurRow(data) {
   tr.innerHTML =
     `<td class="p-1 border text-center text-xs font-bold text-slate-400 plf-row-num"></td>`
     + `<td class="p-1 border"><select class="table-input pur-mat font-bold" onchange="window._purMatChanged(this)">${_rmOptionsHtml()}</select></td>`
+    + `<td class="p-1 border"><input type="text" class="table-input pur-ref" value="${(data?.ref || '').replace(/"/g, '&quot;')}" placeholder="—" title="Source reference — auto-filled with the GRN no. (editable)"></td>`
     + `<td class="p-1 border"><input type="text" class="table-input pur-hsn" value="${data?.hsn || ''}"></td>`
     + `<td class="p-1 border"><input type="number" class="table-input pur-qty" value="${data?.qty ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
     + `<td class="p-1 border"><select class="table-input pur-unit" title="Purchase unit — stock stores in the base unit">${_purUnitOptions(data?.rawMatId, data?.unit)}</select></td>`
@@ -457,7 +458,7 @@ window._purAddSelectedGrns = function() {
     if (!firstSite && g.siteId) firstSite = g.siteId;
     if (!firstPoId && g.poId) firstPoId = g.poId;
     const m = (state.rawMaterials || []).find(r => r.id === g.matId);
-    _addPurRow({ rawMatId: g.matId, qty: g.qty, rate: g.rate || 0, unit: m?.unit || '', grnId: g.id });
+    _addPurRow({ rawMatId: g.matId, qty: g.qty, rate: g.rate || 0, unit: m?.unit || '', grnId: g.id, ref: g.grnNo || '' });
   });
   // Default the bill's site to the GRN's site if none chosen yet.
   const siteSel = document.getElementById('plFormSite');
@@ -557,6 +558,7 @@ export function savePanelPurchaseBill() {
       const netRate = (taxIncl && c.qty > 0) ? Math.round((c.taxable / c.qty) * 100) / 100 : c.rate;
       purItems.push({
         rawMatId: rmId,
+        ref: tr.querySelector('.pur-ref')?.value?.trim() || '',   // source ref (GRN no.) — GRN → Bill → Payment trail
         hsn: tr.querySelector('.pur-hsn')?.value?.trim() || '',
         qty: c.qty, unit: tr.querySelector('.pur-unit')?.value?.trim() || '',
         rate: c.rate, netRate, discPct: c.disc, taxPct: c.taxPct, taxType: c.taxType,
