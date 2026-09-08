@@ -279,6 +279,8 @@ async function boot() {
   if (C.activeChannelId) await loadActive();
   startRealtime();
   window.addEventListener('online', flushOutbox);
+  window.addEventListener('resize', () => { syncChatTop(); });
+  window.addEventListener('orientationchange', () => setTimeout(syncChatTop, 150));
   C.ready = true;
 }
 
@@ -293,9 +295,17 @@ async function loadActive() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Rendering — shell
 // ─────────────────────────────────────────────────────────────────────────────
+function syncChatTop() {
+  const root = document.getElementById('chatView');
+  if (!root) return;
+  const bc = document.getElementById('breadcrumbBar');
+  const h = bc ? Math.round(bc.getBoundingClientRect().height) : 56;
+  root.style.setProperty('--chat-top', h + 'px');
+}
 function paintShell() {
   const root = document.getElementById('chatView');
   if (!root) return;
+  syncChatTop();
   const setupHint = C.backend === 'local'
     ? `<div class="chat-setup-hint">Demo mode — run <code>db/chat_schema.sql</code> in Supabase to enable real-time cloud chat for your team.</div>`
     : '';
