@@ -25,6 +25,40 @@ html[data-theme="dark"] #chatView { --chat-bg:#0b1220; --chat-panel:#0f1a2b; --c
 html.chat-hc #chatView { --chat-bg:#ffffff; --chat-ink:#000000; --chat-sub:#1f2937; --chat-line:#000000; --chat-bubble:#ffffff; --chat-bubble-mine:#fde68a; --chat-accent:#1d4ed8; }
 html.chat-hc #chatView .chat-bubble { border-width: 2px; }
 
+/* ── Defensive overrides ──────────────────────────────────────────────────
+   The host app defines global element rules with !important (aside{}, and
+   input/select/textarea{ background:#fff; color:var(--gray-900) }). Those would
+   turn the dark channel list white and repaint the composer controls. Re-assert
+   the chat's own look with equal-or-higher specificity + !important. */
+#chatView .chat-side {
+  background: var(--chat-side) !important; color: var(--chat-side-ink) !important;
+  width: auto !important; border: none !important; overflow: hidden !important;
+}
+#chatView .chat-search input {
+  background: rgba(255,255,255,.08) !important; color: #fff !important;
+  border: 1px solid rgba(255,255,255,.14) !important; border-radius: 10px !important;
+  font-size: 13px !important; padding: 10px 12px !important;
+}
+#chatView .chat-mini {
+  background: rgba(255,255,255,.08) !important; color: var(--chat-side-ink) !important;
+  border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px !important;
+  font-size: 12px !important; padding: 6px 8px !important;
+}
+#chatView .chat-filter-btn.on { background: var(--chat-accent) !important; color: #fff !important; border-color: var(--chat-accent) !important; }
+#chatView .chat-head .chat-mini { background: var(--chat-bg) !important; color: var(--chat-ink) !important; border: 1px solid var(--chat-line) !important; }
+#chatView .chat-input {
+  background: var(--chat-bg) !important; color: var(--chat-ink) !important;
+  border: 1px solid var(--chat-line) !important; border-radius: 12px !important;
+  font-size: 14px !important; padding: 11px 14px !important;
+}
+#chatView .chat-prio-sel {
+  background: var(--chat-bg) !important; color: var(--chat-ink) !important;
+  border: 1px solid var(--chat-line) !important; border-radius: 10px !important; font-size: 12px !important;
+}
+#chatView .chat-prio-sel.chat-prio-urgent { border-color: #ea580c !important; color: #ea580c !important; }
+#chatView .chat-prio-sel.chat-prio-safety { border-color: #dc2626 !important; color: #dc2626 !important; }
+#chatView .chat-prio-sel.chat-prio-high { border-color: #d97706 !important; color: #d97706 !important; }
+
 .chat-wrap { display: grid; grid-template-columns: 320px 1fr; height: 100%; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; color: var(--chat-ink); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 .chat-boot { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--chat-sub); }
 .chat-spin { width: 34px; height: 34px; border: 3px solid var(--chat-line); border-top-color: var(--chat-accent); border-radius: 50%; animation: chatspin 1s linear infinite; }

@@ -311,7 +311,7 @@ function paintShell() {
     : '';
   root.innerHTML = `
     <div class="chat-wrap" data-pane="${C.activeChannelId ? 'thread' : 'list'}">
-      <aside class="chat-side">
+      <div class="chat-side">
         <div class="chat-side-head">
           <div class="chat-side-title">Chat</div>
           <button class="chat-icon-btn" title="New channel" onclick="chatNewChannel()">＋</button>
@@ -326,11 +326,11 @@ function paintShell() {
         </div>
         <div id="chatFilters" class="chat-filters hide">${filterPanelHTML()}</div>
         <div id="chatChannelList" class="chat-channels"></div>
-      </aside>
-      <section class="chat-main">
+      </div>
+      <div class="chat-main">
         ${setupHint}
         <div id="chatThread" class="chat-thread"></div>
-      </section>
+      </div>
       <div id="chatThreadPanel" class="chat-thread-panel hide"></div>
     </div>`;
   document.getElementById('chatSort').value = C.sort;

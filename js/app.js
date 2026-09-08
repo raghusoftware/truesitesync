@@ -69,7 +69,7 @@ import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLe
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.95';
-import './modules/chat.js?v=1.0.2';
+import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.37';
 import './modules/mobileShell.js?v=1.6.83';
