@@ -1081,6 +1081,7 @@ export function renderMeasurementList() {
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           ${(!billed && !_running && _canBill) ? `<button onclick="window._genAbstractForSheet('${s.id}')" class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-sm hover:bg-emerald-100 transition flex items-center gap-1.5" title="Convert this measurement into an Abstract">📑 Generate Abstract</button>` : ''}
+          ${(billed && !invoiced && _canBill && _abs && _abs.id) ? `<button onclick="window.deleteAbstract('${_abs.id}')" class="px-4 py-2 bg-amber-50 text-amber-700 rounded-lg font-bold text-sm hover:bg-amber-100 transition flex items-center gap-1.5" title="Remove the linked abstract (${(_abs.abstractNum) || ''}) and return this measurement to Pending">↩ Un-bill</button>` : ''}
           <button onclick="loadSheet('${s.id}')" class="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition flex items-center gap-1.5" title="Open & Edit">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             Open
