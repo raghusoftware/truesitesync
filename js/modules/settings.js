@@ -112,6 +112,15 @@ window._setDocTemplate = function(v) {
   showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : v === 'flint' ? 'New Format' : 'Standard'), 'success');
 };
 
+window._setInvoiceTemplate = function(v) {
+  if (!state.printSettings) state.printSettings = {};
+  state.printSettings.invoiceTemplate = v;
+  saveAllData();
+  renderPrintConfigTab();
+  const names = { standard: 'Standard', classic: 'Classic Professional', modern: 'Modern Minimal', formal: 'Traditional Formal', compact: 'Compact Single-Page', accent: 'Colour Accent' };
+  showToast('Invoice design: ' + (names[v] || v), 'success');
+};
+
 window._setInvoicePrefix = function(v) {
   if (!state.printSettings) state.printSettings = {};
   state.printSettings.invoicePrefix = v;
@@ -314,6 +323,7 @@ function renderPrintConfigTab() {
   const measDec = (state.printSettings?.measurementDecimals ?? 2);
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
   const docTemplate = (state.printSettings?.docTemplate) || 'standard';
+  const invTemplate = (state.printSettings?.invoiceTemplate) || 'standard';
   const invPrefix = (state.printSettings?.invoicePrefix != null ? state.printSettings.invoicePrefix : 'SI-');
   const invNextNo = (state.printSettings?.invoiceNextNo || 1);
   const invPreview = (typeof window.nextInvoiceNumber === 'function') ? (function(){ try { return window.nextInvoiceNumber(); } catch { return invPrefix + invNextNo; } })() : (invPrefix + invNextNo);
@@ -356,6 +366,20 @@ function renderPrintConfigTab() {
       </div>
     </div>
     ${docColorsPanelHTML()}
+    <!-- ═══ TAX INVOICE DESIGN ═══ -->
+    <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#129534;</span>
+        <h4 class="font-bold text-sm text-slate-800">Tax Invoice &mdash; Design</h4>
+      </div>
+      <p class="text-[11px] text-slate-500 mb-3">Choose the PDF layout for Tax Invoices. All designs are GST-compliant (Rule 46) and include CGST/SGST or IGST break-up, HSN/SAC, place of supply, amount in words, signature and reverse-charge note.</p>
+      <div class="flex flex-wrap gap-2">
+        ${[['standard', 'Standard'], ['classic', 'Classic Professional'], ['modern', 'Modern Minimal'], ['formal', 'Traditional Formal'], ['compact', 'Compact Single-Page'], ['accent', 'Colour Accent']].map(([k, label]) =>
+          `<button onclick="window._setInvoiceTemplate('${k}')" class="px-4 py-2 rounded-lg text-sm font-bold border ${invTemplate === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">${label}</button>`
+        ).join('')}
+      </div>
+      <p class="text-[10px] text-slate-400 mt-2">&ldquo;Colour Accent&rdquo; uses your invoice accent colour set below. Applies to every Tax Invoice PDF you download or print.</p>
+    </div>
     <!-- ═══ TAX INVOICE MIN ROWS ═══ -->
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">

@@ -12,6 +12,7 @@ import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2, amountToWordsINR } from './format.js';
+import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js';
 
 const _num2 = formatNumber2;
 
@@ -32,6 +33,10 @@ function _rgb(hex, fallback) {
 export function exportSaleInvoicePDF(id) {
   const inv = (state.saleInvoices || []).find(i => i.id === id);
   if (!inv) { showToast('Invoice not found', 'error'); return; }
+  // Route to a selectable GST invoice design (Settings → Print → Invoice Design).
+  // 'standard' (or unset) keeps the original built-in layout below.
+  const tpl = state.printSettings?.invoiceTemplate;
+  if (tpl && invoiceDesignKeys().includes(tpl)) { return renderStyledInvoice(inv, tpl); }
   const c = state.clients.find(x => x.id === inv.clientId);
   const clientName = c?.name || inv.clientName || 'Unknown';
   const cp = state.companyProfile || {};
