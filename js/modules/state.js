@@ -93,6 +93,8 @@ const STORAGE_KEYS = {
   pettyCashCustodians: 'mes_petty_cash_custodians',
   pettyCashTxns: 'mes_petty_cash_txns',
   issues: 'mes_issues',
+  notifications: 'mes_notifications',
+  pushSubscriptions: 'mes_push_subscriptions',
   cashFlowSettings: 'mes_cashflow_settings',
   // ── Execution Intelligence Platform (Baseline → Execution Plan → Actuals) ──
   execActivities: 'mes_exec_activities',   // Stage-1 baseline activity definitions
@@ -209,6 +211,8 @@ export const state = {
   pettyCashCustodians: load(STORAGE_KEYS.pettyCashCustodians, []),
   pettyCashTxns: load(STORAGE_KEYS.pettyCashTxns, []),
   issues: load(STORAGE_KEYS.issues, []),
+  notifications: load(STORAGE_KEYS.notifications, []),
+  pushSubscriptions: load(STORAGE_KEYS.pushSubscriptions, []),
   // ── Execution Intelligence Platform ──
   execActivities: load(STORAGE_KEYS.execActivities, []),
   execBaselines: load(STORAGE_KEYS.execBaselines, []),

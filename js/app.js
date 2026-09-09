@@ -66,7 +66,9 @@ import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExc
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.6.99';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.23';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.20';
-import { renderPettyCash } from './modules/pettyCash.js?v=1.0.4';
+import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
+import { renderNotifications } from './modules/notifications.js?v=1.0.0';
+import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.96';
 import './modules/chat.js?v=1.0.3';
@@ -357,6 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
     console.error('[boot] initRBAC failed:', e);
   }
+
+  try { renderNotifications(); } catch (e) { console.warn('[boot] notifications render skipped:', e?.message || e); }
+  try { initPush(); } catch (e) { console.warn('[boot] push init skipped:', e?.message || e); }
 
   // Restore any big datasets that overflowed localStorage into IndexedDB, before
   // the cloud pull overlays the newest data. Best-effort; never blocks boot.

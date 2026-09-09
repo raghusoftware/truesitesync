@@ -62,6 +62,17 @@ function _pendingIn(custId) {
     .reduce((s, t) => s + (t.amount || 0), 0);
 }
 function _custName(id) { return (state.pettyCashCustodians || []).find(c => c.id === id)?.name || '—'; }
+// Resolve a notification recipient (userId / auth uid / email / name) from a custodian.
+function _custRecipient(c) {
+  if (!c) return {};
+  const ru = (state.rbacUsers || []).find(u => u.id === c.userId);
+  return { userId: c.userId || null, supaId: ru?.supabaseId || null, email: c.email || ru?.email || null, name: c.name || '' };
+}
+// Resolve a recipient from an rbac user id (used to notify the admin who issued a transfer).
+function _userRecipient(rbacId) {
+  const ru = (state.rbacUsers || []).find(u => u.id === rbacId);
+  return ru ? { userId: ru.id, supaId: ru.supabaseId || null, email: ru.email || null, name: ru.name || ru.username || '' } : {};
+}
 
 /** Compress an image File to a small JPEG base64 (max 800px wide, q0.6). */
 function _compressImage(file) {
@@ -110,6 +121,7 @@ export function renderPettyCash() {
   if (_pcSection === 'wallets') return _renderWallets(root);
   if (_pcSection === 'expense') return _renderExpenseForm(root);
   if (_pcSection === 'ledger') return _renderLedger(root);
+  if (_pcSection === 'recon') return _renderRecon(root);
   if (_pcSection && _pcSection.startsWith('cust:')) return _renderCustodian(root, _pcSection.slice(5));
   return _renderHome(root);
 }
@@ -152,6 +164,7 @@ function _renderHome(root) {
       ${card('👛', '#10b981', 'Wallets', 'Custodians & balances', "_pcOpen('wallets')")}
       ${card('🧾', '#f59e0b', 'Log Expense', 'Deduct a field spend', "_pcOpen('expense')")}
       ${card('📜', '#2563eb', 'Ledger', 'All transfers & expenses', "_pcOpen('ledger')")}
+      ${card('📊', '#7c3aed', 'Reconciliation', 'Issued vs spent vs returned', "_pcOpen('recon')")}
     </div>`;
 }
 
@@ -260,6 +273,55 @@ function _renderLedger(root) {
     <div style="display:flex;flex-direction:column;gap:8px;">${list.map(t => _txnRow(t, true)).join('') || `<div style="color:#94a3b8;padding:24px;text-align:center;">No transactions.</div>`}</div>`;
 }
 window._pcSetLedgerFilter = function (v) { _pcLedgerFilter = v; renderPettyCash(); };
+
+// ══════════════════════════════════════════════════════════
+//  RECONCILIATION — issued vs confirmed vs spent vs returned
+// ══════════════════════════════════════════════════════════
+function _custStats(custId) {
+  const ts = _txns().filter(t => t.custodianId === custId);
+  const issued = ts.filter(t => t.type === 'TRANSFER').reduce((s, t) => s + (t.amount || 0), 0);
+  const confirmed = ts.filter(t => t.type === 'TRANSFER' && _accepted(t)).reduce((s, t) => s + (t.amount || 0), 0);
+  const pending = ts.filter(t => t.type === 'TRANSFER' && t.status === 'pending').reduce((s, t) => s + (t.amount || 0), 0);
+  const disputed = ts.filter(t => t.type === 'TRANSFER' && t.status === 'disputed').reduce((s, t) => s + (t.amount || 0), 0);
+  const spent = ts.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + (t.amount || 0), 0);
+  const returned = ts.filter(t => t.type === 'RETURN').reduce((s, t) => s + (t.amount || 0), 0);
+  const inHand = confirmed - spent - returned;
+  return { issued, confirmed, pending, disputed, spent, returned, inHand };
+}
+function _renderRecon(root) {
+  const custs = _custodians();
+  const tot = { issued: 0, confirmed: 0, pending: 0, spent: 0, returned: 0, inHand: 0 };
+  const rows = custs.map(c => {
+    const s = _custStats(c.id);
+    ['issued', 'confirmed', 'pending', 'spent', 'returned', 'inHand'].forEach(k => tot[k] += s[k]);
+    const flags = [];
+    if (s.pending > 0) flags.push(`<span style="font-size:9px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:1px 6px;">⏳ ${_fmt(s.pending)}</span>`);
+    if (s.disputed > 0) flags.push(`<span style="font-size:9px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:1px 6px;">⚠ ${_fmt(s.disputed)}</span>`);
+    return `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:10px 8px;font-weight:700;color:#0f172a;">${_esc(c.name)}<div style="font-size:10px;color:#94a3b8;font-weight:500;">${_esc(c.role || 'Custodian')}</div>${flags.length ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${flags.join('')}</div>` : ''}</td>
+      <td style="padding:10px 8px;text-align:right;color:#0f766e;">${_fmt(s.confirmed)}</td>
+      <td style="padding:10px 8px;text-align:right;color:#f59e0b;">${_fmt(s.spent)}</td>
+      <td style="padding:10px 8px;text-align:right;color:#2563eb;">${_fmt(s.returned)}</td>
+      <td style="padding:10px 8px;text-align:right;font-weight:800;color:${s.inHand < 0 ? '#dc2626' : '#0f172a'};">${_fmt(s.inHand)}</td>
+      <td style="padding:10px 8px;text-align:center;">${s.inHand > 0 ? `<button onclick="_pcReturnModal('${c.id}')" style="font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:4px 10px;cursor:pointer;">Settle ↩</button>` : '<span style="color:#cbd5e1;font-size:12px;">✓</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  root.innerHTML = `
+    ${_backBar('Reconciliation')}
+    <p style="font-size:13px;color:#64748b;margin-bottom:14px;">Confirmed = amounts the custodian accepted · In hand = confirmed − spent − returned (what they still hold and must settle).</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;">
+      ${[['Confirmed', tot.confirmed, '#0f766e'], ['Spent', tot.spent, '#f59e0b'], ['Returned', tot.returned, '#2563eb'], ['In hand', tot.inHand, '#0f172a']].map(([l, v, col]) => `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:700;">${l}</div><div style="font-size:18px;font-weight:800;color:${col};margin-top:2px;">${_fmt(v)}</div></div>`).join('')}
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px;">
+        <thead><tr style="background:#f8fafc;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          <th style="padding:10px 8px;">Custodian</th><th style="padding:10px 8px;text-align:right;">Confirmed</th><th style="padding:10px 8px;text-align:right;">Spent</th><th style="padding:10px 8px;text-align:right;">Returned</th><th style="padding:10px 8px;text-align:right;">In hand</th><th style="padding:10px 8px;text-align:center;">Settle</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;">No custodians yet.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
 
 function _txnRow(t, showName) {
   const isIn = t.type === 'TRANSFER';
@@ -431,9 +493,10 @@ window._pcDoTransfer = function () {
   const bal = _accountBalanceFor(fromAccountId);
   if (bal != null && amount > bal && !confirm(`This account only has ${_fmt(bal)}. Transfer ${_fmt(amount)} anyway?`)) return;
   const accName = (state.accounts || []).find(a => a.id === fromAccountId)?.name || 'Account';
+  const noteTxt = document.getElementById('pcTrNote')?.value?.trim() || '';
   state.pettyCashTxns.push(window.stampCreate({
     id: 'pct_' + Date.now(), type: 'TRANSFER', custodianId, amount, fromAccountId, fromAccountName: accName,
-    note: document.getElementById('pcTrNote').value.trim(),
+    note: noteTxt,
     date: document.getElementById('pcTrDate').value || new Date().toISOString().split('T')[0],
     status: 'pending',   // custodian must confirm receipt before it counts in their wallet
     projectId: _pid()
@@ -442,6 +505,16 @@ window._pcDoTransfer = function () {
   showToast(`${_fmt(amount)} sent to ${_custName(custodianId)} — awaiting their confirmation`, 'success');
   renderPettyCash();
   if (typeof window.renderAccounts === 'function') window.renderAccounts();
+  // Notify the recipient to confirm receipt (in-app + email + push, best-effort).
+  try {
+    const cust = (state.pettyCashCustodians || []).find(c => c.id === custodianId);
+    window.notify && window.notify(_custRecipient(cust), {
+      type: 'petty_transfer',
+      title: `You received ${_fmt(amount)} in petty cash`,
+      body: `From ${accName}${noteTxt ? ' — ' + noteTxt : ''}. Please confirm you've received it.`,
+      data: { view: 'pettyCashView', pcOpen: 'cust:' + custodianId }
+    });
+  } catch {}
 };
 
 // ── Accept / dispute a received transfer (recipient confirmation) ──
@@ -459,6 +532,13 @@ window._pcAcceptTransfer = function (txnId) {
   saveAllData();
   showToast(`Confirmed — ${_fmt(t.amount)} added to your wallet`, 'success');
   renderPettyCash();
+  try {
+    if (t.createdById) window.notify && window.notify(_userRecipient(t.createdById), {
+      type: 'petty_accepted', title: `${t.acceptedBy} confirmed ${_fmt(t.amount)}`,
+      body: `${_custName(t.custodianId)} confirmed receipt of the petty-cash transfer.`,
+      data: { view: 'pettyCashView', pcOpen: 'ledger' }
+    });
+  } catch {}
 };
 window._pcDisputeTransfer = function (txnId) {
   const t = (state.pettyCashTxns || []).find(x => x.id === txnId);
@@ -476,6 +556,13 @@ window._pcDisputeTransfer = function (txnId) {
   saveAllData();
   showToast('Marked as disputed — the admin has been flagged', 'warning');
   renderPettyCash();
+  try {
+    if (t.createdById) window.notify && window.notify(_userRecipient(t.createdById), {
+      type: 'petty_disputed', title: `${_custName(t.custodianId)} disputed ${_fmt(t.amount)}`,
+      body: note.trim() ? '“' + note.trim() + '”' : 'A petty-cash transfer was disputed.',
+      data: { view: 'pettyCashView', pcOpen: 'cust:' + t.custodianId }
+    });
+  } catch {}
 };
 
 // ── Return unspent funds (custodian → account) ──
