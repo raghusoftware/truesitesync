@@ -404,9 +404,10 @@ function _getAccountBalance(accId) {
     if (t.fromAccountId === accId) bal -= (parseFloat(t.amount) || 0);
     if (t.toAccountId === accId) bal += (parseFloat(t.amount) || 0);
   });
-  // Petty cash top-ups issued from this account
+  // Petty cash: top-ups issued from this account (debit) and unspent cash returned to it (credit)
   (state.pettyCashTxns || []).forEach(t => {
     if (t.type === 'TRANSFER' && t.fromAccountId === accId) bal -= (parseFloat(t.amount) || 0);
+    if (t.type === 'RETURN' && t.toAccountId === accId) bal += (parseFloat(t.amount) || 0);
   });
   return bal;
 }
@@ -426,6 +427,10 @@ window._viewAccountLedger = function(accId) {
   (state.pettyCashTxns || []).filter(t => t.type === 'TRANSFER' && t.fromAccountId === accId).forEach(t => {
     const cn = (state.pettyCashCustodians || []).find(c => c.id === t.custodianId)?.name || 'custodian';
     txs.push({ date: t.date, desc: 'Petty Cash → ' + cn, credit: 0, debit: parseFloat(t.amount) || 0, id: t.id, type: 'pettyCashTxns' });
+  });
+  (state.pettyCashTxns || []).filter(t => t.type === 'RETURN' && t.toAccountId === accId).forEach(t => {
+    const cn = (state.pettyCashCustodians || []).find(c => c.id === t.custodianId)?.name || 'custodian';
+    txs.push({ date: t.date, desc: 'Petty Cash Return ← ' + cn, credit: parseFloat(t.amount) || 0, debit: 0, id: t.id, type: 'pettyCashTxns' });
   });
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
 

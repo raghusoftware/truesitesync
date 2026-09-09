@@ -44,6 +44,7 @@ function _accountTxs(accId) {
   (state.accountTransfers || []).filter(x => x.fromAccountId === accId).forEach(x => t.push({ date: x.date, desc: 'Transfer to ' + _accName(x.toAccountId), credit: 0, debit: _num(x.amount) }));
   (state.accountTransfers || []).filter(x => x.toAccountId === accId).forEach(x => t.push({ date: x.date, desc: 'Transfer from ' + _accName(x.fromAccountId), credit: _num(x.amount), debit: 0 }));
   (state.pettyCashTxns || []).filter(x => x.type === 'TRANSFER' && x.fromAccountId === accId).forEach(x => t.push({ date: x.date, desc: 'Petty Cash → ' + _custName(x.custodianId), credit: 0, debit: _num(x.amount) }));
+  (state.pettyCashTxns || []).filter(x => x.type === 'RETURN' && x.toAccountId === accId).forEach(x => t.push({ date: x.date, desc: 'Petty Cash Return ← ' + _custName(x.custodianId), credit: _num(x.amount), debit: 0 }));
   t.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   return t;
 }
