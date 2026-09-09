@@ -818,6 +818,13 @@ export function saveSaleInvoiceForm() {
     subtotal: taxableAmount, total: grand, status: existing ? (existing.status || 'Active') : 'Active',
     linkedAbstractIds: existing ? (existing.linkedAbstractIds || [...linkedAbstracts]) : [...linkedAbstracts]
   };
+  // Audit stamp — carry the original creator forward on edit, record the editor.
+  if (existing) {
+    rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
+    window.stampUpdate(rec);
+  } else {
+    window.stampCreate(rec);
+  }
   // Save invoice — edit mode replaces the record in place; new mode pushes.
   if (!state.saleInvoices) state.saleInvoices = [];
   if (existing) {
@@ -944,7 +951,7 @@ export function renderSaleInvoices() {
     if (hasAbstracts) linksHtml += '<span class="bg-orange-100 text-orange-700 text-[9px] px-1.5 py-0.5 rounded font-bold cursor-pointer" onclick="viewSaleInvoiceInfo(\'' + inv.id + '\')" title="Abstracts linked">📋 Abs</span>';
     if (!hasProject && !hasAbstracts) linksHtml += '<span class="text-slate-300 text-[9px]">—</span>';
     linksHtml += '</div>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="viewSaleInvoiceInfo('${inv.id}')">${inv.invoiceNo}</td><td class="px-4 py-3 text-slate-500">${inv.date}</td><td class="px-4 py-3 font-bold">${clientDisplay}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.subtotal?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.gstAmount?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${inv.total?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right text-green-600 font-bold">${getCurrencySymbol()}${Math.min(received, inv.total).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center">${linksHtml}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewSaleInvoiceInfo('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold" title="View Details">👁</button><button onclick="openSaleInvoiceForm('${inv.id}')" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-[10px] px-2 py-1 rounded font-bold" title="Edit / Reopen invoice">✏️</button><button onclick="exportSaleInvoicePDF('${inv.id}')" class="text-slate-600 bg-slate-50 hover:bg-slate-100 text-[10px] px-2 py-1 rounded font-bold" title="Download PDF">📄</button><button onclick="deleteSaleInvoice('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold" title="Delete">🗑</button></div></td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="viewSaleInvoiceInfo('${inv.id}')">${inv.invoiceNo}${window.attributionHTML(inv, 'Created')}</td><td class="px-4 py-3 text-slate-500">${inv.date}</td><td class="px-4 py-3 font-bold">${clientDisplay}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.subtotal?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.gstAmount?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${inv.total?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right text-green-600 font-bold">${getCurrencySymbol()}${Math.min(received, inv.total).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center">${linksHtml}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewSaleInvoiceInfo('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold" title="View Details">👁</button><button onclick="openSaleInvoiceForm('${inv.id}')" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-[10px] px-2 py-1 rounded font-bold" title="Edit / Reopen invoice">✏️</button><button onclick="exportSaleInvoicePDF('${inv.id}')" class="text-slate-600 bg-slate-50 hover:bg-slate-100 text-[10px] px-2 py-1 rounded font-bold" title="Download PDF">📄</button><button onclick="deleteSaleInvoice('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold" title="Delete">🗑</button></div></td></tr>`;
   });
   if (!invoices.length) tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-slate-400 font-medium">No sale invoices found.</td></tr>';
   const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -1001,6 +1008,7 @@ export function viewSaleInvoiceInfo(id) {
       <div><span class="text-[10px] font-bold uppercase text-slate-400 block">Subtotal</span><span class="font-bold">${fmt(inv.subtotal)}</span></div>
       <div><span class="text-[10px] font-bold uppercase text-slate-400 block">Grand Total</span><span class="font-extrabold text-lg text-green-700">${fmt(inv.total)}</span></div>
     </div>
+    ${window.attributionHTML(inv, 'Created')}
   </div>`;
   // ─── Line Items ───
   html += `<div class="bg-white rounded-xl border overflow-hidden">

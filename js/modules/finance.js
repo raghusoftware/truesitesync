@@ -140,11 +140,11 @@ export function savePaymentIn() {
   const amount = document.getElementById('accInAmount').value;
   const accountId = document.getElementById('accInAccount').value;
   if (!clientId || !amount || !accountId) return showToast('Client, Account and Amount required', 'error');
-  state.paymentsIn.push({
+  state.paymentsIn.push(window.stampCreate({
     id: 'in_' + Date.now(), clientId, accountId,
     date: document.getElementById('accInDate').value,
     amount, ref: document.getElementById('accInRef').value
-  });
+  }));
   saveAllData();
   showToast('Payment Saved');
   document.getElementById('accInAmount').value = '';
@@ -156,7 +156,7 @@ export function saveExpense() {
   const amount = document.getElementById('accExpAmount').value;
   const accountId = document.getElementById('accExpAccount').value;
   if (!amount || !accountId) return showToast('Account and Amount required', 'error');
-  state.expenses.push({
+  state.expenses.push(window.stampCreate({
     id: 'exp_' + Date.now(),
     clientId: document.getElementById('accExpClient').value,
     accountId,
@@ -164,7 +164,7 @@ export function saveExpense() {
     category: document.getElementById('accExpCat').value,
     amount,
     remarks: document.getElementById('accExpRemarks').value
-  });
+  }));
   saveAllData();
   showToast('Expense Saved');
   document.getElementById('accExpAmount').value = '';
@@ -176,11 +176,11 @@ export function saveVendorPayment() {
   const amt = document.getElementById('venPayAmount').value;
   const accountId = document.getElementById('venPayAccount').value;
   if (!vId || !amt || !accountId) return showToast('Required fields missing', 'error');
-  state.vendorPayments.push({
+  state.vendorPayments.push(window.stampCreate({
     id: 'vp_' + Date.now(), vendorId: vId, accountId,
     date: document.getElementById('venPayDate').value,
     amount: amt, ref: document.getElementById('venPayRef').value
-  });
+  }));
   saveAllData();
   showToast('Payment Saved');
   renderVendorLedger();
@@ -213,7 +213,7 @@ export function savePurchaseBill() {
   const gst = parseFloat(document.getElementById('purGst').value) || 0;
   const { totalAmount } = computePurchaseTotal(subtotal, { transport, loading, gst });
   const billId = 'pb_' + Date.now();
-  state.vendorMaterials.push({ id: billId, vendorId, siteId, billNo, date, items: purItems, extras: { transport, loading, gst }, totalAmount });
+  state.vendorMaterials.push(window.stampCreate({ id: billId, vendorId, siteId, billNo, date, items: purItems, extras: { transport, loading, gst }, totalAmount }));
   purItems.forEach(it => {
     state.inventoryTx.push({
       id: 'tx_in_' + Date.now() + Math.random().toString(36).substr(2, 5),

@@ -84,6 +84,7 @@ export function saveClient() {
         data.termsHistory = c.termsHistory;
       }
       Object.assign(c, data);
+      window.stampUpdate(c);
       // Propagate the (possibly renamed) client name to their sale invoices'
       // denormalized clientName, and re-attach any project-orphaned invoices.
       if (typeof window.relinkOrphanedSaleClients === 'function') {
@@ -93,6 +94,7 @@ export function saveClient() {
   } else {
     createdRec = { id: 'c_' + Date.now(), ...data, createdAt: new Date().toISOString() };
     if (paymentTermsDays != null) createdRec.termsHistory = [{ date: createdRec.createdAt, from: null, to: paymentTermsDays, reason: 'Initial terms at registration' }];
+    window.stampCreate(createdRec);
     state.clients.push(createdRec);
   }
   saveAllData();
@@ -111,7 +113,7 @@ export function renderClientTable() {
   tbody.innerHTML = '';
   state.clients.forEach(c => {
     const projCount = (state.projects || []).filter(p => p.clientId === c.id).length;
-    tbody.innerHTML += `<tr><td class="px-4 py-3 font-bold">${c.name}</td><td class="px-4 py-3">${projCount} project${projCount === 1 ? '' : 's'}</td><td class="px-4 py-3 text-right"><button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded mr-1">Edit</button><button onclick="deleteClient('${c.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded">Del</button></td></tr>`;
+    tbody.innerHTML += `<tr><td class="px-4 py-3 font-bold">${c.name}${window.attributionHTML(c, 'Added')}</td><td class="px-4 py-3">${projCount} project${projCount === 1 ? '' : 's'}</td><td class="px-4 py-3 text-right"><button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded mr-1">Edit</button><button onclick="deleteClient('${c.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded">Del</button></td></tr>`;
   });
 }
 

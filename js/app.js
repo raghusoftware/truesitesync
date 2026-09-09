@@ -5,7 +5,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.67';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.0';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -14,7 +14,7 @@ import {
   renderAccounts, openAccountModal, saveAccount, renderReports,
   renderMasterClientList, renderMasterVendorList, exportMasterList,
   exportVendorLedgerPDF, exportClientStatementPDF
-} from './modules/finance.js?v=1.6.41';
+} from './modules/finance.js?v=1.6.42';
 import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
@@ -36,7 +36,7 @@ import {
   renderMaintenanceLogs, showAssetHistory, openEquipmentModal, saveEquipment,
   renderEquipmentView, saveEquipmentLog, renderEquipmentLog,
   deleteEquipment, deleteEquipmentLog
-} from './modules/fleet.js';
+} from './modules/fleet.js?v=1.0.0';
 import {
   switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
@@ -61,14 +61,14 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.1';
+} from './modules/ui.js?v=1.7.2';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.69';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.6.99';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.23';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.20';
-import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
+import { renderPettyCash } from './modules/pettyCash.js?v=1.0.3';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.95';
+import { renderExecution } from './modules/execution.js?v=1.6.96';
 import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.37';
@@ -77,12 +77,12 @@ import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
-import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.7';
+import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.8';
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.4';
 import './modules/executionEngine.js?v=1.6.88';
 import './modules/scheduleBuilder.js?v=1.6.86';
-import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.51';
+import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.52';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
@@ -90,13 +90,13 @@ import './modules/itemsMaster.js?v=1.1.4';
 import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.51';
-import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.77';
+import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.78';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.52';
 import { closeFullScreenForm } from './modules/formHelpers.js';
-import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.87';
+import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.88';
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.6.72';
 import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.1';
-import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.52';
+import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.53';
 import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.7.1';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,

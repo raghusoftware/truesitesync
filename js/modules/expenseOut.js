@@ -43,6 +43,12 @@ export function savePaymentOutForm() {
   const editId = panelEl?.dataset?.editId || '';
   const existing = editId ? (state.vendorPayments || []).find(p => p.id === editId) : null;
   const rec = { id: existing ? existing.id : ('vp_' + Date.now()), vendorId, date, accountId, amount, ref };
+  if (existing) {
+    rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
+    window.stampUpdate(rec);
+  } else {
+    window.stampCreate(rec);
+  }
   if (!state.vendorPayments) state.vendorPayments = [];
   if (existing) {
     const idx = state.vendorPayments.findIndex(p => p.id === existing.id);
@@ -114,7 +120,7 @@ export function renderPaymentOut() {
     const acct = (state.accounts || []).find(a => a.id === p.accountId);
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
       <td class="px-4 py-3 text-slate-500">${p.date}</td>
-      <td class="px-4 py-3 font-mono font-bold text-blue-700">${p.ref || '-'}</td>
+      <td class="px-4 py-3 font-mono font-bold text-blue-700">${p.ref || '-'}${window.attributionHTML(p, 'Recorded')}</td>
       <td class="px-4 py-3 font-bold text-slate-700">${p.vendorName}</td>
       <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(p.amount || 0).toLocaleString('en-IN')}</td>
       <td class="px-4 py-3 text-right text-green-700 font-bold">${getCurrencySymbol()}${(p.amount || 0).toLocaleString('en-IN')}</td>
@@ -170,12 +176,12 @@ export function saveExpenseForm() {
   if (!category || amount <= 0) return showToast('Category and valid Amount required!', 'error');
   if (!state.expenses) state.expenses = [];
   const paid = payType !== 'Credit' ? amount : 0;
-  state.expenses.push({
+  state.expenses.push(window.stampCreate({
     id: 'exp_' + Date.now(), category, party, date, payType, amount, paid, balance: amount - paid, dueDate, remarks,
     siteId, siteName,
     expNo: 'EXP-' + (state.expenses.length + 1).toString().padStart(3, '0'),
     status: paid >= amount ? 'Paid' : 'Unpaid'
-  });
+  }));
   saveAllData();
   closeFullScreenForm('expenseFormPanel');
   showToast('Expense Recorded!', 'success');
@@ -235,7 +241,7 @@ export function renderExpenseTransactions() {
       : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Unpaid</span>';
     tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
       <td class="px-4 py-3 text-slate-500">${e.date || '-'}</td>
-      <td class="px-4 py-3 font-mono font-bold text-blue-700">${e.expNo || '-'}</td>
+      <td class="px-4 py-3 font-mono font-bold text-blue-700">${e.expNo || '-'}${window.attributionHTML(e, 'Recorded')}</td>
       <td class="px-4 py-3 font-bold text-slate-700">${e.party || '-'}${e.siteName ? ` <span class="text-[9px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded align-middle">📍 ${e.siteName}</span>` : ''}</td>
       <td class="px-4 py-3 text-slate-500 text-xs">${e.payType || '-'}</td>
       <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(e.amount || 0).toLocaleString('en-IN')}</td>

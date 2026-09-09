@@ -88,7 +88,7 @@ export function renderPurchaseLedger() {
     const nm = v?.name || 'Unknown';
     rowsHtml += `<tr style="animation-delay:${Math.min(i * 28, 320)}ms">
       <td style="color:var(--lx-muted)">${_lxDate(b.date)}</td>
-      <td><span class="doc-no">${b.billNo}</span></td>
+      <td><span class="doc-no">${b.billNo}</span>${window.attributionHTML(b, 'Created')}</td>
       <td><span class="lx-party"><span class="lx-av" style="background:${_lxAv(nm)}">${_lxInit(nm)}</span><span style="font-weight:650">${nm}</span></span></td>
       <td style="color:var(--lx-muted)">${site?.name || '—'}</td>
       <td class="num" style="font-weight:750">${sym}${nf(b.totalAmount)}</td>
@@ -131,6 +131,7 @@ export function viewPurchaseBill(id) {
   });
   html += `</tbody></table></div>`;
   html += `<div class="text-sm text-right space-y-1"><p><span class="text-slate-500 font-medium">Transport:</span> ${getCurrencySymbol()}${b.extras?.transport || 0}</p><p><span class="text-slate-500 font-medium">Loading:</span> ${getCurrencySymbol()}${b.extras?.loading || 0}</p><p><span class="text-slate-500 font-medium">GST:</span> ${getCurrencySymbol()}${b.extras?.gst || 0}</p><p class="text-xl font-extrabold text-blue-800 border-t pt-2 mt-2">Grand Total: ${getCurrencySymbol()}${b.totalAmount.toLocaleString('en-IN')}</p></div>`;
+  html += window.attributionHTML(b, 'Created');
   document.getElementById('purInfoContent').innerHTML = html;
   _purInfoBillId = id;
   document.getElementById('purchaseInfoModal').classList.remove('hidden');
@@ -597,6 +598,13 @@ export function savePanelPurchaseBill() {
     extras: { transport, loading, gst: Math.round(gstAmount * 100) / 100 },
     totalAmount
   };
+  // Audit stamp — keep original creator on edit, record the editor.
+  if (existing) {
+    rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
+    window.stampUpdate(rec);
+  } else {
+    window.stampCreate(rec);
+  }
   if (!state.vendorMaterials) state.vendorMaterials = [];
   if (!state.grnRecords) state.grnRecords = [];
   if (existing) {
@@ -645,7 +653,7 @@ export function savePanelPurchaseBill() {
     // Auto-GRN — keeps GRN as the single physical-receipt record even when entry
     // started in the Purchase module. refBillId links them so an edit/delete on
     // the bill rebuilds both sides cleanly.
-    state.grnRecords.push({
+    state.grnRecords.push(window.stampCreate({
       id: 'grn_pb_' + Date.now() + '_' + i,
       grnNo: `${billNo}-${i + 1}`,
       date, receivedAt: new Date().toISOString(),
@@ -658,7 +666,7 @@ export function savePanelPurchaseBill() {
       billed: true, // billed at source — it came from a purchase bill
       qcStatus: 'Accepted',
       refBillId: billId, source: 'purchase'
-    });
+    }));
   });
 
   saveAllData();

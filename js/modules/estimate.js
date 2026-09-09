@@ -115,6 +115,13 @@ export function saveEstimate() {
     // sheet's "Converted to Estimate" status). Preserved across edits.
     sheetId: prev?.sheetId || state._estimateFromSheetId || null };
   state._estimateFromSheetId = null;
+  // Audit stamp — keep original creator on edit, record the editor.
+  if (prev) {
+    data.createdBy = prev.createdBy; data.createdById = prev.createdById; data.createdAt = prev.createdAt;
+    window.stampUpdate(data);
+  } else {
+    window.stampCreate(data);
+  }
   // findIndex can be -1 if a cloud pull replaced state.estimates mid-edit;
   // assigning to [-1] would silently discard the save. Re-add instead.
   const idx = state.currentEstimateId ? state.estimates.findIndex(e => e.id === state.currentEstimateId) : -1;
@@ -134,6 +141,6 @@ export function renderEstimatesList() {
     const soBtn = e.saleOrderId
       ? `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-50 text-blue-700 border border-blue-200 py-1.5 rounded font-bold text-xs" title="Already created — click to create another">SO ✓</button>`
       : `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-600 text-white py-1.5 rounded font-bold text-xs">→ Sale Order + Project</button>`;
-    container.innerHTML += `<div class="bg-white border rounded-xl shadow-sm p-5 border-l-4 border-l-emerald-500"><div class="flex justify-between mb-2"><h3 class="font-extrabold text-slate-800">${e.estNum}</h3><span class="text-xs font-bold text-slate-500">${e.date}</span></div><p class="font-bold text-slate-700 mb-1">${c ? c.name : 'Unknown'}</p><div class="flex flex-wrap gap-1 mb-2">${soBadge}${matBadge}</div><p class="text-xl font-extrabold text-emerald-600 mb-3">${getCurrencySymbol()}${e.total.toLocaleString()}</p><div class="flex flex-col gap-2"><div class="flex gap-2">${soBtn}<button onclick="window.openEstimateMaterials('${e.id}')" class="flex-1 bg-purple-600 text-white py-1.5 rounded font-bold text-xs">⚙ Materials / PO</button></div><div class="flex gap-2"><button onclick="window.openEstimate('${e.id}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded font-bold text-xs hover:bg-emerald-100">✏ Edit</button><button onclick="exportEstimatePDF('${e.id}')" class="flex-1 bg-slate-800 text-white py-1.5 rounded font-bold text-xs">Print PDF</button><button onclick="window.recycleDelete&&window.recycleDelete('estimates','${e.id}','Estimate','${(e.estNum||'').replace(/'/g,"")}');renderEstimatesList();" class="px-3 bg-red-50 text-red-600 rounded font-bold text-xs">Del</button></div></div></div>`;
+    container.innerHTML += `<div class="bg-white border rounded-xl shadow-sm p-5 border-l-4 border-l-emerald-500"><div class="flex justify-between mb-2"><h3 class="font-extrabold text-slate-800">${e.estNum}</h3><span class="text-xs font-bold text-slate-500">${e.date}</span></div><p class="font-bold text-slate-700 mb-1">${c ? c.name : 'Unknown'}</p><div class="flex flex-wrap gap-1 mb-2">${soBadge}${matBadge}</div><p class="text-xl font-extrabold text-emerald-600 mb-3">${getCurrencySymbol()}${e.total.toLocaleString()}</p>${window.attributionHTML(e, 'Created')}<div class="flex flex-col gap-2"><div class="flex gap-2">${soBtn}<button onclick="window.openEstimateMaterials('${e.id}')" class="flex-1 bg-purple-600 text-white py-1.5 rounded font-bold text-xs">⚙ Materials / PO</button></div><div class="flex gap-2"><button onclick="window.openEstimate('${e.id}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded font-bold text-xs hover:bg-emerald-100">✏ Edit</button><button onclick="exportEstimatePDF('${e.id}')" class="flex-1 bg-slate-800 text-white py-1.5 rounded font-bold text-xs">Print PDF</button><button onclick="window.recycleDelete&&window.recycleDelete('estimates','${e.id}','Estimate','${(e.estNum||'').replace(/'/g,"")}');renderEstimatesList();" class="px-3 bg-red-50 text-red-600 rounded font-bold text-xs">Del</button></div></div></div>`;
   });
 }

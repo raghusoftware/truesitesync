@@ -14,6 +14,70 @@ export function showToast(msg, type = 'success') {
   setTimeout(() => div.remove(), 3000);
 }
 
+/* ─────────────────────────────────────────────────────────────
+ * Audit attribution — "who did what" stamp, reused by every module.
+ * Records are plain objects synced as JSONB, so these just add fields.
+ * ───────────────────────────────────────────────────────────── */
+
+/** The acting (currently signed-in) user — name preferred, email fallback. */
+export function actingUser() {
+  const u = (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) || {};
+  return { id: u.id || u.supabaseId || '', name: u.name || u.email || '' };
+}
+
+/** Stamp who created a record + when. Idempotent — never overwrites the original creator. */
+export function stampCreate(rec) {
+  if (!rec) return rec;
+  if (!rec.createdBy && !rec.createdById) {
+    const u = actingUser();
+    rec.createdBy = u.name;
+    rec.createdById = u.id;
+  }
+  if (!rec.createdAt) rec.createdAt = Date.now();
+  return rec;
+}
+
+/** Stamp who last edited a record + when. */
+export function stampUpdate(rec) {
+  if (!rec) return rec;
+  const u = actingUser();
+  rec.updatedBy = u.name;
+  rec.updatedById = u.id;
+  rec.updatedAt = Date.now();
+  return rec;
+}
+
+const _attrEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _attrDate = ts => { if (!ts) return ''; const d = new Date(ts); return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); };
+
+/**
+ * Small muted "who did what" line for list cards & detail views.
+ * Shows "<verb> by Name · date", plus "edited by Name · date" only when a
+ * different user last edited it. Returns '' for legacy records (no attribution).
+ */
+export function attributionHTML(rec, verb = 'Added') {
+  if (!rec || (!rec.createdBy && !rec.updatedBy)) return '';
+  const parts = [];
+  if (rec.createdBy) {
+    const dt = _attrDate(rec.createdAt);
+    parts.push(`${verb} by <b>${_attrEsc(rec.createdBy)}</b>${dt ? ` · ${dt}` : ''}`);
+  }
+  if (rec.updatedBy && rec.updatedBy !== rec.createdBy) {
+    const dt = _attrDate(rec.updatedAt);
+    parts.push(`edited by <b>${_attrEsc(rec.updatedBy)}</b>${dt ? ` · ${dt}` : ''}`);
+  }
+  if (!parts.length) return '';
+  return `<div class="attribution" style="font-size:11px;color:#94a3b8;font-weight:500;margin-top:4px;">${parts.join(' · ')}</div>`;
+}
+
+// Expose for inline HTML template strings (e.g. ui.js) that call via window.
+if (typeof window !== 'undefined') {
+  window.actingUser = actingUser;
+  window.stampCreate = stampCreate;
+  window.stampUpdate = stampUpdate;
+  window.attributionHTML = attributionHTML;
+}
+
 /** @returns {Array<{id:string, name:string, type:string}>} */
 export function getAllLocations() {
   const combined = [];

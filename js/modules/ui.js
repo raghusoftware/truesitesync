@@ -1661,7 +1661,7 @@ export function saveVendor() {
     termsHistory: _vTerms != null ? [{ date: new Date().toISOString(), from: null, to: _vTerms, reason: 'Initial terms at registration' }] : [],
     projectId: state.currentProjectId || undefined
   };
-  state.vendors.push(rec);
+  state.vendors.push(window.stampCreate(rec));
   saveAllData();
   document.getElementById('vendorModal').classList.add('hidden');
   populateDropdowns();
@@ -4882,7 +4882,7 @@ window._prLogMeasure = function() {
   const location = document.getElementById('prmLoc').value.trim();
   if (!gangId) { showToast('Select a gang', 'error'); return; }
   if (quantity <= 0) { showToast('Enter valid quantity', 'error'); return; }
-  state.workMeasurements.push({ id: 'meas_' + Date.now(), date, siteId, gangId, rateId, quantity, location, approved: false, projectId: state.currentProjectId });
+  state.workMeasurements.push(window.stampCreate({ id: 'meas_' + Date.now(), date, siteId, gangId, rateId, quantity, location, approved: false, projectId: state.currentProjectId }));
   saveAllData(); _prRenderMeasureList();
   document.getElementById('prmQty').value = ''; document.getElementById('prmLoc').value = '';
   showToast('Measurement logged — pending approval', 'success');
@@ -5299,7 +5299,7 @@ export function generateLabourSalary(labourId, month, amount) {
   if (amount <= 0) return showToast('No wages generated to post!', 'warning');
   const existing = state.labourSalaries.find(s => s.labourId === labourId && s.month === month);
   if (existing) return showToast(`Salary for ${month} is already posted!`, 'error');
-  state.labourSalaries.push({ id: 'lsal_' + Date.now(), labourId, month, amount, date: new Date().toISOString().split('T')[0] });
+  state.labourSalaries.push(window.stampCreate({ id: 'lsal_' + Date.now(), labourId, month, amount, date: new Date().toISOString().split('T')[0] }));
   saveLabourData(); renderMonthlyMuster();
   showToast('Salary Posted to Party Ledger as Payable!', 'success');
   window.renderPartiesList?.();
@@ -5435,6 +5435,12 @@ export function saveLabourPayment() {
   const editId = modal?.dataset?.editId || '';
   const existing = editId ? (state.labourPayments || []).find(p => p.id === editId) : null;
   const rec = { id: existing ? existing.id : ('lpay_' + Date.now()), labourId, date, accountId, amount, ref };
+  if (existing) {
+    rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
+    window.stampUpdate(rec);
+  } else {
+    window.stampCreate(rec);
+  }
   if (!state.labourPayments) state.labourPayments = [];
   if (existing) {
     const idx = state.labourPayments.findIndex(p => p.id === existing.id);
@@ -5496,7 +5502,7 @@ window._recordAdvance = function() {
     const accountId = document.getElementById('pmAccount').value;
     const note = document.getElementById('pmNote').value || 'Advance';
     if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
-    state.labourAdvances.push({ id: 'adv_' + Date.now(), labourId, amount, date, accountId, note, settled: false });
+    state.labourAdvances.push(window.stampCreate({ id: 'adv_' + Date.now(), labourId, amount, date, accountId, note, settled: false }));
     saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
     showToast(`Advance ₹${amount.toLocaleString('en-IN')} recorded`, 'success');
     return true;

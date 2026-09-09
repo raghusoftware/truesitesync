@@ -61,7 +61,7 @@ window._saveAddTool = function () {
   const locId = document.getElementById('at_loc')?.value || '';
   const toolId = 'rm_' + Date.now();
   if (!Array.isArray(state.rawMaterials)) state.rawMaterials = [];
-  state.rawMaterials.push({ id: toolId, name, unit, type: 'Tools', category: 'Tools' });
+  state.rawMaterials.push(window.stampCreate({ id: toolId, name, unit, type: 'Tools', category: 'Tools' }));
   if (qty > 0 && locId) {
     if (!Array.isArray(state.inventoryTx)) state.inventoryTx = [];
     state.inventoryTx.push({ id: 'tx_' + Date.now(), rawMaterialId: toolId, siteId: locId, type: 'IN', qty, rate: 0, date: new Date().toISOString().split('T')[0], note: 'Tool added' });
@@ -158,7 +158,7 @@ export function executeTransfer() {
   let txOut = state.itemTransfers.filter(tx => tx.assetId === assetId && tx.fromLocId === fromLoc).reduce((s, tx) => s + tx.qty, 0);
   let currentBalance = (qtyIn - qtyOut) + (txIn - txOut);
   if (qty > currentBalance) return showToast(`ERROR: Only ${currentBalance} available at source!`, 'error');
-  state.itemTransfers.push({ id: 'txf_' + Date.now(), assetId, fromLocId: fromLoc, toLocId: toLoc, qty, date: new Date().toLocaleString() });
+  state.itemTransfers.push(window.stampCreate({ id: 'txf_' + Date.now(), assetId, fromLocId: fromLoc, toLocId: toLoc, qty, date: new Date().toLocaleString() }));
   saveAllData();
   document.getElementById('transferModal').classList.add('hidden');
   renderAssetsView();
@@ -177,13 +177,13 @@ export function openMaintenanceModal(assetId) {
 
 export function saveMaintenance() {
   const assetId = document.getElementById('maintAssetId').value;
-  state.maintenanceLogs.push({
+  state.maintenanceLogs.push(window.stampCreate({
     id: 'mnt_' + Date.now(), assetId,
     date: document.getElementById('maintDate').value,
     condition: document.getElementById('maintCondition').value,
     cost: parseFloat(document.getElementById('maintCost').value) || 0,
     remarks: document.getElementById('maintRemarks').value
-  });
+  }));
   saveAllData();
   document.getElementById('maintenanceModal').classList.add('hidden');
   renderAssetsView();
@@ -287,13 +287,14 @@ export function saveEquipment() {
   };
   if (editId) {
     const eq = state.equipmentList.find(e => e.id === editId);
-    if (eq) Object.assign(eq, data);
+    if (eq) { Object.assign(eq, data); window.stampUpdate(eq); }
     showToast('Asset updated', 'success');
   } else {
     data.id = 'eq_' + Date.now();
     data.currentHMR = data.openingHMR;
     data.status = 'ACTIVE';
     data.projectId = state.currentProjectId || null;
+    window.stampCreate(data);
     state.equipmentList.push(data);
     showToast(`Asset registered (${data.ownership})`, 'success');
   }
@@ -327,7 +328,7 @@ window._eqBreakdown = function(assetId) {
   const issue = prompt(`Breakdown for ${eq.name}.\nDescribe the issue:`);
   if (issue === null) return;
   eq.status = 'UNDER_REPAIR';
-  state.equipmentLogs.push({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Breakdown', amount: 0, remarks: issue || 'Breakdown reported', projectId: state.currentProjectId });
+  state.equipmentLogs.push(window.stampCreate({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Breakdown', amount: 0, remarks: issue || 'Breakdown reported', projectId: state.currentProjectId }));
   saveEquipmentData(); renderEquipmentView();
   showToast(`${eq.name} marked UNDER REPAIR — rental billing paused`, 'warning');
 };
@@ -339,7 +340,7 @@ window._eqRepair = function(assetId) {
   const cost = prompt(`Repair cost for ${eq.name} (₹):`, '0');
   if (cost === null) return;
   eq.status = 'ACTIVE';
-  state.equipmentLogs.push({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Repair', amount: parseFloat(cost) || 0, remarks: 'Repaired & restored', projectId: state.currentProjectId });
+  state.equipmentLogs.push(window.stampCreate({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Repair', amount: parseFloat(cost) || 0, remarks: 'Repaired & restored', projectId: state.currentProjectId }));
   saveEquipmentData(); renderEquipmentView();
   showToast(`${eq.name} restored to ACTIVE`, 'success');
 };
@@ -384,7 +385,7 @@ window._eqConfirmRentalPay = function(assetId, net) {
   const accountId = document.getElementById('rpAccount')?.value;
   if (net <= 0) { showToast('Nothing to pay', 'warning'); document.getElementById('rentalPayoutModal')?.remove(); return; }
   const vendor = (state.vendors || []).find(v => v.id === eq.vendorId);
-  state.vendorPayments.push({ id: 'vp_' + Date.now(), vendorId: eq.vendorId, accountId, date: new Date().toISOString().split('T')[0], amount: net, ref: `Rental: ${eq.name}` });
+  state.vendorPayments.push(window.stampCreate({ id: 'vp_' + Date.now(), vendorId: eq.vendorId, accountId, date: new Date().toISOString().split('T')[0], amount: net, ref: `Rental: ${eq.name}` }));
   saveEquipmentData();
   if (typeof saveAllData === 'function') saveAllData();
   document.getElementById('rentalPayoutModal')?.remove();
@@ -477,7 +478,7 @@ window._fuelAddStorage = function() {
   const name = document.getElementById('fsName').value.trim();
   const capacity = parseFloat(document.getElementById('fsCapacity').value) || 0;
   if (!name || capacity <= 0) { showToast('Enter tank name and capacity', 'error'); return; }
-  state.fuelStorages.push({ id: 'tank_' + Date.now(), name, capacity, siteId: '', projectId: state.currentProjectId });
+  state.fuelStorages.push(window.stampCreate({ id: 'tank_' + Date.now(), name, capacity, siteId: '', projectId: state.currentProjectId }));
   saveAllData(); _fuelRenderTank();
   showToast('Tank registered', 'success');
 };
@@ -503,8 +504,8 @@ window._fuelReceipt = function(storageId) {
     const invoiceNo = document.getElementById('frInvoice').value;
     const accountId = document.getElementById('frAccount').value;
     const date = new Date().toISOString().split('T')[0];
-    state.fuelTxns.push({ id: 'ftx_' + Date.now(), type: 'RECEIPT', storageId, quantity, amount, supplierId, invoiceNo, date, projectId: state.currentProjectId });
-    if (amount > 0) state.expenses.push({ id: 'exp_fuel_' + Date.now(), accountId, date, category: 'Bulk Fuel', amount, remarks: `Diesel ${quantity}L tanker${invoiceNo ? ' Inv:' + invoiceNo : ''}`, projectId: state.currentProjectId });
+    state.fuelTxns.push(window.stampCreate({ id: 'ftx_' + Date.now(), type: 'RECEIPT', storageId, quantity, amount, supplierId, invoiceNo, date, projectId: state.currentProjectId }));
+    if (amount > 0) state.expenses.push(window.stampCreate({ id: 'exp_fuel_' + Date.now(), accountId, date, category: 'Bulk Fuel', amount, remarks: `Diesel ${quantity}L tanker${invoiceNo ? ' Inv:' + invoiceNo : ''}`, projectId: state.currentProjectId }));
     saveAllData(); _fuelRenderTank();
     showToast(`${quantity}L added to tank`, 'success');
     return true;
@@ -519,7 +520,7 @@ window._fuelDip = function(storageId) {
     const physical = parseFloat(document.getElementById('fdQty').value);
     if (isNaN(physical)) { showToast('Enter reading', 'error'); return false; }
     const variance = physical - book;
-    state.fuelTxns.push({ id: 'ftx_' + Date.now(), type: 'DIP', storageId, quantity: physical, bookBalance: book, variance, date: new Date().toISOString().split('T')[0], projectId: state.currentProjectId });
+    state.fuelTxns.push(window.stampCreate({ id: 'ftx_' + Date.now(), type: 'DIP', storageId, quantity: physical, bookBalance: book, variance, date: new Date().toISOString().split('T')[0], projectId: state.currentProjectId }));
     saveAllData(); _fuelRenderTank();
     if (Math.abs(variance) > 5) showToast(`⚠ Discrepancy: ${variance > 0 ? '+' : ''}${variance.toFixed(0)}L — investigate!`, 'error');
     else showToast('Dip recorded — tank reconciled ✓', 'success');
@@ -571,9 +572,9 @@ window._fuelIssue = function() {
   if (quantity > bal) { if (!confirm(`Only ${bal}L in tank. Issue anyway (will go negative)?`)) return; }
   const date = new Date().toISOString().split('T')[0];
   // 1. Deduct from tank
-  state.fuelTxns.push({ id: 'ftx_' + Date.now(), type: 'ISSUE', storageId, assetId, operatorId, quantity, date, projectId: state.currentProjectId });
+  state.fuelTxns.push(window.stampCreate({ id: 'ftx_' + Date.now(), type: 'ISSUE', storageId, assetId, operatorId, quantity, date, projectId: state.currentProjectId }));
   // 2. Log to machine runbook (fuel) — drives efficiency, no cash (internal)
-  state.equipmentLogs.push({ id: 'eql_' + Date.now(), assetId, date, type: 'Fuel', litres: quantity, source: 'On-Site Barrel', amount: 0, operatorId, remarks: `${quantity}L from tank`, projectId: state.currentProjectId });
+  state.equipmentLogs.push(window.stampCreate({ id: 'eql_' + Date.now(), assetId, date, type: 'Fuel', litres: quantity, source: 'On-Site Barrel', amount: 0, operatorId, remarks: `${quantity}L from tank`, projectId: state.currentProjectId }));
   saveAllData(); _fuelRenderIssue(); renderEquipmentView();
   showToast(`Issued ${quantity}L to machine`, 'success');
 };
@@ -694,6 +695,7 @@ export function renderEquipmentView() {
               <p class="font-bold text-slate-800 text-sm">${eq.name} ${ownBadge}</p>
               <p class="text-[10px] text-slate-500 font-mono font-bold mt-0.5 bg-slate-200 inline-block px-1 rounded">${eq.regNo || 'No Reg.'}</p>
               <span class="text-[10px] text-slate-400 ml-1">${eq.type}</span>
+              ${window.attributionHTML(eq, 'Registered')}
             </div>
             <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;${stMap[status]}">${status.replace('_', ' ')}</span>
           </div>
@@ -821,10 +823,11 @@ export function saveEquipmentLog() {
     if (eq.pmTarget) eq.pmTarget = (eq.currentHMR || eq.pmTarget) + (eq.pmTarget - (eq.openingHMR || 0) || 250);
   }
 
+  window.stampCreate(logEntry);
   state.equipmentLogs.push(logEntry);
 
   if (amount > 0) {
-    state.expenses.push({
+    state.expenses.push(window.stampCreate({
       id: 'exp_eq_' + Date.now(),
       clientId: siteId || '',
       accountId, date,
@@ -832,7 +835,7 @@ export function saveEquipmentLog() {
       amount,
       remarks: `[${eq.name} - ${eq.regNo || 'No Reg'}] ${logEntry.remarks}`,
       projectId: state.currentProjectId
-    });
+    }));
   }
 
   saveEquipmentData();
@@ -872,7 +875,7 @@ export function renderEquipmentLog() {
       <td class="px-3 py-2 text-center"><span class="${tc} px-2 py-0.5 rounded text-[10px] font-bold">${l.type}</span></td>
       <td class="px-3 py-2 text-slate-500">${site?.name || '-'}</td>
       <td class="px-3 py-2 text-right font-bold ${l.amount > 0 ? 'text-red-600' : 'text-slate-300'}">${l.amount > 0 ? getCurrencySymbol() + l.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '-'}</td>
-      <td class="px-3 py-2 text-slate-500">${l.remarks || '-'}</td>
+      <td class="px-3 py-2 text-slate-500">${l.remarks || '-'}${window.attributionHTML(l, 'Logged')}</td>
       <td class="px-3 py-2 text-center"><button onclick="deleteEquipmentLog('${l.id}')" class="text-red-400 hover:text-red-600 font-bold">✕</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" class="p-4 text-center text-slate-400">No logs yet.</td></tr>';

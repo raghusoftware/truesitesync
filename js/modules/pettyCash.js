@@ -317,7 +317,7 @@ window._pcSaveCustodian = function (editId) {
     const c = state.pettyCashCustodians.find(x => x.id === editId);
     if (c) { c.name = name; c.role = role; c.phone = phone; c.userId = userId || null; c.email = email || null; }
   } else {
-    state.pettyCashCustodians.push({ id: 'pcc_' + Date.now(), name, role, phone, userId: userId || null, email: email || null, projectId: _pid(), createdAt: Date.now() });
+    state.pettyCashCustodians.push(window.stampCreate({ id: 'pcc_' + Date.now(), name, role, phone, userId: userId || null, email: email || null, projectId: _pid() }));
   }
   saveAllData();
   _pcCloseModal();
@@ -369,12 +369,12 @@ window._pcDoTransfer = function () {
   const bal = _accountBalanceFor(fromAccountId);
   if (bal != null && amount > bal && !confirm(`This account only has ${_fmt(bal)}. Transfer ${_fmt(amount)} anyway?`)) return;
   const accName = (state.accounts || []).find(a => a.id === fromAccountId)?.name || 'Account';
-  state.pettyCashTxns.push({
+  state.pettyCashTxns.push(window.stampCreate({
     id: 'pct_' + Date.now(), type: 'TRANSFER', custodianId, amount, fromAccountId, fromAccountName: accName,
     note: document.getElementById('pcTrNote').value.trim(),
     date: document.getElementById('pcTrDate').value || new Date().toISOString().split('T')[0],
-    projectId: _pid(), createdAt: Date.now()
-  });
+    projectId: _pid()
+  }));
   saveAllData(); _pcCloseModal();
   showToast(`Transferred ${_fmt(amount)} from ${accName} to ${_custName(custodianId)}`, 'success');
   renderPettyCash();
@@ -418,15 +418,15 @@ window._pcCapturePhoto = async function (input) {
 window._pcDoExpense = function (custId) {
   const amount = parseFloat(document.getElementById('pcExAmount').value);
   if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
-  state.pettyCashTxns.push({
+  state.pettyCashTxns.push(window.stampCreate({
     id: 'pcx_' + Date.now(), type: 'EXPENSE', custodianId: custId, amount,
     category: document.getElementById('pcExCat').value,
     description: document.getElementById('pcExDesc').value.trim(),
     date: document.getElementById('pcExDate').value || new Date().toISOString().split('T')[0],
     photoPath: _pcPendingPhotoPath || null,   // Storage ref (bytes not in synced JSON)
     photo: null,
-    projectId: _pid(), createdAt: Date.now()
-  });
+    projectId: _pid()
+  }));
   _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   saveAllData(); _pcCloseModal();
   showToast(`Expense ${_fmt(amount)} logged`, 'success');

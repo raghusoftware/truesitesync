@@ -442,7 +442,7 @@ window._exDprSave = function (id) {
     // Continue the project's shared Measurement<->DPR series (NC/01, NC/02 …).
     const _proj = (state.projects || []).find(p => p.id === _pid());
     const dprNum = (typeof window._nextProjectSeries === 'function') ? window._nextProjectSeries(_proj?.clientId || '', _pid()) : '';
-    state.dailyProgress.push({ id: dprId, projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data, dprNum });
+    state.dailyProgress.push(window.stampCreate({ id: dprId, projectId: _pid(), ...data, dprNum }));
   }
 
   // ── Feed measured work + overhead into the shared measurement pipeline. On an
@@ -714,7 +714,7 @@ window._exPourSave = function (id) {
   };
   if (!state.concretePours) state.concretePours = [];
   if (id) { const r = state.concretePours.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.concretePours.push({ id: 'cpc_' + Date.now(), projectId: _pid(), createdBy: getCurrentUser()?.id || '', createdAt: Date.now(), ...data });
+  else state.concretePours.push(window.stampCreate({ id: 'cpc_' + Date.now(), projectId: _pid(), ...data }));
   _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Pour card saved', 'success'); renderExecution();
 };
 
@@ -761,7 +761,7 @@ window._exQSave = function (id) {
   const data = { type: v('qType') || 'Inspection', date: v('qDate') || _today(), element: v('qElement'), grade: v('qGrade'), result: v('qResult'), status: v('qStatus') || 'Open', pourId: v('qPour'), taskId: v('qTask'), remarks: v('qRemarks'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null };
   if (!state.qualityChecks) state.qualityChecks = [];
   if (id) { const r = state.qualityChecks.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.qualityChecks.push({ id: 'qc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
+  else state.qualityChecks.push(window.stampCreate({ id: 'qc_' + Date.now(), projectId: _pid(), ...data }));
   _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Quality record saved', 'success'); renderExecution();
 };
 
@@ -774,7 +774,7 @@ function _renderSafety(root) {
   const rows = list.map(s => { const c = sevC[s.severity] || '#94a3b8'; return `<div onclick="_exSForm('${s.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${c};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(s.type || 'Safety')} <span style="font-size:9px;font-weight:800;color:${c};background:${c}15;border-radius:8px;padding:1px 7px;">${_esc(s.severity || '')}</span></div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(s.description || '')}</div>
-    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">${_esc(s.location || '')} · ${_esc(s.date)}</div></div>
+    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">${_esc(s.location || '')} · ${_esc(s.date)}</div>${window.attributionHTML(s, 'Reported')}</div>
     ${_rowActions('incidents', s)}</div>`; }).join('');
   root.innerHTML = _listShell('Safety', '+ Add Safety Record', "_exSForm()", rows, list.length);
 }
@@ -804,7 +804,7 @@ window._exSSave = function (id) {
   const data = { type: v('sType') || 'Incident', severity: v('sSev') || 'Low', date: v('sDate') || _today(), location: v('sLocation'), description: v('sDesc'), actionTaken: v('sAction'), reportedBy: v('sReporter'), taskId: v('sTask'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null };
   if (!state.incidents) state.incidents = [];
   if (id) { const r = state.incidents.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.incidents.push({ id: 'inc_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
+  else state.incidents.push(window.stampCreate({ id: 'inc_' + Date.now(), projectId: _pid(), ...data }));
   _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal(); showToast('Safety record saved', 'success'); renderExecution();
 };
 
@@ -864,6 +864,7 @@ function _renderStaff(root) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9;">
         <div style="font-size:12px;">${statusHtml}</div>${action}
       </div>
+      ${(a && a.inAt) ? window.attributionHTML(a, 'Marked') : ''}
     </div>`;
   }).join('');
   const rows = staff.map(s => {
@@ -1004,7 +1005,7 @@ window._staffSave = function (id) {
   const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
   if (!state.staffMaster) state.staffMaster = [];
   if (id) { const r = state.staffMaster.find(x => x.id === id); if (r) Object.assign(r, data); }
-  else state.staffMaster.push({ id: 'stf_' + Date.now(), projectId: _pid(), createdAt: Date.now(), ...data });
+  else state.staffMaster.push(window.stampCreate({ id: 'stf_' + Date.now(), projectId: _pid(), ...data }));
   saveAllData(); _exCloseModal(); showToast('Staff saved', 'success'); renderExecution();
 };
 window._staffDelete = function (id) {
@@ -1069,7 +1070,7 @@ window._staffPunchSave = async function (staffId, kind) {
   if (_punchFile) { try { const ref = await uploadExecMedia(_punchFile, 'staff', 'staff'); if (ref) path = ref.path; } catch {} }
   const photoB64 = path ? null : _punchPhoto;   // only keep base64 when upload didn't happen
   if (kind === 'in') {
-    if (!a) { a = { id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }; state.staffAttendance.push(a); }
+    if (!a) { a = window.stampCreate({ id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }); state.staffAttendance.push(a); }
     a.inAt = now; a.inGps = _punchGps || null; a.inPhotoPath = path; a.inPhoto = photoB64; a.status = 'Present';
   } else {
     a.outAt = now; a.outGps = _punchGps || null; a.outPhotoPath = path; a.outPhoto = photoB64;
