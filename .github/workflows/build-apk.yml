@@ -132,9 +132,15 @@ jobs:
           name: TrueSiteSync-Android
           path: android/app/build/outputs/apk/debug/TrueSiteSync.apk
 
+      - name: Read app version
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Attach the APK to the v<version> release (created here if missing, or the one
+      # electron-builder makes for the desktop build). Runs on tag AND manual dispatch
+      # so the website's "latest release" always carries the new APK.
       - name: Upload to Release
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: v${{ steps.ver.outputs.v }}
           files: android/app/build/outputs/apk/debug/TrueSiteSync.apk
