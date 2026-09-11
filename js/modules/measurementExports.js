@@ -9,7 +9,7 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF, mobileSaveXLSX } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF, mobileSaveXLSX, mobileDownloadBlob } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
@@ -634,16 +634,15 @@ export function exportToExcel() {
   const cc = _sheetCustomCols(s);
   const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const headerCols = ['Code', 'Description', 'Unit', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), ...cc.map(c => c.name), 'Qty', 'Remarks'];
-  let csvContent = `data:text/csv;charset=utf-8,` + headerCols.map(csvCell).join(',') + `\n`;
+  let csvContent = headerCols.map(csvCell).join(',') + `\n`;
   s.entries.forEach(e => {
     let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, ...cc.map(col => csvCell(_ccVal(e, col))), e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
     csvContent += row.join(",") + "\n";
   });
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `Measurement_${s.sheetNum}.csv`);
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  // Save via the Capacitor-aware helper so it works in the Android app (writes the
+  // file + opens the Save/Share sheet), not just the browser.
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  mobileDownloadBlob(blob, `Measurement_${s.sheetNum}.csv`, 'text/csv');
 }
 
 /** Detailed RA Measurement Excel Export (VMC format) */

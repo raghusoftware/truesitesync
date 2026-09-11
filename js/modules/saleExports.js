@@ -9,7 +9,7 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2, amountToWordsINR } from './format.js';
 import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.0';
@@ -269,10 +269,9 @@ export function exportSalesLedgerExcel() {
     const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     csv += `"${inv.invoiceNo}","${inv.date}","${c?.name || inv.clientName || ''}","${proj?.name || ''}","${inv.poNo || ''}",${inv.subtotal || 0},${inv.gstAmount || 0},${inv.total || 0},${Math.min(received, inv.total)},${inv.total - Math.min(received, inv.total)},"${inv.status}"\n`;
   });
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'Sales_Ledger_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
-  showToast('Sales Ledger CSV downloaded!');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  // Capacitor-aware save so it works in the Android app, not just the browser.
+  mobileDownloadBlob(blob, 'Sales_Ledger_' + new Date().toISOString().slice(0, 10) + '.csv', 'text/csv');
 }
 
 // ── Share Sales Ledger ──
