@@ -102,6 +102,20 @@ window._notifOpen = function (id) {
 };
 window._notifToggle = function () { _panelOpen = !_panelOpen; renderNotifications(); };
 
+// Self-test — sends a notification to the current user across all 3 channels so
+// they can verify delivery (in-app instantly; email/push once secrets are set).
+window._notifSelfTest = function () {
+  const u = _me();
+  if (!u || (!u.id && !u.supabaseId && !u.email)) { window.showToast && window.showToast('Sign in first to test notifications', 'warning'); return; }
+  notify({ userId: u.id, supaId: u.supabaseId, email: u.email, name: u.name || u.email }, {
+    type: 'test',
+    title: 'Test notification ✅',
+    body: 'If you can see this, in-app notifications work. Email & push arrive too once their keys are set.',
+    data: {}
+  });
+  window.showToast && window.showToast('Test notification sent to you', 'success');
+};
+
 let _panelOpen = false;
 
 export function renderNotifications() {
@@ -132,6 +146,9 @@ export function renderNotifications() {
         </span>
       </div>
       ${rows}
+      <div style="padding:10px 14px;border-top:1px solid #f1f5f9;text-align:center;">
+        <button onclick="event.stopPropagation();_notifSelfTest()" style="border:1px dashed #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Send test notification</button>
+      </div>
     </div>` : '';
 
   mount.innerHTML = `

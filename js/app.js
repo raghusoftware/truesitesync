@@ -67,7 +67,7 @@ import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.23';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.20';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
-import { renderNotifications } from './modules/notifications.js?v=1.0.0';
+import { renderNotifications } from './modules/notifications.js?v=1.0.1';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.96';
