@@ -4,6 +4,7 @@ on:
   workflow_dispatch:   # manual trigger
   push:
     tags: ['v*']       # a version tag also builds & publishes the desktop exe
+    branches: ['release/**']   # pushing a release/<ver> branch also builds & publishes
 
 jobs:
   build-windows:

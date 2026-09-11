@@ -4,6 +4,7 @@ on:
   workflow_dispatch:   # manual trigger
   push:
     tags: ['v*']       # a version tag also builds & attaches the APK to the release
+    branches: ['release/**']   # pushing a release/<ver> branch also builds & attaches
 
 jobs:
   build-android:
