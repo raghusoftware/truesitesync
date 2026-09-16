@@ -2,6 +2,7 @@ package com.truesitesync.field.data.repo
 
 import com.truesitesync.field.data.local.IssueDao
 import com.truesitesync.field.data.local.IssueEntity
+import com.truesitesync.field.data.media.MediaUtils
 import com.truesitesync.field.data.remote.DeletionEntry
 import com.truesitesync.field.data.remote.IssueMapper
 import com.truesitesync.field.data.remote.SupabaseApi
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -71,6 +73,10 @@ class IssueRepository @Inject constructor(
             if (ok) dao.hardDelete(deletes.map { it.id }) else return false
         }
 
+        // Upload any on-device photos before pushing so the array carries the
+        // remote Storage path. Failures leave the file queued for the next run.
+        uploadPendingMedia(org)
+
         val active = dao.allActive()
         val hasLocalEdits = active.any { it.dirty } || deletes.isNotEmpty()
 
@@ -85,6 +91,24 @@ class IssueRepository @Inject constructor(
         // Anything pushed is now confirmed clean.
         dao.clearDirty(active.filter { it.dirty }.map { it.id })
         return true
+    }
+
+    private suspend fun uploadPendingMedia(org: String) {
+        val pending = dao.allActive().filter { it.photoLocalPath != null && it.photoPath == null }
+        for (e in pending) {
+            val file = File(e.photoLocalPath!!)
+            if (!file.exists()) {
+                dao.upsert(e.copy(photoLocalPath = null, dirty = true))
+                continue
+            }
+            val path = MediaUtils.storagePath(org, "issues", e.id, file.name)
+            val ok = api.uploadBytes(path, file.readBytes(), "image/jpeg")
+            if (ok) {
+                dao.upsert(e.copy(photoPath = path, photoLocalPath = null, dirty = true))
+                runCatching { file.delete() }
+            }
+            // On failure keep the local file; the next sync retries it.
+        }
     }
 
     private suspend fun applyCloud(payload: JsonElement) {

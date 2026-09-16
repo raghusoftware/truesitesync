@@ -32,6 +32,7 @@ data class IssueEntity(
     val lat: Double?,
     val lng: Double?,
     val photoPath: String?,        // Supabase Storage path {org}/issues/{id}-{name}
+    val photoLocalPath: String? = null, // on-device file awaiting upload (offline-first media)
     val dueDate: String?,          // yyyy-MM-dd
     val createdAt: Long,           // epoch millis (matches web `createdAt`)
     val updatedAtMs: Long,

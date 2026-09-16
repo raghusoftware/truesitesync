@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,11 +32,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import com.truesitesync.field.ui.capture.CameraCaptureScreen
 import com.truesitesync.field.ui.theme.Danger
 import com.truesitesync.field.ui.theme.Dimens
 import com.truesitesync.field.ui.util.CATEGORIES
@@ -48,6 +58,15 @@ fun IssueEditScreen(
 ) {
     LaunchedEffect(issueId) { viewModel.load(issueId) }
     val form by viewModel.form.collectAsStateWithLifecycle()
+    var showCamera by rememberSaveable { mutableStateOf(false) }
+
+    if (showCamera) {
+        CameraCaptureScreen(
+            onCaptured = { captured -> viewModel.onPhotoCaptured(captured); showCamera = false },
+            onCancel = { showCamera = false },
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -105,6 +124,35 @@ fun IssueEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            FieldLabel("Photo")
+            if (form.photoModel != null) {
+                AsyncImage(
+                    model = form.photoModel,
+                    contentDescription = "Issue photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(Dimens.corner)),
+                )
+            }
+            OutlinedButton(
+                onClick = { showCamera = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = Dimens.touchMin),
+            ) {
+                Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+                Text(if (form.photoModel != null) "  Retake photo" else "  Add photo")
+            }
+            val lat = form.lat
+            val lng = form.lng
+            if (lat != null && lng != null) {
+                Text(
+                    "Geotagged · %.5f, %.5f".format(lat, lng),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Button(
                 onClick = { viewModel.save(onDone) },
                 enabled = form.canSave,
@@ -132,7 +180,7 @@ fun IssueEditScreen(
             }
 
             Text(
-                "Photo + geotag capture (CameraX) arrives with the next slice; entries already save offline and sync automatically.",
+                "Entries and photos save offline and upload automatically when you're back online.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

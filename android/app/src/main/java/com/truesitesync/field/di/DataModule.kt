@@ -66,6 +66,7 @@ object DataModule {
     @Singleton
     fun provideDatabase(@ApplicationContext ctx: Context): TssDatabase =
         Room.databaseBuilder(ctx, TssDatabase::class.java, TssDatabase.NAME)
+            .addMigrations(TssDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
 
