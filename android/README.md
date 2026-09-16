@@ -6,8 +6,8 @@ Supabase backend**. It owns the on-site flows (issues, diary, safety, deliveries
 attendance); the web app keeps the GST/finance/ledger engine.
 
 > Status: **foundation + Today, Issues and Site Diary flows + offline CameraX
-> photo capture with geotag**. The remaining field flows slot into this same
-> skeleton — see "Roadmap" below.
+> photo capture with geotag + live multi-device sync (Realtime websocket)**. The
+> remaining field flows slot into this same skeleton — see "Roadmap" below.
 
 ## Why native coexists (not a rewrite)
 
@@ -106,8 +106,14 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   are geotag-burned, and upload to bucket `project-docs` at `{org}/issues/{id}-{name}`
   on the next sync (mirrors `execMedia.js`); display uses signed URLs via Coil.
   Multi-photo galleries and drawing markup are the follow-ups.
-- **Realtime**: subscribe to `module_data` (filter `organization_id`) via a Ktor
-  websocket to apply other devices' changes live (web uses Supabase Realtime).
+- ~~Realtime via a Ktor websocket on `module_data`~~ **DONE** —
+  `data/sync/RealtimeManager` speaks the Supabase Realtime (Phoenix) protocol:
+  joins a channel filtered by `organization_id`, sends the user JWT for RLS,
+  heartbeats, and reconnects with backoff. Each postgres change is treated as a
+  *signal* that nudges the normal sync pipeline (so the conflict-safe reconcile
+  and UI Flows refresh), rather than trusting wire-payload parsing. Runs only in
+  the foreground (ProcessLifecycle) for battery; the 15-min periodic sync is the
+  reliable fallback if the socket can't connect.
 - **Delighters**: voice-to-text diary, offline drawing markup, home-screen
   widgets (Glance) for one-tap capture, predictive back (already enabled).
 ```
