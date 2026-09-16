@@ -19,7 +19,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.91';
+} from './controllers/reportController.js?v=1.6.92';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -65,7 +65,7 @@ import {
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.69';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.6.97';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.23';
-import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.17';
+import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.18';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.2';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.95';
@@ -79,16 +79,16 @@ import './modules/recycleBin.js?v=1.6.63';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.6';
 import './modules/estimateFlow.js?v=1.0.4';
-import './modules/estimation.js?v=1.0.4';
+import './modules/estimation.js?v=1.0.5';
 import './modules/executionEngine.js?v=1.6.88';
 import './modules/scheduleBuilder.js?v=1.6.86';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.51';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
-import './modules/itemsMaster.js?v=1.1.4';
+import './modules/itemsMaster.js?v=1.1.5';
 import './modules/projectDocs.js?v=1.0.0';
-import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js';
+import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js?v=1.0.1';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.51';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.76';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.52';
@@ -124,7 +124,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.31';
+} from './modules/microPlanning.js?v=1.4.32';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {

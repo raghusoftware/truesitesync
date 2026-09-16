@@ -22,7 +22,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, mobileSaveXLSX } from './utils.js';
 import { unitMasterOptions, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows } from './units.js';
 
 /** Categories that live in rawMaterials → the rawMaterial.type they map to. */
@@ -496,7 +496,7 @@ if (typeof window !== 'undefined') {
     ]);
     ws['!cols'] = [{ wch: 22 }, { wch: 26 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 9 }];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Items');
-    try { XLSX.writeFile(wb, 'Items-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
+    try { mobileSaveXLSX(wb, 'Items-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
   };
 
   window._imImportExcel = function (event) {

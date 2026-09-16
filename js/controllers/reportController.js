@@ -12,7 +12,7 @@ import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.
 import { getReportDefinition } from '../config/reportDefinitions.js';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
-import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF } from '../modules/utils.js';
+import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX } from '../modules/utils.js';
 import { getEntryFormButton, hasEntryForm } from '../modules/formEngine.js';
 
 const engine = new ReportEngine();
@@ -981,7 +981,7 @@ export function exportReportExcel(reportId) {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.table_to_sheet(tableEl);
     XLSX.utils.book_append_sheet(wb, ws, reportDef.name.slice(0, 31));
-    XLSX.writeFile(wb, reportDef.name.replace(/\s+/g, '_') + '.xlsx');
+    mobileSaveXLSX(wb, reportDef.name.replace(/\s+/g, '_') + '.xlsx');
     showToast('Excel exported', 'success');
   } catch (e) { showToast('Excel export failed: ' + e.message, 'error'); }
 }

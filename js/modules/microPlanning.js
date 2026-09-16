@@ -6,7 +6,7 @@
  * - Supports daily and weekly planning modes
  */
 import { state, saveAllData } from './state.js';
-import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF } from './utils.js';
+import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
 
 // ─────────────────────────────────────────────────────
 //  CONSTANTS & HELPERS
@@ -1548,7 +1548,7 @@ export function mpExportDayPDF(dateStr) {
   y = doc.lastAutoTable.finalY + 10;
   doc.setFontSize(8); doc.setTextColor(100);
   doc.text('Supervisor: _____________________   Sign: _______________   Date: _________', 14, y);
-  doc.save(`DailyPlan_${dateStr}.pdf`);
+  mobileSavePDF(doc, `DailyPlan_${dateStr}.pdf`);
   showToast('PDF downloaded');
 }
 
@@ -1619,7 +1619,7 @@ window._mpExportLocationPlanPDF = function(dateStr) {
   const sy = Math.max(y + 8, ph - 24);
   doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(80);
   doc.text('Site Engineer: __________________     Supervisor: __________________     Date: ____________', ml, sy);
-  doc.save(`SitePlan_LocationWise_${dateStr}.pdf`);
+  mobileSavePDF(doc, `SitePlan_LocationWise_${dateStr}.pdf`);
   showToast('Location-wise plan PDF downloaded');
 };
 

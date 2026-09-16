@@ -15,7 +15,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol } from './utils.js';
+import { showToast, getCurrencySymbol, mobileSaveXLSX } from './utils.js';
 
 const _uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const _n = (v) => { const x = parseFloat(v); return isNaN(x) ? 0 : x; };
@@ -395,7 +395,7 @@ window._estBOQTemplate = function () {
     ['EXC001', 'Earthwork excavation', 'Cum', 800, '']
   ]);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
-  try { XLSX.writeFile(wb, 'BOQ-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
+  try { mobileSaveXLSX(wb, 'BOQ-Template.xlsx'); } catch (e) { showToast('Download failed', 'error'); }
 };
 window._estAnalyse = function (id) {
   const it = (_cur_est?.boqItems || []).find(x => x.id === id); if (!it) return;
