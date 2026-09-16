@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- High-vis construction triangle centered in the 72dp safe zone. -->
+    <path
+        android:fillColor="#FFC400"
+        android:pathData="M54,34 L80,78 L28,78 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M51,52 h6 v12 h-6 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M51,68 h6 v6 h-6 Z" />
+</vector>

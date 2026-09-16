@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Room DB and DataStore are re-derivable from Supabase; exclude auth. -->
+    <exclude domain="sharedpref" path="tss_session.preferences_pb" />
+</full-backup-content>

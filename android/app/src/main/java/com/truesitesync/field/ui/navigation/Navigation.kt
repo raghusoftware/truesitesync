@@ -1,0 +1,169 @@
+package com.truesitesync.field.ui.navigation
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ReportProblem
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.truesitesync.field.ui.issues.IssueEditScreen
+import com.truesitesync.field.ui.issues.IssuesScreen
+import com.truesitesync.field.ui.placeholder.PlaceholderScreen
+import com.truesitesync.field.ui.today.TodayScreen
+
+sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
+    data object Today : Dest("today", "Today", Icons.Filled.Home)
+    data object Site : Dest("site", "Site", Icons.Filled.LocationCity)
+    data object Issues : Dest("issues", "Issues", Icons.Filled.Warning)
+    data object More : Dest("more", "More", Icons.Filled.Menu)
+
+    companion object {
+        // Fixed positions — Capture is the center FAB, not a tab.
+        val tabs = listOf(Today, Site, Issues, More)
+        const val ISSUE_EDIT = "issue_edit"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TssApp(navController: NavHostController = rememberNavController()) {
+    var showCapture by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
+    Scaffold(
+        bottomBar = { TssBottomBar(navController) },
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showCapture = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "Capture")
+            }
+        },
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = Dest.Today.route,
+            modifier = Modifier.padding(padding),
+        ) {
+            composable(Dest.Today.route) {
+                TodayScreen(
+                    onOpenIssues = { navController.navigate(Dest.Issues.route) },
+                    onNewIssue = { navController.navigate(Dest.ISSUE_EDIT) },
+                )
+            }
+            composable(Dest.Site.route) {
+                PlaceholderScreen("Site", "Diary, execution, labour, inventory and equipment for the active project land here next.")
+            }
+            composable(Dest.Issues.route) {
+                IssuesScreen(
+                    onNew = { navController.navigate(Dest.ISSUE_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.ISSUE_EDIT}?id=$id") },
+                )
+            }
+            composable(Dest.More.route) {
+                PlaceholderScreen("More", "Documents, Team, Finance, Reports and Settings (incl. Sunlight mode) live here.")
+            }
+            composable(
+                route = "${Dest.ISSUE_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") {
+                    nullable = true; defaultValue = null
+                }),
+            ) { entry ->
+                IssueEditScreen(
+                    issueId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
+        }
+    }
+
+    if (showCapture) {
+        ModalBottomSheet(onDismissRequest = { showCapture = false }, sheetState = sheetState) {
+            CaptureSheet(
+                onNewIssue = { showCapture = false; navController.navigate(Dest.ISSUE_EDIT) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TssBottomBar(navController: NavHostController) {
+    val backStack by navController.currentBackStackEntryAsState()
+    val current = backStack?.destination
+    NavigationBar {
+        Dest.tabs.forEach { dest ->
+            val selected = current?.hierarchy?.any { it.route == dest.route } == true
+            NavigationBarItem(
+                selected = selected,
+                onClick = {
+                    navController.navigate(dest.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                icon = { Icon(dest.icon, contentDescription = dest.label) },
+                label = { Text(dest.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CaptureSheet(onNewIssue: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Text(
+            "Quick capture",
+            style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+        )
+        CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
+        CaptureRow(Icons.Filled.CameraAlt, "Site photo", "Coming next", onNewIssue)
+        CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Coming next", onNewIssue)
+        CaptureRow(Icons.Filled.Description, "Safety observation", "Coming next", onNewIssue)
+    }
+}
+
+@Composable
+private fun CaptureRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    )
+}
