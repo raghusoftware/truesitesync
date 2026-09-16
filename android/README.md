@@ -5,9 +5,9 @@ A native **Kotlin + Jetpack Compose** field client for True Site Sync, built to
 Supabase backend**. It owns the on-site flows (issues, diary, safety, deliveries,
 attendance); the web app keeps the GST/finance/ledger engine.
 
-> Status: **foundation + Today/Issues slice + offline CameraX photo capture with
-> geotag**. The remaining field flows slot into this same skeleton — see
-> "Roadmap" below.
+> Status: **foundation + Today, Issues and Site Diary flows + offline CameraX
+> photo capture with geotag**. The remaining field flows slot into this same
+> skeleton — see "Roadmap" below.
 
 ## Why native coexists (not a rewrite)
 
@@ -94,8 +94,13 @@ Stable 5-tab bottom nav — positions never change; content is role/project-awar
 
 Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
 
-- **Diary / Site progress** (`dailyProgress`), **Safety** (`incidents`/`ppeChecks`),
-  **Delivery + QR** (`inventoryTx`), **Attendance** (`attendanceLogs`).
+- ~~Diary / Site progress (`dailyProgress`)~~ **DONE** — Site tab + fast <60s
+  DPR editor (`ui/diary/`): date, weather chips, work done, skilled/unskilled
+  manpower, equipment, geotagged photo. Preserves the web editor's richer keys
+  (measurements[], overheads[], dprNum) via `extraJson`. Multi-line measurement
+  tables are the follow-up.
+- **Safety** (`incidents`/`ppeChecks`), **Delivery + QR** (`inventoryTx`),
+  **Attendance** (`attendanceLogs`) — next, same pattern.
 - ~~CameraX capture with geotag burn-in → Storage upload~~ **DONE** — see
   `ui/capture/` + `data/media/`. Photos capture offline (persisted to filesDir),
   are geotag-burned, and upload to bucket `project-docs` at `{org}/issues/{id}-{name}`

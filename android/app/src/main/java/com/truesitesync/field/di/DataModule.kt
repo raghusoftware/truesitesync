@@ -3,6 +3,7 @@ package com.truesitesync.field.di
 import android.content.Context
 import androidx.room.Room
 import com.truesitesync.field.BuildConfig
+import com.truesitesync.field.data.local.DiaryDao
 import com.truesitesync.field.data.local.IssueDao
 import com.truesitesync.field.data.local.ProjectDao
 import com.truesitesync.field.data.local.SyncStateDao
@@ -71,6 +72,7 @@ object DataModule {
             .build()
 
     @Provides fun provideIssueDao(db: TssDatabase): IssueDao = db.issueDao()
+    @Provides fun provideDiaryDao(db: TssDatabase): DiaryDao = db.diaryDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()
 }

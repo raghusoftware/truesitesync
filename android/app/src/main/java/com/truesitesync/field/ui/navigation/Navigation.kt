@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationCity
@@ -39,6 +38,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.truesitesync.field.ui.diary.DiaryEditScreen
+import com.truesitesync.field.ui.diary.SiteScreen
 import com.truesitesync.field.ui.issues.IssueEditScreen
 import com.truesitesync.field.ui.issues.IssuesScreen
 import com.truesitesync.field.ui.placeholder.PlaceholderScreen
@@ -54,6 +55,7 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         // Fixed positions — Capture is the center FAB, not a tab.
         val tabs = listOf(Today, Site, Issues, More)
         const val ISSUE_EDIT = "issue_edit"
+        const val DIARY_EDIT = "diary_edit"
     }
 }
 
@@ -81,10 +83,12 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 TodayScreen(
                     onOpenIssues = { navController.navigate(Dest.Issues.route) },
                     onNewIssue = { navController.navigate(Dest.ISSUE_EDIT) },
+                    onNewDiary = { navController.navigate(Dest.DIARY_EDIT) },
+                    onOpenSite = { navController.navigate(Dest.Site.route) },
                 )
             }
             composable(Dest.Site.route) {
-                PlaceholderScreen("Site", "Diary, execution, labour, inventory and equipment for the active project land here next.")
+                SiteScreen(onOpen = { id -> navController.navigate("${Dest.DIARY_EDIT}?id=$id") })
             }
             composable(Dest.Issues.route) {
                 IssuesScreen(
@@ -106,6 +110,17 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(
+                route = "${Dest.DIARY_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") {
+                    nullable = true; defaultValue = null
+                }),
+            ) { entry ->
+                DiaryEditScreen(
+                    diaryId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
         }
     }
 
@@ -113,6 +128,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
         ModalBottomSheet(onDismissRequest = { showCapture = false }, sheetState = sheetState) {
             CaptureSheet(
                 onNewIssue = { showCapture = false; navController.navigate(Dest.ISSUE_EDIT) },
+                onNewDiary = { showCapture = false; navController.navigate(Dest.DIARY_EDIT) },
             )
         }
     }
@@ -142,16 +158,15 @@ private fun TssBottomBar(navController: NavHostController) {
 }
 
 @Composable
-private fun CaptureSheet(onNewIssue: () -> Unit) {
+private fun CaptureSheet(onNewIssue: () -> Unit, onNewDiary: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         Text(
             "Quick capture",
             style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
         )
+        CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Progress, weather, manpower, photo", onNewDiary)
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
-        CaptureRow(Icons.Filled.CameraAlt, "Site photo", "Coming next", onNewIssue)
-        CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Coming next", onNewIssue)
         CaptureRow(Icons.Filled.Description, "Safety observation", "Coming next", onNewIssue)
     }
 }

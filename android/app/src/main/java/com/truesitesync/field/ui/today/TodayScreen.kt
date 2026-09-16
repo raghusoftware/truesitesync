@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CloudQueue
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
@@ -38,6 +38,8 @@ import com.truesitesync.field.ui.util.todayLabel
 fun TodayScreen(
     onOpenIssues: () -> Unit,
     onNewIssue: () -> Unit,
+    onNewDiary: () -> Unit,
+    onOpenSite: () -> Unit,
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -62,19 +64,26 @@ fun TodayScreen(
 
         // Primary action — the #1 daily job, impossible to miss with gloves on.
         Button(
-            onClick = onNewIssue,
+            onClick = onNewDiary,
             modifier = Modifier.fillMaxWidth().heightIn(min = Dimens.touchMin),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ),
         ) {
-            Icon(Icons.Filled.ReportProblem, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
             Text(
-                "  Report an issue",
+                if (state.diaryDoneToday) "  Add to today's diary" else "  Start today's site diary",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
+        }
+        androidx.compose.material3.OutlinedButton(
+            onClick = onNewIssue,
+            modifier = Modifier.fillMaxWidth().heightIn(min = Dimens.touchMin),
+        ) {
+            Icon(Icons.Filled.ReportProblem, contentDescription = null)
+            Text("  Report an issue", fontWeight = FontWeight.Bold)
         }
 
         // Today at a glance — 2×2 tile grid.
@@ -96,8 +105,8 @@ fun TodayScreen(
                 onClick = onOpenIssues, modifier = Modifier.weight(1f),
             )
             StatTile(
-                "Photos today", "0", Icons.Filled.PhotoCamera,
-                onClick = onNewIssue, modifier = Modifier.weight(1f),
+                "Diary today", state.diaryToday.toString(), Icons.AutoMirrored.Filled.MenuBook,
+                onClick = onOpenSite, modifier = Modifier.weight(1f),
             )
         }
 
