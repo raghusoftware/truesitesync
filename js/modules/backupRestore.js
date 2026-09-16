@@ -7,7 +7,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, mobileDownloadBlob } from './utils.js';
 
 export function exportJSONBackup() {
   const data = {
@@ -21,11 +21,7 @@ export function exportJSONBackup() {
     equipmentLogs: state.equipmentLogs, companyProfile: state.companyProfile
   };
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url;
-  a.download = `MES_Backup_${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  mobileDownloadBlob(blob, `MES_Backup_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
   showToast('Backup Downloaded!');
 }
 
