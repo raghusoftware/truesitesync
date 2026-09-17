@@ -129,6 +129,13 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   Browse it via Capture → **All modules** (`ui/modules/`). Scope pruning only
   runs on a successful snapshot, so a network blip never wipes the mirror.
 
+- ~~Mix design / recipes~~ **DONE** — `ui/mix/` (module `mixDesigns`):
+  per-project recipe list + editor (name/grade, BOQ code, per-unit, ingredient
+  rows: material, unit, qty, wastage%). NOTE: stored under a new `mixDesigns`
+  key rather than the web's nested `recipes` object (which is keyed by
+  clientId→itemCode and needs clients + BOQ, not yet modeled natively); existing
+  web recipes remain visible via the "All modules" mirror. Full web-recipes
+  interop is a follow-up once clients/BOQ land.
 - ~~Abstracts / billing (`abstracts`)~~ **DONE** — `ui/abstracts/`: per-project
   work-abstract list + editor (abstract no., date, area, item rows: code, desc,
   unit, qty × rate → amount, grand total), **import items from a measurement

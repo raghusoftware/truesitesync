@@ -10,6 +10,7 @@ import com.truesitesync.field.data.local.DocsDao
 import com.truesitesync.field.data.local.GenericModuleDao
 import com.truesitesync.field.data.local.IssueDao
 import com.truesitesync.field.data.local.ItemDao
+import com.truesitesync.field.data.local.MixDesignDao
 import com.truesitesync.field.data.local.ProjectDao
 import com.truesitesync.field.data.local.SheetDao
 import com.truesitesync.field.data.local.StockTxDao
@@ -90,6 +91,7 @@ object DataModule {
     @Provides fun provideDocsDao(db: TssDatabase): DocsDao = db.docsDao()
     @Provides fun provideSheetDao(db: TssDatabase): SheetDao = db.sheetDao()
     @Provides fun provideAbstractDao(db: TssDatabase): AbstractDao = db.abstractDao()
+    @Provides fun provideMixDesignDao(db: TssDatabase): MixDesignDao = db.mixDesignDao()
     @Provides fun provideGenericModuleDao(db: TssDatabase): GenericModuleDao = db.genericModuleDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()

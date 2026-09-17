@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ReportProblem
@@ -53,6 +54,8 @@ import com.truesitesync.field.ui.documents.DocumentsScreen
 import com.truesitesync.field.ui.inventory.InventoryScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
 import com.truesitesync.field.ui.measurement.SheetEditScreen
+import com.truesitesync.field.ui.mix.MixDesignEditScreen
+import com.truesitesync.field.ui.mix.MixDesignListScreen
 import com.truesitesync.field.ui.modules.ModulesScreen
 import com.truesitesync.field.ui.project.ProjectBar
 import com.truesitesync.field.ui.issues.IssueEditScreen
@@ -79,6 +82,8 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val SHEET_EDIT = "sheet_edit"
         const val ABSTRACTS = "abstracts"
         const val ABSTRACT_EDIT = "abstract_edit"
+        const val MIX = "mix"
+        const val MIX_EDIT = "mix_edit"
     }
 }
 
@@ -191,6 +196,22 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(Dest.MIX) {
+                MixDesignListScreen(
+                    onNew = { navController.navigate(Dest.MIX_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.MIX_EDIT}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.MIX_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                MixDesignEditScreen(
+                    mixId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             }
         }
     }
@@ -205,6 +226,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onDocuments = { showCapture = false; navController.navigate(Dest.DOCUMENTS) },
                 onMeasurement = { showCapture = false; navController.navigate(Dest.MEASUREMENT) },
                 onAbstracts = { showCapture = false; navController.navigate(Dest.ABSTRACTS) },
+                onMix = { showCapture = false; navController.navigate(Dest.MIX) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -243,6 +265,7 @@ private fun CaptureSheet(
     onDocuments: () -> Unit,
     onMeasurement: () -> Unit,
     onAbstracts: () -> Unit,
+    onMix: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -255,6 +278,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
         CaptureRow(Icons.Filled.Straighten, "Measurement sheet", "Quantity entry — nos × L × B × H", onMeasurement)
         CaptureRow(Icons.AutoMirrored.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
+        CaptureRow(Icons.Filled.Science, "Mix design", "Material recipes & formulas", onMix)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)
