@@ -5,9 +5,9 @@ A native **Kotlin + Jetpack Compose** field client for True Site Sync, built to
 Supabase backend**. It owns the on-site flows (issues, diary, safety, deliveries,
 attendance); the web app keeps the GST/finance/ledger engine.
 
-> Status: **foundation + Today, Issues, Site Diary, Attendance and Inventory
-> flows + offline CameraX photo capture with geotag + live multi-device sync
-> (Realtime websocket)**. The remaining field flows slot into this same
+> Status: **foundation + Today, Issues, Site Diary, Attendance, Inventory and
+> Documents flows + offline CameraX photo capture with geotag + live multi-device
+> sync (Realtime websocket)**. The remaining field flows slot into this same
 > skeleton — see "Roadmap" below.
 
 ## Why native coexists (not a rewrite)
@@ -109,8 +109,19 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   `ui/inventory/` is a live stock list: **on-hand is derived** (Σ IN − Σ OUT via
   a Room aggregate query), low-stock items flag red against `minStock`, search,
   add-material, and a one-tap **Received (IN) / Issued (OUT)** movement sheet.
+- ~~Documents / drawings viewer (`projectDocs`)~~ **DONE** — `ui/documents/`.
+  Note `projectDocs` is an OBJECT keyed by projectId (not an array), so it needed
+  a lightweight **project selector** (new pull-only `projects` module) and a
+  whole-object REPLACE push (`push_module_replace`, merged over the cloud object
+  so other projects survive). Browse nested folders, upload any file via SAF to
+  bucket `project-docs`, view images in-app (Coil) and other files via a signed
+  URL. Offline folder/upload metadata syncs; bytes upload when online.
 - **Safety** (`incidents`/`ppeChecks`), **Delivery + QR** — next; Delivery adds
   barcode/QR scanning (CameraX + ML Kit) and links a scan to a stock IN.
+
+Deferred but now unblocked: **project scoping** — the `projects` module + active
+project selection now exist (SessionStore.activeProject), so Issues/Diary/etc.
+can move from `projectId = null` to the selected project.
 - ~~CameraX capture with geotag burn-in → Storage upload~~ **DONE** — see
   `ui/capture/` + `data/media/`. Photos capture offline (persisted to filesDir),
   are geotag-burned, and upload to bucket `project-docs` at `{org}/issues/{id}-{name}`

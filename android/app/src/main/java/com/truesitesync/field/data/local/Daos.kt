@@ -69,8 +69,14 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id LIMIT 1")
     suspend fun get(id: String): ProjectEntity?
 
+    @Query("SELECT id FROM projects")
+    suspend fun allIds(): List<String>
+
     @Upsert
     suspend fun upsertAll(projects: List<ProjectEntity>)
+
+    @Query("DELETE FROM projects WHERE id IN (:ids)")
+    suspend fun hardDelete(ids: List<String>)
 }
 
 @Dao

@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.truesitesync.field.BuildConfig
 import com.truesitesync.field.data.local.AttendanceDao
 import com.truesitesync.field.data.local.DiaryDao
+import com.truesitesync.field.data.local.DocsDao
 import com.truesitesync.field.data.local.IssueDao
 import com.truesitesync.field.data.local.ItemDao
 import com.truesitesync.field.data.local.ProjectDao
@@ -83,6 +84,7 @@ object DataModule {
     @Provides fun provideAttendanceDao(db: TssDatabase): AttendanceDao = db.attendanceDao()
     @Provides fun provideItemDao(db: TssDatabase): ItemDao = db.itemDao()
     @Provides fun provideStockTxDao(db: TssDatabase): StockTxDao = db.stockTxDao()
+    @Provides fun provideDocsDao(db: TssDatabase): DocsDao = db.docsDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()
 }

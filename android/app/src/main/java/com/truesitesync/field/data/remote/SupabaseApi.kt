@@ -127,6 +127,19 @@ class SupabaseApi(
         return runCatching { res.body<JsonElement>() }.getOrNull()
     }
 
+    /** Whole-payload replace (bypasses the array-union merge). Used for
+     *  object-shaped modules like `projectDocs` that are keyed by project id. */
+    suspend fun pushModuleReplace(org: String, module: String, payload: JsonElement): Boolean {
+        val res = authed { token ->
+            client.post("${cfg.rest}/rpc/push_module_replace") {
+                supabaseHeaders(token)
+                contentType(ContentType.Application.Json)
+                setBody(PushModuleBody(module, payload, org))
+            }
+        }
+        return res.status.isSuccess()
+    }
+
     suspend fun recordDeletions(org: String, entries: List<DeletionEntry>): Boolean {
         if (entries.isEmpty()) return true
         val res = authed { token ->

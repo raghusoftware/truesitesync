@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
@@ -43,6 +44,7 @@ import androidx.navigation.compose.rememberNavController
 import com.truesitesync.field.ui.attendance.AttendanceScreen
 import com.truesitesync.field.ui.diary.DiaryEditScreen
 import com.truesitesync.field.ui.diary.SiteScreen
+import com.truesitesync.field.ui.documents.DocumentsScreen
 import com.truesitesync.field.ui.inventory.InventoryScreen
 import com.truesitesync.field.ui.issues.IssueEditScreen
 import com.truesitesync.field.ui.issues.IssuesScreen
@@ -62,6 +64,7 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val DIARY_EDIT = "diary_edit"
         const val ATTENDANCE = "attendance"
         const val INVENTORY = "inventory"
+        const val DOCUMENTS = "documents"
     }
 }
 
@@ -133,6 +136,9 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             composable(Dest.INVENTORY) {
                 InventoryScreen(onDone = { navController.popBackStack() })
             }
+            composable(Dest.DOCUMENTS) {
+                DocumentsScreen(onDone = { navController.popBackStack() })
+            }
         }
     }
 
@@ -143,6 +149,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onNewDiary = { showCapture = false; navController.navigate(Dest.DIARY_EDIT) },
                 onAttendance = { showCapture = false; navController.navigate(Dest.ATTENDANCE) },
                 onInventory = { showCapture = false; navController.navigate(Dest.INVENTORY) },
+                onDocuments = { showCapture = false; navController.navigate(Dest.DOCUMENTS) },
             )
         }
     }
@@ -177,6 +184,7 @@ private fun CaptureSheet(
     onNewDiary: () -> Unit,
     onAttendance: () -> Unit,
     onInventory: () -> Unit,
+    onDocuments: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         Text(
@@ -188,6 +196,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
+        CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)
         CaptureRow(Icons.Filled.Description, "Safety observation", "Coming next", onNewIssue)
     }
 }
