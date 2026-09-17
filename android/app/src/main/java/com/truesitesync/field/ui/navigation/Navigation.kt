@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dataset
 import androidx.compose.material.icons.filled.Description
@@ -277,7 +277,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Progress, weather, manpower, photo", onNewDiary)
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
         CaptureRow(Icons.Filled.Straighten, "Measurement sheet", "Quantity entry — nos × L × B × H", onMeasurement)
-        CaptureRow(Icons.AutoMirrored.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
+        CaptureRow(Icons.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
         CaptureRow(Icons.Filled.Science, "Mix design", "Material recipes & formulas", onMix)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)

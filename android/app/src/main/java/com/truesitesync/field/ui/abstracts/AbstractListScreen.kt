@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -72,7 +72,7 @@ fun AbstractListScreen(
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = Dimens.gutter)) {
             if (abstracts.isEmpty()) {
                 EmptyState(
-                    Icons.AutoMirrored.Filled.ReceiptLong,
+                    Icons.Filled.ReceiptLong,
                     "No abstracts",
                     "Create a work abstract to bill measured quantities (code, qty × rate → amount). You can import items from a measurement sheet.",
                 )
