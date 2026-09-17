@@ -56,6 +56,7 @@ import com.truesitesync.field.ui.inventory.InventoryScreen
 import com.truesitesync.field.ui.equipment.EquipmentEditScreen
 import com.truesitesync.field.ui.equipment.EquipmentListScreen
 import com.truesitesync.field.ui.equipment.EquipmentLogScreen
+import com.truesitesync.field.ui.equipment.FuelScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
 import com.truesitesync.field.ui.measurement.SheetEditScreen
 import com.truesitesync.field.ui.mix.MixDesignEditScreen
@@ -91,6 +92,7 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val EQUIPMENT = "equipment"
         const val EQUIPMENT_EDIT = "equipment_edit"
         const val EQUIPMENT_LOG = "equipment_log"
+        const val FUEL = "fuel"
     }
 }
 
@@ -225,8 +227,12 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onNew = { navController.navigate(Dest.EQUIPMENT_EDIT) },
                     onOpen = { id -> navController.navigate("${Dest.EQUIPMENT_EDIT}?id=$id") },
                     onLog = { id -> navController.navigate("${Dest.EQUIPMENT_LOG}?id=$id") },
+                    onFuel = { navController.navigate(Dest.FUEL) },
                     onDone = { navController.popBackStack() },
                 )
+            }
+            composable(Dest.FUEL) {
+                FuelScreen(onDone = { navController.popBackStack() })
             }
             composable(
                 route = "${Dest.EQUIPMENT_EDIT}?id={id}",

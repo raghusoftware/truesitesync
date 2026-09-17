@@ -155,6 +155,13 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   breakdown/repair — matching the web's `saveEquipmentLog`. Both module keys
   round-trip losslessly (extraJson preserves vendorId, baselineEff, receipt,
   operatorId, siteId, start/finish times).
+  **Fuel management** (`fuelStorages` + `fuelTxns`, Equipment → Fuel): register
+  tanks/bowsers with a live balance (Σ RECEIPT − Σ ISSUE), record tanker
+  **receipts** and **dip reconciliations** (physical vs book → variance), and
+  **issue fuel** from a tank to a machine — which deducts the tank AND writes the
+  machine's Fuel log (source "On-Site Barrel"), mirroring the web's `_fuelIssue`.
+  Pump-credit txns round-trip too (type preserved); the pump-ledger UI is a
+  follow-up.
 - ~~Cross-module pipeline (DPR → sheet → abstract, recipe → inventory)~~
   **DONE** — mirrors the web's `mpRecordWork` / `generateAbstractFromSheet` /
   `rebuildSheetConsumption`:

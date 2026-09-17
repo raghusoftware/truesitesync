@@ -52,6 +52,7 @@ fun EquipmentListScreen(
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
     onLog: (String) -> Unit,
+    onFuel: () -> Unit,
     onDone: () -> Unit,
     viewModel: EquipmentListViewModel = hiltViewModel(),
 ) {
@@ -64,6 +65,12 @@ fun EquipmentListScreen(
                 navigationIcon = {
                     IconButton(onClick = onDone) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = onFuel) {
+                        Icon(Icons.Filled.LocalGasStation, contentDescription = null)
+                        Text("  Fuel")
                     }
                 },
             )

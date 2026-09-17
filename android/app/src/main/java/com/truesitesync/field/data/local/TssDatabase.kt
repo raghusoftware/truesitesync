@@ -11,10 +11,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ItemEntity::class, StockTxEntity::class, DocsEntity::class,
         SheetEntity::class, AbstractEntity::class, MixDesignEntity::class,
         EquipmentEntity::class, EquipmentLogEntity::class,
+        FuelStorageEntity::class, FuelTxnEntity::class,
         GenericModuleEntity::class,
         ProjectEntity::class, SyncStateEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 abstract class TssDatabase : RoomDatabase() {
@@ -30,6 +31,8 @@ abstract class TssDatabase : RoomDatabase() {
     abstract fun mixDesignDao(): MixDesignDao
     abstract fun equipmentDao(): EquipmentDao
     abstract fun equipmentLogDao(): EquipmentLogDao
+    abstract fun fuelStorageDao(): FuelStorageDao
+    abstract fun fuelTxnDao(): FuelTxnDao
     abstract fun genericModuleDao(): GenericModuleDao
     abstract fun projectDao(): ProjectDao
     abstract fun syncStateDao(): SyncStateDao
@@ -46,7 +49,8 @@ abstract class TssDatabase : RoomDatabase() {
         // 5→6 (project_docs), 6→7 (module_mirror), 7→8 (DPR columns) and
         // 8→9 (sheets), 9→10 (abstracts), 10→11 (mix_designs), 11→12 (sheet
         // billed columns + stock_tx refSheetId for the DPR→sheet→abstract and
-        // recipe→inventory-consume pipeline), 12→13 (equipment + equipment_logs)
+        // recipe→inventory-consume pipeline), 12→13 (equipment + equipment_logs),
+        // 13→14 (fuel_storages + fuel_txns for fuel management)
         // intentionally have NO hand-written migrations: they fall back to a
         // destructive recreate. Data is re-pulled from Supabase on next sync, so
         // this is safe pre-release and avoids a crash from a mismatched
