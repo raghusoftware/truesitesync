@@ -101,7 +101,7 @@ fun InventoryScreen(
                 )
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(vertical = Dimens.gap, bottom = 96.dp),
+                    contentPadding = PaddingValues(top = Dimens.gap, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(Dimens.gap),
                     modifier = Modifier.fillMaxSize(),
                 ) {

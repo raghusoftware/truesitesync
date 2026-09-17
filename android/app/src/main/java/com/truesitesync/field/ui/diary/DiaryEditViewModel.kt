@@ -71,8 +71,9 @@ class DiaryEditViewModel @Inject constructor(
                     createdAt = e.createdAt, extraJson = e.extraJson, projectId = e.projectId,
                     loaded = true,
                 )
-                if (e.photoLocalPath == null && e.photoPath != null) {
-                    api.signedUrl(e.photoPath)?.let { url -> _form.value = _form.value.copy(photoDisplayUrl = url) }
+                val remotePath = e?.photoPath
+                if (e?.photoLocalPath == null && remotePath != null) {
+                    api.signedUrl(remotePath)?.let { url -> _form.value = _form.value.copy(photoDisplayUrl = url) }
                 }
             }
         }

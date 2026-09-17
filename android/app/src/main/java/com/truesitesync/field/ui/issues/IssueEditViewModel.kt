@@ -69,8 +69,9 @@ class IssueEditViewModel @Inject constructor(
                     lat = e.lat, lng = e.lng, projectId = e.projectId, loaded = true,
                 )
                 // Resolve a viewable URL for an already-uploaded photo.
-                if (e.photoLocalPath == null && e.photoPath != null) {
-                    val url = api.signedUrl(e.photoPath)
+                val remotePath = e?.photoPath
+                if (e?.photoLocalPath == null && remotePath != null) {
+                    val url = api.signedUrl(remotePath)
                     if (url != null) _form.value = _form.value.copy(photoDisplayUrl = url)
                 }
             }

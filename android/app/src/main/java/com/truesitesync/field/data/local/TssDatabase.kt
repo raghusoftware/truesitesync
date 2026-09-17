@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProjectEntity::class, SyncStateEntity::class,
     ],
     version = 6,
-    exportSchema = true,
+    exportSchema = false,
 )
 abstract class TssDatabase : RoomDatabase() {
     abstract fun issueDao(): IssueDao
