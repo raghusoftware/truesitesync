@@ -7,6 +7,8 @@ import androidx.work.WorkerParameters
 import com.truesitesync.field.data.repo.AttendanceRepository
 import com.truesitesync.field.data.repo.DiaryRepository
 import com.truesitesync.field.data.repo.IssueRepository
+import com.truesitesync.field.data.repo.ItemRepository
+import com.truesitesync.field.data.repo.StockTxRepository
 import com.truesitesync.field.data.repo.WorkerRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -24,6 +26,8 @@ class SyncWorker @AssistedInject constructor(
     private val diary: DiaryRepository,
     private val workers: WorkerRepository,
     private val attendance: AttendanceRepository,
+    private val items: ItemRepository,
+    private val stock: StockTxRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = try {
@@ -31,6 +35,7 @@ class SyncWorker @AssistedInject constructor(
         // whole outbox eventually drains.
         val results = listOf(
             issues.syncNow(), diary.syncNow(), workers.syncNow(), attendance.syncNow(),
+            items.syncNow(), stock.syncNow(),
         )
         if (results.all { it }) Result.success() else Result.retry()
     } catch (_: Throwable) {

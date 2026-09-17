@@ -5,10 +5,10 @@ A native **Kotlin + Jetpack Compose** field client for True Site Sync, built to
 Supabase backend**. It owns the on-site flows (issues, diary, safety, deliveries,
 attendance); the web app keeps the GST/finance/ledger engine.
 
-> Status: **foundation + Today, Issues, Site Diary and Attendance flows +
-> offline CameraX photo capture with geotag + live multi-device sync (Realtime
-> websocket)**. The remaining field flows slot into this same skeleton — see
-> "Roadmap" below.
+> Status: **foundation + Today, Issues, Site Diary, Attendance and Inventory
+> flows + offline CameraX photo capture with geotag + live multi-device sync
+> (Realtime websocket)**. The remaining field flows slot into this same
+> skeleton — see "Roadmap" below.
 
 ## Why native coexists (not a rewrite)
 
@@ -105,8 +105,12 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   cycle P / A / ½ / OT (deterministic `att_{worker}_{date}` id = one log per
   worker per day), "All present" bulk action, batched save, and quick add-worker.
   Preserves the web roster's KYC/payroll keys via `extraJson`.
-- **Safety** (`incidents`/`ppeChecks`), **Delivery + QR** (`inventoryTx`) — next,
-  same pattern (Delivery adds barcode/QR scanning).
+- ~~Inventory & stock (`rawMaterials` + `inventoryTx`)~~ **DONE** —
+  `ui/inventory/` is a live stock list: **on-hand is derived** (Σ IN − Σ OUT via
+  a Room aggregate query), low-stock items flag red against `minStock`, search,
+  add-material, and a one-tap **Received (IN) / Issued (OUT)** movement sheet.
+- **Safety** (`incidents`/`ppeChecks`), **Delivery + QR** — next; Delivery adds
+  barcode/QR scanning (CameraX + ML Kit) and links a scan to a stock IN.
 - ~~CameraX capture with geotag burn-in → Storage upload~~ **DONE** — see
   `ui/capture/` + `data/media/`. Photos capture offline (persisted to filesDir),
   are geotag-burned, and upload to bucket `project-docs` at `{org}/issues/{id}-{name}`

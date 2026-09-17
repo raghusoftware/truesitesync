@@ -6,7 +6,9 @@ import com.truesitesync.field.BuildConfig
 import com.truesitesync.field.data.local.AttendanceDao
 import com.truesitesync.field.data.local.DiaryDao
 import com.truesitesync.field.data.local.IssueDao
+import com.truesitesync.field.data.local.ItemDao
 import com.truesitesync.field.data.local.ProjectDao
+import com.truesitesync.field.data.local.StockTxDao
 import com.truesitesync.field.data.local.WorkerDao
 import com.truesitesync.field.data.local.SyncStateDao
 import com.truesitesync.field.data.local.TssDatabase
@@ -79,6 +81,8 @@ object DataModule {
     @Provides fun provideDiaryDao(db: TssDatabase): DiaryDao = db.diaryDao()
     @Provides fun provideWorkerDao(db: TssDatabase): WorkerDao = db.workerDao()
     @Provides fun provideAttendanceDao(db: TssDatabase): AttendanceDao = db.attendanceDao()
+    @Provides fun provideItemDao(db: TssDatabase): ItemDao = db.itemDao()
+    @Provides fun provideStockTxDao(db: TssDatabase): StockTxDao = db.stockTxDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()
 }
