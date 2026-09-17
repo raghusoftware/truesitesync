@@ -6,10 +6,12 @@ import com.truesitesync.field.data.local.AttendanceEntity
 import com.truesitesync.field.data.local.WorkerEntity
 import com.truesitesync.field.data.repo.AttendanceRepository
 import com.truesitesync.field.data.repo.WorkerRepository
+import com.truesitesync.field.data.session.SessionStore
 import com.truesitesync.field.ui.util.todayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +44,7 @@ data class MusterState(
 class AttendanceViewModel @Inject constructor(
     private val workers: WorkerRepository,
     private val attendance: AttendanceRepository,
+    private val session: SessionStore,
 ) : ViewModel() {
 
     private val _date = MutableStateFlow(todayIso())
@@ -92,6 +95,7 @@ class AttendanceViewModel @Inject constructor(
         val d = _date.value
         viewModelScope.launch {
             val now = System.currentTimeMillis()
+            val projectId = session.activeProject.first()
             val marks = pending.filterValues { it.isNotEmpty() }.map { (workerId, status) ->
                 AttendanceEntity(
                     id = "att_${workerId}_$d",
@@ -101,7 +105,7 @@ class AttendanceViewModel @Inject constructor(
                     hoursWorked = hoursFor(status),
                     overtimeHours = if (status == "Overtime") 2.0 else 0.0,
                     notes = null,
-                    projectId = null,
+                    projectId = projectId,
                     createdAt = now,
                     updatedAtMs = now,
                 )

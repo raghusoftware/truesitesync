@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.truesitesync.field.data.local.DiaryEntity
 import com.truesitesync.field.data.remote.SupabaseApi
 import com.truesitesync.field.data.repo.DiaryRepository
+import com.truesitesync.field.data.session.SessionStore
 import com.truesitesync.field.ui.capture.CapturedPhoto
 import com.truesitesync.field.ui.util.todayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -48,6 +50,7 @@ data class DiaryForm(
 class DiaryEditViewModel @Inject constructor(
     private val repo: DiaryRepository,
     private val api: SupabaseApi,
+    private val session: SessionStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -58,7 +61,7 @@ class DiaryEditViewModel @Inject constructor(
         if (_form.value.loaded) return
         viewModelScope.launch {
             if (id == null) {
-                _form.value = DiaryForm(loaded = true)
+                _form.value = DiaryForm(projectId = session.activeProject.first(), loaded = true)
             } else {
                 val e = repo.get(id)
                 _form.value = if (e == null) DiaryForm(loaded = true) else DiaryForm(

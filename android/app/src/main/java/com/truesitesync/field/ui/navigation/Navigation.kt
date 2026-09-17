@@ -48,6 +48,7 @@ import com.truesitesync.field.ui.diary.SiteScreen
 import com.truesitesync.field.ui.documents.DocumentsScreen
 import com.truesitesync.field.ui.inventory.InventoryScreen
 import com.truesitesync.field.ui.modules.ModulesScreen
+import com.truesitesync.field.ui.project.ProjectBar
 import com.truesitesync.field.ui.issues.IssueEditScreen
 import com.truesitesync.field.ui.issues.IssuesScreen
 import com.truesitesync.field.ui.placeholder.PlaceholderScreen
@@ -86,11 +87,14 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             }
         },
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = Dest.Today.route,
-            modifier = Modifier.padding(padding),
-        ) {
+        val backEntry by navController.currentBackStackEntryAsState()
+        val onMainTab = Dest.tabs.any { it.route == backEntry?.destination?.route }
+        Column(Modifier.padding(padding)) {
+            if (onMainTab) ProjectBar()
+            NavHost(
+                navController = navController,
+                startDestination = Dest.Today.route,
+            ) {
             composable(Dest.Today.route) {
                 TodayScreen(
                     onOpenIssues = { navController.navigate(Dest.Issues.route) },
@@ -144,6 +148,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             }
             composable(Dest.MODULES) {
                 ModulesScreen(onDone = { navController.popBackStack() })
+            }
             }
         }
     }

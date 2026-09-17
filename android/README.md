@@ -126,9 +126,12 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   Browse it via Capture → **All modules** (`ui/modules/`). Scope pruning only
   runs on a successful snapshot, so a network blip never wipes the mirror.
 
-Deferred but now unblocked: **project scoping** — the `projects` module + active
-project selection now exist (SessionStore.activeProject), so Issues/Diary/etc.
-can move from `projectId = null` to the selected project.
+- ~~Project scoping across all flows~~ **DONE** — a global **ProjectBar**
+  (`ui/project/`) on the main tabs sets the active project (SessionStore); every
+  field flow scopes to it and stamps new records: Today tiles, Issues list,
+  Site Diary list, and Inventory on-hand filter by the active project (null =
+  "All projects"); new issues/diary/stock-movements/attendance are tagged with
+  it. Worker roster and item catalog stay org-global.
 - ~~CameraX capture with geotag burn-in → Storage upload~~ **DONE** — see
   `ui/capture/` + `data/media/`. Photos capture offline (persisted to filesDir),
   are geotag-burned, and upload to bucket `project-docs` at `{org}/issues/{id}-{name}`

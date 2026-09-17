@@ -24,14 +24,18 @@ interface IssueDao {
     @Query("SELECT * FROM issues WHERE id = :id LIMIT 1")
     suspend fun get(id: String): IssueEntity?
 
-    @Query("SELECT COUNT(*) FROM issues WHERE pendingDelete = 0 AND status != 'Solved'")
-    fun observeOpenCount(): Flow<Int>
+    @Query(
+        "SELECT COUNT(*) FROM issues WHERE pendingDelete = 0 AND status != 'Solved' " +
+            "AND (:projectId IS NULL OR projectId = :projectId)"
+    )
+    fun observeOpenCount(projectId: String?): Flow<Int>
 
     @Query(
         "SELECT COUNT(*) FROM issues WHERE pendingDelete = 0 AND status != 'Solved' " +
-            "AND dueDate IS NOT NULL AND dueDate != '' AND dueDate < :today"
+            "AND dueDate IS NOT NULL AND dueDate != '' AND dueDate < :today " +
+            "AND (:projectId IS NULL OR projectId = :projectId)"
     )
-    fun observeOverdueCount(today: String): Flow<Int>
+    fun observeOverdueCount(projectId: String?, today: String): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM issues WHERE dirty = 1 OR pendingDelete = 1")
     fun observePendingSyncCount(): Flow<Int>
@@ -45,8 +49,12 @@ interface IssueDao {
     @Query("SELECT id FROM issues WHERE dirty = 0 AND pendingDelete = 0")
     suspend fun cleanIds(): List<String>
 
-    @Query("SELECT * FROM issues ORDER BY createdAt DESC LIMIT :limit")
-    fun observeRecent(limit: Int): Flow<List<IssueEntity>>
+    @Query(
+        "SELECT * FROM issues WHERE pendingDelete = 0 " +
+            "AND (:projectId IS NULL OR projectId = :projectId) " +
+            "ORDER BY createdAt DESC LIMIT :limit"
+    )
+    fun observeRecent(projectId: String?, limit: Int): Flow<List<IssueEntity>>
 
     @Upsert
     suspend fun upsert(issue: IssueEntity)

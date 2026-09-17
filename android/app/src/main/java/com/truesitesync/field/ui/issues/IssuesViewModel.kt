@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.truesitesync.field.data.local.IssueEntity
 import com.truesitesync.field.data.repo.IssueRepository
+import com.truesitesync.field.data.session.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -22,14 +24,17 @@ enum class IssueFilter(val label: String, val status: String?) {
 @HiltViewModel
 class IssuesViewModel @Inject constructor(
     private val repo: IssueRepository,
+    session: SessionStore,
 ) : ViewModel() {
 
     private val _filter = MutableStateFlow(IssueFilter.ALL)
     val filter: StateFlow<IssueFilter> = _filter.asStateFlow()
 
-    val issues: StateFlow<List<IssueEntity>> = _filter
-        .flatMapLatest { f -> repo.observe(projectId = null, status = f.status) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // Scope to the active project (null = all projects).
+    val issues: StateFlow<List<IssueEntity>> =
+        combine(_filter, session.activeProject) { f, projectId -> f to projectId }
+            .flatMapLatest { (f, projectId) -> repo.observe(projectId = projectId, status = f.status) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setFilter(f: IssueFilter) { _filter.value = f }
 }

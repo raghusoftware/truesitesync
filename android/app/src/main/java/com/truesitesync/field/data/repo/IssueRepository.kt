@@ -34,9 +34,11 @@ class IssueRepository @Inject constructor(
     fun observe(projectId: String?, status: String?): Flow<List<IssueEntity>> =
         dao.observe(projectId, status)
 
-    fun observeRecent(limit: Int): Flow<List<IssueEntity>> = dao.observeRecent(limit)
-    fun observeOpenCount(): Flow<Int> = dao.observeOpenCount()
-    fun observeOverdueCount(today: String): Flow<Int> = dao.observeOverdueCount(today)
+    fun observeRecent(projectId: String?, limit: Int): Flow<List<IssueEntity>> =
+        dao.observeRecent(projectId, limit)
+    fun observeOpenCount(projectId: String?): Flow<Int> = dao.observeOpenCount(projectId)
+    fun observeOverdueCount(projectId: String?, today: String): Flow<Int> =
+        dao.observeOverdueCount(projectId, today)
     fun observePendingSyncCount(): Flow<Int> = dao.observePendingSyncCount()
 
     suspend fun get(id: String): IssueEntity? = dao.get(id)

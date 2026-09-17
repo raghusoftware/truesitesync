@@ -6,13 +6,17 @@ import com.truesitesync.field.data.local.ItemEntity
 import com.truesitesync.field.data.local.StockTxEntity
 import com.truesitesync.field.data.repo.ItemRepository
 import com.truesitesync.field.data.repo.StockTxRepository
+import com.truesitesync.field.data.session.SessionStore
 import com.truesitesync.field.ui.util.todayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -22,19 +26,24 @@ data class StockRow(val item: ItemEntity, val onHand: Double) {
     val low: Boolean get() = item.minStock?.let { onHand <= it } ?: false
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
     private val items: ItemRepository,
     private val stock: StockTxRepository,
+    private val session: SessionStore,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    // On-hand is scoped to the active project (null = all); the item catalog is global.
+    private val levels = session.activeProject.flatMapLatest { pid -> stock.observeLevels(pid) }
+
     val rows: StateFlow<List<StockRow>> = combine(
-        items.observeAll(), stock.observeLevels(), _query,
-    ) { itemList, levels, q ->
-        val byId = levels.associate { it.rawMaterialId to it.onHand }
+        items.observeAll(), levels, _query,
+    ) { itemList, lvls, q ->
+        val byId = lvls.associate { it.rawMaterialId to it.onHand }
         itemList
             .filter { q.isBlank() || it.name.contains(q, ignoreCase = true) || (it.category?.contains(q, true) == true) }
             .map { StockRow(it, byId[it.id] ?: 0.0) }
@@ -55,7 +64,7 @@ class InventoryViewModel @Inject constructor(
                     date = todayIso(),
                     location = null,
                     note = note.ifBlank { null },
-                    projectId = null,
+                    projectId = session.activeProject.first(),
                     createdAt = System.currentTimeMillis(),
                     updatedAtMs = System.currentTimeMillis(),
                 )

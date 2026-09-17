@@ -38,9 +38,11 @@ interface StockTxDao {
     @Query(
         "SELECT rawMaterialId, " +
             "SUM(CASE WHEN type = 'IN' THEN qty ELSE -qty END) AS onHand " +
-            "FROM stock_tx WHERE pendingDelete = 0 GROUP BY rawMaterialId"
+            "FROM stock_tx WHERE pendingDelete = 0 " +
+            "AND (:projectId IS NULL OR projectId = :projectId) " +
+            "GROUP BY rawMaterialId"
     )
-    fun observeLevels(): Flow<List<StockLevel>>
+    fun observeLevels(projectId: String?): Flow<List<StockLevel>>
 
     @Query("SELECT * FROM stock_tx WHERE pendingDelete = 0 AND rawMaterialId = :itemId ORDER BY date DESC, createdAt DESC")
     fun observeForItem(itemId: String): Flow<List<StockTxEntity>>

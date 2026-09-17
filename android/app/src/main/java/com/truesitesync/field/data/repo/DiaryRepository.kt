@@ -29,7 +29,9 @@ class DiaryRepository @Inject constructor(
 
     fun observeRecent(limit: Int): Flow<List<DiaryEntity>> = dao.observeRecent(limit)
     fun observeAll(): Flow<List<DiaryEntity>> = dao.observeAll()
-    fun observeCountForDate(date: String): Flow<Int> = dao.observeCountForDate(date)
+    fun observeByProject(projectId: String?): Flow<List<DiaryEntity>> = dao.observeByProject(projectId)
+    fun observeCountForDate(projectId: String?, date: String): Flow<Int> =
+        dao.observeCountForDate(projectId, date)
     fun observePendingSyncCount(): Flow<Int> = dao.observePendingSyncCount()
 
     suspend fun get(id: String): DiaryEntity? = dao.get(id)

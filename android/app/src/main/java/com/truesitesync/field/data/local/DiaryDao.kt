@@ -11,11 +11,21 @@ interface DiaryDao {
     @Query("SELECT * FROM diary WHERE pendingDelete = 0 ORDER BY date DESC, createdAt DESC")
     fun observeAll(): Flow<List<DiaryEntity>>
 
+    @Query(
+        "SELECT * FROM diary WHERE pendingDelete = 0 " +
+            "AND (:projectId IS NULL OR projectId = :projectId) " +
+            "ORDER BY date DESC, createdAt DESC"
+    )
+    fun observeByProject(projectId: String?): Flow<List<DiaryEntity>>
+
     @Query("SELECT * FROM diary WHERE pendingDelete = 0 ORDER BY date DESC, createdAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<DiaryEntity>>
 
-    @Query("SELECT COUNT(*) FROM diary WHERE pendingDelete = 0 AND date = :date")
-    fun observeCountForDate(date: String): Flow<Int>
+    @Query(
+        "SELECT COUNT(*) FROM diary WHERE pendingDelete = 0 AND date = :date " +
+            "AND (:projectId IS NULL OR projectId = :projectId)"
+    )
+    fun observeCountForDate(projectId: String?, date: String): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM diary WHERE dirty = 1 OR pendingDelete = 1")
     fun observePendingSyncCount(): Flow<Int>

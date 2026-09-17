@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.truesitesync.field.data.local.IssueEntity
 import com.truesitesync.field.data.remote.SupabaseApi
 import com.truesitesync.field.data.repo.IssueRepository
+import com.truesitesync.field.data.session.SessionStore
 import com.truesitesync.field.ui.capture.CapturedPhoto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +50,7 @@ data class IssueForm(
 class IssueEditViewModel @Inject constructor(
     private val repo: IssueRepository,
     private val api: SupabaseApi,
+    private val session: SessionStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -58,7 +61,7 @@ class IssueEditViewModel @Inject constructor(
         if (_form.value.loaded) return
         viewModelScope.launch {
             if (id == null) {
-                _form.value = IssueForm(projectId = null, loaded = true)
+                _form.value = IssueForm(projectId = session.activeProject.first(), loaded = true)
             } else {
                 val e = repo.get(id)
                 _form.value = if (e == null) IssueForm(loaded = true) else IssueForm(

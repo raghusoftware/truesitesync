@@ -78,7 +78,7 @@ class StockTxRepository @Inject constructor(
 ) {
     companion object { const val MODULE = "inventoryTx" }
 
-    fun observeLevels(): Flow<List<StockLevel>> = dao.observeLevels()
+    fun observeLevels(projectId: String?): Flow<List<StockLevel>> = dao.observeLevels(projectId)
     fun observeForItem(itemId: String): Flow<List<StockTxEntity>> = dao.observeForItem(itemId)
 
     suspend fun record(tx: StockTxEntity) {
