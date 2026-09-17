@@ -145,6 +145,16 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   sheet list + editor with entry rows (description, code, unit, nos/L/B/H →
   auto qty, remarks), running total, and on-device PDF export (`SheetPdf`).
   Field names match the web sheet entries for lossless round-trip.
+- ~~Equipment / fleet (`equipmentList` + `equipmentLogs`)~~ **DONE** —
+  `ui/equipment/`: per-project asset register (name, type, reg no, ownership
+  OWNED/RENTED, meter unit HMR/KM, opening meter, rent rate/basis, operator,
+  service target) with a live **status** badge (ACTIVE / SERVICE DUE /
+  UNDER REPAIR) and current meter. Per-asset **log** entry (Runbook hours/km,
+  Fuel litres/source/amount, Maintenance/Repair cost, Breakdown) that advances
+  the running meter, flags SERVICE_DUE at the PM target, and flips status on
+  breakdown/repair — matching the web's `saveEquipmentLog`. Both module keys
+  round-trip losslessly (extraJson preserves vendorId, baselineEff, receipt,
+  operatorId, siteId, start/finish times).
 - ~~Cross-module pipeline (DPR → sheet → abstract, recipe → inventory)~~
   **DONE** — mirrors the web's `mpRecordWork` / `generateAbstractFromSheet` /
   `rebuildSheetConsumption`:

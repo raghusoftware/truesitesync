@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
@@ -52,6 +53,9 @@ import com.truesitesync.field.ui.diary.DiaryEditScreen
 import com.truesitesync.field.ui.diary.SiteScreen
 import com.truesitesync.field.ui.documents.DocumentsScreen
 import com.truesitesync.field.ui.inventory.InventoryScreen
+import com.truesitesync.field.ui.equipment.EquipmentEditScreen
+import com.truesitesync.field.ui.equipment.EquipmentListScreen
+import com.truesitesync.field.ui.equipment.EquipmentLogScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
 import com.truesitesync.field.ui.measurement.SheetEditScreen
 import com.truesitesync.field.ui.mix.MixDesignEditScreen
@@ -84,6 +88,9 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val ABSTRACT_EDIT = "abstract_edit"
         const val MIX = "mix"
         const val MIX_EDIT = "mix_edit"
+        const val EQUIPMENT = "equipment"
+        const val EQUIPMENT_EDIT = "equipment_edit"
+        const val EQUIPMENT_LOG = "equipment_log"
     }
 }
 
@@ -213,6 +220,32 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(Dest.EQUIPMENT) {
+                EquipmentListScreen(
+                    onNew = { navController.navigate(Dest.EQUIPMENT_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.EQUIPMENT_EDIT}?id=$id") },
+                    onLog = { id -> navController.navigate("${Dest.EQUIPMENT_LOG}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.EQUIPMENT_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                EquipmentEditScreen(
+                    equipmentId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.EQUIPMENT_LOG}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                EquipmentLogScreen(
+                    assetId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             }
         }
     }
@@ -228,6 +261,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onMeasurement = { showCapture = false; navController.navigate(Dest.MEASUREMENT) },
                 onAbstracts = { showCapture = false; navController.navigate(Dest.ABSTRACTS) },
                 onMix = { showCapture = false; navController.navigate(Dest.MIX) },
+                onEquipment = { showCapture = false; navController.navigate(Dest.EQUIPMENT) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -267,6 +301,7 @@ private fun CaptureSheet(
     onMeasurement: () -> Unit,
     onAbstracts: () -> Unit,
     onMix: () -> Unit,
+    onEquipment: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -280,6 +315,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.Straighten, "Measurement sheet", "Quantity entry — nos × L × B × H", onMeasurement)
         CaptureRow(Icons.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
         CaptureRow(Icons.Filled.Science, "Mix design", "Material recipes & formulas", onMix)
+        CaptureRow(Icons.Filled.LocalGasStation, "Equipment", "Fleet — runbook, fuel, maintenance, breakdown", onEquipment)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)
