@@ -13,6 +13,14 @@ data class ModuleRowDto(
     @SerialName("updated_at") val updatedAt: String? = null,
 )
 
+/** One row of `user_data` (personal document store), keyed by data_key. */
+@Serializable
+data class UserDataRowDto(
+    @SerialName("data_key") val dataKey: String? = null,
+    val data: JsonElement,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
 // ── RPC request bodies (mirror sb.rpc(...) from the web client) ──────────────
 @Serializable
 data class PushModuleBody(

@@ -119,6 +119,13 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
 - **Safety** (`incidents`/`ppeChecks`), **Delivery + QR** — next; Delivery adds
   barcode/QR scanning (CameraX + ML Kit) and links a scan to a stock IN.
 
+- ~~Generic all-module data sync~~ **DONE** — `GenericSyncRepository` +
+  `module_mirror` table mirror EVERY org `module_data` key and personal
+  `user_data` key into the device in one sweep per sync (pull-only; typed repos
+  still own their writes). So all ~55 modules' data lands on Android immediately.
+  Browse it via Capture → **All modules** (`ui/modules/`). Scope pruning only
+  runs on a successful snapshot, so a network blip never wipes the mirror.
+
 Deferred but now unblocked: **project scoping** — the `projects` module + active
 project selection now exist (SessionStore.activeProject), so Issues/Diary/etc.
 can move from `projectId = null` to the selected project.

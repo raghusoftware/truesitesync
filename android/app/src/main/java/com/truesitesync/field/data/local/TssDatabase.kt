@@ -9,9 +9,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         IssueEntity::class, DiaryEntity::class, WorkerEntity::class, AttendanceEntity::class,
         ItemEntity::class, StockTxEntity::class, DocsEntity::class,
+        GenericModuleEntity::class,
         ProjectEntity::class, SyncStateEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class TssDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class TssDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
     abstract fun stockTxDao(): StockTxDao
     abstract fun docsDao(): DocsDao
+    abstract fun genericModuleDao(): GenericModuleDao
     abstract fun projectDao(): ProjectDao
     abstract fun syncStateDao(): SyncStateDao
 
@@ -33,8 +35,8 @@ abstract class TssDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE issues ADD COLUMN photoLocalPath TEXT")
             }
         }
-        // 2→3 (diary), 3→4 (workers + attendance), 4→5 (items + stock_tx) and
-        // 5→6 (project_docs)
+        // 2→3 (diary), 3→4 (workers + attendance), 4→5 (items + stock_tx),
+        // 5→6 (project_docs) and 6→7 (module_mirror)
         // intentionally have NO hand-written migrations: they fall back to a
         // destructive recreate. Data is re-pulled from Supabase on next sync, so
         // this is safe pre-release and avoids a crash from a mismatched

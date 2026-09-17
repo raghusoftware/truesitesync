@@ -114,6 +114,32 @@ class SupabaseApi(
         return rows.firstOrNull()?.payload
     }
 
+    /** Every module_data row for the org (whole snapshot), or null on failure. */
+    suspend fun fetchAllModules(org: String): List<ModuleRowDto>? {
+        val res = authed { token ->
+            client.get("${cfg.rest}/module_data") {
+                supabaseHeaders(token)
+                url.parameters.append("organization_id", "eq.$org")
+                url.parameters.append("select", "module_name,payload,updated_at")
+            }
+        }
+        if (!res.status.isSuccess()) return null
+        return runCatching { res.body<List<ModuleRowDto>>() }.getOrNull()
+    }
+
+    /** Every user_data row for the current user (personal store), or null. */
+    suspend fun fetchAllUserData(userId: String): List<UserDataRowDto>? {
+        val res = authed { token ->
+            client.get("${cfg.rest}/user_data") {
+                supabaseHeaders(token)
+                url.parameters.append("user_id", "eq.$userId")
+                url.parameters.append("select", "data_key,data,updated_at")
+            }
+        }
+        if (!res.status.isSuccess()) return null
+        return runCatching { res.body<List<UserDataRowDto>>() }.getOrNull()
+    }
+
     /** Server-side array union; returns the merged array (or null on failure). */
     suspend fun pushModuleMerged(org: String, module: String, payload: JsonElement): JsonElement? {
         val res = authed { token ->
