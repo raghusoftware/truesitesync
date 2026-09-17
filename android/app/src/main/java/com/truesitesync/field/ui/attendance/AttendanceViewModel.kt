@@ -57,8 +57,11 @@ class AttendanceViewModel @Inject constructor(
         attendance.observeForDate(d).map { logs -> logs.associateBy { it.workerId } }
     }
 
+    // Roster shown is scoped to the active project (null = all).
+    private val roster = session.activeProject.flatMapLatest { pid -> workers.observeActive(pid) }
+
     val state: StateFlow<MusterState> = combine(
-        workers.observeActive(), committed, _pending, _date,
+        roster, committed, _pending, _date,
     ) { roster, logs, pending, d ->
         val rows = roster.map { w ->
             val status = when {
@@ -128,7 +131,7 @@ class AttendanceViewModel @Inject constructor(
                     phone = null,
                     dailyRate = dailyRate.toDoubleOrNull(),
                     status = "Active",
-                    projectId = null,
+                    projectId = session.activeProject.first(),
                     createdAt = System.currentTimeMillis(),
                     updatedAtMs = System.currentTimeMillis(),
                 )

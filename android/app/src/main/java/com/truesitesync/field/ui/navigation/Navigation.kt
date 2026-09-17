@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Warning
@@ -47,6 +48,8 @@ import com.truesitesync.field.ui.diary.DiaryEditScreen
 import com.truesitesync.field.ui.diary.SiteScreen
 import com.truesitesync.field.ui.documents.DocumentsScreen
 import com.truesitesync.field.ui.inventory.InventoryScreen
+import com.truesitesync.field.ui.measurement.MeasurementListScreen
+import com.truesitesync.field.ui.measurement.SheetEditScreen
 import com.truesitesync.field.ui.modules.ModulesScreen
 import com.truesitesync.field.ui.project.ProjectBar
 import com.truesitesync.field.ui.issues.IssueEditScreen
@@ -69,6 +72,8 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val INVENTORY = "inventory"
         const val DOCUMENTS = "documents"
         const val MODULES = "modules"
+        const val MEASUREMENT = "measurement"
+        const val SHEET_EDIT = "sheet_edit"
     }
 }
 
@@ -149,6 +154,22 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             composable(Dest.MODULES) {
                 ModulesScreen(onDone = { navController.popBackStack() })
             }
+            composable(Dest.MEASUREMENT) {
+                MeasurementListScreen(
+                    onNew = { navController.navigate(Dest.SHEET_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.SHEET_EDIT}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.SHEET_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                SheetEditScreen(
+                    sheetId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             }
         }
     }
@@ -161,6 +182,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onAttendance = { showCapture = false; navController.navigate(Dest.ATTENDANCE) },
                 onInventory = { showCapture = false; navController.navigate(Dest.INVENTORY) },
                 onDocuments = { showCapture = false; navController.navigate(Dest.DOCUMENTS) },
+                onMeasurement = { showCapture = false; navController.navigate(Dest.MEASUREMENT) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -197,6 +219,7 @@ private fun CaptureSheet(
     onAttendance: () -> Unit,
     onInventory: () -> Unit,
     onDocuments: () -> Unit,
+    onMeasurement: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -207,6 +230,7 @@ private fun CaptureSheet(
         )
         CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Progress, weather, manpower, photo", onNewDiary)
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
+        CaptureRow(Icons.Filled.Straighten, "Measurement sheet", "Quantity entry — nos × L × B × H", onMeasurement)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)

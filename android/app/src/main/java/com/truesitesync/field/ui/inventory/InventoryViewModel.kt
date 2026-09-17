@@ -37,11 +37,12 @@ class InventoryViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    // On-hand is scoped to the active project (null = all); the item catalog is global.
+    // Both catalog and on-hand are scoped to the active project (null = all).
+    private val scopedItems = session.activeProject.flatMapLatest { pid -> items.observeAll(pid) }
     private val levels = session.activeProject.flatMapLatest { pid -> stock.observeLevels(pid) }
 
     val rows: StateFlow<List<StockRow>> = combine(
-        items.observeAll(), levels, _query,
+        scopedItems, levels, _query,
     ) { itemList, lvls, q ->
         val byId = lvls.associate { it.rawMaterialId to it.onHand }
         itemList
@@ -84,7 +85,7 @@ class InventoryViewModel @Inject constructor(
                     rate = rate.toDoubleOrNull(),
                     hsn = null,
                     minStock = minStock.toDoubleOrNull(),
-                    projectId = null,
+                    projectId = session.activeProject.first(),
                     createdAt = System.currentTimeMillis(),
                     updatedAtMs = System.currentTimeMillis(),
                 )

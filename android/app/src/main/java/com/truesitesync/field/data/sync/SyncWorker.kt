@@ -11,6 +11,7 @@ import com.truesitesync.field.data.repo.DocsRepository
 import com.truesitesync.field.data.repo.GenericSyncRepository
 import com.truesitesync.field.data.repo.ItemRepository
 import com.truesitesync.field.data.repo.ProjectRepository
+import com.truesitesync.field.data.repo.SheetRepository
 import com.truesitesync.field.data.repo.StockTxRepository
 import com.truesitesync.field.data.repo.WorkerRepository
 import dagger.assisted.Assisted
@@ -33,6 +34,7 @@ class SyncWorker @AssistedInject constructor(
     private val stock: StockTxRepository,
     private val projects: ProjectRepository,
     private val docs: DocsRepository,
+    private val sheets: SheetRepository,
     private val generic: GenericSyncRepository,
 ) : CoroutineWorker(appContext, params) {
 
@@ -42,7 +44,7 @@ class SyncWorker @AssistedInject constructor(
         val results = listOf(
             issues.syncNow(), diary.syncNow(), workers.syncNow(), attendance.syncNow(),
             items.syncNow(), stock.syncNow(), projects.syncNow(), docs.syncNow(),
-            generic.syncNow(),
+            sheets.syncNow(), generic.syncNow(),
         )
         if (results.all { it }) Result.success() else Result.retry()
     } catch (_: Throwable) {

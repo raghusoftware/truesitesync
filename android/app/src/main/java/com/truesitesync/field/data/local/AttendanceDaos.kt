@@ -7,8 +7,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkerDao {
-    @Query("SELECT * FROM workers WHERE pendingDelete = 0 AND status = 'Active' ORDER BY name")
-    fun observeActive(): Flow<List<WorkerEntity>>
+    @Query(
+        "SELECT * FROM workers WHERE pendingDelete = 0 AND status = 'Active' " +
+            "AND (:projectId IS NULL OR projectId = :projectId OR projectId IS NULL) " +
+            "ORDER BY name"
+    )
+    fun observeActive(projectId: String?): Flow<List<WorkerEntity>>
 
     @Query("SELECT * FROM workers WHERE id = :id LIMIT 1")
     suspend fun get(id: String): WorkerEntity?

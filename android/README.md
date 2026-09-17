@@ -129,6 +129,15 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   Browse it via Capture → **All modules** (`ui/modules/`). Scope pruning only
   runs on a successful snapshot, so a network blip never wipes the mirror.
 
+- ~~Measurement sheets (`sheets`)~~ **DONE** — `ui/measurement/`: per-project
+  sheet list + editor with entry rows (description, code, unit, nos/L/B/H →
+  auto qty, remarks), running total, and on-device PDF export (`SheetPdf`).
+  Field names match the web sheet entries for lossless round-trip.
+- **Project scoping is now strict** — worker roster and item catalog are
+  project-scoped too (filter `projectId = active OR NULL`, matching the web's
+  `!projectId || projectId === pid`), and new workers/items are stamped with the
+  active project. Switching projects updates every module's data automatically.
+
 - ~~Project scoping across all flows~~ **DONE** — a global **ProjectBar**
   (`ui/project/`) on the main tabs sets the active project (SessionStore); every
   field flow scopes to it and stamps new records: Today tiles, Issues list,

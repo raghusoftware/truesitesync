@@ -29,7 +29,7 @@ class ItemRepository @Inject constructor(
 ) {
     companion object { const val MODULE = "rawMaterials" }
 
-    fun observeAll(): Flow<List<ItemEntity>> = dao.observeAll()
+    fun observeAll(projectId: String?): Flow<List<ItemEntity>> = dao.observeAll(projectId)
     suspend fun get(id: String): ItemEntity? = dao.get(id)
 
     suspend fun save(item: ItemEntity) {

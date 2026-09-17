@@ -7,8 +7,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ItemDao {
-    @Query("SELECT * FROM items WHERE pendingDelete = 0 ORDER BY name")
-    fun observeAll(): Flow<List<ItemEntity>>
+    @Query(
+        "SELECT * FROM items WHERE pendingDelete = 0 " +
+            "AND (:projectId IS NULL OR projectId = :projectId OR projectId IS NULL) " +
+            "ORDER BY name"
+    )
+    fun observeAll(projectId: String?): Flow<List<ItemEntity>>
 
     @Query("SELECT * FROM items WHERE id = :id LIMIT 1")
     suspend fun get(id: String): ItemEntity?
