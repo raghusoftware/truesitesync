@@ -4,14 +4,9 @@ name: Android APK
 # uploads it as a downloadable workflow artifact. Gradle is provisioned by the
 # action, so the (uncommitted) Gradle wrapper jar is not required.
 
+# Manual only: an APK is built solely when someone clicks "Run workflow"
+# (Actions tab → Android APK → Run workflow). Pushes no longer auto-build.
 on:
-  push:
-    branches:
-      - claude/great-euler-8ucmg5
-      - main
-    paths:
-      - "android/**"
-      - ".github/workflows/android.yml"
   workflow_dispatch:
 
 jobs:
