@@ -3,6 +3,7 @@ package com.truesitesync.field.di
 import android.content.Context
 import androidx.room.Room
 import com.truesitesync.field.BuildConfig
+import com.truesitesync.field.data.local.AbstractDao
 import com.truesitesync.field.data.local.AttendanceDao
 import com.truesitesync.field.data.local.DiaryDao
 import com.truesitesync.field.data.local.DocsDao
@@ -88,6 +89,7 @@ object DataModule {
     @Provides fun provideStockTxDao(db: TssDatabase): StockTxDao = db.stockTxDao()
     @Provides fun provideDocsDao(db: TssDatabase): DocsDao = db.docsDao()
     @Provides fun provideSheetDao(db: TssDatabase): SheetDao = db.sheetDao()
+    @Provides fun provideAbstractDao(db: TssDatabase): AbstractDao = db.abstractDao()
     @Provides fun provideGenericModuleDao(db: TssDatabase): GenericModuleDao = db.genericModuleDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()

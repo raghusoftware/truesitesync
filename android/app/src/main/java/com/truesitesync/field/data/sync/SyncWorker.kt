@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.truesitesync.field.data.repo.AbstractRepository
 import com.truesitesync.field.data.repo.AttendanceRepository
 import com.truesitesync.field.data.repo.DiaryRepository
 import com.truesitesync.field.data.repo.IssueRepository
@@ -35,6 +36,7 @@ class SyncWorker @AssistedInject constructor(
     private val projects: ProjectRepository,
     private val docs: DocsRepository,
     private val sheets: SheetRepository,
+    private val abstracts: AbstractRepository,
     private val generic: GenericSyncRepository,
 ) : CoroutineWorker(appContext, params) {
 
@@ -44,7 +46,7 @@ class SyncWorker @AssistedInject constructor(
         val results = listOf(
             issues.syncNow(), diary.syncNow(), workers.syncNow(), attendance.syncNow(),
             items.syncNow(), stock.syncNow(), projects.syncNow(), docs.syncNow(),
-            sheets.syncNow(), generic.syncNow(),
+            sheets.syncNow(), abstracts.syncNow(), generic.syncNow(),
         )
         if (results.all { it }) Result.success() else Result.retry()
     } catch (_: Throwable) {

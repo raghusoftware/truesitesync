@@ -129,6 +129,11 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   Browse it via Capture → **All modules** (`ui/modules/`). Scope pruning only
   runs on a successful snapshot, so a network blip never wipes the mirror.
 
+- ~~Abstracts / billing (`abstracts`)~~ **DONE** — `ui/abstracts/`: per-project
+  work-abstract list + editor (abstract no., date, area, item rows: code, desc,
+  unit, qty × rate → amount, grand total), **import items from a measurement
+  sheet** (aggregates entries by code/description), and on-device PDF export.
+  Field names match the web abstract items for lossless round-trip.
 - ~~Measurement sheets (`sheets`)~~ **DONE** — `ui/measurement/`: per-project
   sheet list + editor with entry rows (description, code, unit, nos/L/B/H →
   auto qty, remarks), running total, and on-device PDF export (`SheetPdf`).

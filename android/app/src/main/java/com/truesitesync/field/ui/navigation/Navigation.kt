@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dataset
 import androidx.compose.material.icons.filled.Description
@@ -43,6 +44,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.truesitesync.field.ui.abstracts.AbstractEditScreen
+import com.truesitesync.field.ui.abstracts.AbstractListScreen
 import com.truesitesync.field.ui.attendance.AttendanceScreen
 import com.truesitesync.field.ui.diary.DiaryEditScreen
 import com.truesitesync.field.ui.diary.SiteScreen
@@ -74,6 +77,8 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val MODULES = "modules"
         const val MEASUREMENT = "measurement"
         const val SHEET_EDIT = "sheet_edit"
+        const val ABSTRACTS = "abstracts"
+        const val ABSTRACT_EDIT = "abstract_edit"
     }
 }
 
@@ -170,6 +175,22 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(Dest.ABSTRACTS) {
+                AbstractListScreen(
+                    onNew = { navController.navigate(Dest.ABSTRACT_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.ABSTRACT_EDIT}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.ABSTRACT_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                AbstractEditScreen(
+                    abstractId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             }
         }
     }
@@ -183,6 +204,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onInventory = { showCapture = false; navController.navigate(Dest.INVENTORY) },
                 onDocuments = { showCapture = false; navController.navigate(Dest.DOCUMENTS) },
                 onMeasurement = { showCapture = false; navController.navigate(Dest.MEASUREMENT) },
+                onAbstracts = { showCapture = false; navController.navigate(Dest.ABSTRACTS) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -220,6 +242,7 @@ private fun CaptureSheet(
     onInventory: () -> Unit,
     onDocuments: () -> Unit,
     onMeasurement: () -> Unit,
+    onAbstracts: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -231,6 +254,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Progress, weather, manpower, photo", onNewDiary)
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
         CaptureRow(Icons.Filled.Straighten, "Measurement sheet", "Quantity entry — nos × L × B × H", onMeasurement)
+        CaptureRow(Icons.AutoMirrored.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)
