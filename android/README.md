@@ -162,6 +162,16 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   machine's Fuel log (source "On-Site Barrel"), mirroring the web's `_fuelIssue`.
   Pump-credit txns round-trip too (type preserved); the pump-ledger UI is a
   follow-up.
+- ~~Petty cash (`pettyCashCustodians` + `pettyCashTxns`)~~ **DONE** —
+  `ui/petty/`: per-project **custodian wallets** with a live balance (accepted
+  transfers − expenses − returns, a Room aggregate). Per custodian: a ledger and
+  three actions — **log expense** (amount, category from the web's list,
+  description, date), **add funds** (imprest transfer in, recorded accepted),
+  and **return** to an account. Transfers synced from the web arrive `pending`
+  and can be **confirmed** (accepted) on device. Categories and the balance math
+  match the web's `pettyCash.js` (`_txnEffect`). Receipt-photo capture and the
+  bank-account picker are follow-ups (photoPath/account fields round-trip via
+  extraJson meanwhile).
 - ~~Cross-module pipeline (DPR → sheet → abstract, recipe → inventory)~~
   **DONE** — mirrors the web's `mpRecordWork` / `generateAbstractFromSheet` /
   `rebuildSheetConsumption`:

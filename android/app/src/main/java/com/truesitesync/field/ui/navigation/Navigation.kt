@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ReportProblem
@@ -58,6 +59,8 @@ import com.truesitesync.field.ui.equipment.EquipmentListScreen
 import com.truesitesync.field.ui.equipment.EquipmentLogScreen
 import com.truesitesync.field.ui.equipment.FuelScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
+import com.truesitesync.field.ui.petty.PettyCashListScreen
+import com.truesitesync.field.ui.petty.PettyCustodianScreen
 import com.truesitesync.field.ui.measurement.SheetEditScreen
 import com.truesitesync.field.ui.mix.MixDesignEditScreen
 import com.truesitesync.field.ui.mix.MixDesignListScreen
@@ -93,6 +96,8 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val EQUIPMENT_EDIT = "equipment_edit"
         const val EQUIPMENT_LOG = "equipment_log"
         const val FUEL = "fuel"
+        const val PETTY = "petty"
+        const val PETTY_CUSTODIAN = "petty_custodian"
     }
 }
 
@@ -234,6 +239,21 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             composable(Dest.FUEL) {
                 FuelScreen(onDone = { navController.popBackStack() })
             }
+            composable(Dest.PETTY) {
+                PettyCashListScreen(
+                    onOpen = { id -> navController.navigate("${Dest.PETTY_CUSTODIAN}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.PETTY_CUSTODIAN}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                PettyCustodianScreen(
+                    custodianId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             composable(
                 route = "${Dest.EQUIPMENT_EDIT}?id={id}",
                 arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
@@ -268,6 +288,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onAbstracts = { showCapture = false; navController.navigate(Dest.ABSTRACTS) },
                 onMix = { showCapture = false; navController.navigate(Dest.MIX) },
                 onEquipment = { showCapture = false; navController.navigate(Dest.EQUIPMENT) },
+                onPetty = { showCapture = false; navController.navigate(Dest.PETTY) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -308,6 +329,7 @@ private fun CaptureSheet(
     onAbstracts: () -> Unit,
     onMix: () -> Unit,
     onEquipment: () -> Unit,
+    onPetty: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -322,6 +344,7 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.ReceiptLong, "Abstract", "Work abstract & billing — qty × rate", onAbstracts)
         CaptureRow(Icons.Filled.Science, "Mix design", "Material recipes & formulas", onMix)
         CaptureRow(Icons.Filled.LocalGasStation, "Equipment", "Fleet — runbook, fuel, maintenance, breakdown", onEquipment)
+        CaptureRow(Icons.Filled.AccountBalanceWallet, "Petty cash", "Custodian wallets, expenses & imprest", onPetty)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)
