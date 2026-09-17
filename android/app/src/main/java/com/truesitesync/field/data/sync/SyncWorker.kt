@@ -4,8 +4,10 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.truesitesync.field.data.repo.AttendanceRepository
 import com.truesitesync.field.data.repo.DiaryRepository
 import com.truesitesync.field.data.repo.IssueRepository
+import com.truesitesync.field.data.repo.WorkerRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -20,12 +22,16 @@ class SyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val issues: IssueRepository,
     private val diary: DiaryRepository,
+    private val workers: WorkerRepository,
+    private val attendance: AttendanceRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = try {
         // Sync every module; retry if any reports a transient failure so the
         // whole outbox eventually drains.
-        val results = listOf(issues.syncNow(), diary.syncNow())
+        val results = listOf(
+            issues.syncNow(), diary.syncNow(), workers.syncNow(), attendance.syncNow(),
+        )
         if (results.all { it }) Result.success() else Result.retry()
     } catch (_: Throwable) {
         Result.retry()

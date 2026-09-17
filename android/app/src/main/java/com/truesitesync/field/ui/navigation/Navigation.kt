@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.Menu
@@ -38,6 +39,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.truesitesync.field.ui.attendance.AttendanceScreen
 import com.truesitesync.field.ui.diary.DiaryEditScreen
 import com.truesitesync.field.ui.diary.SiteScreen
 import com.truesitesync.field.ui.issues.IssueEditScreen
@@ -56,6 +58,7 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         val tabs = listOf(Today, Site, Issues, More)
         const val ISSUE_EDIT = "issue_edit"
         const val DIARY_EDIT = "diary_edit"
+        const val ATTENDANCE = "attendance"
     }
 }
 
@@ -121,6 +124,9 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(Dest.ATTENDANCE) {
+                AttendanceScreen(onDone = { navController.popBackStack() })
+            }
         }
     }
 
@@ -129,6 +135,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             CaptureSheet(
                 onNewIssue = { showCapture = false; navController.navigate(Dest.ISSUE_EDIT) },
                 onNewDiary = { showCapture = false; navController.navigate(Dest.DIARY_EDIT) },
+                onAttendance = { showCapture = false; navController.navigate(Dest.ATTENDANCE) },
             )
         }
     }
@@ -158,7 +165,7 @@ private fun TssBottomBar(navController: NavHostController) {
 }
 
 @Composable
-private fun CaptureSheet(onNewIssue: () -> Unit, onNewDiary: () -> Unit) {
+private fun CaptureSheet(onNewIssue: () -> Unit, onNewDiary: () -> Unit, onAttendance: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         Text(
             "Quick capture",
@@ -167,6 +174,7 @@ private fun CaptureSheet(onNewIssue: () -> Unit, onNewDiary: () -> Unit) {
         )
         CaptureRow(Icons.AutoMirrored.Filled.List, "Site diary", "Progress, weather, manpower, photo", onNewDiary)
         CaptureRow(Icons.Filled.ReportProblem, "New issue / snag", "Photo, priority, location", onNewIssue)
+        CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Description, "Safety observation", "Coming next", onNewIssue)
     }
 }

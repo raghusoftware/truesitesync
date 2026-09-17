@@ -3,9 +3,11 @@ package com.truesitesync.field.di
 import android.content.Context
 import androidx.room.Room
 import com.truesitesync.field.BuildConfig
+import com.truesitesync.field.data.local.AttendanceDao
 import com.truesitesync.field.data.local.DiaryDao
 import com.truesitesync.field.data.local.IssueDao
 import com.truesitesync.field.data.local.ProjectDao
+import com.truesitesync.field.data.local.WorkerDao
 import com.truesitesync.field.data.local.SyncStateDao
 import com.truesitesync.field.data.local.TssDatabase
 import com.truesitesync.field.data.remote.SupabaseApi
@@ -75,6 +77,8 @@ object DataModule {
 
     @Provides fun provideIssueDao(db: TssDatabase): IssueDao = db.issueDao()
     @Provides fun provideDiaryDao(db: TssDatabase): DiaryDao = db.diaryDao()
+    @Provides fun provideWorkerDao(db: TssDatabase): WorkerDao = db.workerDao()
+    @Provides fun provideAttendanceDao(db: TssDatabase): AttendanceDao = db.attendanceDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()
 }
