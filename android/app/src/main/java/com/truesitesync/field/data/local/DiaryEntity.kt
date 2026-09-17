@@ -27,10 +27,13 @@ data class DiaryEntity(
     val manpowerSkilled: Int?,
     val manpowerUnskilled: Int?,
     val equipment: String?,
+    val hindrance: String? = null,
     val photoPath: String?,
     val photoLocalPath: String? = null,
     val lat: Double?,
     val lng: Double?,
+    val measurementsJson: String = "[]",  // JSON array of DprMeasurement
+    val overheadsJson: String = "[]",     // JSON array of DprOverhead
     val createdAt: Long,
     val updatedAtMs: Long,
     val dirty: Boolean = false,

@@ -46,9 +46,12 @@ object DiaryMapper {
                 manpowerSkilled = o.int("manpowerSkilled"),
                 manpowerUnskilled = o.int("manpowerUnskilled"),
                 equipment = o.str("equipment"),
+                hindrance = o.str("hindrance"),
                 photoPath = o.str("photoPath", "photo"),
                 lat = o.dbl("lat"),
                 lng = o.dbl("lng"),
+                measurementsJson = (o["measurements"] as? JsonArray)?.toString() ?: "[]",
+                overheadsJson = (o["overheads"] as? JsonArray)?.toString() ?: "[]",
                 createdAt = o.longVal("createdAt") ?: System.currentTimeMillis(),
                 updatedAtMs = o.longVal("updatedAt") ?: o.longVal("createdAt") ?: System.currentTimeMillis(),
                 extraJson = o.toString(),
@@ -70,9 +73,12 @@ object DiaryMapper {
             put("manpowerSkilled", e.manpowerSkilled?.let { JsonPrimitive(it) } ?: JsonNull)
             put("manpowerUnskilled", e.manpowerUnskilled?.let { JsonPrimitive(it) } ?: JsonNull)
             put("equipment", e.equipment?.let { JsonPrimitive(it) } ?: JsonNull)
+            put("hindrance", e.hindrance?.let { JsonPrimitive(it) } ?: JsonNull)
             put("photoPath", e.photoPath?.let { JsonPrimitive(it) } ?: JsonNull)
             put("lat", e.lat?.let { JsonPrimitive(it) } ?: JsonNull)
             put("lng", e.lng?.let { JsonPrimitive(it) } ?: JsonNull)
+            put("measurements", runCatching { json.parseToJsonElement(e.measurementsJson) }.getOrDefault(JsonArray(emptyList())))
+            put("overheads", runCatching { json.parseToJsonElement(e.overheadsJson) }.getOrDefault(JsonArray(emptyList())))
             put("createdAt", JsonPrimitive(e.createdAt))
             put("updatedAt", JsonPrimitive(e.updatedAtMs))
         }

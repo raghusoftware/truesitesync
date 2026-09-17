@@ -95,11 +95,14 @@ Stable 5-tab bottom nav — positions never change; content is role/project-awar
 
 Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
 
-- ~~Diary / Site progress (`dailyProgress`)~~ **DONE** — Site tab + fast <60s
-  DPR editor (`ui/diary/`): date, weather chips, work done, skilled/unskilled
-  manpower, equipment, geotagged photo. Preserves the web editor's richer keys
-  (measurements[], overheads[], dprNum) via `extraJson`. Multi-line measurement
-  tables are the follow-up.
+- ~~Diary / Site progress (`dailyProgress`) — full DPR + PDF~~ **DONE** — Site
+  tab + DPR editor (`ui/diary/`): header (date, weather, work done, manpower,
+  equipment, hindrance, geotagged photo) plus **editable measurement rows**
+  (description, nos, L, B, H → auto qty, unit, rate → amount) and **overheads**
+  (resource, qty, rate → cost) with running totals — field names match the web
+  DPR for lossless round-trip. **On-device PDF export** (`DprPdf`, platform
+  PdfDocument, no library) renders header + both tables + totals and opens/shares
+  via FileProvider.
 - ~~Attendance (`attendanceLogs` + `labourMaster`)~~ **DONE** — `ui/attendance/`
   is a daily **muster roll**: the whole active crew on one screen, tap a name to
   cycle P / A / ½ / OT (deterministic `att_{worker}_{date}` id = one log per
