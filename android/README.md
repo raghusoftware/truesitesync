@@ -145,6 +145,27 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   sheet list + editor with entry rows (description, code, unit, nos/L/B/H →
   auto qty, remarks), running total, and on-device PDF export (`SheetPdf`).
   Field names match the web sheet entries for lossless round-trip.
+- ~~Cross-module pipeline (DPR → sheet → abstract, recipe → inventory)~~
+  **DONE** — mirrors the web's `mpRecordWork` / `generateAbstractFromSheet` /
+  `rebuildSheetConsumption`:
+  1. **DPR → measurement sheet.** Saving a DPR flows its measurement rows into a
+     per-location **running** measurement sheet (`MeasurementFlow`, find-or-create
+     by deterministic id). Rows are tagged `_dprId`, so re-saving an edited DPR
+     replaces its own rows instead of duplicating (like `mpClearDpr`); deleting a
+     DPR pulls them back out.
+  2. **Sheet → Abstract.** "Generate Abstract" on a measurement sheet aggregates
+     entries by code (carrying qty × rate), creates the abstract, and marks the
+     sheet **billed** + linked (badge on the card). Sheet entries now carry `rate`
+     for lossless round-trip and real billing amounts.
+  3. **Recipe → inventory auto-deduct.** On every sheet save (`ConsumptionEngine`),
+     each measured BOQ code is matched to a **mix design** by its `itemCode`, and
+     every ingredient writes a `CONSUME` stock movement = `qty × ingredient ×
+     (1+wastage%)`, tagged `refSheetId` so it rebuilds in place (never
+     double-counts). Stock-on-hand stays derived, so site stock deducts
+     automatically. NOTE: consumption reads Android `mixDesigns` (matched on BOQ
+     code) rather than the web's nested `recipes` object; a running sheet Android
+     creates for a location may not share the exact id of the web's sheet for that
+     location, but `_dprId` tagging keeps totals correct.
 - **Project scoping is now strict** — worker roster and item catalog are
   project-scoped too (filter `projectId = active OR NULL`, matching the web's
   `!projectId || projectId === pid`), and new workers/items are stamped with the

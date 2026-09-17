@@ -38,6 +38,8 @@ object SheetMapper {
                 name = o.str("name", "sheetName", "title") ?: (o.str("sheetNum")?.let { "Sheet $it" } ?: "Measurement sheet"),
                 entriesJson = entries.toString(),
                 totalQty = o.dbl("totalQty") ?: entries.sumOf { (it as? JsonObject)?.dbl("qty") ?: 0.0 },
+                isBilled = (o["isBilled"] as? JsonPrimitive)?.content == "true",
+                linkedAbstract = o.str("linkedAbstract"),
                 createdAt = o.longVal("createdAt") ?: System.currentTimeMillis(),
                 updatedAtMs = o.longVal("updatedAt") ?: o.longVal("createdAt") ?: System.currentTimeMillis(),
                 extraJson = o.toString(),
@@ -57,6 +59,8 @@ object SheetMapper {
             put("sheetName", JsonPrimitive(e.name))
             put("entries", entries)
             put("totalQty", JsonPrimitive(e.totalQty))
+            put("isBilled", JsonPrimitive(e.isBilled))
+            put("linkedAbstract", e.linkedAbstract?.let { JsonPrimitive(it) } ?: JsonNull)
             put("createdAt", JsonPrimitive(e.createdAt))
             put("updatedAt", JsonPrimitive(e.updatedAtMs))
         }

@@ -21,6 +21,7 @@ class SheetRepository @Inject constructor(
     private val api: SupabaseApi,
     private val session: SessionStore,
     private val scheduler: SyncScheduler,
+    private val consumption: ConsumptionEngine,
     private val json: Json,
 ) {
     companion object { const val MODULE = "sheets" }
@@ -29,7 +30,10 @@ class SheetRepository @Inject constructor(
     suspend fun get(id: String): SheetEntity? = dao.get(id)
 
     suspend fun save(sheet: SheetEntity) {
-        dao.upsert(sheet.copy(dirty = true, updatedAtMs = System.currentTimeMillis()))
+        val saved = sheet.copy(dirty = true, updatedAtMs = System.currentTimeMillis())
+        dao.upsert(saved)
+        // Recipe-based inventory auto-consume for this sheet (mirrors the web).
+        consumption.rebuild(saved)
         scheduler.requestSync()
     }
 

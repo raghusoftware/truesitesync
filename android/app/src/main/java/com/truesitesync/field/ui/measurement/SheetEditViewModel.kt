@@ -27,6 +27,8 @@ data class SheetForm(
     val name: String = "",
     val entries: List<SheetEntry> = emptyList(),
     val projectId: String? = null,
+    val isBilled: Boolean = false,
+    val linkedAbstract: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val extraJson: String = "{}",
     val loaded: Boolean = false,
@@ -58,7 +60,8 @@ class SheetEditViewModel @Inject constructor(
                 _form.value = if (e == null) SheetForm(loaded = true) else SheetForm(
                     id = e.id, name = e.name,
                     entries = runCatching { json.decodeFromString(ser, e.entriesJson) }.getOrDefault(emptyList()),
-                    projectId = e.projectId, createdAt = e.createdAt, extraJson = e.extraJson, loaded = true,
+                    projectId = e.projectId, isBilled = e.isBilled, linkedAbstract = e.linkedAbstract,
+                    createdAt = e.createdAt, extraJson = e.extraJson, loaded = true,
                 )
             }
         }
@@ -99,6 +102,8 @@ class SheetEditViewModel @Inject constructor(
         name = name.ifBlank { "Measurement sheet" },
         entriesJson = json.encodeToString(ser, entries),
         totalQty = total,
+        isBilled = isBilled,
+        linkedAbstract = linkedAbstract,
         createdAt = createdAt,
         updatedAtMs = System.currentTimeMillis(),
         extraJson = extraJson,

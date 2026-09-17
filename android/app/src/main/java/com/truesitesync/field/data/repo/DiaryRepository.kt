@@ -23,6 +23,7 @@ class DiaryRepository @Inject constructor(
     private val api: SupabaseApi,
     private val session: SessionStore,
     private val scheduler: SyncScheduler,
+    private val measurementFlow: MeasurementFlow,
     private val json: Json,
 ) {
     companion object { const val MODULE = "dailyProgress"; const val MEDIA_FOLDER = "dpr" }
@@ -37,13 +38,19 @@ class DiaryRepository @Inject constructor(
     suspend fun get(id: String): DiaryEntity? = dao.get(id)
 
     suspend fun save(entry: DiaryEntity) {
-        dao.upsert(entry.copy(dirty = true, updatedAtMs = System.currentTimeMillis()))
+        val saved = entry.copy(dirty = true, updatedAtMs = System.currentTimeMillis())
+        dao.upsert(saved)
+        // Flow the DPR's measurement rows into per-location running measurement
+        // sheets (which in turn auto-deduct inventory by recipe).
+        measurementFlow.applyDpr(saved)
         scheduler.requestSync()
     }
 
     suspend fun delete(id: String) {
         val existing = dao.get(id) ?: return
         dao.upsert(existing.copy(pendingDelete = true, dirty = true, updatedAtMs = System.currentTimeMillis()))
+        // Pull this DPR's rows back out of the running sheets it fed.
+        measurementFlow.clearDpr(id)
         scheduler.requestSync()
     }
 

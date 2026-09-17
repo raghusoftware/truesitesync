@@ -171,6 +171,7 @@ private fun EntryRow(row: SheetEntry, onChange: (SheetEntry) -> Unit, onRemove: 
                 value = row.uom, onValueChange = { onChange(row.copy(uom = it)) },
                 label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f),
             )
+            Num("Rate", row.rate, Modifier.weight(1f)) { onChange(row.copy(rate = it)) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Num("Nos", row.nos, Modifier.weight(1f)) { onChange(row.copy(nos = it)) }
@@ -183,7 +184,7 @@ private fun EntryRow(row: SheetEntry, onChange: (SheetEntry) -> Unit, onRemove: 
             label = { Text("Remarks") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "Qty ${fmt.format(row.qty)}",
+            "Qty ${fmt.format(row.qty)}" + if (row.rate > 0.0) " · Amt ${fmt.format(row.qty * row.rate)}" else "",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

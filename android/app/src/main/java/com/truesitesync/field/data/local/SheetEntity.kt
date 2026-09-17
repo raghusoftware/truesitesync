@@ -20,6 +20,8 @@ data class SheetEntity(
     val name: String,
     val entriesJson: String = "[]",
     val totalQty: Double = 0.0,
+    val isBilled: Boolean = false,        // true once converted to an abstract
+    val linkedAbstract: String? = null,   // abstractNum of the abstract it was billed to
     val createdAt: Long,
     val updatedAtMs: Long,
     val dirty: Boolean = false,

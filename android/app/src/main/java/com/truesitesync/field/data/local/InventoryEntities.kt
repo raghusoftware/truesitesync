@@ -47,6 +47,7 @@ data class StockTxEntity(
     val location: String?,
     val note: String?,
     val projectId: String?,
+    val refSheetId: String? = null, // set on auto-CONSUME rows so they rebuild per sheet
     val createdAt: Long,
     val updatedAtMs: Long,
     val dirty: Boolean = false,

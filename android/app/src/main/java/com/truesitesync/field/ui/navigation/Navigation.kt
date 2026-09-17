@@ -168,6 +168,7 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 MeasurementListScreen(
                     onNew = { navController.navigate(Dest.SHEET_EDIT) },
                     onOpen = { id -> navController.navigate("${Dest.SHEET_EDIT}?id=$id") },
+                    onOpenAbstract = { id -> navController.navigate("${Dest.ABSTRACT_EDIT}?id=$id") },
                     onDone = { navController.popBackStack() },
                 )
             }

@@ -51,6 +51,14 @@ interface StockTxDao {
     @Query("SELECT * FROM stock_tx WHERE pendingDelete = 0 AND rawMaterialId = :itemId ORDER BY date DESC, createdAt DESC")
     fun observeForItem(itemId: String): Flow<List<StockTxEntity>>
 
+    /** Auto-CONSUME rows previously generated for a given measurement sheet. */
+    @Query("SELECT * FROM stock_tx WHERE pendingDelete = 0 AND refSheetId = :sheetId")
+    suspend fun consumeForSheet(sheetId: String): List<StockTxEntity>
+
+    /** Latest IN rate for an item (for valuing auto-consumed stock). */
+    @Query("SELECT rate FROM stock_tx WHERE rawMaterialId = :itemId AND type = 'IN' AND rate > 0 ORDER BY date DESC, createdAt DESC LIMIT 1")
+    suspend fun lastInRate(itemId: String): Double?
+
     @Query("SELECT * FROM stock_tx WHERE dirty = 1 OR pendingDelete = 1")
     suspend fun dirty(): List<StockTxEntity>
 

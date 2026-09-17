@@ -85,6 +85,7 @@ object StockTxMapper {
                 location = o.str("location", "siteId"),
                 note = o.str("note", "remarks", "ref"),
                 projectId = o.str("projectId", "project_id"),
+                refSheetId = o.str("refSheetId"),
                 createdAt = o.longVal("createdAt") ?: System.currentTimeMillis(),
                 updatedAtMs = o.longVal("updatedAt") ?: o.longVal("createdAt") ?: System.currentTimeMillis(),
                 extraJson = o.toString(),
@@ -106,6 +107,7 @@ object StockTxMapper {
             put("location", e.location?.let { JsonPrimitive(it) } ?: JsonNull)
             put("note", e.note?.let { JsonPrimitive(it) } ?: JsonNull)
             put("projectId", e.projectId?.let { JsonPrimitive(it) } ?: JsonNull)
+            put("refSheetId", e.refSheetId?.let { JsonPrimitive(it) } ?: JsonNull)
             put("createdAt", JsonPrimitive(e.createdAt))
             put("updatedAt", JsonPrimitive(e.updatedAtMs))
         }

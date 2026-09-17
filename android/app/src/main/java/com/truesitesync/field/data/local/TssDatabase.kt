@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         GenericModuleEntity::class,
         ProjectEntity::class, SyncStateEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class TssDatabase : RoomDatabase() {
@@ -41,7 +41,9 @@ abstract class TssDatabase : RoomDatabase() {
         }
         // 2→3 (diary), 3→4 (workers + attendance), 4→5 (items + stock_tx),
         // 5→6 (project_docs), 6→7 (module_mirror), 7→8 (DPR columns) and
-        // 8→9 (sheets), 9→10 (abstracts), 10→11 (mix_designs)
+        // 8→9 (sheets), 9→10 (abstracts), 10→11 (mix_designs), 11→12 (sheet
+        // billed columns + stock_tx refSheetId for the DPR→sheet→abstract and
+        // recipe→inventory-consume pipeline)
         // intentionally have NO hand-written migrations: they fall back to a
         // destructive recreate. Data is re-pulled from Supabase on next sync, so
         // this is safe pre-release and avoids a crash from a mismatched
