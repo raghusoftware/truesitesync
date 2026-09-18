@@ -615,11 +615,22 @@ window._pcExpenseModal = function (custId) {
   if (!c) return;
   _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   const cats = PC_CATEGORIES.map(x => `<option>${x}</option>`).join('');
+  // Labour of THIS project (falls back to all if no project is open) — so a
+  // wage paid from petty cash is booked against that worker's ledger.
+  const pid = _pid();
+  const projLabour = (state.labourMaster || []).filter(l => !pid || l.projectId === pid);
+  const labourOpts = projLabour
+    .map(l => `<option value="${_esc(l.id)}">${_esc(l.name)}${l.trade ? ' (' + _esc(l.trade) + ')' : ''}</option>`).join('');
   _modal(`${_modalHead('Log Expense')}
     <div style="padding:20px;">
       <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#047857;">${_esc(c.name)} · Balance ${_fmt(_balance(custId))}</div>
       <input id="pcExAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
       <select id="pcExCat" style="${_inp}">${cats}</select>
+      <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin:6px 0 4px;">Paid to labour (optional)</label>
+      <select id="pcExLabour" style="${_inp}">
+        <option value="">— not a labour payment —</option>
+        ${labourOpts || '<option value="" disabled>No labour in this project</option>'}
+      </select>
       <input id="pcExDesc" placeholder="Description (what was bought)" style="${_inp}">
       <input id="pcExDate" type="date" value="${new Date().toISOString().split('T')[0]}" style="${_inp}">
       <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px;">Receipt photo (optional)</label>
@@ -646,18 +657,40 @@ window._pcCapturePhoto = async function (input) {
 window._pcDoExpense = function (custId) {
   const amount = parseFloat(document.getElementById('pcExAmount').value);
   if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
+  const date = document.getElementById('pcExDate').value || new Date().toISOString().split('T')[0];
+  const labourId = document.getElementById('pcExLabour')?.value || '';
+  const lab = labourId ? (state.labourMaster || []).find(l => l.id === labourId) : null;
+  const paymentId = 'pmt_' + Date.now();
+
+  // Cash-out leg: reduce the custodian wallet (attributed to this custodian).
   state.pettyCashTxns.push(window.stampCreate({
     id: 'pcx_' + Date.now(), type: 'EXPENSE', custodianId: custId, amount,
-    category: document.getElementById('pcExCat').value,
+    category: lab ? 'Daily Wages' : document.getElementById('pcExCat').value,
     description: document.getElementById('pcExDesc').value.trim(),
-    date: document.getElementById('pcExDate').value || new Date().toISOString().split('T')[0],
+    payeeType: lab ? 'labour' : undefined,
+    payeeId: lab ? labourId : undefined,
+    payeeName: lab ? lab.name : undefined,
+    paymentId,
+    date,
     photoPath: _pcPendingPhotoPath || null,   // Storage ref (bytes not in synced JSON)
     photo: null,
     projectId: _pid()
   }));
+
+  // Ledger leg for a labour payment: hits the worker's ledger, NO accountId so
+  // the main account is never debited (the money left main at top-up time).
+  if (lab) {
+    if (!state.labourPayments) state.labourPayments = [];
+    state.labourPayments.push(window.stampCreate({
+      id: 'lpay_' + Date.now(), labourId, date, amount,
+      source: 'petty', custodianId: custId, ref: `Petty cash · ${_custName(custId)}`,
+      paymentId, projectId: _pid()
+    }));
+  }
+
   _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   saveAllData(); _pcCloseModal();
-  showToast(`Expense ${_fmt(amount)} logged`, 'success');
+  showToast(lab ? `Paid ${_fmt(amount)} to ${lab.name}` : `Expense ${_fmt(amount)} logged`, 'success');
   renderPettyCash();
 };
 

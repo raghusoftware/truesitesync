@@ -32,7 +32,7 @@ function heads() {
 const accounts = () => (state.accounts || []);
 const custodians = () => (state.pettyCashCustodians || []).filter(c => !_pid() || !c.projectId || c.projectId === _pid());
 const vendors = () => (state.vendors || []);
-const labour = () => (state.labourMaster || []).filter(l => !_pid() || !l.projectId || l.projectId === _pid());
+const labour = () => { const p = _pid(); const all = state.labourMaster || []; return p ? all.filter(l => l.projectId === p) : all; };
 const contractors = () => (state.labourContractors || []);
 const clients = () => (state.clients || []);
 
