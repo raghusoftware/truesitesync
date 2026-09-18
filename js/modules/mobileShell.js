@@ -19,6 +19,57 @@ function isNativeApp() {
   return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 }
 
+/* ─────────────────── Back HIERARCHY (not flat history) ───────────────────
+ * Back should walk the menu tree — a leaf view goes up to its hub/section, a
+ * hub goes to Home — instead of replaying whatever screens were opened recently.
+ * Every view maps to its parent; anything unlisted falls back to Home.
+ */
+const HOME_VIEW = 'projectsHome';
+
+const _childrenOf = {
+  // Home's direct children (hubs + top-level views)
+  [HOME_VIEW]: [
+    'projectDashboard', 'analyticsView', 'reportsView',
+    'salesHubView', 'purchaseHubView', 'financeHubView', 'systemHubView', 'superAdminView',
+  ],
+  // Inside an open project
+  projectDashboard: [
+    'planningView', 'microPlanView', 'execEngineView', 'scheduleBuilderView', 'executionView',
+    'issuesView', 'chatView', 'labourView', 'equipmentView', 'assetsView', 'inventoryView',
+    'recipeView', 'measurementListView', 'abstractsView', 'pettyCashView', 'documentsView',
+    'clientDashboardView', 'savedSheets', 'billingView',
+  ],
+  measurementListView: ['entrySheet'],
+  // Sales
+  salesHubView: [
+    'salesLedgerView', 'saleOrderView', 'proformaInvoiceView', 'deliveryChallanView',
+    'estimatesView', 'estimationView', 'paymentInView', 'saleReturnView', 'otherIncomeView',
+    'saleFixedAssetsView',
+  ],
+  // Purchase
+  purchaseHubView: [
+    'purchaseBillsView', 'purchaseOrderView', 'paymentOutView', 'purchaseReturnView',
+    'expensesView', 'purchaseAssetsView', 'vendorView',
+  ],
+  // Finance
+  financeHubView: ['partiesLedgerView', 'accountsManagerView', 'cashFlowView', 'costProfitView'],
+  // System / masters
+  systemHubView: ['itemsMasterView', 'masterData', 'planBillingView', 'settingsView', 'recycleBinView'],
+};
+
+// Invert the children map into a view → parent lookup (built once).
+const VIEW_PARENT = (() => {
+  const m = {};
+  for (const parent in _childrenOf) for (const child of _childrenOf[parent]) m[child] = parent;
+  return m;
+})();
+
+/** The logical parent of a view for Back, or null at the root. */
+function parentOf(viewId) {
+  if (!viewId || viewId === HOME_VIEW) return null;
+  return VIEW_PARENT[viewId] || HOME_VIEW;
+}
+
 /* ───────────────────────── Back navigation ───────────────────────── */
 
 /** Return the top-most visible modal/overlay element, or null. */
@@ -29,8 +80,12 @@ function topVisibleModal() {
     if (el.id === 'mobileOverlay') return;            // handled as the drawer scrim
     if (el.classList.contains('hidden') || el.classList.contains('hide')) return;
     if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return;
-    if (getComputedStyle(el).display === 'none') return;
-    const z = parseInt(getComputedStyle(el).zIndex) || 0;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+    // Zero-size element = not actually on screen (a hidden panel that lost its
+    // .hidden class), so it must not swallow the Back press.
+    if (el.offsetWidth === 0 && el.offsetHeight === 0 && el.getClientRects().length === 0) return;
+    const z = parseInt(cs.zIndex) || 0;
     if (z >= bestZ) { bestZ = z; best = el; }
   });
   return best;
@@ -66,10 +121,10 @@ export function handleBack() {
   const sheet = document.querySelector('.fullscreen-sheet');
   if (sheet) { goBackView(); return true; }
 
-  // 4. Pop the view history
-  if (window.__viewHistory && window.__viewHistory.length) { goBackView(); return true; }
+  // 4. Walk UP the menu tree: leaf → its hub/section → Home.
+  if (parentOf(window.__currentViewId)) { goBackView(); return true; }
 
-  // 5. At the root → press-back-again-to-exit
+  // 5. At the root (Home) → press-back-again-to-exit
   const now = Date.now();
   if (now - _lastBack < 2000) {
     if (isNativeApp()) { try { window.Capacitor.Plugins.App.exitApp(); } catch {} }
@@ -80,13 +135,15 @@ export function handleBack() {
   return true;
 }
 
-/** Navigate to the previous view in history without re-pushing it. */
+/** Go UP one level in the menu tree (leaf → hub → Home), not back through history. */
 export function goBackView() {
-  const hist = window.__viewHistory || [];
-  const prev = hist.pop();
-  if (!prev) return;
+  const cur = window.__currentViewId || '';
+  let target = parentOf(cur);
+  if (!target) return;                                   // already at Home
+  // If a mapped parent section doesn't exist in the DOM, fall back to Home.
+  if (target !== HOME_VIEW && !document.getElementById(target)) target = HOME_VIEW;
   window.__navBack = true;
-  if (typeof window.switchView === 'function') window.switchView(prev);
+  if (typeof window.switchView === 'function') window.switchView(target);
 }
 
 /* ───────────────────────── Bottom navigation ───────────────────────── */
@@ -245,11 +302,11 @@ if (typeof window !== 'undefined') {
   window.handleAppBack = handleBack;
   window.goBackView = goBackView;
   window.highlightBottomNav = highlightBottomNav;
-  // Generic "back" for in-view back buttons: return to the previous view in
-  // history, or fall back to the project dashboard when there's nowhere to pop.
+  // Generic "back" for in-view back buttons: go UP one level in the menu tree
+  // (leaf → hub → Home), matching the hardware back button.
   window._navBack = function () {
-    if ((window.__viewHistory || []).length) goBackView();
-    else if (typeof window.switchView === 'function') window.switchView('projectDashboard');
+    if (parentOf(window.__currentViewId)) goBackView();
+    else if (typeof window.switchView === 'function') window.switchView(HOME_VIEW);
   };
 }
 
