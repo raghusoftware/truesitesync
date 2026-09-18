@@ -56,6 +56,15 @@ export const ACCESS_MODULES = [
 
 const ALL_MODULE_IDS = ACCESS_MODULES.map(m => m.id);
 
+// Roles that always have full, unrestricted access to every module and every
+// project. The org creator is typically "Owner"/"CEO", not literally "Admin" —
+// treating only "Admin" as full-access silently hid EVERYTHING from an Owner
+// (and made project-scoping filter them down to nothing). Check membership here
+// everywhere a hard admin gate is needed.
+const FULL_ACCESS_ROLES = ['Admin', 'CEO', 'Owner'];
+export function isFullAccessRole(role) { return FULL_ACCESS_ROLES.includes(role); }
+if (typeof window !== 'undefined') window.isFullAccessRole = isFullAccessRole;
+
 /** Group name for a sidebar button, from the nearest preceding section <p> label. */
 function _sectionGroupFor(btn) {
   const MAP = { 'project modules': 'Project', 'sale': 'Sale', 'purchase': 'Purchase', 'finance': 'Finance', 'system': 'System', 'super admin': 'System' };
@@ -147,7 +156,7 @@ export function canManageStaff() {
 export function can(action, moduleId) {
   const user = getCurrentUser();
   if (!user) return false;
-  if (user.role === 'Admin') return true;
+  if (isFullAccessRole(user.role)) return true;
   if (action === 'view') return hasAccess(moduleId);
   if (!hasAccess(moduleId)) return false; // can't edit/delete what you can't view
   const role = (state.rbacRoles || {})[user.role];
@@ -356,7 +365,7 @@ function _mapSupabaseUser(supaUser) {
   try {
     if (SUPER_ADMINS.includes(em)) role = 'Admin';
     else if (
-      (!rbacUser || rbacUser.role === 'Admin') &&
+      (!rbacUser || isFullAccessRole(rbacUser.role)) &&
       typeof window !== 'undefined' && typeof window.getCurrentOrg === 'function' &&
       window.getCurrentOrg()?._userRole === 'owner'
     ) role = 'Admin';
@@ -399,8 +408,8 @@ export function getMyRbacUser() {
  *  when we can't resolve a user, so single-user/local mode is never locked out. */
 export function isCurrentUserAdmin() {
   const me = getMyRbacUser();
-  if (!me) { const u = getCurrentUser(); return !u || u.role === 'Admin'; }
-  return me.role === 'Admin';
+  if (!me) { const u = getCurrentUser(); return !u || isFullAccessRole(u.role); }
+  return isFullAccessRole(me.role);
 }
 
 /** Projects the current user may access: all for admins, else only those whose
@@ -666,7 +675,7 @@ export function loginUser(username, password) {
 export function hasAccess(viewId) {
   const user = getCurrentUser();
   if (!user) return false;
-  if (user.role === 'Admin') return true;
+  if (isFullAccessRole(user.role)) return true;
   // Hub launchers are always viewable; the real modules behind each tile stay gated.
   if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView'].includes(viewId)) return true;
   const role = (state.rbacRoles || {})[user.role];
@@ -690,7 +699,7 @@ export function hideRestrictedSidebar() {
   document.querySelectorAll('[data-target]').forEach(btn => {
     const viewId = btn.dataset.target;
     if (viewId === 'projectsHome') return;
-    if (user.role === 'Admin') { btn.style.display = ''; return; }
+    if (isFullAccessRole(user.role)) { btn.style.display = ''; return; }
     const role = (state.rbacRoles || {})[user.role];
     const allowed = role && role.permissions && role.permissions.includes(viewId);
     btn.style.display = allowed ? '' : 'none';
@@ -1471,7 +1480,7 @@ export function saveUser(userId) {
   // ── Give a brand-new teammate real cloud access: create an org invite so that
   //    when they sign in with this email they auto-join this org (accept_pending_invites). ──
   if (isNew && /^.+@.+\..+$/.test(username)) {
-    _inviteUserToOrg(username.trim().toLowerCase(), role === 'Admin' ? 'admin' : 'member');
+    _inviteUserToOrg(username.trim().toLowerCase(), isFullAccessRole(role) ? 'admin' : 'member');
   }
 }
 
