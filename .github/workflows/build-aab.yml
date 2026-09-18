@@ -15,7 +15,9 @@ on:
   workflow_dispatch:
   push:
     tags: ['v*']
-    branches: ['release/**']
+    branches:
+      - 'release/**'
+      - 'aab-release/**'  # Play-Store-ONLY release channel (does NOT trigger the EXE/APK builds)
 
 jobs:
   build-aab:
