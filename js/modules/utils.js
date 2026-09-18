@@ -497,29 +497,71 @@ function _blobToBase64(blob) {
   });
 }
 
-/** Save a file on device via Capacitor Filesystem, then open Share sheet */
+/**
+ * Turn any human filename into a single safe path segment.
+ * Document numbers routinely contain "/" (e.g. "TSS/MB/01") and dates use "/",
+ * which made Filesystem.writeFile treat them as sub-folders and fail with
+ * "parent folder does not exist". We flatten separators and characters that are
+ * illegal on Android/most filesystems, and keep the extension.
+ */
+function _safeFilename(name) {
+  const raw = String(name || 'file');
+  const dot = raw.lastIndexOf('.');
+  const hasExt = dot > 0 && dot < raw.length - 1;
+  const ext = hasExt ? raw.slice(dot) : '';
+  const base = (hasExt ? raw.slice(0, dot) : raw)
+    .replace(/[\/\\]+/g, '-')      // no sub-folders — the actual bug
+    .replace(/[:*?"<>|#%&{}$!'@`+=]+/g, '-') // illegal / awkward on FS & content providers
+    .replace(/\s+/g, ' ')
+    .replace(/-+/g, '-')
+    .trim()
+    .replace(/^[-.]+|[-.]+$/g, '') || 'file';
+  return base + ext;
+}
+
+/**
+ * Save a file on device via Capacitor Filesystem, then open the Share sheet so
+ * the user can also send/re-save it. Writes a PERSISTENT copy into a
+ * "TrueSiteSync" folder (Documents → External → Data), falling back to Cache
+ * only if none of those are writable. `recursive: true` + a sanitized single
+ * segment name means the parent folder is always created (fixes the
+ * "parent folder does not exist" error). Returns where it saved, for the toast.
+ */
 async function _capacitorSaveAndShare(base64, filename, mimeType) {
   const { Filesystem } = window.Capacitor.Plugins;
-  const result = await Filesystem.writeFile({
-    path: filename,
-    data: base64,
-    directory: 'CACHE',
-  });
+  const safe = _safeFilename(filename);
+  const folder = 'TrueSiteSync';
+  // Ordered by how visible/persistent the location is to the user.
+  const attempts = [
+    { directory: 'DOCUMENTS', path: folder + '/' + safe, label: 'Documents/' + folder },
+    { directory: 'EXTERNAL', path: folder + '/' + safe, label: folder },
+    { directory: 'DATA', path: folder + '/' + safe, label: 'app storage' },
+    { directory: 'CACHE', path: safe, label: 'temporary storage' },
+  ];
+  let result = null, savedTo = '', lastErr = null;
+  for (const a of attempts) {
+    try {
+      result = await Filesystem.writeFile({ path: a.path, data: base64, directory: a.directory, recursive: true });
+      savedTo = a.label;
+      break;
+    } catch (e) { lastErr = e; }
+  }
+  if (!result) throw lastErr || new Error('Could not write the file');
+
+  // Offer Share / Open on top of the saved copy (best-effort — the file is
+  // already saved even if the user cancels the sheet).
   try {
     const { Share } = window.Capacitor.Plugins;
     if (Share) {
-      await Share.share({
-        title: filename,
-        url: result.uri,
-        dialogTitle: 'Save or open ' + filename,
-      });
-      return;
+      await Share.share({ title: filename, url: result.uri, dialogTitle: 'Share or re-save ' + filename });
+      return savedTo;
     }
   } catch (_) {}
   try {
     const { FileOpener } = window.Capacitor.Plugins;
-    if (FileOpener) { await FileOpener.open({ filePath: result.uri, contentType: mimeType }); return; }
+    if (FileOpener) { await FileOpener.open({ filePath: result.uri, contentType: mimeType }); return savedTo; }
   } catch (_) {}
+  return savedTo;
 }
 
 /**
@@ -533,8 +575,8 @@ export function mobileSavePDF(doc, filename) {
       try {
         const blob = doc.output('blob');
         const base64 = await _blobToBase64(blob);
-        await _capacitorSaveAndShare(base64, filename, 'application/pdf');
-        showToast('PDF ready — choose where to save', 'success');
+        const savedTo = await _capacitorSaveAndShare(base64, filename, 'application/pdf');
+        showToast(savedTo ? `Saved to ${savedTo}` : 'PDF saved', 'success');
       } catch (e) {
         try { window.open(doc.output('datauristring'), '_blank'); } catch(_) {}
         showToast('Download failed: ' + (e.message || e), 'error');
@@ -576,8 +618,8 @@ export function mobileDownloadBlob(blob, filename, mimeType) {
     (async () => {
       try {
         const base64 = await _blobToBase64(blob);
-        await _capacitorSaveAndShare(base64, filename, mimeType || 'application/octet-stream');
-        showToast('File ready — choose where to save', 'success');
+        const savedTo = await _capacitorSaveAndShare(base64, filename, mimeType || 'application/octet-stream');
+        showToast(savedTo ? `Saved to ${savedTo}` : 'File saved', 'success');
       } catch (e) {
         showToast('Download failed: ' + (e.message || e), 'error');
       }

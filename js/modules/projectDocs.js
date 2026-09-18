@@ -17,7 +17,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, mobileDownloadBlob } from './utils.js';
 import { getSupabase } from '../database/supabase.js';
 
 const BUCKET = 'project-docs';
@@ -269,7 +269,18 @@ window._docDownload = async function (id) {
   try {
     const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(f.path, 120, { download: f.name });
     if (error || !data?.signedUrl) return showToast('Could not open file: ' + (error?.message || 'not found'), 'error');
-    window.open(data.signedUrl, '_blank');
+    // On the Capacitor app the webview won't reliably save a navigated URL, so
+    // fetch the bytes and route through the shared device-save path (which saves
+    // to a TrueSiteSync folder and offers Share). On web/desktop, open normally.
+    if (window.Capacitor?.isNativePlatform?.()) {
+      showToast('Fetching file…', 'info');
+      const resp = await fetch(data.signedUrl);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const blob = await resp.blob();
+      mobileDownloadBlob(blob, f.name, f.type || blob.type || 'application/octet-stream');
+    } else {
+      window.open(data.signedUrl, '_blank');
+    }
   } catch (e) { showToast('Open failed: ' + (e.message || e), 'error'); }
 };
 
