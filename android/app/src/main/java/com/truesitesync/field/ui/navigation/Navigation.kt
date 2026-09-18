@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
@@ -58,6 +60,9 @@ import com.truesitesync.field.ui.equipment.EquipmentEditScreen
 import com.truesitesync.field.ui.equipment.EquipmentListScreen
 import com.truesitesync.field.ui.equipment.EquipmentLogScreen
 import com.truesitesync.field.ui.equipment.FuelScreen
+import com.truesitesync.field.ui.grn.GrnEditScreen
+import com.truesitesync.field.ui.grn.GrnListScreen
+import com.truesitesync.field.ui.parties.PartiesScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
 import com.truesitesync.field.ui.petty.PettyCashListScreen
 import com.truesitesync.field.ui.petty.PettyCustodianScreen
@@ -98,6 +103,9 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val FUEL = "fuel"
         const val PETTY = "petty"
         const val PETTY_CUSTODIAN = "petty_custodian"
+        const val PARTIES = "parties"
+        const val GRN = "grn"
+        const val GRN_EDIT = "grn_edit"
     }
 }
 
@@ -239,6 +247,25 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
             composable(Dest.FUEL) {
                 FuelScreen(onDone = { navController.popBackStack() })
             }
+            composable(Dest.PARTIES) {
+                PartiesScreen(onDone = { navController.popBackStack() })
+            }
+            composable(Dest.GRN) {
+                GrnListScreen(
+                    onNew = { navController.navigate(Dest.GRN_EDIT) },
+                    onOpen = { id -> navController.navigate("${Dest.GRN_EDIT}?id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.GRN_EDIT}?id={id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { nullable = true; defaultValue = null }),
+            ) { entry ->
+                GrnEditScreen(
+                    grnId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
             composable(Dest.PETTY) {
                 PettyCashListScreen(
                     onOpen = { id -> navController.navigate("${Dest.PETTY_CUSTODIAN}?id=$id") },
@@ -289,6 +316,8 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onMix = { showCapture = false; navController.navigate(Dest.MIX) },
                 onEquipment = { showCapture = false; navController.navigate(Dest.EQUIPMENT) },
                 onPetty = { showCapture = false; navController.navigate(Dest.PETTY) },
+                onGrn = { showCapture = false; navController.navigate(Dest.GRN) },
+                onParties = { showCapture = false; navController.navigate(Dest.PARTIES) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -330,6 +359,8 @@ private fun CaptureSheet(
     onMix: () -> Unit,
     onEquipment: () -> Unit,
     onPetty: () -> Unit,
+    onGrn: () -> Unit,
+    onParties: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -345,6 +376,8 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.Science, "Mix design", "Material recipes & formulas", onMix)
         CaptureRow(Icons.Filled.LocalGasStation, "Equipment", "Fleet — runbook, fuel, maintenance, breakdown", onEquipment)
         CaptureRow(Icons.Filled.AccountBalanceWallet, "Petty cash", "Custodian wallets, expenses & imprest", onPetty)
+        CaptureRow(Icons.Filled.MoveToInbox, "Goods receipt (GRN)", "Receive materials → raises stock", onGrn)
+        CaptureRow(Icons.Filled.Contacts, "Parties", "Clients & vendors master", onParties)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
         CaptureRow(Icons.Filled.Folder, "Documents", "Drawings & files — browse, view, upload", onDocuments)

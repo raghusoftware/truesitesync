@@ -48,6 +48,7 @@ data class StockTxEntity(
     val note: String?,
     val projectId: String?,
     val refSheetId: String? = null, // set on auto-CONSUME rows so they rebuild per sheet
+    val refGrnId: String? = null,   // set on IN rows raised by a goods receipt (GRN)
     val createdAt: Long,
     val updatedAtMs: Long,
     val dirty: Boolean = false,

@@ -17,6 +17,8 @@ import com.truesitesync.field.data.local.FuelTxnDao
 import com.truesitesync.field.data.local.MixDesignDao
 import com.truesitesync.field.data.local.PettyCustodianDao
 import com.truesitesync.field.data.local.PettyTxnDao
+import com.truesitesync.field.data.local.PartyDao
+import com.truesitesync.field.data.local.GrnDao
 import com.truesitesync.field.data.local.ProjectDao
 import com.truesitesync.field.data.local.SheetDao
 import com.truesitesync.field.data.local.StockTxDao
@@ -104,6 +106,8 @@ object DataModule {
     @Provides fun provideFuelTxnDao(db: TssDatabase): FuelTxnDao = db.fuelTxnDao()
     @Provides fun providePettyCustodianDao(db: TssDatabase): PettyCustodianDao = db.pettyCustodianDao()
     @Provides fun providePettyTxnDao(db: TssDatabase): PettyTxnDao = db.pettyTxnDao()
+    @Provides fun providePartyDao(db: TssDatabase): PartyDao = db.partyDao()
+    @Provides fun provideGrnDao(db: TssDatabase): GrnDao = db.grnDao()
     @Provides fun provideGenericModuleDao(db: TssDatabase): GenericModuleDao = db.genericModuleDao()
     @Provides fun provideProjectDao(db: TssDatabase): ProjectDao = db.projectDao()
     @Provides fun provideSyncStateDao(db: TssDatabase): SyncStateDao = db.syncStateDao()

@@ -55,6 +55,10 @@ interface StockTxDao {
     @Query("SELECT * FROM stock_tx WHERE pendingDelete = 0 AND refSheetId = :sheetId")
     suspend fun consumeForSheet(sheetId: String): List<StockTxEntity>
 
+    /** IN rows previously raised by a given goods receipt (GRN). */
+    @Query("SELECT * FROM stock_tx WHERE pendingDelete = 0 AND refGrnId = :grnId")
+    suspend fun txForGrn(grnId: String): List<StockTxEntity>
+
     /** Latest IN rate for an item (for valuing auto-consumed stock). */
     @Query("SELECT rate FROM stock_tx WHERE rawMaterialId = :itemId AND type = 'IN' AND rate > 0 ORDER BY date DESC, createdAt DESC LIMIT 1")
     suspend fun lastInRate(itemId: String): Double?

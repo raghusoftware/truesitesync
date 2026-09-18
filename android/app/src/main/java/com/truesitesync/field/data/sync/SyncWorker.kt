@@ -16,6 +16,8 @@ import com.truesitesync.field.data.repo.FuelTxnRepository
 import com.truesitesync.field.data.repo.GenericSyncRepository
 import com.truesitesync.field.data.repo.PettyCustodianRepository
 import com.truesitesync.field.data.repo.PettyTxnRepository
+import com.truesitesync.field.data.repo.PartyRepository
+import com.truesitesync.field.data.repo.GrnRepository
 import com.truesitesync.field.data.repo.ItemRepository
 import com.truesitesync.field.data.repo.MixDesignRepository
 import com.truesitesync.field.data.repo.ProjectRepository
@@ -51,6 +53,8 @@ class SyncWorker @AssistedInject constructor(
     private val fuelTxns: FuelTxnRepository,
     private val pettyCustodians: PettyCustodianRepository,
     private val pettyTxns: PettyTxnRepository,
+    private val parties: PartyRepository,
+    private val grns: GrnRepository,
     private val generic: GenericSyncRepository,
 ) : CoroutineWorker(appContext, params) {
 
@@ -63,7 +67,8 @@ class SyncWorker @AssistedInject constructor(
             sheets.syncNow(), abstracts.syncNow(), mixDesigns.syncNow(),
             equipment.syncNow(), equipmentLogs.syncNow(),
             fuelStorages.syncNow(), fuelTxns.syncNow(),
-            pettyCustodians.syncNow(), pettyTxns.syncNow(), generic.syncNow(),
+            pettyCustodians.syncNow(), pettyTxns.syncNow(),
+            parties.syncNow(), grns.syncNow(), generic.syncNow(),
         )
         if (results.all { it }) Result.success() else Result.retry()
     } catch (_: Throwable) {

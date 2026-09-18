@@ -162,6 +162,14 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   machine's Fuel log (source "On-Site Barrel"), mirroring the web's `_fuelIssue`.
   Pump-credit txns round-trip too (type preserved); the pump-ledger UI is a
   follow-up.
+- ~~Parties (`clients` + `vendors`)~~ **DONE** — `ui/parties/`: Clients/Vendors
+  tabbed master (name, contact, phone, GSTIN, address), add/edit/delete. One
+  Room table, two cloud keys. Feeds GRN supplier + (coming) sales/purchase.
+- ~~Goods receipt / GRN (`grnRecords`)~~ **DONE** — `ui/grn/`: pick supplier
+  (from vendors) + materials (from the item catalog — **code→name/unit/rate
+  auto-fill**), qty × rate, save → **raises one inventory IN per line**
+  (deterministic `refGrnId`, rebuilt in place, never double-counts), so received
+  stock shows up in Inventory on-hand. Mirrors the web GRN → stock IN.
 - ~~Petty cash (`pettyCashCustodians` + `pettyCashTxns`)~~ **DONE** —
   `ui/petty/`: per-project **custodian wallets** with a live balance (accepted
   transfers − expenses − returns, a Room aggregate). Per custodian: a ledger and
