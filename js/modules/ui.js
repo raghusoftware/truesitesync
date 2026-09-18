@@ -548,13 +548,7 @@ function _createBOQRowHTML(sr, data = {}) {
     <td class="px-3 py-1.5 text-center text-xs text-slate-400 font-bold boq-sr">${sr}</td>
     <td class="px-2 py-1"><input type="text" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 font-mono boq-code" value="${data.code || ''}" placeholder="EXC-01"></td>
     <td class="px-2 py-1"><input type="text" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-desc" value="${data.description || data.desc || ''}" placeholder="Item description"></td>
-    <td class="px-2 py-1"><select class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-uom">
-      <option value="">--</option><option ${data.uom === 'Nos' ? 'selected' : ''}>Nos</option><option ${data.uom === 'M2' ? 'selected' : ''}>M2</option><option ${data.uom === 'M3' ? 'selected' : ''}>M3</option>
-      <option ${data.uom === 'RMT' ? 'selected' : ''}>RMT</option><option ${data.uom === 'SQM' ? 'selected' : ''}>SQM</option><option ${data.uom === 'CUM' ? 'selected' : ''}>CUM</option>
-      <option ${data.uom === 'KG' ? 'selected' : ''}>KG</option><option ${data.uom === 'MT' ? 'selected' : ''}>MT</option><option ${data.uom === 'Bag' ? 'selected' : ''}>Bag</option>
-      <option ${data.uom === 'LTR' ? 'selected' : ''}>LTR</option><option ${data.uom === 'Lot' ? 'selected' : ''}>Lot</option><option ${data.uom === 'LS' ? 'selected' : ''}>LS</option>
-      <option ${data.uom === 'Day' ? 'selected' : ''}>Day</option><option ${data.uom === 'Trip' ? 'selected' : ''}>Trip</option><option ${data.uom === 'Each' ? 'selected' : ''}>Each</option>
-    </select></td>
+    <td class="px-2 py-1"><input type="text" list="boqUomOptions" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 boq-uom" value="${String(data.uom || '').replace(/"/g, '&quot;')}" placeholder="unit"></td>
     <td class="px-2 py-1"><input type="number" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 text-right boq-qty" value="${data.qty || ''}" placeholder="0" step="0.01" oninput="calcBOQRow(this)"></td>
     <td class="px-2 py-1"><input type="number" class="w-full p-1.5 border rounded-lg text-xs outline-none focus:border-blue-400 text-right boq-rate" value="${data.rate || ''}" placeholder="0" step="0.01" oninput="calcBOQRow(this)"></td>
     <td class="px-2 py-1"><input type="text" class="w-full p-1.5 bg-slate-50 border rounded-lg text-xs text-right font-bold text-slate-700 boq-amt" value="${data.amount ? getCurrencySymbol() + parseFloat(data.amount).toLocaleString('en-IN') : ''}" readonly tabindex="-1"></td>
@@ -563,9 +557,21 @@ function _createBOQRowHTML(sr, data = {}) {
   </tr>`;
 }
 
+// Common units offered as a dropdown, while the field still keeps whatever unit
+// was already mentioned/imported (even custom ones) instead of forcing a pick.
+const _BOQ_UOM_OPTIONS = ['Nos', 'M2', 'M3', 'RMT', 'SQM', 'SQFT', 'CUM', 'CFT', 'KG', 'MT', 'Quintal', 'Bag', 'LTR', 'Lot', 'LS', 'Day', 'Trip', 'Each'];
+function _ensureBoqUomDatalist() {
+  if (typeof document === 'undefined' || document.getElementById('boqUomOptions')) return;
+  const dl = document.createElement('datalist');
+  dl.id = 'boqUomOptions';
+  dl.innerHTML = _BOQ_UOM_OPTIONS.map(u => `<option value="${u}"></option>`).join('');
+  document.body.appendChild(dl);
+}
+
 export function addBOQRow(data = {}) {
   const tbody = document.getElementById('boqTableBody');
   if (!tbody) return;
+  _ensureBoqUomDatalist();
   const sr = tbody.querySelectorAll('tr').length + 1;
   tbody.insertAdjacentHTML('beforeend', _createBOQRowHTML(sr, data));
 }
