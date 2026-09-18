@@ -162,6 +162,12 @@ Each is a new `ui/<feature>` + reusing `module_data` under a new `module_name`:
   machine's Fuel log (source "On-Site Barrel"), mirroring the web's `_fuelIssue`.
   Pump-credit txns round-trip too (type preserved); the pump-ledger UI is a
   follow-up.
+- ~~Purchase + Accounts (`purchaseOrders`, `vendorMaterials`, `vendorPayments`,
+  `accounts`)~~ **DONE** — `ui/purchase/` hub with Orders · Bills · Payments
+  tabs. PO/Bill editor picks a vendor + items (code→name/unit/rate auto-fill),
+  qty × rate + GST% per line, running totals. Payment-out records a payment to a
+  vendor from an account. `ui/finance/AccountsScreen` is the bank/cash master.
+  Offline-first; unknown web keys preserved via extraJson.
 - ~~Parties (`clients` + `vendors`)~~ **DONE** — `ui/parties/`: Clients/Vendors
   tabbed master (name, contact, phone, GSTIN, address), add/edit/delete. One
   Room table, two cloud keys. Feeds GRN supplier + (coming) sales/purchase.

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.MoveToInbox
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Menu
@@ -63,6 +65,9 @@ import com.truesitesync.field.ui.equipment.FuelScreen
 import com.truesitesync.field.ui.grn.GrnEditScreen
 import com.truesitesync.field.ui.grn.GrnListScreen
 import com.truesitesync.field.ui.parties.PartiesScreen
+import com.truesitesync.field.ui.purchase.PurchaseHubScreen
+import com.truesitesync.field.ui.purchase.PurchaseDocEditScreen
+import com.truesitesync.field.ui.finance.AccountsScreen
 import com.truesitesync.field.ui.measurement.MeasurementListScreen
 import com.truesitesync.field.ui.petty.PettyCashListScreen
 import com.truesitesync.field.ui.petty.PettyCustodianScreen
@@ -106,6 +111,9 @@ sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
         const val PARTIES = "parties"
         const val GRN = "grn"
         const val GRN_EDIT = "grn_edit"
+        const val PURCHASE = "purchase"
+        const val PURCHASE_DOC_EDIT = "purchase_doc_edit"
+        const val ACCOUNTS = "accounts"
     }
 }
 
@@ -266,6 +274,29 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                     onDone = { navController.popBackStack() },
                 )
             }
+            composable(Dest.PURCHASE) {
+                PurchaseHubScreen(
+                    onNewDoc = { kind -> navController.navigate("${Dest.PURCHASE_DOC_EDIT}?kind=$kind") },
+                    onOpenDoc = { kind, id -> navController.navigate("${Dest.PURCHASE_DOC_EDIT}?kind=$kind&id=$id") },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "${Dest.PURCHASE_DOC_EDIT}?kind={kind}&id={id}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("kind") { defaultValue = "po" },
+                    androidx.navigation.navArgument("id") { nullable = true; defaultValue = null },
+                ),
+            ) { entry ->
+                PurchaseDocEditScreen(
+                    kind = entry.arguments?.getString("kind") ?: "po",
+                    docId = entry.arguments?.getString("id"),
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(Dest.ACCOUNTS) {
+                AccountsScreen(onDone = { navController.popBackStack() })
+            }
             composable(Dest.PETTY) {
                 PettyCashListScreen(
                     onOpen = { id -> navController.navigate("${Dest.PETTY_CUSTODIAN}?id=$id") },
@@ -318,6 +349,8 @@ fun TssApp(navController: NavHostController = rememberNavController()) {
                 onPetty = { showCapture = false; navController.navigate(Dest.PETTY) },
                 onGrn = { showCapture = false; navController.navigate(Dest.GRN) },
                 onParties = { showCapture = false; navController.navigate(Dest.PARTIES) },
+                onPurchase = { showCapture = false; navController.navigate(Dest.PURCHASE) },
+                onAccounts = { showCapture = false; navController.navigate(Dest.ACCOUNTS) },
                 onModules = { showCapture = false; navController.navigate(Dest.MODULES) },
             )
         }
@@ -361,6 +394,8 @@ private fun CaptureSheet(
     onPetty: () -> Unit,
     onGrn: () -> Unit,
     onParties: () -> Unit,
+    onPurchase: () -> Unit,
+    onAccounts: () -> Unit,
     onModules: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -377,6 +412,8 @@ private fun CaptureSheet(
         CaptureRow(Icons.Filled.LocalGasStation, "Equipment", "Fleet — runbook, fuel, maintenance, breakdown", onEquipment)
         CaptureRow(Icons.Filled.AccountBalanceWallet, "Petty cash", "Custodian wallets, expenses & imprest", onPetty)
         CaptureRow(Icons.Filled.MoveToInbox, "Goods receipt (GRN)", "Receive materials → raises stock", onGrn)
+        CaptureRow(Icons.Filled.ShoppingCart, "Purchase", "Orders, bills & payments to vendors", onPurchase)
+        CaptureRow(Icons.Filled.AccountBalance, "Accounts", "Bank & cash accounts", onAccounts)
         CaptureRow(Icons.Filled.Contacts, "Parties", "Clients & vendors master", onParties)
         CaptureRow(Icons.Filled.Groups, "Attendance", "Daily muster — tap to mark the crew", onAttendance)
         CaptureRow(Icons.Filled.Inventory2, "Inventory", "Stock on hand, receive & issue materials", onInventory)
