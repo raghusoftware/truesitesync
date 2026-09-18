@@ -4,7 +4,9 @@ on:
   workflow_dispatch:   # manual trigger
   push:
     tags: ['v*']       # a version tag also builds & publishes the desktop exe
-    branches: ['release/**']   # pushing a release/<ver> branch also builds & publishes
+    branches:
+      - 'release/**'      # pushing a release/<ver> branch also builds & publishes
+      - 'exe-release/**'  # desktop-ONLY release channel (does NOT trigger the APK/AAB builds)
 
 jobs:
   build-windows:
