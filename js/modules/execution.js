@@ -816,6 +816,31 @@ function _staffToday(staffId, date) { date = date || _today(); return (state.sta
 function _hm(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return '—'; } }
 function _money(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
 
+// ── Per-person attendance isolation ──────────────────────────
+// Rule: a staff member marks ONLY their own attendance. Full admins
+// (Admin/CEO/Owner, or the workspace owner) oversee everyone and may
+// punch/correct any record. Everyone else is strictly limited to the staff
+// record linked to their own login (matched by userId, supabaseId, or email).
+function _me() { try { return getCurrentUser(); } catch { return null; } }
+function _isStaffAdmin() {
+  const u = _me();
+  if (!u) return true; // local / single-user mode — never lock the only user out
+  if (u.role === 'Admin' || u.role === 'CEO' || u.role === 'Owner') return true;
+  try { if (typeof window.isCurrentUserAdmin === 'function' && window.isCurrentUserAdmin()) return true; } catch {}
+  return false;
+}
+/** True when staff record `s` belongs to the logged-in user (their own record). */
+function _staffIsMe(s) {
+  const u = _me(); if (!u || !s) return false;
+  if (s.userId && u.id && s.userId === u.id) return true;
+  if (s.supabaseId && u.supabaseId && s.supabaseId === u.supabaseId) return true;
+  const se = (s.email || s.loginEmail || '').trim().toLowerCase();
+  const ue = (u.email || u.username || '').trim().toLowerCase();
+  return !!se && !!ue && se === ue;
+}
+/** May the current user punch attendance for this staff record? Self or admin. */
+function _canPunchStaff(s) { return _isStaffAdmin() || _staffIsMe(s); }
+
 /** Day pay + overtime for an attendance record, from the staff member's config.
  *  Two worlds, per staff: fixed daily/monthly wage (present = full day) OR
  *  hourly. Extra hours beyond the standard day are paid as OT only when the
@@ -836,18 +861,22 @@ function _staffComputePay(staff, hours) {
 }
 
 function _renderStaff(root) {
-  const staff = _arr('staffMaster');
+  const allStaff = _arr('staffMaster');
   const month = _today().slice(0, 7);
   const canManage = typeof window.canManageStaff !== 'function' || window.canManageStaff();
+  const isAdmin = _isStaffAdmin();
+  // Strict per-person isolation: a non-admin sees ONLY their own linked record.
+  const staff = isAdmin ? allStaff : allStaff.filter(_staffIsMe);
   const cards = staff.map(s => {
     const a = _staffToday(s.id);
+    const canPunch = _canPunchStaff(s);
     let statusHtml, action;
     if (!a || !a.inAt) {
       statusHtml = `<span style="color:#94a3b8;font-weight:700;">Not marked</span>`;
-      action = canManage ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
+      action = canPunch ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;" title="Only this staff member can mark their attendance">🔒</span>`;
     } else if (!a.outAt) {
       statusHtml = `<span style="color:#16a34a;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
-      action = canManage ? `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
+      action = canPunch ? `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>` : `<span style="font-size:11px;color:#94a3b8;" title="Only this staff member can mark their attendance">🔒</span>`;
     } else {
       statusHtml = `<span style="color:#16a34a;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
       action = `<span style="font-size:13px;font-weight:800;color:#0f172a;">${_money(a.totalPay)}</span>`;
@@ -859,7 +888,7 @@ function _renderStaff(root) {
         <div style="width:40px;height:40px;border-radius:12px;background:#7c3aed15;border:2px solid #7c3aed30;display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;">${s.photo ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}</div>
         <div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div><div style="font-size:11px;color:#64748b;">${_esc(s.designation || 'Staff')} · ${wageLabel}${s.otAllowed ? ' · <span style="color:#d97706;font-weight:700;">OT✓</span>' : ''}</div></div>
         <button onclick="_staffHistory('${s.id}')" title="History" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">🗓</button>
-        ${canManage ? `<button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>` : ''}
+        ${(canManage && isAdmin) ? `<button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>` : ''}
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9;">
         <div style="font-size:12px;">${statusHtml}</div>${action}
@@ -879,16 +908,23 @@ function _renderStaff(root) {
   const payroll = rows ? `<div style="margin-top:20px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
     <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#0f172a;font-size:14px;">📅 Payroll this month (${month})</div>
     <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;"><th style="padding:8px 10px;text-align:left;">Staff</th><th style="padding:8px 10px;">Present</th><th style="padding:8px 10px;text-align:right;">Hours</th><th style="padding:8px 10px;text-align:right;">OT hrs</th><th style="padding:8px 10px;text-align:right;">Pay</th></tr></thead><tbody>${rows}</tbody></table></div></div>` : '';
+  // Only admins add/edit the roster and export the full payroll. A regular staff
+  // member sees just their own card and marks only their own attendance.
+  const showAdd = canManage && isAdmin;
+  const selfBanner = !isAdmin ? `<span style="font-size:12px;color:#4338ca;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:6px 10px;font-weight:700;">👤 Your attendance only — mark your own punches here</span>` : '';
+  const emptyMsg = isAdmin
+    ? 'No staff yet.' + (showAdd ? ' Tap “+ Add Staff”.' : '')
+    : 'No staff record is linked to your login yet. Ask an admin to add you and set your login email on your staff record.';
   root.innerHTML = `${_backBar('Staff & Attendance')}
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
-      ${canManage ? `<button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>` : `<span style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-weight:700;">🔒 View only — your role can't mark or edit attendance</span>`}
-      <span style="font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span>
-      <span style="margin-left:auto;display:flex;gap:8px;">
+      ${showAdd ? `<button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>` : selfBanner}
+      <span style="font-size:12px;color:#94a3b8;">${isAdmin ? staff.length + ' staff · ' : ''}GPS + photo-verified punches</span>
+      ${isAdmin ? `<span style="margin-left:auto;display:flex;gap:8px;">
         <button onclick="_staffExportExcel()" style="padding:8px 12px;background:#059669;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Excel</button>
         <button onclick="_staffExportPDF()" style="padding:8px 12px;background:#dc2626;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ PDF</button>
-      </span>
+      </span>` : ''}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">No staff yet.' + (canManage ? ' Tap “+ Add Staff”.' : '') + '</div>'}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">' + emptyMsg + '</div>'}</div>
     ${payroll}`;
 }
 
@@ -917,6 +953,7 @@ function _staffMonthData(month) {
 }
 
 window._staffExportExcel = function () {
+  if (!_isStaffAdmin()) { showToast('Only an admin can export the full payroll', 'error'); return; }
   const XLSX = window.XLSX; if (!XLSX) { showToast('Excel library not loaded', 'error'); return; }
   const { month, days, rows } = _staffMonthData();
   if (!rows.length) { showToast('No staff to export', 'warning'); return; }
@@ -942,6 +979,7 @@ window._staffExportExcel = function () {
 };
 
 window._staffExportPDF = function () {
+  if (!_isStaffAdmin()) { showToast('Only an admin can export the full payroll', 'error'); return; }
   if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded', 'error'); return; }
   const { month, rows } = _staffMonthData();
   if (!rows.length) { showToast('No staff to export', 'warning'); return; }
@@ -979,6 +1017,7 @@ window._staffForm = function (id) {
       <div><label style="${_lbl}">Designation</label><input id="stfDesig" style="${_inp}" placeholder="Site Engineer…" value="${s ? _esc(s.designation || '') : ''}"></div>
       <div><label style="${_lbl}">Phone</label><input id="stfPhone" style="${_inp}" value="${s ? _esc(s.phone || '') : ''}"></div>
     </div>
+    <div style="margin-bottom:12px;"><label style="${_lbl}">Login email (for self-attendance)</label><input id="stfEmail" type="email" style="${_inp}" placeholder="staff@email.com — links this person to their app login" value="${s ? _esc(s.email || '') : ''}"><div style="font-size:11px;color:#94a3b8;margin-top:4px;">When set, this staff member can log in and mark <b>only their own</b> attendance. Leave blank for staff who don't use the app.</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Wage Mode</label><select id="stfMode" style="${_inp}" onchange="_staffModeHint()">${sel([{ v: 'daily', t: 'Daily wage' }, { v: 'monthly', t: 'Monthly salary' }, { v: 'hourly', t: 'Hourly' }], (s && s.wageMode) || 'daily')}</select></div>
       <div><label style="${_lbl}"><span id="stfRateLbl">Rate (₹/day)</span></label><input id="stfRate" type="number" style="${_inp}" value="${s ? _num(s.rate) : ''}"></div>
@@ -1002,7 +1041,7 @@ window._staffSave = function (id) {
   if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to manage staff', 'error'); return; }
   const v = i => (document.getElementById(i)?.value || '').trim();
   const name = v('stfName'); if (!name) { showToast('Name required', 'error'); return; }
-  const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
+  const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), email: v('stfEmail').toLowerCase(), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
   if (!state.staffMaster) state.staffMaster = [];
   if (id) { const r = state.staffMaster.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.staffMaster.push(window.stampCreate({ id: 'stf_' + Date.now(), projectId: _pid(), ...data }));
@@ -1020,6 +1059,7 @@ window._staffDelete = function (id) {
 let _punchPhoto = null, _punchGps = null, _punchFile = null;
 window._staffPunch = async function (staffId, kind) {
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
+  if (!_canPunchStaff(s)) { showToast('You can only mark your own attendance', 'error'); return; }
   _punchPhoto = null; _punchGps = null; _punchFile = null;
   const isIn = kind === 'in';
   _modal(`${_head((isIn ? 'Punch In' : 'Punch Out') + ' — ' + _esc(s.name))}<div style="padding:20px;">
@@ -1056,8 +1096,8 @@ window._staffPunchPhoto = function (input) {
   reader.readAsDataURL(file);
 };
 window._staffPunchSave = async function (staffId, kind) {
-  if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to mark attendance', 'error'); return; }
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
+  if (!_canPunchStaff(s)) { showToast('You can only mark your own attendance', 'error'); return; }
   if (!_punchPhoto && !_punchFile) { showToast('Capture a photo to verify the punch', 'error'); return; }
   const now = new Date().toISOString(), date = _today();
   if (!state.staffAttendance) state.staffAttendance = [];
