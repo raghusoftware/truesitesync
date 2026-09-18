@@ -29,7 +29,7 @@ const HOME_VIEW = 'projectsHome';
 const _childrenOf = {
   // Home's direct children (hubs + top-level views)
   [HOME_VIEW]: [
-    'projectDashboard', 'analyticsView', 'reportsView',
+    'projectDashboard', 'analyticsView', 'reportsView', 'paymentsHubView',
     'salesHubView', 'purchaseHubView', 'financeHubView', 'systemHubView', 'superAdminView',
   ],
   // Inside an open project
@@ -168,7 +168,7 @@ const GLOBAL_NAV = [
   { id: 'sales',    label: 'Sales',    icon: '🧾', action: () => navTo('salesLedgerView') },
   { id: 'add',      label: 'Menu',     icon: '+',  fab: true, action: () => openDrawer() },
   { id: 'purchase', label: 'Purchase', icon: '🛒', action: () => navTo('purchaseBillsView') },
-  { id: 'reports',  label: 'Reports',  icon: '📊', action: () => navTo('reportsView') },
+  { id: 'payments', label: 'Payments', icon: '💸', action: () => navTo('paymentsHubView') },
 ];
 
 // Views that live INSIDE a project → show the project bar.
@@ -228,7 +228,7 @@ function highlightBottomNav() {
     equipment: ['equipmentView'],
     sales: ['salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','billingView'],
     purchase: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView','vendorView'],
-    reports: ['reportsView','analyticsView'],
+    payments: ['paymentsHubView','paymentInView'],
   };
   document.querySelectorAll('#mobileBottomNav .mbn-item').forEach(btn => {
     const ids = map[btn.dataset.nav] || [];

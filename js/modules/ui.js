@@ -1375,6 +1375,7 @@ export function switchView(viewId) {
   _updateBreadcrumb(viewId);
   try { window.highlightBottomNav?.(); } catch {}
 
+  if (viewId === 'paymentsHubView') { try { window.renderPaymentsHub?.(); } catch (e) { console.warn(e); } }
   if (viewId === 'projectsHome') renderProjectsHome();
   if (viewId === 'projectDashboard') renderProjectDashboard();
   if (viewId === 'accountsManagerView') renderAccounts();
