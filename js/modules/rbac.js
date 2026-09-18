@@ -245,7 +245,31 @@ export function initRBAC() {
     state.rbacFlags.staffAttendanceGrantV1 = true;
     _rolesChanged = true;
   }
-  if (_rolesChanged) saveAllData();
+  // Repair: consolidate duplicate rbacUsers entries for the same email. A
+  // teammate who self-signed-up (default-Admin `usr_supa_*` entry) AND was also
+  // added by an admin with an explicit role (`usr_<ts>` entry) ended up with two
+  // rows — and the default-Admin one could win, giving e.g. an Accountant full
+  // access. Align every duplicate's role to the admin-assigned one so the
+  // shared workspace is consistent no matter which entry a code path picks.
+  if (!state.rbacFlags.dedupeUserRolesV1 && Array.isArray(state.rbacUsers)) {
+    const byEmail = {};
+    state.rbacUsers.forEach(u => {
+      const em = (u.email || u.username || '').trim().toLowerCase();
+      if (em) (byEmail[em] = byEmail[em] || []).push(u);
+    });
+    Object.entries(byEmail).forEach(([em, list]) => {
+      if (list.length < 2) return;
+      if (SUPER_ADMINS.includes(em)) return; // never touch protected accounts
+      const assigned = list.find(_isAdminAssigned);
+      if (!assigned) return;
+      list.forEach(u => {
+        if (u !== assigned && u.role !== assigned.role) { u.role = assigned.role; _rolesChanged = true; }
+      });
+    });
+    state.rbacFlags.dedupeUserRolesV1 = true;
+    _rolesChanged = true;
+  }
+  if (_rolesChanged) { _cachedUser = null; saveAllData(); }
   // No default/seed user — the first person who logs in (via Supabase) becomes
   // the Admin of their own workspace (see _ensureRbacUser).
   if (!state.rbacUsers) { state.rbacUsers = []; saveAllData(); }
@@ -291,6 +315,29 @@ function _getFallbackUser() {
 // everything from themselves with no way back).
 const SUPER_ADMINS = ['raghupadhiyar9@gmail.com', 'pjchauhan0704@gmail.com'];
 
+/** An rbacUsers entry whose id is an admin-created id (`usr_<timestamp>`), i.e.
+ *  a role an admin explicitly chose via "Add User" — as opposed to a
+ *  self-signup entry (`usr_supa_<uid>`) which always defaults to Admin. */
+function _isAdminAssigned(u) {
+  return !!(u && u.id && u.id.startsWith('usr_') && !u.id.startsWith('usr_supa_'));
+}
+
+/** Resolve THE rbacUsers entry to trust for a login. A user can end up with two
+ *  entries for the same email — a self-signup default-Admin entry (usr_supa_*)
+ *  and the admin-created entry that carries the real assigned role. The admin's
+ *  explicit choice must win, so an admin-assigned match is preferred over a
+ *  supabaseId (self-signup) match. */
+function _resolveRbacEntry(supaId, email) {
+  const users = state.rbacUsers || [];
+  const em = (email || '').trim().toLowerCase();
+  const matches = users.filter(u =>
+    (supaId && u.supabaseId === supaId) ||
+    (em && ((u.email || u.username || '').trim().toLowerCase() === em))
+  );
+  if (!matches.length) return null;
+  return matches.find(_isAdminAssigned) || matches.find(u => u.supabaseId === supaId) || matches[0];
+}
+
 function _mapSupabaseUser(supaUser) {
   const meta = supaUser.user_metadata || {};
   // Map to our internal user format. IMPORTANT: match the RBAC entry by
@@ -298,14 +345,21 @@ function _mapSupabaseUser(supaUser) {
   // but no supabaseId until they log in, so a supabaseId-only match would miss it
   // and fall back to 'Admin', silently bypassing all role permissions.
   const em = (supaUser.email || '').trim().toLowerCase();
-  const rbacUser = (state.rbacUsers || []).find(u => u.supabaseId === supaUser.id)
-    || (em ? (state.rbacUsers || []).find(u => ((u.email || u.username || '').trim().toLowerCase() === em)) : null);
+  const rbacUser = _resolveRbacEntry(supaUser.id, em);
   let role = rbacUser?.role || meta.role || 'Admin';
-  // Safeguard: the org owner and super-admins always have full access, no matter
-  // what rbac role is on their record — they can never lock themselves out.
+  // Safeguard: super-admins always keep full access (dev/support accounts).
+  // The org OWNER also gets full access — BUT only when no admin has explicitly
+  // assigned them a restricted role. Without that guard, a teammate who once
+  // self-signed-up (owns a personal org) but was later invited as, say, an
+  // Accountant would be silently force-promoted to Admin by this override and
+  // see everything. Respect an explicit non-Admin assignment.
   try {
     if (SUPER_ADMINS.includes(em)) role = 'Admin';
-    else if (typeof window !== 'undefined' && typeof window.getCurrentOrg === 'function' && window.getCurrentOrg()?._userRole === 'owner') role = 'Admin';
+    else if (
+      (!rbacUser || rbacUser.role === 'Admin') &&
+      typeof window !== 'undefined' && typeof window.getCurrentOrg === 'function' &&
+      window.getCurrentOrg()?._userRole === 'owner'
+    ) role = 'Admin';
   } catch {}
   return {
     id: rbacUser?.id || 'usr_supa_' + supaUser.id.substring(0, 8),
@@ -332,9 +386,11 @@ export function getMyRbacUser() {
   const u = getCurrentUser();
   if (!u) return null;
   const users = state.rbacUsers || [];
-  return users.find(r => (u.supabaseId && r.supabaseId === u.supabaseId))
+  // Prefer the admin-assigned entry (same rule as _resolveRbacEntry) so an
+  // explicit role wins over a shadowing self-signup default-Admin duplicate.
+  const resolved = _resolveRbacEntry(u.supabaseId, u.email);
+  return resolved
       || users.find(r => r.id === u.id)
-      || (u.email ? users.find(r => (r.email || r.username || '').trim().toLowerCase() === u.email.trim().toLowerCase()) : null)
       || null;
 }
 
@@ -444,18 +500,39 @@ export function _ensureRbacUser(supaUser) {
   state.rbacUsers = state.rbacUsers.filter(u => !(u.id === 'usr_admin' || (u.username === 'admin' && !u.supabaseId)));
   let changed = state.rbacUsers.length !== before;
 
+  const email = (supaUser.email || '').trim().toLowerCase();
   const existing = state.rbacUsers.find(u => u.supabaseId === supaUser.id);
-  if (!existing) {
+  // Any admin-created entry for this email (explicit role via "Add User").
+  const assigned = email ? state.rbacUsers.find(u =>
+    _isAdminAssigned(u) && ((u.email || '').trim().toLowerCase() === email || (u.username || '').trim().toLowerCase() === email)
+  ) : null;
+
+  if (existing) {
+    // Login already linked. If an admin also created an explicit-role entry for
+    // this same email (e.g. self-signed-up as Admin, then admin set Accountant),
+    // consolidate: keep the admin-assigned entry (its id is referenced by
+    // project.teamMembers), move the login onto it, and drop the duplicate — so
+    // the admin's chosen role and project access take effect.
+    if (assigned && assigned !== existing) {
+      assigned.supabaseId = supaUser.id;
+      if (!assigned.name) assigned.name = existing.name || supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0];
+      assigned.email = supaUser.email;
+      assigned.username = supaUser.email;
+      if (!assigned.phone) assigned.phone = existing.phone || supaUser.user_metadata?.phone || supaUser.phone || '';
+      assigned.active = assigned.active !== false;
+      state.rbacUsers = state.rbacUsers.filter(u => u !== existing);
+      changed = true;
+    }
+  } else {
     // RECONCILE BY EMAIL: if an admin pre-created this teammate via "Add User"
     // (no supabaseId yet), link THIS login to that same entry — keeping the
     // admin-assigned role + project assignments. Its id is stable, so any
     // project.teamMembers references to it stay valid. Only when there's no
     // matching entry at all is this a genuinely new self-signup (the org
     // owner / first user) → create a fresh Admin entry.
-    const email = (supaUser.email || '').trim().toLowerCase();
-    const byEmail = email ? state.rbacUsers.find(u =>
+    const byEmail = assigned || (email ? state.rbacUsers.find(u =>
       !u.supabaseId && ((u.email || '').trim().toLowerCase() === email || (u.username || '').trim().toLowerCase() === email)
-    ) : null;
+    ) : null);
     if (byEmail) {
       byEmail.supabaseId = supaUser.id;
       if (!byEmail.name) byEmail.name = supaUser.user_metadata?.display_name || supaUser.email?.split('@')[0];
