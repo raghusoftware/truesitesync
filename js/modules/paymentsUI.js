@@ -5,6 +5,10 @@
  * Smart dropdowns: Pay-to type → name list; Pay-from → Main account or a petty-cash
  * custodian; Expense head → sub-head. Every save funnels through paymentsEngine so
  * Petty Cash and the Main Account always reconcile (see paymentsEngine.js).
+ *
+ * v2 UI — premium fintech redesign (lavender ground, deep-purple accent, elevated
+ * balance cards, segmented control, chip grid, pay-from cards). All element IDs,
+ * handlers and reconciliation logic are unchanged from v1.
  */
 import { state, saveAllData } from './state.js';
 import { showToast, formatINR } from './utils.js';
@@ -42,6 +46,8 @@ const PAYEE_LABELS = {
   owner: 'Owner / Drawings', pettyTopup: 'Petty-cash top-up',
 };
 const PAYER_LABELS = { client: 'Client receipt', other: 'Other income', owner: 'Owner / Capital', loan: 'Loan', custodianReturn: 'Petty-cash return' };
+const PAYEE_ICONS = { vendor: '🧾', labour: '👷', contractor: '🤝', expense: '📂', equipment: '🚜', statutory: '🏛️', owner: '👤', pettyTopup: '👛' };
+const PAYER_ICONS = { client: '🏗️', other: '💼', owner: '👤', loan: '🏦', custodianReturn: '👛' };
 
 function _opts(list, idKey = 'id', nameKey = 'name', extra) {
   return list.map(x => `<option value="${esc(x[idKey])}">${esc(x[nameKey] || '—')}${extra ? extra(x) : ''}</option>`).join('');
@@ -51,113 +57,215 @@ function _opts(list, idKey = 'id', nameKey = 'name', extra) {
 export function renderPaymentsHub() {
   const el = document.getElementById('paymentsHubView');
   if (!el) return;
-  const acctStrip = accounts().map(a => `<span class="pmt-bal"><b>${esc(a.name)}</b> ${money(accountBalance(state, a.id))}</span>`).join('')
-    + custodians().map(c => `<span class="pmt-bal pmt-bal-petty">👛 ${esc(c.name)} ${money(custodianBalance(state, c.id))}</span>`).join('')
-    || '<span class="pmt-bal">No accounts yet — add one in Finance → Accounts.</span>';
+
+  const accCards = accounts().map((a, i) => `
+    <div class="pmt-bal ${i === 0 ? 'primary' : ''}">
+      <div class="pmt-bal-ic">🏦</div>
+      <div class="pmt-bal-nm">${esc(a.name)}</div>
+      <div class="pmt-bal-amt">${money(accountBalance(state, a.id))}</div>
+      <div class="pmt-bal-tag">Bank · Cash</div>
+    </div>`).join('');
+  const pettyCards = custodians().map(c => `
+    <div class="pmt-bal petty">
+      <div class="pmt-bal-ic">👛</div>
+      <div class="pmt-bal-nm">${esc(c.name)}</div>
+      <div class="pmt-bal-amt">${money(custodianBalance(state, c.id))}</div>
+      <div class="pmt-bal-tag"><span class="pmt-petty-badge">Petty</span></div>
+    </div>`).join('');
+  const acctStrip = (accCards + pettyCards) || '<div class="pmt-empty">No accounts yet — add one in Finance → Accounts.</div>';
 
   el.innerHTML = `
     <style>
-      #paymentsHubView{padding:12px 12px 96px;max-width:640px;margin:0 auto}
-      .pmt-balstrip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-      .pmt-bal{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:6px 12px;font-size:12px;color:#334155;white-space:nowrap}
-      .pmt-bal b{color:#0f172a}
-      .pmt-bal-petty{background:#fef9c3;border-color:#fde68a}
-      .pmt-seg{display:flex;gap:8px;margin-bottom:14px}
-      .pmt-seg button{flex:1;padding:12px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;font-weight:800;font-size:15px;cursor:pointer}
-      .pmt-seg button.on-out{background:#fef2f2;border-color:#ef4444;color:#b91c1c}
-      .pmt-seg button.on-in{background:#ecfdf5;border-color:#10b981;color:#047857}
-      .pmt-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px}
-      .pmt-lbl{display:block;font-size:12px;font-weight:700;color:#64748b;margin:12px 0 5px}
-      .pmt-in,.pmt-sel{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;background:#fff;outline:none}
-      .pmt-chips{display:flex;gap:6px;flex-wrap:wrap}
-      .pmt-chip{padding:8px 12px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;font-size:13px;font-weight:600;cursor:pointer}
-      .pmt-chip.active{background:#0f172a;color:#fff;border-color:#0f172a}
-      .pmt-row{display:flex;gap:10px}.pmt-row>*{flex:1}
-      .pmt-save{width:100%;margin-top:16px;padding:14px;border:none;border-radius:12px;font-weight:800;font-size:16px;color:#fff;cursor:pointer}
-      .pmt-save.out{background:#dc2626}.pmt-save.in{background:#059669}
-      .pmt-hint{font-size:11px;color:#94a3b8;margin-top:4px}
-      .pmt-recent{margin-top:18px}
-      .pmt-rrow{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
-      .pmt-rrow .amt{font-weight:800}.pmt-rrow .out{color:#dc2626}.pmt-rrow .in{color:#059669}
-      .pmt-sub{color:#94a3b8;font-size:11px}
+      #paymentsHubView{
+        --bg:#F6F4FF;--card:#fff;--ink:#1C1633;--ink2:#4A4363;--muted:#8A85A6;
+        --faint:#F1EEFB;--line:#EAE6F8;--purple:#6D28D9;--purple-tint:#F3EEFE;
+        --indigo:#4F46E5;--green:#059669;--green-tint:#E9F9F1;--red:#E11D3A;--red-tint:#FEECEE;
+        --sh:0 8px 24px -12px rgba(76,42,150,.28);--sh-soft:0 2px 10px -4px rgba(76,42,150,.16);
+        background:var(--bg);color:var(--ink);
+        padding:14px 14px 104px;max-width:680px;margin:0 auto;
+        font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+      }
+      #paymentsHubView *{box-sizing:border-box}
+      .pmt-balstrip{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 6px;margin-bottom:14px;scrollbar-width:none}
+      .pmt-balstrip::-webkit-scrollbar{display:none}
+      .pmt-bal{flex:0 0 auto;width:152px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;box-shadow:var(--sh-soft)}
+      .pmt-bal.primary{background:linear-gradient(150deg,#6D28D9,#4F46E5);border:none;color:#fff;box-shadow:0 12px 26px -12px rgba(91,33,182,.7)}
+      .pmt-bal-ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--purple-tint);margin-bottom:9px}
+      .pmt-bal.primary .pmt-bal-ic{background:rgba(255,255,255,.18)}
+      .pmt-bal-nm{font-size:12px;font-weight:700;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .pmt-bal.primary .pmt-bal-nm{color:rgba(255,255,255,.85)}
+      .pmt-bal-amt{font-size:19px;font-weight:800;letter-spacing:-.02em;margin-top:3px;font-variant-numeric:tabular-nums}
+      .pmt-bal-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:6px}
+      .pmt-bal.primary .pmt-bal-tag{color:rgba(255,255,255,.72)}
+      .pmt-petty-badge{color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px}
+      .pmt-empty{font-size:13px;color:var(--muted);padding:8px 2px}
+
+      .pmt-grid{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+      .pmt-main,.pmt-side{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+      .pmt-seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:16px;padding:5px;gap:5px;box-shadow:var(--sh-soft)}
+      .pmt-seg button{flex:1;border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:800;color:var(--muted);padding:12px;border-radius:12px;cursor:pointer;transition:.18s}
+      .pmt-seg button.on-out{background:linear-gradient(135deg,#F43F5E,#E11D3A);color:#fff;box-shadow:0 8px 18px -8px rgba(225,29,58,.7)}
+      .pmt-seg button.on-in{background:linear-gradient(135deg,#10B981,#059669);color:#fff;box-shadow:0 8px 18px -8px rgba(5,150,105,.6)}
+
+      .pmt-card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:15px}
+      .pmt-lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+
+      .pmt-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+      .pmt-chip{display:flex;align-items:center;gap:7px;padding:11px 12px;border-radius:13px;border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;transition:.16s;line-height:1.15}
+      .pmt-chip:hover{border-color:#D9CEF6}
+      .pmt-chip.active{background:var(--purple);border-color:var(--purple);color:#fff;box-shadow:0 8px 18px -10px rgba(109,40,217,.75)}
+      .pmt-chip .ci{font-size:14px}
+
+      .pmt-sel,.pmt-in,.pmt-ta{width:100%;font-family:inherit;font-size:15px;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:13px;padding:14px;outline:none;transition:.16s;-webkit-appearance:none;appearance:none}
+      .pmt-in::placeholder,.pmt-ta::placeholder{color:#B4AEC9}
+      .pmt-sel:focus,.pmt-in:focus,.pmt-ta:focus{border-color:var(--purple);box-shadow:0 0 0 4px var(--purple-tint)}
+      .pmt-ta{resize:vertical;min-height:64px;line-height:1.5}
+      .pmt-selwrap{position:relative}
+      .pmt-selwrap::after{content:"▾";position:absolute;right:15px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
+
+      .pmt-payfrom{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .pmt-pf{position:relative;border:1.5px solid var(--line);border-radius:15px;padding:13px;background:#fff;cursor:pointer;transition:.16s}
+      .pmt-pf-ic{width:34px;height:34px;border-radius:11px;background:var(--faint);display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:6px}
+      .pmt-pf-t{font-size:13px;font-weight:800}
+      .pmt-pf-b{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .pmt-pf.active{border-color:var(--purple);background:var(--purple-tint);box-shadow:0 8px 20px -12px rgba(109,40,217,.55)}
+      .pmt-pf.active .pmt-pf-ic{background:#fff}
+      .pmt-pf-tick{position:absolute;top:11px;right:11px;width:20px;height:20px;border-radius:50%;background:var(--purple);color:#fff;font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center}
+      .pmt-pf.active .pmt-pf-tick{display:flex}
+
+      .pmt-row{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}
+      .pmt-amtbig{font-size:24px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;padding:16px 14px}
+
+      .pmt-save{width:100%;border:none;font-family:inherit;font-size:16px;font-weight:800;color:#fff;padding:16px;border-radius:16px;cursor:pointer;transition:.16s}
+      .pmt-save:active{transform:translateY(1px)}
+      .pmt-save.out{background:linear-gradient(135deg,#F43F5E,#E11D3A);box-shadow:0 14px 30px -12px rgba(225,29,58,.8)}
+      .pmt-save.in{background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 14px 30px -12px rgba(5,150,105,.65)}
+      .pmt-hint{font-size:11px;color:var(--muted);line-height:1.5;display:flex;gap:7px}
+      .pmt-hint .hi{color:var(--purple)}
+
+      .pmt-listcard{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--sh);overflow:hidden}
+      .pmt-listhead{display:flex;align-items:center;justify-content:space-between;padding:15px 16px 12px}
+      .pmt-listhead b{font-size:14px;font-weight:800}
+      .pmt-listhead .cnt{font-size:11px;color:var(--muted)}
+      .pmt-rrow{display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--line)}
+      .pmt-rrow:first-of-type{border-top:none}
+      .pmt-tic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+      .pmt-tic.out{background:var(--red-tint)}.pmt-tic.in{background:var(--green-tint)}
+      .pmt-rmeta{min-width:0;flex:1}
+      .pmt-who{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .pmt-sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+      .pmt-amt{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+      .pmt-amt.out{color:var(--red)}.pmt-amt.in{color:var(--green)}
+      .pmt-none{font-size:13px;color:var(--muted);padding:18px 16px;text-align:center}
+
+      @media(min-width:900px){
+        #paymentsHubView{max-width:1120px;padding:20px 20px 40px}
+        .pmt-grid{grid-template-columns:1.2fr .85fr;gap:22px}
+        .pmt-side{position:sticky;top:8px}
+      }
       @media (prefers-color-scheme:dark){
-        #paymentsHubView{color:#e2e8f0}.pmt-card{background:#0f1822;border-color:#243343}
-        .pmt-bal{background:#16202c;border-color:#243343;color:#cbd5e1}.pmt-bal b{color:#fff}
-        .pmt-in,.pmt-sel,.pmt-chip,.pmt-seg button{background:#0f1822;border-color:#31445a;color:#e2e8f0}
-        .pmt-bal-petty{background:#3a2c15;border-color:#5a4a1f}
+        #paymentsHubView{
+          --bg:#0B0A12;--card:#151222;--ink:#ECE9F7;--ink2:#B6AFD1;--muted:#8B84A8;
+          --faint:#201B31;--line:#2A2440;--purple-tint:#241a3b;--red-tint:#3a1620;--green-tint:#12281f;
+        }
+        .pmt-chip,.pmt-sel,.pmt-in,.pmt-ta,.pmt-pf,.pmt-seg{background:#151222}
+        .pmt-petty-badge{color:#FDE68A;background:#3a2c15}
       }
     </style>
+
     <div class="pmt-balstrip">${acctStrip}</div>
-    <div class="pmt-seg">
-      <button id="pmtTabOut" class="${_ui.mode === 'out' ? 'on-out' : ''}" onclick="window._pmtSetMode('out')">↑ Payment Out</button>
-      <button id="pmtTabIn" class="${_ui.mode === 'in' ? 'on-in' : ''}" onclick="window._pmtSetMode('in')">↓ Payment In</button>
+
+    <div class="pmt-grid">
+      <div class="pmt-main">
+        <div class="pmt-seg">
+          <button id="pmtTabOut" class="${_ui.mode === 'out' ? 'on-out' : ''}" onclick="window._pmtSetMode('out')">↑ Payment Out</button>
+          <button id="pmtTabIn" class="${_ui.mode === 'in' ? 'on-in' : ''}" onclick="window._pmtSetMode('in')">↓ Payment In</button>
+        </div>
+        <div class="pmt-card">${_ui.mode === 'out' ? _formOut() : _formIn()}</div>
+      </div>
+      <div class="pmt-side">${_recent()}</div>
     </div>
-    <div class="pmt-card">${_ui.mode === 'out' ? _formOut() : _formIn()}</div>
-    <div class="pmt-recent">${_recent()}</div>
   `;
   if (_ui.mode === 'out') { _syncPayeeUI(); _syncSourceUI(); }
 }
 
 function _formOut() {
   const chips = Object.keys(PAYEE_LABELS).map(k =>
-    `<span class="pmt-chip ${_ui.payeeType === k ? 'active' : ''}" onclick="window._pmtSetPayee('${k}')">${esc(PAYEE_LABELS[k])}</span>`).join('');
+    `<div class="pmt-chip ${_ui.payeeType === k ? 'active' : ''}" onclick="window._pmtSetPayee('${k}')"><span class="ci">${PAYEE_ICONS[k] || ''}</span> ${esc(PAYEE_LABELS[k])}</div>`).join('');
+  const acc0 = accounts()[0];
+  const cust0 = custodians()[0];
   return `
-    <label class="pmt-lbl">Pay to</label>
-    <div class="pmt-chips">${chips}</div>
+    <div>
+      <label class="pmt-lbl">Pay to</label>
+      <div class="pmt-chips">${chips}</div>
+    </div>
 
     <div id="pmtPayeeNameWrap">
       <label class="pmt-lbl" id="pmtPayeeNameLbl">Select</label>
-      <select id="pmtPayeeName" class="pmt-sel"></select>
+      <div class="pmt-selwrap"><select id="pmtPayeeName" class="pmt-sel"></select></div>
     </div>
 
     <div id="pmtHeadWrap" style="display:none">
       <div class="pmt-row">
         <div><label class="pmt-lbl">Head</label>
-          <select id="pmtHead" class="pmt-sel" onchange="window._pmtHeadChange()"></select></div>
+          <div class="pmt-selwrap"><select id="pmtHead" class="pmt-sel" onchange="window._pmtHeadChange()"></select></div></div>
         <div><label class="pmt-lbl">Sub-head</label>
-          <select id="pmtSub" class="pmt-sel"></select></div>
+          <div class="pmt-selwrap"><select id="pmtSub" class="pmt-sel"></select></div></div>
       </div>
     </div>
 
-    <label class="pmt-lbl">Pay from</label>
-    <div class="pmt-chips">
-      <span class="pmt-chip ${_ui.source === 'account' ? 'active' : ''}" onclick="window._pmtSetSource('account')">🏦 Main account</span>
-      <span class="pmt-chip ${_ui.source === 'petty' ? 'active' : ''}" onclick="window._pmtSetSource('petty')">👛 Petty cash</span>
+    <div>
+      <label class="pmt-lbl">Pay from</label>
+      <div class="pmt-payfrom">
+        <div class="pmt-pf ${_ui.source === 'account' ? 'active' : ''}" onclick="window._pmtSetSource('account')">
+          <span class="pmt-pf-tick">✓</span><div class="pmt-pf-ic">🏦</div>
+          <div class="pmt-pf-t">Main account</div>
+          <div class="pmt-pf-b">${acc0 ? money(accountBalance(state, acc0.id)) : 'Add an account'}</div>
+        </div>
+        <div class="pmt-pf ${_ui.source === 'petty' ? 'active' : ''}" onclick="window._pmtSetSource('petty')">
+          <span class="pmt-pf-tick">✓</span><div class="pmt-pf-ic">👛</div>
+          <div class="pmt-pf-t">Petty cash</div>
+          <div class="pmt-pf-b">${cust0 ? esc(cust0.name) + ' · ' + money(custodianBalance(state, cust0.id)) : 'No custodian'}</div>
+        </div>
+      </div>
+      <div id="pmtAccWrap" style="margin-top:10px"><div class="pmt-selwrap"><select id="pmtAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div></div>
+      <div id="pmtCustWrap" style="margin-top:10px;display:none"><div class="pmt-selwrap"><select id="pmtCust" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select></div></div>
     </div>
-    <div id="pmtAccWrap" style="margin-top:6px"><select id="pmtAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div>
-    <div id="pmtCustWrap" style="margin-top:6px;display:none"><select id="pmtCust" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select></div>
 
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtAmt" class="pmt-in" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
-    <label class="pmt-lbl">Reference / note</label>
-    <input id="pmtRef" class="pmt-in" placeholder="e.g. diesel for JCB, bill no…">
-    <button class="pmt-save out" onclick="window._pmtSaveOut()">Save Payment Out</button>
-    <div class="pmt-hint">Paying from petty cash records who paid it and never double-debits the main account.</div>
+    <div><label class="pmt-lbl">Reference / note</label>
+      <textarea id="pmtRef" class="pmt-ta" placeholder="e.g. diesel for JCB, bill no…"></textarea></div>
+    <button class="pmt-save out" onclick="window._pmtSaveOut()">↑ Save Payment Out</button>
+    <div class="pmt-hint"><span class="hi">🔒</span> Paying from petty cash records who paid it and never double-debits the main account.</div>
   `;
 }
 
 function _formIn() {
-  const chips = Object.keys(PAYER_LABELS).map(k =>
-    `<span class="pmt-chip ${_ui.payerType === k ? 'active' : ''}" onclick="window._pmtSetPayer('${k}')">${esc(PAYER_LABELS[k])}</span>`).join('');
   if (!_ui.payerType) _ui.payerType = 'client';
+  const chips = Object.keys(PAYER_LABELS).map(k =>
+    `<div class="pmt-chip ${_ui.payerType === k ? 'active' : ''}" onclick="window._pmtSetPayer('${k}')"><span class="ci">${PAYER_ICONS[k] || ''}</span> ${esc(PAYER_LABELS[k])}</div>`).join('');
   const showClient = _ui.payerType === 'client';
   const showCust = _ui.payerType === 'custodianReturn';
   return `
-    <label class="pmt-lbl">Received from</label>
-    <div class="pmt-chips">${chips}</div>
-    ${showClient ? `<label class="pmt-lbl">Client</label><select id="pmtInName" class="pmt-sel">${_opts(clients())}</select>` : ''}
-    ${showCust ? `<label class="pmt-lbl">Custodian returning cash</label><select id="pmtInName" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select>` : ''}
-    <label class="pmt-lbl">${showCust ? 'Return to account' : 'Deposit to account'}</label>
-    <select id="pmtInAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select>
+    <div>
+      <label class="pmt-lbl">Received from</label>
+      <div class="pmt-chips">${chips}</div>
+    </div>
+    ${showClient ? `<div><label class="pmt-lbl">Client</label><div class="pmt-selwrap"><select id="pmtInName" class="pmt-sel">${_opts(clients())}</select></div></div>` : ''}
+    ${showCust ? `<div><label class="pmt-lbl">Custodian returning cash</label><div class="pmt-selwrap"><select id="pmtInName" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select></div></div>` : ''}
+    <div><label class="pmt-lbl">${showCust ? 'Return to account' : 'Deposit to account'}</label>
+      <div class="pmt-selwrap"><select id="pmtInAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div></div>
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtInAmt" class="pmt-in" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtInAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtInDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
-    <label class="pmt-lbl">Reference / note</label>
-    <input id="pmtInRef" class="pmt-in" placeholder="e.g. RA-2 payment, advance…">
-    <button class="pmt-save in" onclick="window._pmtSaveIn()">Save Payment In</button>
+    <div><label class="pmt-lbl">Reference / note</label>
+      <textarea id="pmtInRef" class="pmt-ta" placeholder="e.g. RA-2 payment, advance…"></textarea></div>
+    <button class="pmt-save in" onclick="window._pmtSaveIn()">↓ Save Payment In</button>
   `;
 }
 
@@ -276,22 +384,30 @@ function _appendAll(append) {
 function _recent() {
   const rows = [];
   const pName = (arr, id, nk = 'name') => (state[arr] || []).find(x => x.id === id)?.[nk] || '';
-  (state.vendorPayments || []).forEach(v => rows.push({ date: v.date, dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
-  (state.labourPayments || []).forEach(l => rows.push({ date: l.date, dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
-  (state.expenses || []).forEach(e => rows.push({ date: e.date, dir: 'out', amt: e.amount, who: (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : ''), via: pName('accounts', e.accountId) }));
+  (state.vendorPayments || []).forEach(v => rows.push({ icon: '🧾', date: v.date, dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
+  (state.labourPayments || []).forEach(l => rows.push({ icon: '👷', date: l.date, dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
+  (state.expenses || []).forEach(e => rows.push({ icon: (e.head === 'Equipment' ? '🚜' : '📂'), date: e.date, dir: 'out', amt: e.amount, who: (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : ''), via: pName('accounts', e.accountId) }));
   (state.pettyCashTxns || []).forEach(t => {
-    if (t.type === 'EXPENSE') rows.push({ date: t.date, dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
-    if (t.type === 'TRANSFER') rows.push({ date: t.date, dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
-    if (t.type === 'RETURN') rows.push({ date: t.date, dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
+    if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
+    if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
+    if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
   });
-  (state.paymentsIn || []).forEach(p => rows.push({ date: p.date, dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
-  (state.otherIncome || []).forEach(o => rows.push({ date: o.date, dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
+  (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
+  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
   rows.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   const top = rows.slice(0, 25);
-  if (!top.length) return '<div class="pmt-sub">No payments yet.</div>';
-  return '<label class="pmt-lbl">Recent</label>' + top.map(r =>
-    `<div class="pmt-rrow"><div>${esc(r.who)}<div class="pmt-sub">${esc(r.via || '')} · ${esc(r.date || '')}</div></div>
-     <div class="amt ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div></div>`).join('');
+  const body = top.length
+    ? top.map(r =>
+      `<div class="pmt-rrow">
+         <div class="pmt-tic ${r.dir}">${r.icon || (r.dir === 'out' ? '↑' : '↓')}</div>
+         <div class="pmt-rmeta"><div class="pmt-who">${esc(r.who)}</div><div class="pmt-sub">${esc([r.via, r.date].filter(Boolean).join(' · '))}</div></div>
+         <div class="pmt-amt ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
+       </div>`).join('')
+    : '<div class="pmt-none">No payments yet.</div>';
+  return `<div class="pmt-listcard">
+    <div class="pmt-listhead"><b>Recent</b><span class="cnt">${top.length ? 'last ' + top.length : ''}</span></div>
+    ${body}
+  </div>`;
 }
 
 /* ── self-bind for inline handlers ── */
