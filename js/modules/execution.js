@@ -297,7 +297,20 @@ function _dprOhResources(type) {
   if (type === 'Material') return (state.rawMaterials || []).map(m => ({ id: m.id, name: m.name, rate: _dprMatRate(m.id), unit: m.unit || 'nos' }));
   return [];
 }
-function _dprMatRate(id) { const ins = (state.inventoryTx || []).filter(t => t.rawMaterialId === id && t.type === 'IN' && (parseFloat(t.rate) || 0) > 0).sort((a, b) => new Date(b.date) - new Date(a.date)); return ins.length ? (parseFloat(ins[0].rate) || 0) : 0; }
+// Latest purchase rate for a material, from EVERY source a rate is entered —
+// inventory stock-IN, purchase bills (net rate), and GRN receipts (most recent
+// by date), else the item master's stored rate. Mirrors Cost & Profit costing.
+function _dprMatRate(id) {
+  if (!id) return 0;
+  let best = null;
+  const consider = (date, rate) => { const r = parseFloat(rate) || 0; if (r <= 0) return; const t = date ? new Date(date).getTime() : 0; if (!best || t >= best.t) best = { t: t || 0, rate: r }; };
+  (state.inventoryTx || []).forEach(x => { if (x.rawMaterialId === id && x.type === 'IN') consider(x.date, x.rate); });
+  (state.vendorMaterials || []).forEach(b => (b.items || []).forEach(it => { if (it.rawMatId === id || it.rawMaterialId === id) consider(b.date, it.netRate != null ? it.netRate : it.rate); }));
+  (state.grnRecords || []).forEach(g => { if ((g.matId || g.rawMatId || g.rawMaterialId) === id) consider(g.date || g.receivedAt, g.rate); });
+  if (best) return best.rate;
+  const rm = (state.rawMaterials || []).find(m => m.id === id);
+  return rm ? (parseFloat(rm.rate) || parseFloat(rm.lastRate) || parseFloat(rm.stdRate) || parseFloat(rm.purchaseRate) || 0) : 0;
+}
 function _dprOhResOpts(type, selId) { return '<option value="">— select —</option>' + _dprOhResources(type).map(r => `<option value="${_esc(r.id)}" data-rate="${r.rate}" data-name="${_esc(r.name)}" data-unit="${_esc(r.unit)}" ${selId && String(selId) === String(r.id) ? 'selected' : ''}>${_esc(r.name)}${r.rate ? ` · ${r.rate}/${r.unit}` : ''}</option>`).join(''); }
 window._dprOhRow = function (o) {
   o = o || {};
