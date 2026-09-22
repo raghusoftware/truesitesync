@@ -109,6 +109,28 @@ const STORAGE_KEYS = {
 // Register keys so sync engine can map state key → localStorage key
 registerStorageKeys(STORAGE_KEYS);
 
+/**
+ * Wipe ALL locally-cached app data on this device — every module's data, its
+ * sync timestamps/baselines, and the org cache. Auth (sb-* tokens) is left
+ * untouched. Called on logout and when a DIFFERENT user signs in on the same
+ * browser, so one user's leftover localStorage can never seed another user's
+ * (brand-new, empty) workspace — the cause of cross-account data bleed.
+ */
+export function clearLocalAppData() {
+  try {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      // App data + sync metadata all use the 'mes_' prefix; never touch 'sb-'
+      // (Supabase auth) or our 'tss_' bookkeeping keys.
+      if (k && k.startsWith('mes_')) toRemove.push(k);
+    }
+    toRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  } catch {}
+  try { sessionStorage.removeItem('mes_current_user'); } catch {}
+}
+if (typeof window !== 'undefined') window.clearLocalAppData = clearLocalAppData;
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);

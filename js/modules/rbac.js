@@ -7,7 +7,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { state, saveAllData, loadFromCloud, pushAllToCloud } from './state.js';
+import { state, saveAllData, loadFromCloud, pushAllToCloud, clearLocalAppData } from './state.js';
 import { showToast } from './utils.js';
 import { getSupabase } from '../database/supabase.js';
 
@@ -594,6 +594,13 @@ export async function logoutUser() {
   _cachedUser = null;
   _isSignupMode = false;
   sessionStorage.removeItem('mes_current_user');
+  // Wipe this device's cached workspace data so the NEXT person to sign in on
+  // this browser starts clean and can never seed their org with the previous
+  // user's data (cross-account data-bleed bug). A hard reload guarantees the
+  // in-memory state is rebuilt empty too.
+  try { clearLocalAppData(); } catch {}
+  try { localStorage.removeItem('tss_last_uid'); } catch {}
+  try { window.location.reload(); return; } catch {}
   // Reset login form so it can be re-upgraded
   const loginEl = document.getElementById('loginPage');
   if (loginEl) delete loginEl.dataset.upgraded;

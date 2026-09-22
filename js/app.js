@@ -402,6 +402,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !_appBooted && !_recoveryMode) {
+        // Different user than the one this browser last held? Wipe the previous
+        // user's cached data and reload clean BEFORE loading this user's cloud
+        // data — otherwise a brand-new/empty account could be seeded with the
+        // previous user's leftover localStorage (cross-account data bleed).
+        try {
+          const prevUid = localStorage.getItem('tss_last_uid');
+          if (prevUid && prevUid !== session.user.id) {
+            if (typeof window.clearLocalAppData === 'function') window.clearLocalAppData();
+            localStorage.setItem('tss_last_uid', session.user.id);
+            window.location.reload();
+            return;
+          }
+          localStorage.setItem('tss_last_uid', session.user.id);
+        } catch (e) { console.warn('[auth] user-switch guard:', e); }
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
         // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
