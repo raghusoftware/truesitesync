@@ -2236,11 +2236,30 @@ window._mpGenerateRA = function(locIdsCsv) {
 // ═══════════════════════════════════════════════════════════
 
 /** Most-recent purchase (IN) rate for a raw material from inventory. */
+/** Latest known purchase rate for a raw material, used to cost mix-design
+ *  recipes. Reads from EVERY place a purchase rate can be recorded — not just
+ *  inventory stock-IN — so material cost still shows when goods were bought via
+ *  a vendor bill or GRN without a stock-IN entry (the "material cost is 0 /
+ *  blank in Cost & Profit" bug). Picks the most recent by date; if no purchase
+ *  exists at all, falls back to the item master's stored rate. */
 function _lastInRate(rawMatId) {
-  const ins = (state.inventoryTx || []).filter(t => t.rawMaterialId === rawMatId && t.type === 'IN' && (parseFloat(t.rate) || 0) > 0);
-  if (!ins.length) return 0;
-  ins.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return parseFloat(ins[0].rate) || 0;
+  if (!rawMatId) return 0;
+  let best = null; // { t: epoch, rate }
+  const consider = (date, rate) => {
+    const r = parseFloat(rate) || 0; if (r <= 0) return;
+    const t = date ? new Date(date).getTime() : 0;
+    if (!best || t >= best.t) best = { t: t || 0, rate: r };
+  };
+  // 1) Inventory stock-IN (goods received into stock)
+  (state.inventoryTx || []).forEach(x => { if (x.rawMaterialId === rawMatId && x.type === 'IN') consider(x.date, x.rate); });
+  // 2) Vendor purchase bills / material purchases
+  (state.vendorMaterials || []).forEach(b => (b.items || []).forEach(it => { if (it.rawMatId === rawMatId || it.rawMaterialId === rawMatId) consider(b.date, it.rate); }));
+  // 3) GRN receipts (goods receipt notes carry the received rate; keyed by matId)
+  (state.grnRecords || []).forEach(g => { if ((g.matId || g.rawMatId || g.rawMaterialId) === rawMatId) consider(g.date || g.receivedAt, g.rate); });
+  if (best) return best.rate;
+  // 4) Fallback: the item master's own stored / standard purchase rate
+  const rm = (state.rawMaterials || []).find(m => m.id === rawMatId);
+  return rm ? (parseFloat(rm.rate) || parseFloat(rm.lastRate) || parseFloat(rm.stdRate) || parseFloat(rm.purchaseRate) || 0) : 0;
 }
 /** Resolve a recipe for a BOQ code (recipes are keyed by client.id-for-project or pid). */
 function _recipeFor(code, pid) {
