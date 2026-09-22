@@ -45,6 +45,7 @@ export const ACCESS_MODULES = [
   { id: 'purchaseReturnView', label: 'Purchase Returns', group: 'Purchase' },
   { id: 'expensesView', label: 'Expenses', group: 'Purchase' },
   { id: 'purchaseAssetsView', label: 'Fixed Assets', group: 'Purchase' },
+  { id: 'paymentsHubView', label: 'Payments', group: 'Finance' },
   { id: 'partiesLedgerView', label: 'Parties Ledger', group: 'Finance' },
   { id: 'accountsManagerView', label: 'Bank & Cash', group: 'Finance' },
   { id: 'accountingView', label: 'P&L Report', group: 'Finance' },
@@ -110,10 +111,10 @@ const DEFAULT_ROLES = {
     'projectDashboard', 'reportsView',
     'salesLedgerView', 'saleOrderView', 'proformaInvoiceView', 'estimatesView', 'paymentInView', 'saleReturnView', 'otherIncomeView', 'saleFixedAssetsView',
     'purchaseBillsView', 'purchaseOrderView', 'paymentOutView', 'purchaseReturnView', 'expensesView', 'purchaseAssetsView',
-    'partiesLedgerView', 'accountsManagerView', 'accountingView',
+    'partiesLedgerView', 'accountsManagerView', 'accountingView', 'paymentsHubView',
   ]},
   'Project Manager': { permissions: [
-    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView',
+    'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'abstractsView', 'billingView', 'estimatesView', 'salesLedgerView', 'reportsView', 'paymentsHubView',
   ]},
   'Site Supervisor': { permissions: [
     'projectDashboard', 'execEngineView', 'scheduleBuilderView', 'issuesView', 'chatView', 'pettyCashView', 'labourView', 'equipmentView', 'inventoryView', 'stockTransferAction', 'staffAttendanceAction', 'recipeView', 'assetsView', 'measurementListView', 'reportsView',
@@ -252,6 +253,19 @@ export function initRBAC() {
       }
     });
     state.rbacFlags.staffAttendanceGrantV1 = true;
+    _rolesChanged = true;
+  }
+  // One-time: the unified Payments hub now lives under Finance — grant it to the
+  // roles that record payments on existing workspaces (Admin/CEO/Owner already
+  // covered by the ALL_MODULE_IDS migration above).
+  if (!state.rbacFlags.paymentsHubGrantV1) {
+    ['Accountant', 'Project Manager'].forEach(rn => {
+      const r = state.rbacRoles[rn];
+      if (r && Array.isArray(r.permissions) && !r.permissions.includes('paymentsHubView')) {
+        r.permissions.push('paymentsHubView'); _rolesChanged = true;
+      }
+    });
+    state.rbacFlags.paymentsHubGrantV1 = true;
     _rolesChanged = true;
   }
   // Repair: consolidate duplicate rbacUsers entries for the same email. A
