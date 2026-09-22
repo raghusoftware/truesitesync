@@ -2252,8 +2252,11 @@ function _lastInRate(rawMatId) {
   };
   // 1) Inventory stock-IN (goods received into stock)
   (state.inventoryTx || []).forEach(x => { if (x.rawMaterialId === rawMatId && x.type === 'IN') consider(x.date, x.rate); });
-  // 2) Vendor purchase bills / material purchases
-  (state.vendorMaterials || []).forEach(b => (b.items || []).forEach(it => { if (it.rawMatId === rawMatId || it.rawMaterialId === rawMatId) consider(b.date, it.rate); }));
+  // 2) Purchase Bill entries / vendor material bills. Prefer the line's netRate
+  //    (rate net of tax & discount = the true material cost) over the gross rate.
+  (state.vendorMaterials || []).forEach(b => (b.items || []).forEach(it => {
+    if (it.rawMatId === rawMatId || it.rawMaterialId === rawMatId) consider(b.date, it.netRate != null ? it.netRate : it.rate);
+  }));
   // 3) GRN receipts (goods receipt notes carry the received rate; keyed by matId)
   (state.grnRecords || []).forEach(g => { if ((g.matId || g.rawMatId || g.rawMaterialId) === rawMatId) consider(g.date || g.receivedAt, g.rate); });
   if (best) return best.rate;
