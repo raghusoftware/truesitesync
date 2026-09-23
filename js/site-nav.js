@@ -201,7 +201,9 @@
     /* mega */
     '.tssn-mega{position:absolute;top:calc(100% + 14px);left:50%;transform:translateX(-50%) translateY(10px);opacity:0;visibility:hidden;pointer-events:none;background:#fff;border:1px solid rgba(13,40,28,.06);border-radius:22px;box-shadow:0 2px 4px rgba(13,40,28,.04),0 30px 80px rgba(13,40,28,.16);padding:24px 26px;transition:opacity .2s cubic-bezier(.4,0,.2,1),transform .2s cubic-bezier(.4,0,.2,1);z-index:1001}' +
     '.tssn-drop.open .tssn-mega{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}' +
-    '.tssn-drop::after{content:"";position:absolute;top:100%;left:-20px;right:-20px;height:16px}' +
+    /* invisible hover-bridges so the panel does not close while crossing the gap */
+    '.tssn-drop::after{content:"";position:absolute;top:100%;left:-24px;right:-24px;height:18px}' +
+    '.tssn-mega::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:18px}' +
     '.tssn-mega-wide{width:min(980px,calc(100vw - 40px))}' +
     '.tssn-mega-cols{display:grid;grid-template-columns:repeat(4,1fr) 1.08fr;gap:6px 16px;align-items:start}' +
     '.tssn-col-h{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9aa8a1;padding:2px 8px 10px}' +
@@ -277,13 +279,25 @@
 
     var isMobile = function () { return window.matchMedia('(max-width:1040px)').matches; };
     var drops = nav.querySelectorAll('.tssn-drop');
+    var closeTimer = null;
 
     function closeAll() { drops.forEach(function (d) { d.classList.remove('open'); }); }
+    function openDrop(d) {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      drops.forEach(function (x) { if (x !== d) x.classList.remove('open'); });
+      d.classList.add('open');
+    }
+    function scheduleClose() {
+      if (closeTimer) clearTimeout(closeTimer);
+      closeTimer = setTimeout(function () { closeAll(); closeTimer = null; }, 180);
+    }
 
     drops.forEach(function (d) {
       var btn = d.querySelector('.tssn-top');
-      d.addEventListener('mouseenter', function () { if (!isMobile()) { closeAll(); d.classList.add('open'); } });
-      d.addEventListener('mouseleave', function () { if (!isMobile()) d.classList.remove('open'); });
+      // hover-intent: a short grace period keeps the panel open while the cursor
+      // travels from the button down into the menu, so it no longer vanishes.
+      d.addEventListener('mouseenter', function () { if (!isMobile()) openDrop(d); });
+      d.addEventListener('mouseleave', function () { if (!isMobile()) scheduleClose(); });
       btn.addEventListener('click', function (e) {
         if (isMobile()) { e.preventDefault(); var was = d.classList.contains('open'); closeAll(); if (!was) d.classList.add('open'); }
       });
