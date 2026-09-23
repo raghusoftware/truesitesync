@@ -73,7 +73,8 @@
   --emerald:#10b981;        /* gradients / fills (white text on top) */
   --emerald-bright:#047857; /* green TEXT / accents on white (high contrast) */
   --emerald-dark:#064e3b;
-  --orange:#b8860b;         /* refined GOLD accent (replaces old orange) */
+  --orange:#ef8420;         /* lucky warm accent — real orange */
+  --warm:#c6301c;           /* lucky warm accent — red */
   --gold:#b8860b;
   --text:#0e1a13;           /* near-black, faint green undertone */
   --text-sec:#475569;
@@ -114,11 +115,11 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 /* ── Hero ── */
 .hero{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;padding:120px 24px 80px}
 .hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 8px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.15);border-radius:100px;font-size:12px;font-weight:600;color:var(--emerald-bright);margin-bottom:24px}
-.hero-badge .dot{width:8px;height:8px;background:var(--emerald);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 8px;background:linear-gradient(135deg,rgba(239,132,32,.12),rgba(198,48,28,.09));border:1px solid rgba(198,48,28,.20);border-radius:100px;font-size:12px;font-weight:600;color:var(--warm);margin-bottom:24px}
+.hero-badge .dot{width:8px;height:8px;background:linear-gradient(135deg,var(--orange),var(--warm));border-radius:50%;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .hero h1{font-size:clamp(36px,5.5vw,64px);font-weight:900;line-height:1.08;letter-spacing:-.03em;margin-bottom:20px}
-.hero h1 .grad{background:linear-gradient(135deg,var(--emerald-bright),var(--emerald),#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero h1 .grad{background:linear-gradient(120deg,var(--warm),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero p{font-size:clamp(16px,1.8vw,19px);color:var(--text-sec);line-height:1.65;margin-bottom:36px;max-width:520px}
 .hero-actions{display:flex;gap:14px;flex-wrap:wrap}
 .btn-primary{display:inline-flex;align-items:center;gap:10px;padding:16px 32px;background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;border:none;border-radius:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .3s;box-shadow:0 4px 24px rgba(16,185,129,.25)}
@@ -187,7 +188,7 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .p-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;padding:28px 22px;text-align:left;transition:all .3s}
 .p-card:hover{border-color:rgba(16,185,129,.2);transform:translateY(-3px)}
 .p-card.pop{border-color:rgba(16,185,129,.25);background:rgba(16,40,28,0.6);position:relative}
-.p-card.pop::after{content:'POPULAR';position:absolute;top:12px;right:12px;padding:3px 10px;background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;font-size:9px;font-weight:800;border-radius:100px;letter-spacing:.05em}
+.p-card.pop::after{content:'POPULAR';position:absolute;top:12px;right:12px;padding:3px 10px;background:linear-gradient(135deg,var(--orange),var(--warm));color:#fff;font-size:9px;font-weight:800;border-radius:100px;letter-spacing:.05em}
 .p-card .p-tier{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--emerald);margin-bottom:10px}
 .p-card .p-price{font-size:28px;font-weight:800;margin-bottom:4px}
 .p-card .p-price span{font-size:13px;color:var(--text-muted);font-weight:500}
