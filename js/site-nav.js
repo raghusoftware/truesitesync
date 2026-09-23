@@ -176,6 +176,9 @@
   /* ---------- styles ---------- */
   var css =
     '.tssn{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(13,40,28,.07);font-family:"Inter",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}' +
+    /* warm brand accent bar (lucky red + orange) */
+    '.tssn::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#EF8420,#C6301C 50%,#EF8420);z-index:1002}' +
+    '.tssn-top.tssn-active{color:#C6301C;box-shadow:inset 0 -2px 0 #EF8420}' +
     '.tssn *{box-sizing:border-box}' +
     '.tssn svg{display:block}' +
     '.tssn-inner{max-width:1240px;margin:0 auto;padding:13px 32px;display:flex;align-items:center;gap:16px}' +
@@ -320,7 +323,7 @@
     } catch (e) {}
     function markActive(name) {
       var d = nav.querySelector('.tssn-drop[data-drop="' + name + '"] .tssn-top');
-      if (d) d.style.color = '#047857';
+      if (d) d.classList.add('tssn-active');
     }
   }
 

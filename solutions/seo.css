@@ -4,6 +4,8 @@
   /* Premium light theme — matches the landing page */
   --bg:#ffffff; --surface:#ffffff; --emerald:#10b981; --emerald-bright:#047857;
   --gold:#b8860b; --text:#0e1a13; --text-sec:#475569; --text-muted:#7c8a99; --border:#e6ece8;
+  /* warm brand accents (lucky red + orange) */
+  --warm-a:#ef8420; --warm-b:#c6301c;
 }
 html{scroll-behavior:smooth}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;line-height:1.6}
@@ -24,7 +26,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-f
 
 /* Hero */
 .seo-hero{padding:72px 0 40px;text-align:center}
-.seo-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--emerald-bright);background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.18);padding:6px 14px;border-radius:100px;margin-bottom:20px;text-transform:uppercase;letter-spacing:.04em}
+.seo-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--warm-b);background:linear-gradient(135deg,rgba(239,132,32,.10),rgba(198,48,28,.08));border:1px solid rgba(198,48,28,.20);padding:6px 14px;border-radius:100px;margin-bottom:20px;text-transform:uppercase;letter-spacing:.04em}
 .seo-hero h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin-bottom:18px}
 .seo-hero h1 .hl{background:linear-gradient(135deg,var(--emerald-bright),var(--emerald));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .seo-hero p.lead{font-size:18px;color:var(--text-sec);max-width:640px;margin:0 auto 28px}
