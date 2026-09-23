@@ -66,11 +66,13 @@ export async function renderSuperAdminDashboard() {
       ${_kpi(s.paidOrgs, 'Paid Plans', '#059669')}
       ${_kpi('₹' + (s.totalRevenue || 0).toLocaleString('en-IN'), 'Revenue', '#059669')}
       ${_kpi(s.totalLeads, 'Downloads', '#ea580c')}
+      ${_kpi(s.totalDemoLeads || 0, 'Demo Requests', '#7c3aed')}
     </div>
 
     <!-- Tabs -->
     <div style="display:flex;gap:2px;margin-bottom:16px;background:#f1f5f9;border-radius:10px;padding:3px;">
       <button onclick="_saTab('users')" id="saTabUsers" class="sa-tab sa-tab-active">Users</button>
+      <button onclick="_saTab('demo')" id="saTabDemo" class="sa-tab">Demo Requests${(s.totalDemoLeads||0) ? ` (${s.totalDemoLeads})` : ''}</button>
       <button onclick="_saTab('leads')" id="saTabLeads" class="sa-tab">Download Leads</button>
       <button onclick="_saTab('orgs')" id="saTabOrgs" class="sa-tab">Organizations</button>
     </div>
@@ -100,8 +102,57 @@ function _saTabSwitch(tab) {
   const el = document.getElementById('saTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
   if (el) el.classList.add('sa-tab-active');
   if (tab === 'users') _renderUsersTab();
+  else if (tab === 'demo') _renderDemoTab();
   else if (tab === 'leads') _renderLeadsTab();
   else if (tab === 'orgs') _renderOrgsTab();
+}
+
+function _renderDemoTab() {
+  const container = document.getElementById('saTabContent');
+  if (!container || !_data) return;
+  const leads = _data.demoLeads || [];
+
+  if (!leads.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:28px;margin-bottom:8px;">🎥</div>No demo requests yet.<br>Requests from the website Book-a-Demo form will show here.</div>';
+    return;
+  }
+
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  let html = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;">
+    <thead><tr style="background:#f8fafc;">
+      <th style="text-align:left;padding:10px 12px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Name</th>
+      <th style="text-align:left;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Company</th>
+      <th style="text-align:left;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Phone</th>
+      <th style="text-align:left;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Interested in</th>
+      <th style="text-align:left;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Note</th>
+      <th style="text-align:center;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Via</th>
+      <th style="text-align:center;padding:10px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Received</th>
+    </tr></thead><tbody>`;
+
+  leads.forEach(l => {
+    const phone = (l.phone || '').replace(/[^0-9]/g, '');
+    const wa = phone ? (phone.length === 10 ? '91' + phone : phone) : '';
+    const phoneCell = phone
+      ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:#059669;font-family:monospace;font-weight:600;text-decoration:none;">${esc(l.phone)}</a>`
+      : '<span style="color:#cbd5e1;">—</span>';
+    const via = (l.source === 'whatsapp')
+      ? '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#059669;background:#f0fdf4;">WhatsApp</span>'
+      : '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#7c3aed;background:#f5f3ff;">Form</span>';
+    const when = l.created_at ? new Date(l.created_at).toLocaleString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    html += `<tr style="border-bottom:1px solid #f3f4f6;">
+      <td style="padding:10px 12px;font-weight:600;color:#1e293b;">${esc(l.name) || '—'}</td>
+      <td style="padding:10px;color:#334155;">${esc(l.company) || '—'}</td>
+      <td style="padding:10px;">${phoneCell}</td>
+      <td style="padding:10px;color:#334155;">${esc(l.interest) || '—'}</td>
+      <td style="padding:10px;color:#64748b;font-size:11px;max-width:220px;">${esc(l.note) || '—'}</td>
+      <td style="text-align:center;padding:10px;">${via}</td>
+      <td style="text-align:center;padding:10px;font-size:11px;color:#94a3b8;white-space:nowrap;">${when}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
 }
 
 function _renderUsersTab() {
