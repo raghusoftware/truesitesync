@@ -395,7 +395,7 @@ function _recent() {
   (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
   (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
   rows.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-  const top = rows.slice(0, 25);
+  const top = rows.slice(0, 15);
   const body = top.length
     ? top.map(r =>
       `<div class="pmt-rrow">
@@ -407,6 +407,7 @@ function _recent() {
   return `<div class="pmt-listcard">
     <div class="pmt-listhead"><b>Recent</b><span class="cnt">${top.length ? 'last ' + top.length : ''}</span></div>
     ${body}
+    ${rows.length > top.length ? `<div class="pmt-none" style="border-top:1px solid var(--border,#eee);cursor:pointer;" onclick="window.switchView && window.switchView('reportsView')">Showing ${top.length} of ${rows.length} · <b style="color:var(--warm-b,#c2321f)">View all in Reports →</b></div>` : ''}
   </div>`;
 }
 
