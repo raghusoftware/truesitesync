@@ -232,8 +232,7 @@ function _renderDPR(root) {
   const rows = list.map(d => `<div onclick="_exDprForm('${d.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0ea5e9;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${d.dprNum ? '<span style="color:#0ea5e9;">' + _esc(d.dprNum) + '</span> · ' : ''}${_esc(d.date)} ${d.weather ? '· ' + _esc(d.weather) : ''}${d.area ? ' · ' + _esc(d.area) : ''}</div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(d.workDone || '')}</div>
-    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}
-      ${d.reviewed ? '<span style="margin-left:4px;font-size:9px;font-weight:800;color:#047857;background:#fff3ea;border:1px solid #f3d9c4;border-radius:6px;padding:1px 6px;">✓ REVIEWED</span>' : '<span style="margin-left:4px;font-size:9px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:1px 6px;">PENDING REVIEW</span>'}</div></div>
+    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}</div></div>
     ${_rowActions('dailyProgress', d)}</div>`).join('');
   root.innerHTML = `${_backBar('Daily Progress Report')}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;">
@@ -369,12 +368,6 @@ window._dprAutoFill = function (silent) {
   const eqEl = document.getElementById('dpEquip'); if (eqEl && !eqEl.value.trim() && eq.length) eqEl.value = eq.map(e => e.name).join(', ');
   if (!silent) showToast(att.length ? `Pulled ${att.length} present from attendance` : ('No attendance marked for ' + date), att.length ? 'success' : 'info');
 };
-/** Owner review toggle on the open DPR form. */
-window._dprToggleReview = function (el) {
-  const b = document.getElementById('dprReviewState');
-  if (b) b.textContent = el.checked ? 'Will be marked reviewed by you' : 'Not reviewed';
-};
-
 // ── Consolidated weekly / monthly progress report (PDF) ──
 window._exDprPeriodPdf = async function (period) {
   try {
@@ -557,9 +550,6 @@ window._exDprForm = function (id) {
         <tbody id="dprOhBody">${ohRows}</tbody></table></div>
     </div>
 
-    ${_dprIsOwner()
-      ? `<label style="display:flex;align-items:center;gap:9px;margin:0 0 12px;cursor:pointer;background:#fff3ea;border:1px solid #f3d9c4;border-radius:10px;padding:11px;"><input type="checkbox" id="dpReviewed" ${d && d.reviewed ? 'checked' : ''} onchange="window._dprToggleReview(this)" style="width:18px;height:18px;"><span style="font-size:12px;color:#7a1f14;"><b>Reviewed by owner</b> — <span id="dprReviewState">${d && d.reviewed ? ('Reviewed' + (d.reviewedAt ? ' · ' + _esc((d.reviewedAt || '').slice(0, 10)) : '')) : 'Not reviewed'}</span></span></label>`
-      : (d && d.reviewed ? `<div style="margin-bottom:12px;font-size:12px;color:#047857;background:#fff3ea;border:1px solid #f3d9c4;border-radius:10px;padding:9px;font-weight:700;">✓ Reviewed by owner</div>` : '')}
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
   </div>`, { full: true });
   window.__dprAtt = (d && Array.isArray(d.attendance)) ? d.attendance : null;
@@ -612,13 +602,6 @@ window._exDprSave = function (id) {
   const attendance = Array.isArray(window.__dprAtt) ? window.__dprAtt : _dprAttForDate(date);
   const equipmentUsed = Array.isArray(window.__dprEquip) ? window.__dprEquip : _dprEquipForProject();
   const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed };
-  // Owner review: only an owner sees the checkbox, so an engineer's save never clears it.
-  const _revEl = document.getElementById('dpReviewed');
-  if (_revEl) {
-    data.reviewed = !!_revEl.checked;
-    if (data.reviewed) { try { data.reviewedBy = (getCurrentUser && getCurrentUser()?.name) || 'Owner'; } catch (e) {} data.reviewedAt = new Date().toISOString(); }
-    else { data.reviewedBy = ''; data.reviewedAt = ''; }
-  }
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else {
@@ -779,6 +762,34 @@ window._exDprPdf = async function (id) {
     const workLines = doc.splitTextToSize(d.workDone || '—', pw - ml - mr);
     workLines.forEach((ln, i) => doc.text(ln, ml, y + i * 4.5));
     y += workLines.length * 4.5 + 4;
+
+    const _sec = (title) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(3, 105, 161); doc.text(title, ml, y); doc.setTextColor(0); y += 2; };
+
+    // ── Measurement — work done today (quantities only) ──
+    const measRows = (d.measurements || []).filter(m => (parseFloat(m.qty) || 0) > 0).map(m => [m.description || m.code || 'Item', (Math.round((parseFloat(m.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—', m.location || '—']);
+    if (measRows.length) {
+      _sec('Measurement — Work Done');
+      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: { fillColor: accent }, body: measRows, margin: { left: ml, right: mr } });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    // ── Labour — from attendance (present staff, no pay) ──
+    const att = Array.isArray(d.attendance) ? d.attendance : [];
+    if (att.length) {
+      _sec('Labour — from Attendance');
+      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 24 }, 3: { halign: 'right', cellWidth: 20 } }, headStyles: { fillColor: accent }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']), margin: { left: ml, right: mr } });
+      y = doc.lastAutoTable.finalY + 3;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(`Present: ${att.length}    Skilled: ${att.filter(a => a.skilled).length}    Unskilled: ${att.filter(a => !a.skilled).length}`, ml, y); y += 6;
+    }
+
+    // ── Material used (quantities only — no rates/cost) ──
+    const matRows = (d.overheads || []).filter(o => o.type === 'Material' && (parseFloat(o.qty) || 0) > 0).map(o => [o.resource || o.activity || 'Material', (Math.round((parseFloat(o.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), o.uom || '—']);
+    if (matRows.length) {
+      _sec('Material Used');
+      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Material', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: { fillColor: accent }, body: matRows, margin: { left: ml, right: mr } });
+      y = doc.lastAutoTable.finalY + 6;
+    }
 
     // Embed the site photo if present (legacy base64, or fetched from Storage above).
     if (_photoData && typeof _photoData === 'string' && _photoData.startsWith('data:image')) {
