@@ -4569,14 +4569,30 @@ window.renderContractorsList = function() {
   const container = document.getElementById('contractorsList');
   if (!container) return;
   const contractors = _projectContractors();
+  const cur = getCurrencySymbol();
+  // Wage-month selector — its own control so the contractor screen rolls forward
+  // every month (not stuck on whatever the muster last showed). Defaults to the
+  // current month; lists 25 months back + any month that has attendance data.
+  const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  const now = new Date();
+  const keep = document.getElementById('contractorMonthFilter')?.value || ym(now);
+  const monthSet = new Set();
+  for (let i = 0; i < 25; i++) monthSet.add(ym(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  (state.attendanceLogs || []).forEach(a => { const m = (a.date || '').substring(0, 7); if (m) monthSet.add(m); });
+  const months = [...monthSet].sort().reverse();
+  const fmtM = (m) => { const [y, mo] = m.split('-'); return new Date(y, mo - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }); };
+  const selMonth = months.includes(keep) ? keep : ym(now);
+  const monthPicker = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <span style="font-size:12px;font-weight:700;color:#475569;">Wage month</span>
+    <select id="contractorMonthFilter" onchange="renderContractorsList()" style="border:1px solid #e2e8f0;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;">${months.map(m => `<option value="${m}" ${m === selMonth ? 'selected' : ''}>${fmtM(m)}</option>`).join('')}</select>
+    <span style="font-size:11px;color:#94a3b8;">Settle each month here; it moves forward automatically.</span>
+  </div>`;
   if (!contractors.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">🧑‍🔧</div>No contractors yet. Add a Gang Leader (Mukadam) to group workers.</div>';
+    container.innerHTML = monthPicker + '<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">🧑‍🔧</div>No contractors yet. Add a Gang Leader (Mukadam) to group workers.</div>';
     return;
   }
-  const cur = getCurrencySymbol();
-  const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
 
-  container.innerHTML = contractors.map(c => {
+  container.innerHTML = monthPicker + contractors.map(c => {
     const gang = _projectLabour().filter(l => l.contractorId === c.id);
     // Aggregate this month's attendance-derived wages for the gang
     let gangWages = 0, gangPresent = 0;
@@ -5028,7 +5044,7 @@ window._payContractor = function(id) {
   if (!c) return;
   if (!state.accounts.length) { showToast('Create a payment account first', 'error'); return; }
   const cur = getCurrencySymbol();
-  const selMonth = document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
+  const selMonth = document.getElementById('contractorMonthFilter')?.value || document.getElementById('attMonthFilter')?.value || new Date().toISOString().substring(0, 7);
   const gang = _projectLabour().filter(l => l.contractorId === id);
   if (!gang.length) { showToast('No workers in this gang', 'warning'); return; }
 
