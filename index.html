@@ -70,9 +70,9 @@
   /* Premium light theme — white base, deep green primary, gold accent, charcoal text */
   --bg:#ffffff;
   --surface:#ffffff;
-  --emerald:#10b981;        /* gradients / fills (white text on top) */
-  --emerald-bright:#047857; /* green TEXT / accents on white (high contrast) */
-  --emerald-dark:#064e3b;
+  --emerald:#ef8420;        /* gradients / fills (white text on top) */
+  --emerald-bright:#c2321f; /* green TEXT / accents on white (high contrast) */
+  --emerald-dark:#7a1f14;
   --orange:#ef8420;         /* lucky warm accent — real orange */
   --warm:#c6301c;           /* lucky warm accent — red */
   --gold:#b8860b;
@@ -87,15 +87,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 /* ── Ambient ── */
 .ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.2;animation:orbDrift 20s ease-in-out infinite alternate}
-.orb-1{width:700px;height:700px;background:radial-gradient(circle,rgba(16,185,129,.35),transparent 70%);top:-15%;left:-10%}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,rgba(239,132,32,.35),transparent 70%);top:-15%;left:-10%}
 .orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(249,115,22,.2),transparent 70%);bottom:10%;right:-5%;animation-delay:-8s}
-.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(52,211,153,.15),transparent 70%);top:50%;left:50%;animation-delay:-14s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(255,154,77,.15),transparent 70%);top:50%;left:50%;animation-delay:-14s}
 @keyframes orbDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-30px,40px) scale(1.08)}}
 
 /* ── Nav ── */
 nav{position:fixed;top:38px;left:0;right:0;z-index:100;padding:16px 0;transition:all .3s}
 nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
-#supportBar{position:fixed;top:0;left:0;right:0;z-index:101;height:38px;display:flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,var(--emerald,#10b981),#047857);color:#fff;font-size:13px;font-weight:600;padding:0 16px;text-align:center}
+#supportBar{position:fixed;top:0;left:0;right:0;z-index:101;height:38px;display:flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,var(--emerald,#ef8420),#c2321f);color:#fff;font-size:13px;font-weight:600;padding:0 16px;text-align:center}
 #supportBar a{color:#fff;text-decoration:none;font-weight:800;letter-spacing:.3px;border-bottom:1px dashed rgba(255,255,255,.55)}
 #supportBar a:hover{border-bottom-style:solid}
 #supportBar .sb-sep{opacity:.55}
@@ -108,8 +108,8 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .nav-links{display:flex;align-items:center;gap:32px}
 .nav-links a{color:var(--text-sec);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s}
 .nav-links a:hover{color:var(--text)}
-.nav-cta{padding:10px 24px;background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s}
-.nav-cta:hover{box-shadow:0 4px 20px rgba(16,185,129,.3);transform:translateY(-1px)}
+.nav-cta{padding:10px 24px;background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s}
+.nav-cta:hover{box-shadow:0 4px 20px rgba(239,132,32,.3);transform:translateY(-1px)}
 .mobile-menu{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
 
 /* ── Hero ── */
@@ -122,8 +122,8 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .hero h1 .grad{background:linear-gradient(120deg,var(--warm),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero p{font-size:clamp(16px,1.8vw,19px);color:var(--text-sec);line-height:1.65;margin-bottom:36px;max-width:520px}
 .hero-actions{display:flex;gap:14px;flex-wrap:wrap}
-.btn-primary{display:inline-flex;align-items:center;gap:10px;padding:16px 32px;background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;border:none;border-radius:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .3s;box-shadow:0 4px 24px rgba(16,185,129,.25)}
-.btn-primary:hover{box-shadow:0 8px 36px rgba(16,185,129,.35);transform:translateY(-2px)}
+.btn-primary{display:inline-flex;align-items:center;gap:10px;padding:16px 32px;background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff;border:none;border-radius:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .3s;box-shadow:0 4px 24px rgba(239,132,32,.25)}
+.btn-primary:hover{box-shadow:0 8px 36px rgba(239,132,32,.35);transform:translateY(-2px)}
 .btn-primary i{font-size:14px}
 .btn-secondary{display:inline-flex;align-items:center;gap:10px;padding:16px 32px;background:rgba(255,255,255,.04);color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:14px;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .3s}
 .btn-secondary:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
@@ -137,17 +137,17 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .mockup-body{padding:20px;min-height:300px;display:grid;grid-template-columns:180px 1fr;gap:16px}
 .mockup-sidebar{display:flex;flex-direction:column;gap:6px}
 .mockup-sidebar div{padding:8px 12px;border-radius:8px;font-size:11px;font-weight:600;color:var(--text-muted)}
-.mockup-sidebar div.active{background:rgba(16,185,129,.12);color:var(--emerald-bright)}
+.mockup-sidebar div.active{background:rgba(239,132,32,.12);color:var(--emerald-bright)}
 .mockup-content{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .mockup-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px}
 .mockup-card .label{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .mockup-card .value{font-size:20px;font-weight:800;color:var(--text)}
 .mockup-card .value.green{color:var(--emerald-bright)}
 .mockup-card .value.orange{color:var(--orange)}
-.hero-glow{position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(16,185,129,.15),transparent 70%);border-radius:50%;filter:blur(60px);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+.hero-glow{position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(239,132,32,.15),transparent 70%);border-radius:50%;filter:blur(60px);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
 
 /* ── Stats ── */
-.stats{position:relative;z-index:2;padding:40px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(16,185,129,.02)}
+.stats{position:relative;z-index:2;padding:40px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(239,132,32,.02)}
 .stats-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;text-align:center}
 .stat-num{font-size:clamp(28px,3vw,40px);font-weight:900;color:var(--emerald-bright);margin-bottom:4px}
 .stat-label{font-size:13px;color:var(--text-muted);font-weight:500}
@@ -155,26 +155,26 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 /* ── Features ── */
 .features{position:relative;z-index:2;padding:100px 24px}
 .features-inner{max-width:1200px;margin:0 auto}
-.section-label{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.12);border-radius:100px;font-size:11px;font-weight:700;color:var(--emerald);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+.section-label{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(239,132,32,.08);border:1px solid rgba(239,132,32,.12);border-radius:100px;font-size:11px;font-weight:700;color:var(--emerald);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
 .section-title{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em;margin-bottom:16px;line-height:1.15}
 .section-desc{font-size:17px;color:var(--text-sec);max-width:560px;line-height:1.6;margin-bottom:56px}
 .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .feat-card{padding:32px 28px;background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:20px;transition:all .4s cubic-bezier(.22,1,.36,1)}
-.feat-card:hover{transform:translateY(-4px);border-color:rgba(16,185,129,.2);box-shadow:0 20px 50px -12px rgba(0,0,0,.4)}
-.feat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:18px;background:rgba(16,185,129,.1);color:var(--emerald-bright);border:1px solid rgba(16,185,129,.08)}
+.feat-card:hover{transform:translateY(-4px);border-color:rgba(239,132,32,.2);box-shadow:0 20px 50px -12px rgba(0,0,0,.4)}
+.feat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:18px;background:rgba(239,132,32,.1);color:var(--emerald-bright);border:1px solid rgba(239,132,32,.08)}
 .feat-card h3{font-size:17px;font-weight:700;margin-bottom:8px}
 .feat-card p{font-size:14px;color:var(--text-sec);line-height:1.55}
 
 /* ── Download ── */
 .download{position:relative;z-index:2;padding:100px 24px}
 .download-inner{max-width:800px;margin:0 auto;text-align:center}
-.download-box{background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(249,115,22,.04));border:1px solid rgba(16,185,129,.15);border-radius:24px;padding:60px 40px}
+.download-box{background:linear-gradient(135deg,rgba(239,132,32,.06),rgba(249,115,22,.04));border:1px solid rgba(239,132,32,.15);border-radius:24px;padding:60px 40px}
 .download-box h2{font-size:clamp(28px,4vw,40px);font-weight:800;margin-bottom:12px}
 .download-box p{font-size:16px;color:var(--text-sec);margin-bottom:36px;line-height:1.6}
 .download-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
 .dl-btn{display:inline-flex;align-items:center;gap:12px;padding:18px 36px;border-radius:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .3s;border:none}
-.dl-btn.windows{background:linear-gradient(135deg,var(--emerald),#059669);color:#fff;box-shadow:0 4px 24px rgba(16,185,129,.25)}
-.dl-btn.windows:hover{box-shadow:0 8px 36px rgba(16,185,129,.35);transform:translateY(-2px)}
+.dl-btn.windows{background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff;box-shadow:0 4px 24px rgba(239,132,32,.25)}
+.dl-btn.windows:hover{box-shadow:0 8px 36px rgba(239,132,32,.35);transform:translateY(-2px)}
 .dl-btn.web{background:rgba(255,255,255,.05);color:var(--text);border:1px solid rgba(255,255,255,.1)}
 .dl-btn.web:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
 .dl-btn i{font-size:20px}
@@ -186,16 +186,16 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .pricing-inner{max-width:1200px;margin:0 auto;text-align:center}
 .pricing-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:48px}
 .p-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;padding:28px 22px;text-align:left;transition:all .3s}
-.p-card:hover{border-color:rgba(16,185,129,.2);transform:translateY(-3px)}
-.p-card.pop{border-color:rgba(16,185,129,.25);background:rgba(16,40,28,0.6);position:relative}
+.p-card:hover{border-color:rgba(239,132,32,.2);transform:translateY(-3px)}
+.p-card.pop{border-color:rgba(239,132,32,.25);background:rgba(16,40,28,0.6);position:relative}
 .p-card.pop::after{content:'POPULAR';position:absolute;top:12px;right:12px;padding:3px 10px;background:linear-gradient(135deg,var(--orange),var(--warm));color:#fff;font-size:9px;font-weight:800;border-radius:100px;letter-spacing:.05em}
 .p-card .p-tier{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--emerald);margin-bottom:10px}
 .p-card .p-price{font-size:28px;font-weight:800;margin-bottom:4px}
 .p-card .p-price span{font-size:13px;color:var(--text-muted);font-weight:500}
 .p-card .p-users{font-size:12px;color:var(--text-sec);margin-bottom:16px}
 .p-card .p-cta{display:block;text-align:center;padding:10px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;transition:all .2s}
-.p-card .p-cta.pri{background:linear-gradient(135deg,var(--emerald),#059669);color:#fff}
-.p-card .p-cta.sec{background:rgba(16,185,129,.08);color:var(--emerald-bright);border:1px solid rgba(16,185,129,.12)}
+.p-card .p-cta.pri{background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff}
+.p-card .p-cta.sec{background:rgba(239,132,32,.08);color:var(--emerald-bright);border:1px solid rgba(239,132,32,.12)}
 .p-card .p-cta:hover{transform:translateY(-1px)}
 
 /* ── Footer ── */
@@ -249,13 +249,13 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
 .mockup-bar{background:#f5f8f6}
 .mockup-card{background:#f8faf9;border:1px solid var(--border)}
 .feat-card{box-shadow:0 1px 3px rgba(13,40,28,.05)}
-.feat-card:hover{box-shadow:0 24px 50px -20px rgba(13,40,28,.16);border-color:rgba(16,185,129,.28)}
-.download-box{background:linear-gradient(135deg,rgba(16,185,129,.07),rgba(184,134,11,.06));border:1px solid rgba(16,185,129,.18)}
+.feat-card:hover{box-shadow:0 24px 50px -20px rgba(13,40,28,.16);border-color:rgba(239,132,32,.28)}
+.download-box{background:linear-gradient(135deg,rgba(239,132,32,.07),rgba(184,134,11,.06));border:1px solid rgba(239,132,32,.18)}
 .dl-btn.web{background:#ffffff;border:1px solid var(--border);color:var(--text)}
 .dl-btn.web:hover{background:#f4f8f5;border-color:#cfe1d7}
 .p-card{box-shadow:0 1px 3px rgba(13,40,28,.05)}
-.p-card:hover{box-shadow:0 18px 40px -20px rgba(13,40,28,.18);border-color:rgba(16,185,129,.28)}
-.p-card.pop{background:linear-gradient(180deg,#f1fbf5,#ffffff);border-color:rgba(16,185,129,.45)}
+.p-card:hover{box-shadow:0 18px 40px -20px rgba(13,40,28,.18);border-color:rgba(239,132,32,.28)}
+.p-card.pop{background:linear-gradient(180deg,#fdf5ee,#ffffff);border-color:rgba(239,132,32,.45)}
 .section-label{color:var(--emerald-bright)}
 
 /* ================= Scroll-story ================= */
@@ -271,8 +271,8 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
 .chapter h2{font-size:clamp(30px,5.4vw,62px);font-weight:900;line-height:1.08;letter-spacing:-.02em;color:#fff;margin-bottom:22px}
 .chapter h2 em{font-style:normal;background:linear-gradient(100deg,#ffb057,#ff7a3c 45%,#b98bff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .chapter p{font-size:clamp(16px,2vw,21px);line-height:1.62;color:#c6ccd8;max-width:640px}
-.chapter--light .chapter__num{color:#34d399}
-.chapter--light h2 em{background:linear-gradient(100deg,#6ee7b7,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.chapter--light .chapter__num{color:#ff9a4d}
+.chapter--light h2 em{background:linear-gradient(100deg,#ffc79a,#ef8420);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .story__scrollhint{margin-top:44px;color:rgba(255,255,255,.6);font-size:12px;letter-spacing:.22em;text-transform:uppercase;animation:hintBob 1.9s ease-in-out infinite}
 @keyframes hintBob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
 .story__spine{position:fixed;left:26px;top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;gap:14px;opacity:0;transition:opacity .5s}
@@ -444,24 +444,24 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
 </section>
 
 <!-- Guide + The Plan (StoryBrand 3 steps) -->
-<section class="features" id="plan" style="background:rgba(16,185,129,.04);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+<section class="features" id="plan" style="background:rgba(239,132,32,.04);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
   <div class="features-inner">
     <div class="section-label"><i class="fa-solid fa-route"></i> Your plan</div>
     <h2 class="section-title">Get control of your sites<br>in 3 simple steps.</h2>
     <p class="section-desc">We built True Site Sync with Indian contractors who were tired of guessing. You don't need an accountant or a training course — just follow the plan.</p>
     <div class="features-grid">
       <div class="feat-card">
-        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#059669);color:#fff"><b>1</b></div>
+        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff"><b>1</b></div>
         <h3>Start your free trial</h3>
         <p>Open the app, add your project and BOQ. No credit card, no setup fee, no IT person needed — you're live in minutes.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#059669);color:#fff"><b>2</b></div>
+        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff"><b>2</b></div>
         <h3>Run your sites</h3>
         <p>Record daily work and measurements, deploy labour, and track material — straight from your phone, even offline.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#059669);color:#fff"><b>3</b></div>
+        <div class="feat-icon" style="background:linear-gradient(135deg,var(--emerald),#d6402c);color:#fff"><b>3</b></div>
         <h3>Bill faster, see your profit</h3>
         <p>Raise GST &amp; running-account RA bills in one click, and watch real profit per site on your owner dashboard.</p>
       </div>
@@ -530,12 +530,12 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
 
 <!-- Testimonial (StoryBrand authority) -->
 <section style="padding:52px 20px;display:flex;flex-direction:column;align-items:center;gap:18px">
-  <div style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#047857">★ Trusted by engineers on real sites</div>
-  <div style="max-width:760px;width:100%;background:#ffffff;border:1px solid #e6ece8;border-left:4px solid #10b981;border-radius:18px;padding:30px 32px;box-shadow:0 22px 50px -24px rgba(0,0,0,.35)">
-    <div style="font-family:Georgia,serif;font-size:46px;color:#10b981;line-height:.5;margin-bottom:12px">&ldquo;</div>
+  <div style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c2321f">★ Trusted by engineers on real sites</div>
+  <div style="max-width:760px;width:100%;background:#ffffff;border:1px solid #e6ece8;border-left:4px solid #ef8420;border-radius:18px;padding:30px 32px;box-shadow:0 22px 50px -24px rgba(0,0,0,.35)">
+    <div style="font-family:Georgia,serif;font-size:46px;color:#ef8420;line-height:.5;margin-bottom:12px">&ldquo;</div>
     <p style="font-family:Inter,sans-serif;font-size:18px;line-height:1.65;color:#0e1a13;font-weight:600;margin:0 0 20px">For two years my measurement books were in registers and my billing was in Excel &mdash; and honestly, I never knew which site was actually making money. With True Site Sync I measure on site, raise the RA bill the same day, and the owner dashboard shows me real profit on every project. My billing cycle went from weeks to a single day.</p>
     <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:Inter,sans-serif">YC</div>
+      <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:Inter,sans-serif">YC</div>
       <div style="font-family:Inter,sans-serif">
         <div style="font-weight:800;color:#0e1a13;font-size:15px">Yuvraj Chauhan</div>
         <div style="font-size:13px;color:#7c8a99">Civil Engineer</div>
@@ -710,7 +710,7 @@ document.head.appendChild(style);
   <div style="background:#ffffff;border:1px solid #e6ece8;border-radius:20px;width:90%;max-width:420px;padding:36px 32px;box-shadow:0 24px 60px rgba(13,40,28,.18);position:relative">
     <button onclick="closeDlGate()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;line-height:1">&times;</button>
     <div style="text-align:center;margin-bottom:24px">
-      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#10b981,#059669);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#ef8420,#d6402c);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px">
         <i class="fa-solid fa-download" style="font-size:22px;color:#fff"></i>
       </div>
       <h3 style="font-size:20px;font-weight:800;color:#0e1a13;margin:0 0 6px">Download True Site Sync</h3>
@@ -733,7 +733,7 @@ document.head.appendChild(style);
         <label style="display:block;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Email <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
         <input type="email" id="dlEmail" placeholder="you@company.com" style="width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#f8faf9;color:#0e1a13;font-size:14px;outline:none">
       </div>
-      <button type="submit" id="dlSubmitBtn" style="margin-top:6px;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s">
+      <button type="submit" id="dlSubmitBtn" style="margin-top:6px;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s">
         <i class="fa-solid fa-download"></i> Download Now
       </button>
     </form>
@@ -819,12 +819,12 @@ async function submitDownloadGate(e) {
   triggerFileDownload(platform);
 
   btn.innerHTML = '<i class="fa-solid fa-check"></i> Download started!';
-  btn.style.background = 'linear-gradient(135deg,#059669,#047857)';
+  btn.style.background = 'linear-gradient(135deg,#d6402c,#c2321f)';
   setTimeout(() => {
     closeDlGate();
     btn.innerHTML = '<i class="fa-solid fa-download"></i> Download Now';
     btn.style.opacity = '1';
-    btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+    btn.style.background = 'linear-gradient(135deg,#ef8420,#d6402c)';
     btn.disabled = false;
   }, 2500);
 }
