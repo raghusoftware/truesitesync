@@ -639,9 +639,13 @@ window._exDprSave = function (id) {
   }
 
   _pendingPhoto = null; _pendingPhotoPath = null; saveAllData(); _exCloseModal();
+  // Keep owners updated when the field team logs a new DPR.
+  if (!id) { try { window.notifyOwners && window.notifyOwners({ type: 'dpr', title: 'DPR added', body: `${_projName()}${date ? ' · ' + date : ''}${data.area ? ' · ' + data.area : ''}${measurements.length ? ' · ' + measurements.length + ' item(s)' : ''}`, data: { view: 'executionView' } }); } catch (e) {} }
   showToast(syncedLines ? `DPR saved — ${syncedLines} measurement/overhead line(s) synced to billing & cost` : 'DPR saved', 'success');
   renderExecution();
 };
+/** Current project name for notification context. */
+function _projName() { const p = (state.projects || []).find(x => x.id === _pid()); return p ? p.name : 'Project'; }
 
 // ══════════════════════════════════════════════════════════
 //  CONCRETE POUR CARD
@@ -1327,6 +1331,8 @@ window._staffPunchSave = async function (staffId, kind) {
   }
   _punchPhoto = null; _punchGps = null; _punchFile = null;
   saveAllData(); _exCloseModal();
+  // Keep owners updated on attendance.
+  try { window.notifyOwners && window.notifyOwners({ type: 'attendance', title: 'Attendance marked', body: kind === 'in' ? `${s.name} marked Present · ${_projName()}` : `${s.name} punched out · ${a.hours}h · ${_projName()}`, data: { view: 'executionView' } }); } catch (e) {}
   showToast(kind === 'in' ? `${s.name} marked Present` : `${s.name} punched out · ${a.hours}h`, 'success');
   renderExecution();
 };

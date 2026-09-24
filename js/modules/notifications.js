@@ -12,7 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { getCurrentUser } from './rbac.js';
+import { getCurrentUser, isFullAccessRole } from './rbac.js';
 import { getSupabase } from '../database/supabase.js';
 import { getOrgId } from '../database/sync.js';
 
@@ -66,6 +66,31 @@ export function notify(recipient, payload) {
 }
 window.notify = notify;
 
+/**
+ * Notify the workspace's owners/admins about a site event (DPR added, attendance
+ * marked, measurement created…). The person who did the action is skipped, so an
+ * owner never gets pinged about their own entry. Keeps the owner updated on what
+ * the field team is doing.
+ * @param {{type?:string, title:string, body?:string, data?:object}} payload
+ */
+export function notifyOwners(payload) {
+  const me = _me();
+  const owners = (state.rbacUsers || []).filter(u => u && u.active !== false && isFullAccessRole(u.role));
+  const seen = new Set();
+  let sent = 0;
+  owners.forEach(u => {
+    // don't notify the actor about their own action
+    if (me && ((u.id && u.id === me.id) || (u.email && me.email && u.email.toLowerCase() === me.email.toLowerCase()))) return;
+    const key = String(u.email || u.id || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    notify({ userId: u.id, supaId: u.supabaseId || u.supaId, email: u.email, name: u.name || u.email }, payload);
+    sent++;
+  });
+  return sent;
+}
+window.notifyOwners = notifyOwners;
+
 /** Best-effort email + push. Never throws into the caller. */
 async function _dispatchExternal(n, recipient) {
   const sb = getSupabase(); if (!sb) return;
@@ -102,20 +127,6 @@ window._notifOpen = function (id) {
 };
 window._notifToggle = function () { _panelOpen = !_panelOpen; renderNotifications(); };
 
-// Self-test — sends a notification to the current user across all 3 channels so
-// they can verify delivery (in-app instantly; email/push once secrets are set).
-window._notifSelfTest = function () {
-  const u = _me();
-  if (!u || (!u.id && !u.supabaseId && !u.email)) { window.showToast && window.showToast('Sign in first to test notifications', 'warning'); return; }
-  notify({ userId: u.id, supaId: u.supabaseId, email: u.email, name: u.name || u.email }, {
-    type: 'test',
-    title: 'Test notification ✅',
-    body: 'If you can see this, in-app notifications work. Email & push arrive too once their keys are set.',
-    data: {}
-  });
-  window.showToast && window.showToast('Test notification sent to you', 'success');
-};
-
 let _panelOpen = false;
 
 export function renderNotifications() {
@@ -146,9 +157,6 @@ export function renderNotifications() {
         </span>
       </div>
       ${rows}
-      <div style="padding:10px 14px;border-top:1px solid #f1f5f9;text-align:center;">
-        <button onclick="event.stopPropagation();_notifSelfTest()" style="border:1px dashed #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Send test notification</button>
-      </div>
     </div>` : '';
 
   mount.innerHTML = `

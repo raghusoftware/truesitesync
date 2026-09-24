@@ -840,6 +840,7 @@ export function saveEntries() {
     createdBy, createdById, reviewedBy, reviewedAt, status,
     locked, verifiedBy, verifiedAt
   };
+  const _isNewSheet = !state.currentSheetId;
   if (!state.currentSheetId) { state.sheets.push(data); state.currentSheetId = data.id; }
   else {
     // findIndex can be -1 when the open sheet is no longer in the array — a cloud
@@ -873,6 +874,8 @@ export function saveEntries() {
   let toastMsg = 'Draft Saved';
   if (autoConsumptionCount > 0) toastMsg += ` & ${autoConsumptionCount} Material Stocks Deducted`;
   showToast(toastMsg, 'success');
+  // Keep owners updated when a new measurement is created.
+  if (_isNewSheet) { try { const _p = (state.projects || []).find(x => x.id === data.projectId); window.notifyOwners && window.notifyOwners({ type: 'measurement', title: 'Measurement created', body: `${(_p && _p.name) || 'Project'}${sNum ? ' · ' + sNum : ''} · ${entries.length} item(s)`, data: { view: 'measurementView' } }); } catch (e) {} }
   _updateAbstractBtn(data);
   _renderSheetAttribution(data);
   _applyLockState(data);
