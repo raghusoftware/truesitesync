@@ -384,17 +384,20 @@ function _appendAll(append) {
 function _recent() {
   const rows = [];
   const pName = (arr, id, nk = 'name') => (state[arr] || []).find(x => x.id === id)?.[nk] || '';
-  (state.vendorPayments || []).forEach(v => rows.push({ icon: '🧾', date: v.date, dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
-  (state.labourPayments || []).forEach(l => rows.push({ icon: '👷', date: l.date, dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
-  (state.expenses || []).forEach(e => rows.push({ icon: (e.head === 'Equipment' ? '🚜' : '📂'), date: e.date, dir: 'out', amt: e.amount, who: (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : ''), via: pName('accounts', e.accountId) }));
+  // Sortable timestamp — createdAt (ms), else the ms embedded in the id, else the
+  // date. Ensures the newest transaction shows first even when many share a date.
+  const ts = r => r.createdAt || parseInt((String(r.id || '').match(/(\d{9,})/) || [])[1] || '0', 10) || Date.parse(r.date || '') || 0;
+  (state.vendorPayments || []).forEach(v => rows.push({ icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
+  (state.labourPayments || []).forEach(l => rows.push({ icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
+  (state.expenses || []).forEach(e => rows.push({ icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
   (state.pettyCashTxns || []).forEach(t => {
-    if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
-    if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
-    if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
+    if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
+    if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
+    if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
   });
-  (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
-  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
-  rows.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
+  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
+  rows.sort((a, b) => (b.ts - a.ts) || (new Date(b.date || 0) - new Date(a.date || 0)));
   const top = rows.slice(0, 15);
   const body = top.length
     ? top.map(r =>
