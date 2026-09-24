@@ -6,12 +6,30 @@ import { formatNumber, formatNumber2, amountToWordsINR } from './format.js';
 export { amountToWordsINR } from './format.js';
 
 /** @param {string} msg @param {'success'|'error'|'warning'} [type] */
+// Owners get a bell notification for every success event. Gated by a real user
+// interaction so background/load toasts don't fire, with a small skip-list for
+// pure-UI messages and the events already sent with richer detail + email/push.
+let _tssInteractive = false;
+if (typeof document !== 'undefined') {
+  const mark = () => { _tssInteractive = true; };
+  document.addEventListener('pointerdown', mark, { once: true, capture: true });
+  document.addEventListener('keydown', mark, { once: true, capture: true });
+}
+const _NOTIF_SKIP = [/^showing/i, /nothing to/i, /^undo/i, /copied/i, /^loading/i, /sync/i, /sign(ed)? ?in/i, /welcome/i, /refresh/i, /draft saved/i, /^dpr saved/i, /marked present/i, /punched out/i, /no records/i, /^select /i, /^please /i, /^enter /i, /already /i, /settings saved/i, /permissions saved/i];
+function _isNotifNoise(m) { m = String(m || ''); if (m.length < 3 || m.length > 90) return true; return _NOTIF_SKIP.some(re => re.test(m)); }
+
 export function showToast(msg, type = 'success') {
   const div = document.createElement('div');
   div.className = `toast toast-${type}`;
   div.textContent = msg;
-  document.getElementById('toastContainer').appendChild(div);
-  setTimeout(() => div.remove(), 3000);
+  const cont = document.getElementById('toastContainer');
+  if (cont) { cont.appendChild(div); setTimeout(() => div.remove(), 3000); }
+  // Fan out to owners (in-app only — big events send their own email/push).
+  try {
+    if (type === 'success' && _tssInteractive && typeof msg === 'string' && !_isNotifNoise(msg) && window.notifyOwners) {
+      window.notifyOwners({ type: 'event', title: msg, data: {} }, { noExternal: true });
+    }
+  } catch (e) {}
 }
 
 /* ─────────────────────────────────────────────────────────────

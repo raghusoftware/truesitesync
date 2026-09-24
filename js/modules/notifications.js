@@ -45,8 +45,9 @@ function _mine() {
  * @param {{userId?:string, supaId?:string, email?:string, name?:string}} recipient
  * @param {{type?:string, title:string, body?:string, data?:object}} payload
  */
-export function notify(recipient, payload) {
+export function notify(recipient, payload, opts) {
   recipient = recipient || {};
+  opts = opts || {};
   const u = _me();
   const n = {
     id: _uid(), type: payload.type || 'info', title: payload.title || '', body: payload.body || '',
@@ -61,7 +62,7 @@ export function notify(recipient, payload) {
   if (state.notifications.length > 500) state.notifications = state.notifications.slice(-500); // keep it light
   saveAllData();
   try { renderNotifications(); } catch {}
-  _dispatchExternal(n, recipient);
+  if (!opts.noExternal) _dispatchExternal(n, recipient);   // in-app only when noExternal (avoids email/push flood)
   return n;
 }
 window.notify = notify;
@@ -73,7 +74,7 @@ window.notify = notify;
  * the field team is doing.
  * @param {{type?:string, title:string, body?:string, data?:object}} payload
  */
-export function notifyOwners(payload) {
+export function notifyOwners(payload, opts) {
   const me = _me();
   const owners = (state.rbacUsers || []).filter(u => u && u.active !== false && isFullAccessRole(u.role));
   const seen = new Set();
@@ -84,7 +85,7 @@ export function notifyOwners(payload) {
     const key = String(u.email || u.id || '').toLowerCase();
     if (!key || seen.has(key)) return;
     seen.add(key);
-    notify({ userId: u.id, supaId: u.supabaseId || u.supaId, email: u.email, name: u.name || u.email }, payload);
+    notify({ userId: u.id, supaId: u.supabaseId || u.supaId, email: u.email, name: u.name || u.email }, payload, opts);
     sent++;
   });
   return sent;
