@@ -2,7 +2,7 @@
  * Settings Module — Central control panel for print, PDF themes, currency, auto-numbering
  */
 import { state, saveAllData } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, getTerm } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js';
 
 // ─── Settings hub navigation (icon grid → drill into a section) ───
@@ -471,7 +471,7 @@ function renderPrintConfigTab() {
     <div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-base">&#128196;</span>
-        <h4 class="font-bold text-sm text-slate-800">Measurement & RA Bill PDF Orientation</h4>
+        <h4 class="font-bold text-sm text-slate-800">${getTerm('measurement')} & ${getTerm('raBill')} PDF Orientation</h4>
       </div>
       <div class="flex gap-2">
         <button onclick="window._setMeasOrientation('portrait')" class="px-4 py-2 rounded-lg text-sm font-bold border ${measOrient === 'portrait' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}">📄 Portrait</button>
@@ -930,7 +930,7 @@ function renderAutoNumberingTab() {
     { key: 'deliveryChallan', label: 'Delivery Challan', prefix: 'DC-', startFrom: 1 },
     { key: 'purchaseOrder', label: 'Purchase Order', prefix: 'PO-', startFrom: 1 },
     { key: 'measurement', label: 'Measurement Sheet', prefix: 'MS-', startFrom: 1 },
-    { key: 'abstract', label: 'Abstract/RA Bill', prefix: 'RA-', startFrom: 1 },
+    { key: 'abstract', label: getTerm('abstract') + '/' + getTerm('raBill'), prefix: 'RA-', startFrom: 1 },
     { key: 'project', label: 'Project', prefix: 'PRJ-', startFrom: 1 },
     { key: 'estimate', label: 'Estimate', prefix: 'EST-', startFrom: 1 },
   ];

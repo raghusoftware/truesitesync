@@ -6,7 +6,7 @@
  * - Supports daily and weekly planning modes
  */
 import { state, saveAllData } from './state.js';
-import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
+import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getTerm } from './utils.js';
 
 // ─────────────────────────────────────────────────────
 //  CONSTANTS & HELPERS
@@ -1003,7 +1003,7 @@ export function renderMicroPlanningView() {
       </div>
       <div onclick="_openMpSection('rabill')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
         <div style="width:50px;height:50px;background:#7c3aed15;border:2px solid #7c3aed30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📑</div>
-        <div style="font-size:14px;font-weight:700;color:#0f172a;">RA Billing</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Running-account bill by location</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">${getTerm('raBill')}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Progress bill by location</div>
       </div>
       <div onclick="_openMpSection('progress')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
         <div style="width:50px;height:50px;background:#0891b215;border:2px solid #0891b230;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📈</div>
@@ -2097,19 +2097,19 @@ export function renderRABilling() {
 
   c.innerHTML = `
     <div class="bg-white border rounded-xl p-4 mb-4">
-      <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare RA Bill</h3>
-      <p class="text-[11px] text-slate-400 mb-3">Select one location (single RA) or several (consolidated RA). The bill auto-computes <b>cumulative measured − already billed</b> for each BOQ item.</p>
+      <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare ${getTerm('raBill')}</h3>
+      <p class="text-[11px] text-slate-400 mb-3">Select one location (single bill) or several (consolidated). The bill auto-computes <b>cumulative measured − already billed</b> for each ${getTerm('boq')} item.</p>
       ${locs.length ? `<div class="space-y-2 mb-3">${locCards}</div>
-      <button onclick="window._mpPrepareRA()" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">Prepare RA Bill →</button>`
+      <button onclick="window._mpPrepareRA()" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">Prepare ${getTerm('raBill')} →</button>`
       : (raList.length
-        ? '<p class="text-xs text-green-600 font-medium">✓ All measured work is billed. Record more work to raise the next RA.</p>'
+        ? `<p class="text-xs text-green-600 font-medium">✓ All measured work is billed. Record more work to raise the next ${getTerm('raBillShort')}.</p>`
         : '<p class="text-xs text-amber-600">No measured work yet. Use <b>📐 Record Work</b> on a daily sheet first.</p>')}
     </div>
     <div id="raBillDraft"></div>
     <div class="bg-white border rounded-xl overflow-hidden mt-4">
-      <div class="p-3 border-b font-bold text-slate-700 text-sm">RA Bills (${raList.length})</div>
+      <div class="p-3 border-b font-bold text-slate-700 text-sm">${getTerm('raBill')}s (${raList.length})</div>
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">RA No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">${getTerm('raBillShort')} No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
         <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Locations</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
         <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Action</th>
       </tr></thead><tbody>${raRows || '<tr><td colspan="5" class="p-5 text-center text-slate-400">No RA bills yet.</td></tr>'}</tbody></table></div>
@@ -2182,13 +2182,13 @@ window._mpPrepareRA = function() {
   if (!rowIdx) { showToast('Nothing left to bill for the selected location(s)', 'info'); return; }
   document.getElementById('raBillDraft').innerHTML = `
     <div class="bg-white border-2 border-violet-200 rounded-xl p-4 mb-4">
-      <h3 class="font-bold text-sm text-slate-800 mb-3">RA Bill draft — ${locIds.length > 1 ? 'consolidated, ' + locIds.length + ' locations' : 'single location'}</h3>
+      <h3 class="font-bold text-sm text-slate-800 mb-3">${getTerm('raBill')} draft — ${locIds.length > 1 ? 'consolidated, ' + locIds.length + ' locations' : 'single location'}</h3>
       ${html}
       <div class="flex items-center justify-between mt-3 pt-3 border-t">
         <p class="text-[11px] text-slate-400">Approved defaults to the full unbilled balance. Reduce it to certify less — the rest stays measured and bills in the next RA.</p>
-        <div class="text-right"><span class="text-xs text-slate-500 mr-2">RA Total</span><span id="raGrand" class="text-xl font-extrabold text-violet-700">${cur}${Math.round(grand).toLocaleString('en-IN')}</span></div>
+        <div class="text-right"><span class="text-xs text-slate-500 mr-2">${getTerm('raBillShort')} Total</span><span id="raGrand" class="text-xl font-extrabold text-violet-700">${cur}${Math.round(grand).toLocaleString('en-IN')}</span></div>
       </div>
-      <div class="text-right mt-3"><button onclick="window._mpGenerateRA('${locIds.join(',')}')" class="bg-violet-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">✓ Generate RA Bill</button></div>
+      <div class="text-right mt-3"><button onclick="window._mpGenerateRA('${locIds.join(',')}')" class="bg-violet-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-violet-700">✓ Generate ${getTerm('raBill')}</button></div>
     </div>`;
   document.getElementById('raBillDraft').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
