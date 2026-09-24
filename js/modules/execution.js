@@ -718,8 +718,7 @@ async function _fetchImageDataUrl(path) {
   } catch { return null; }
 }
 
-// ── Daily Progress Report PDF ──
-// ── Modern Daily Progress Report (PDF) — dashboard-inspired, brand-warm ──
+// ── Daily Progress Report PDF — premium, dashboard-grade ──
 window._exDprPdf = async function (id) {
   try {
     const d = (state.dailyProgress || []).find(x => x.id === id);
@@ -730,153 +729,106 @@ window._exDprPdf = async function (id) {
     const proj = (state.projects || []).find(x => x.id === d.projectId) || {};
     const client = (state.clients || state.parties || []).find(c => c.id === (proj.clientId || proj.client)) || null;
     const clientName = (client && (client.name || client.company)) || proj.client || '';
+    const company = state.companyProfile || state.company || {};
+    const companyName = company.name || company.companyName || 'True Site Sync';
+    const companyLogo = (company.logo && String(company.logo).startsWith('data:image')) ? company.logo : null;
 
     const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-    const ml = 14, mr = 14, cw = pw - ml - mr;
-    // brand-warm palette
-    const NAVY = [15, 23, 42], ORANGE = [239, 132, 32], RED = [198, 48, 28];
-    const TILE = [255, 243, 234], TILEB = [243, 217, 196], MUTED = [100, 116, 139], INK = [17, 28, 22];
-    const setF = (c) => doc.setFillColor(c[0], c[1], c[2]);
-    const setT = (c) => doc.setTextColor(c[0], c[1], c[2]);
-    const setD = (c) => doc.setDrawColor(c[0], c[1], c[2]);
+    const ml = 16, mr = 16, cw = pw - ml - mr;
+    const NAVY = [13, 23, 42], NAVY2 = [30, 41, 59], ORANGE = [234, 120, 28], RED = [198, 48, 28], AMBER = [202, 138, 4], BROWN = [124, 45, 18];
+    const INK = [24, 32, 44], MUTED = [110, 122, 138], LINE = [228, 231, 237], SOFT = [248, 249, 251], WARM = [255, 244, 236], WARMB = [244, 220, 198];
+    const F = (c) => doc.setFillColor(c[0], c[1], c[2]); const T = (c) => doc.setTextColor(c[0], c[1], c[2]); const D = (c) => doc.setDrawColor(c[0], c[1], c[2]);
 
-    // attendance fallback for older DPRs without a snapshot
     const att = (Array.isArray(d.attendance) && d.attendance.length) ? d.attendance : (_dprAttForDate(d.date) || []);
     const skilled = att.length ? att.filter(a => a.skilled).length : _num(d.manpowerSkilled);
     const unskilled = att.length ? (att.length - att.filter(a => a.skilled).length) : _num(d.manpowerUnskilled);
     const totalW = att.length || (skilled + unskilled);
     const measRows = (d.measurements || []).filter(m => (parseFloat(m.qty) || 0) > 0).map(m => [m.description || m.code || 'Item', (Math.round((parseFloat(m.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—', m.location || '—']);
     const matRows = (d.overheads || []).filter(o => o.type === 'Material' && (parseFloat(o.qty) || 0) > 0).map(o => [o.resource || o.activity || 'Material', (Math.round((parseFloat(o.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), o.uom || '—']);
-    const equipList = (d.equipment || '') + ((d.equipmentUsed || []).length ? (d.equipment ? ', ' : '') + d.equipmentUsed.map(e => e.name).join(', ') : '');
-    let dayName = '';
-    try { dayName = new Date(d.date).toLocaleDateString('en-IN', { weekday: 'long' }); } catch (e) {}
+    const eqRaw = ((d.equipment || '') + ',' + (d.equipmentUsed || []).map(e => e.name).join(',')).split(',').map(s => s.trim()).filter(Boolean);
+    const equipList = [...new Set(eqRaw.map(s => s.toLowerCase()))].map(low => eqRaw.find(s => s.toLowerCase() === low)).join(', ');
+    let dayName = ''; try { dayName = new Date(d.date).toLocaleDateString('en-IN', { weekday: 'long' }); } catch (e) {}
     let prepBy = ''; try { prepBy = (getCurrentUser && getCurrentUser()?.name) || ''; } catch (e) {}
 
-    let y = (typeof window.getSimpleHeaderForPDF === 'function') ? window.getSimpleHeaderForPDF(doc, { ml, mr }) : 16;
+    // ═══ Header band ═══
+    const HB = 36;
+    F(NAVY); doc.rect(0, 0, pw, HB, 'F');
+    F(NAVY2); doc.rect(0, HB - 9, pw, 9, 'F');
+    F(ORANGE); doc.rect(0, 0, pw, 2.4, 'F');
+    let hx = ml;
+    if (companyLogo) { try { const fm = /^data:image\/(png|jpe?g)/i.exec(companyLogo); doc.addImage(companyLogo, (fm ? fm[1].toUpperCase().replace('JPG', 'JPEG') : 'PNG'), ml, 8, 13, 13); hx = ml + 17; } catch (e) {} }
+    T([148, 163, 184]); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(String(companyName).toUpperCase(), hx, 11);
+    T([255, 255, 255]); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('DAILY PROGRESS REPORT', hx, 20);
+    T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(proj.name || 'Project', hx, 26.5);
+    const chipW = 52, chipX = pw - mr - chipW;
+    F([255, 255, 255]); doc.roundedRect(chipX, 7, chipW, 22, 2.5, 2.5, 'F');
+    T(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.text('DPR NO.', chipX + 5, 12.5);
+    T(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(String(d.dprNum || '—'), chipX + 5, 18.5);
+    T(MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(`${d.date || '—'}${dayName ? ' · ' + dayName : ''}`, chipX + 5, 24.5);
+    let y = HB + 8;
 
-    // ── Title band (navy) with orange accent edge ──
-    const bandH = 16;
-    setF(NAVY); doc.roundedRect(ml, y, cw, bandH, 2.5, 2.5, 'F');
-    setF(ORANGE); doc.rect(ml, y, 3, bandH, 'F');
-    setT([255, 255, 255]); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-    doc.text('DAILY PROGRESS REPORT', ml + 8, y + 7);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); setT([203, 213, 225]);
-    doc.text(`Site Progress${proj.name ? '  •  ' + proj.name : ''}`, ml + 8, y + 12.4);
-    // right block: DPR no + date
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); setT([255, 255, 255]);
-    doc.text(`${d.dprNum || 'DPR'}`, pw - mr - 4, y + 6.5, { align: 'right' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); setT([203, 213, 225]);
-    doc.text(`${d.date || '—'}${dayName ? '  •  ' + dayName : ''}`, pw - mr - 4, y + 11.5, { align: 'right' });
-    y += bandH + 4;
-
-    // ── Meta strip ──
-    const meta = [['Client', clientName || '—'], ['Location', d.area || proj.location || '—'], ['Weather', d.weather || '—'], ['Prepared by', prepBy || '—']];
-    doc.setFontSize(8);
+    // ═══ Meta row ═══
+    const meta = [['CLIENT', clientName || '—'], ['LOCATION', d.area || proj.location || '—'], ['WEATHER', d.weather || '—'], ['PREPARED BY', prepBy || '—']];
     const mcw = cw / meta.length;
-    meta.forEach((m, i) => {
-      const x = ml + i * mcw;
-      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.text(m[0].toUpperCase(), x, y);
-      setT(INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text(doc.splitTextToSize(String(m[1]), mcw - 4), x, y + 4.6); doc.setFontSize(8);
-    });
-    y += 11;
-    setD(TILEB); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y); y += 5;
+    meta.forEach((m, i) => { const x = ml + i * mcw; T(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.text(m[0], x, y); T(INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); const tv = doc.splitTextToSize(String(m[1]), mcw - 4); doc.text(tv[0] || '—', x, y + 4.8); });
+    y += 9; D(LINE); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y); y += 6;
 
-    // ── KPI tiles ──
-    const tiles = [
-      [String(totalW), 'WORKERS'],
-      [String(skilled), 'SKILLED'],
-      [String(unskilled), 'UNSKILLED'],
-      [String(measRows.length), 'WORK ITEMS'],
-      [String(matRows.length), 'MATERIALS'],
-    ];
-    const gap = 4, tw = (cw - gap * (tiles.length - 1)) / tiles.length, th = 17;
-    tiles.forEach((t, i) => {
-      const x = ml + i * (tw + gap);
-      setF(TILE); setD(TILEB); doc.setLineWidth(0.4); doc.roundedRect(x, y, tw, th, 2.2, 2.2, 'FD');
-      setT(RED); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text(t[0], x + tw / 2, y + 8.4, { align: 'center' });
-      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-      doc.text(t[1], x + tw / 2, y + 13.4, { align: 'center' });
-    });
-    y += th + 7;
+    // ═══ KPI cards ═══
+    const cards = [[String(totalW), 'WORKERS', NAVY], [String(skilled), 'SKILLED', ORANGE], [String(unskilled), 'UNSKILLED', AMBER], [String(measRows.length), 'WORK ITEMS', BROWN], [String(matRows.length), 'MATERIALS', RED]];
+    const gap = 4, tw = (cw - gap * (cards.length - 1)) / cards.length, tH = 20;
+    cards.forEach((c, i) => { const x = ml + i * (tw + gap); F([255, 255, 255]); D(LINE); doc.setLineWidth(0.5); doc.roundedRect(x, y, tw, tH, 2.4, 2.4, 'FD'); F(c[2]); doc.roundedRect(x, y, tw, 2.6, 1, 1, 'F'); doc.rect(x, y + 1.3, tw, 1.3, 'F'); T(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(c[0], x + tw / 2, y + 12, { align: 'center' }); T(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.text(c[1], x + tw / 2, y + 16.6, { align: 'center' }); });
+    y += tH + 9;
 
-    // section header: orange square + navy title
-    const sec = (title) => {
-      if (y > ph - 34) { doc.addPage(); y = 16; }
-      setF(ORANGE); doc.rect(ml, y - 3.2, 2.6, 4.4, 'F');
-      setT(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
-      doc.text(title, ml + 5, y); setT(INK); y += 3;
-    };
-    const tableAfter = () => { y = doc.lastAutoTable.finalY + 6; };
-    const orangeHead = { fillColor: ORANGE, textColor: [255, 255, 255], fontStyle: 'bold' };
+    const sec = (title) => { if (y > ph - 40) { doc.addPage(); y = 18; } T(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(title, ml, y); const wdt = doc.getTextWidth(title); D(ORANGE); doc.setLineWidth(1.1); doc.line(ml, y + 1.9, ml + Math.min(wdt, 62), y + 1.9); T(INK); y += 6.5; };
+    const headStyles = { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, cellPadding: 2.6, halign: 'left' };
+    const baseTable = (opts) => { doc.autoTable(Object.assign({ theme: 'striped', styles: { fontSize: 9, cellPadding: 2.4, textColor: INK, lineColor: LINE, lineWidth: 0 }, headStyles, alternateRowStyles: { fillColor: SOFT }, margin: { left: ml, right: mr } }, opts)); y = doc.lastAutoTable.finalY + 8; };
 
-    // Work done text
     sec('Work Done Today');
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK);
-    const workLines = doc.splitTextToSize(d.workDone || '—', cw);
-    workLines.forEach((ln, i) => doc.text(ln, ml, y + 3 + i * 4.6));
-    y += workLines.length * 4.6 + 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); T(INK);
+    const wl = doc.splitTextToSize(d.workDone || 'No description recorded.', cw); wl.forEach((ln, i) => doc.text(ln, ml, y + i * 4.7)); y += wl.length * 4.7 + 7;
 
-    if (measRows.length) {
-      sec('Measurement — Work Done');
-      doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: measRows, margin: { left: ml, right: mr } });
-      tableAfter();
-    }
+    if (measRows.length) { sec('Measurement — Work Executed'); baseTable({ startY: y, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 22, halign: 'center' }, 3: { cellWidth: 36 } }, body: measRows }); }
 
     if (att.length) {
       sec('Manpower — from Attendance');
-      doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 24 }, 3: { halign: 'right', cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']), margin: { left: ml, right: mr } });
-      y = doc.lastAutoTable.finalY + 2.5;
-      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-      doc.text(`Present: ${att.length}    Skilled: ${skilled}    Unskilled: ${unskilled}    Total man-days: ${att.length}`, ml, y); setT(INK); y += 7;
+      baseTable({ startY: y, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 22 } }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']) });
+      y -= 3; F(WARM); D(WARMB); doc.setLineWidth(0.4); doc.roundedRect(ml, y, cw, 9, 2, 2, 'FD'); T(RED); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.6); doc.text(`Present ${att.length}      Skilled ${skilled}      Unskilled ${unskilled}      Total man-days ${att.length}`, ml + 4, y + 5.9); y += 15;
     }
 
-    if (equipList.trim()) { sec('Equipment Deployed'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK); const el = doc.splitTextToSize(equipList, cw); el.forEach((ln, i) => doc.text(ln, ml, y + 3 + i * 4.6)); y += el.length * 4.6 + 7; }
+    if (equipList.trim()) { sec('Equipment Deployed'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); T(INK); const el = doc.splitTextToSize(equipList, cw); el.forEach((ln, i) => doc.text(ln, ml, y + i * 4.7)); y += el.length * 4.7 + 7; }
 
     if (matRows.length || (d.materialsReceived || '').trim()) {
       sec('Materials');
-      if ((d.materialsReceived || '').trim()) { doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); setT(MUTED); doc.text('RECEIVED', ml, y + 2); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK); const rl = doc.splitTextToSize(d.materialsReceived, cw - 24); rl.forEach((ln, i) => doc.text(ln, ml + 24, y + 2 + i * 4.4)); y += Math.max(rl.length * 4.4, 5) + 3; }
-      if (matRows.length) { doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Material Used', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: matRows, margin: { left: ml, right: mr } }); tableAfter(); } else { y += 3; }
+      if ((d.materialsReceived || '').trim()) { T(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.text('RECEIVED', ml, y + 1); T(INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); const rl = doc.splitTextToSize(d.materialsReceived, cw - 26); rl.forEach((ln, i) => doc.text(ln, ml + 26, y + 1 + i * 4.4)); y += Math.max(rl.length * 4.4, 5) + 3; }
+      if (matRows.length) { baseTable({ startY: y, head: [['Material Used', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 22, halign: 'center' } }, body: matRows }); }
     }
 
-    // Site conditions & notes (key/value grid)
     const notes = [['Weather', d.weather], ['Hindrances / Delays', d.hindrance], ['Safety Observations', d.safety], ['Quality / Tests', d.quality], ['Instructions / Visitors', d.instructions], ['Related Task', _taskName(d.taskId)]].filter(n => (n[1] || '').toString().trim());
     if (notes.length) {
       sec('Site Conditions & Notes');
-      doc.autoTable({ startY: y + 1, theme: 'grid', styles: { fontSize: 9, cellPadding: 2.2 }, body: notes.map(n => [n[0], n[1]]), columnStyles: { 0: { fontStyle: 'bold', cellWidth: 46, fillColor: TILE, textColor: RED }, 1: { cellWidth: 'auto', textColor: INK } }, margin: { left: ml, right: mr } });
-      tableAfter();
+      const colW = (cw - 6) / 2; let maxY = y;
+      notes.forEach((n, i) => {
+        const col = i % 2; const x = ml + col * (colW + 6);
+        if (col === 0 && i > 0) y = maxY + 4;
+        const val = doc.splitTextToSize(String(n[1]), colW - 8); const boxH = 8 + val.length * 4.4;
+        if (col === 0 && y + boxH > ph - 30) { doc.addPage(); y = 18; maxY = y; }
+        F(SOFT); D(LINE); doc.setLineWidth(0.4); doc.roundedRect(x, y, colW, boxH, 2, 2, 'FD');
+        T(RED); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.2); doc.text(n[0].toUpperCase(), x + 3.5, y + 5);
+        T(INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); val.forEach((ln, k) => doc.text(ln, x + 3.5, y + 9.5 + k * 4.4));
+        maxY = Math.max(maxY, y + boxH);
+      });
+      y = maxY + 8;
     }
 
-    // Photo
-    if (_photoData && typeof _photoData === 'string' && _photoData.startsWith('data:image')) {
-      try {
-        const imgW = 78, imgH = 58;
-        if (y + imgH > ph - 34) { doc.addPage(); y = 16; }
-        sec('Site Photo');
-        const _fmtM = /^data:image\/(png|jpe?g)/i.exec(_photoData);
-        const _fmt = _fmtM ? _fmtM[1].toUpperCase().replace('JPG', 'JPEG') : 'JPEG';
-        setD(TILEB); doc.setLineWidth(0.5); doc.roundedRect(ml, y + 1, imgW + 2, imgH + 2, 2, 2, 'S');
-        doc.addImage(_photoData, _fmt, ml + 1, y + 2, imgW, imgH);
-        y += imgH + 8;
-      } catch (e) { console.warn('DPR PDF photo embed failed:', e); }
-    }
+    if (_photoData) { try { const iw = 80, ih = 60; if (y + ih > ph - 34) { doc.addPage(); y = 18; } sec('Site Photo'); const fm = /^data:image\/(png|jpe?g)/i.exec(_photoData); const fmt = fm ? fm[1].toUpperCase().replace('JPG', 'JPEG') : 'JPEG'; D(LINE); doc.setLineWidth(0.6); doc.roundedRect(ml, y, iw + 2, ih + 2, 2, 2, 'S'); doc.addImage(_photoData, fmt, ml + 1, y + 1, iw, ih); y += ih + 9; } catch (e) {} }
 
-    // Signatures
-    const sy = Math.max(y + 8, ph - 30);
-    setT(INK); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    const sigW = cw / 3;
-    [['Site Engineer', prepBy], ['Project Manager', ''], ['Client Representative', '']].forEach(([lbl], i) => {
-      const x = ml + i * sigW;
-      setD(MUTED); doc.setLineWidth(0.3); doc.line(x, sy, x + sigW - 12, sy);
-      setT(MUTED); doc.text(lbl, x, sy + 5);
-    });
+    if (y > ph - 34) { doc.addPage(); y = 18; }
+    const sy = Math.max(y + 6, ph - 26); const sw = cw / 3;
+    [['Site Engineer', prepBy], ['Project Manager', ''], ['Client Representative', '']].forEach((s, i) => { const x = ml + i * sw; D(LINE); doc.setLineWidth(0.4); doc.line(x, sy, x + sw - 14, sy); T(INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(s[0], x, sy + 5); if (s[1]) { T(MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(s[1], x, sy + 9); } });
 
-    // Footer
-    setT(MUTED); doc.setFontSize(7.5);
-    doc.text('Generated by True Site Sync', ml, ph - 8);
-    doc.text(`${d.date || ''}`, pw - mr, ph - 8, { align: 'right' });
+    const pages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) { doc.setPage(p); F(NAVY); doc.rect(0, ph - 6, pw, 6, 'F'); T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.text(`${companyName} · Daily Progress Report`, ml, ph - 2); doc.text(`${d.date || ''}`, pw / 2, ph - 2, { align: 'center' }); doc.text(`Page ${p} of ${pages}`, pw - mr, ph - 2, { align: 'right' }); }
 
     mobileSavePDF(doc, `DPR_${(d.dprNum || d.date || 'report').toString().replace(/[\\/ ]/g, '-')}.pdf`);
     showToast('DPR PDF downloaded');
