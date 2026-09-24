@@ -4981,33 +4981,43 @@ window._prCalcPayout = function() {
   }).join('');
   // Gang's unsettled advances (advances recorded against the contractor's workers? Use contractor-level: advances on gang leader stored as labourAdvances with labourId = gangId)
   const advances = (state.labourAdvances || []).filter(a => a.labourId === gangId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
-  const net = gross - advances;
+  // Payments already made to this gang not yet tied to a piece-rate payout (e.g. a
+  // Payment Out → Contractor from the Payments screen). Offset them so paying via
+  // either screen reconciles and the work is never billed/paid twice.
+  const priorExps = (state.expenses || []).filter(e => e.gangId === gangId && e.category === 'Piece-Rate Gang Payout' && !e.payoutId);
+  const priorPaid = priorExps.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  const net = Math.max(0, gross - advances - priorPaid);
   // Remember exactly which measurements this payout covers so _prPayGang can mark them paid.
-  window._prPayoutCtx = { gangId, start, end, measIds: meas.map(m => m.id), gross, advances, net };
+  window._prPayoutCtx = { gangId, start, end, measIds: meas.map(m => m.id), gross, advances, priorPaid, priorIds: priorExps.map(e => e.id), net };
   const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
   document.getElementById('prPayoutResult').innerHTML = `
     <div class="border rounded-lg overflow-hidden mb-3"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Work</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Rate</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;">
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Gross (approved work)</span><span style="font-weight:700;color:#2563eb;">${cur}${gross.toLocaleString('en-IN')}</span></div>
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Gang Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${advances.toLocaleString('en-IN')}</span></div>
+      ${priorPaid > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Already paid to gang</span><span style="font-weight:700;color:#0284c7;">−${cur}${priorPaid.toLocaleString('en-IN')}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#d6402c;">${cur}${net.toLocaleString('en-IN')}</span></div>
     </div>
     <div class="flex gap-2 mt-3">
       <select id="prpAccount" class="flex-1 p-2 border rounded-lg text-sm bg-white">${accOpts}</select>
-      <button onclick="_prPayGang('${gangId}',${net})" class="bg-emerald-600 text-white px-5 rounded-lg font-bold text-sm hover:bg-emerald-700">Pay ${cur}${net.toLocaleString('en-IN')}</button>
+      <button onclick="_prPayGang('${gangId}',${net})" class="bg-emerald-600 text-white px-5 rounded-lg font-bold text-sm hover:bg-emerald-700">${net > 0 ? 'Pay ' + cur + net.toLocaleString('en-IN') : 'Settle (already paid)'}</button>
     </div>`;
 };
 window._prPayGang = function(gangId, net) {
-  if (net <= 0) { showToast('Nothing to pay', 'warning'); return; }
+  const ctx = (window._prPayoutCtx && window._prPayoutCtx.gangId === gangId) ? window._prPayoutCtx : null;
+  const hasCoverage = ctx && (((ctx.measIds || []).length) || ((ctx.priorIds || []).length));
+  if (net <= 0 && !hasCoverage) { showToast('Nothing to pay', 'warning'); return; }
   const accountId = document.getElementById('prpAccount').value;
   const gang = (state.labourContractors || []).find(g => g.id === gangId);
   const date = new Date().toISOString().split('T')[0];
-  const ctx = (window._prPayoutCtx && window._prPayoutCtx.gangId === gangId) ? window._prPayoutCtx : null;
   const payoutId = 'gpay_' + Date.now();
-  // Post the payout as an expense tagged to the gang so it appears on the gang's
-  // Parties Ledger (as a payment) and reduces the cash account.
   if (!state.expenses) state.expenses = [];
-  state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Piece-Rate Gang Payout', amount: net, remarks: `Piece-rate payout to ${gang?.name || 'gang'}`, projectId: state.currentProjectId, gangId, payoutId, gross: ctx?.gross, advances: ctx?.advances });
+  // Record a NEW cash payment only for the remaining balance; prior gang payments
+  // are consumed below rather than paid again.
+  if (net > 0) state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Piece-Rate Gang Payout', amount: net, remarks: `Piece-rate payout to ${gang?.name || 'gang'}`, projectId: state.currentProjectId, gangId, payoutId, gross: ctx?.gross, advances: ctx?.advances });
+  // Attribute (consume) prior unlinked gang payments to this settlement so they
+  // stop offsetting future payouts.
+  if (ctx && (ctx.priorIds || []).length) { const ps = new Set(ctx.priorIds); (state.expenses || []).forEach(e => { if (ps.has(e.id)) e.payoutId = payoutId; }); }
   // Mark the covered measurements as paid so a re-Calculate doesn't re-offer them.
   const idSet = new Set(ctx?.measIds || []);
   (state.workMeasurements || []).forEach(m => { if (idSet.has(m.id)) { m.paid = true; m.payoutId = payoutId; m.paidDate = date; } });
@@ -5017,7 +5027,7 @@ window._prPayGang = function(gangId, net) {
   saveAllData();
   window.renderPartiesList?.(); window.renderPartyTransactions?.();
   if (typeof renderAccounts === 'function') { try { renderAccounts(); } catch {} }
-  showToast(`Paid ${getCurrencySymbol()}${net.toLocaleString('en-IN')} to ${gang?.name || 'gang'}`, 'success');
+  showToast(net > 0 ? `Paid ${getCurrencySymbol()}${net.toLocaleString('en-IN')} to ${gang?.name || 'gang'}` : `${gang?.name || 'Gang'} work settled (already paid)`, 'success');
   _prRenderPayout();
 };
 
