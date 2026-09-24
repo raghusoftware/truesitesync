@@ -13,10 +13,10 @@ import { showToast } from './utils.js';
 
 const PLANS = {
   free:       { name: 'Free',       seats: 3,  projects: 2,   price: 0,     label: 'Free Trial' },
-  solo:       { name: 'Solo',       seats: 1,  projects: 3,   price: 2500,  label: '₹2,500/yr' },
-  starter:    { name: 'Starter',    seats: 5,  projects: 5,   price: 5000,  label: '₹5,000/yr' },
+  solo:       { name: 'Solo',       seats: 1,  projects: 3,   price: 2400,  label: '₹2,400/yr' },
+  starter:    { name: 'Starter',    seats: 5,  projects: 5,   price: 5100,  label: '₹5,100/yr' },
   business:   { name: 'Business',   seats: 12, projects: 20,  price: 12000, label: '₹12,000/yr' },
-  pro:        { name: 'Pro',        seats: 25, projects: 50,  price: 25000, label: '₹25,000/yr' },
+  pro:        { name: 'Pro',        seats: 25, projects: 50,  price: 24000, label: '₹24,000/yr' },
   enterprise: { name: 'Enterprise', seats: 50, projects: 100, price: 50000, label: '₹50,000/yr' },
 };
 
