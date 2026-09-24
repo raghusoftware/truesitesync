@@ -558,6 +558,7 @@ window._exDprForm = function (id) {
         <tbody id="dprOhBody">${ohRows}</tbody></table></div>
     </div>
 
+    <label style="display:flex;align-items:flex-start;gap:9px;margin:0 0 12px;cursor:pointer;background:#fff3ea;border:1px solid #f3d9c4;border-radius:10px;padding:11px;"><input type="checkbox" id="dpShowProgress" ${(!d || d.showProgress !== false) ? 'checked' : ''} style="width:18px;height:18px;margin-top:1px;"><span style="font-size:12px;color:#7a1f14;"><b>Include BOQ overall progress in the PDF</b> — adds the Plan vs Actual section (overall % and per-item planned vs done). Untick to leave it out of this report.</span></label>
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
   </div>`, { full: true });
   window.__dprAtt = (d && Array.isArray(d.attendance)) ? d.attendance : null;
@@ -609,7 +610,7 @@ window._exDprSave = function (id) {
   // Labour snapshot from attendance + equipment (so period reports can aggregate).
   const attendance = Array.isArray(window.__dprAtt) ? window.__dprAtt : _dprAttForDate(date);
   const equipmentUsed = Array.isArray(window.__dprEquip) ? window.__dprEquip : _dprEquipForProject();
-  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), safety: v('dpSafety'), quality: v('dpQuality'), materialsReceived: v('dpMatRecv'), instructions: v('dpInstr'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed };
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), safety: v('dpSafety'), quality: v('dpQuality'), materialsReceived: v('dpMatRecv'), instructions: v('dpInstr'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed, showProgress: (document.getElementById('dpShowProgress') ? !!document.getElementById('dpShowProgress').checked : true) };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else {
@@ -790,7 +791,7 @@ window._exDprPdf = async function (id) {
     if (measRows.length) { sec('Measurement — Work Executed'); baseTable({ startY: y, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 22, halign: 'center' }, 3: { cellWidth: 36 } }, body: measRows }); }
 
     // ── Progress — Plan vs Actual (cumulative measured vs contract BOQ) ──
-    const pva = (typeof window.mpPlanVsActual === 'function') ? window.mpPlanVsActual(d.projectId) : null;
+    const pva = (d.showProgress !== false && typeof window.mpPlanVsActual === 'function') ? window.mpPlanVsActual(d.projectId) : null;
     if (pva && pva.rows && pva.rows.length) {
       const todayByCode = {}; (d.measurements || []).forEach(m => { const c = m.code || m.description; todayByCode[c] = (todayByCode[c] || 0) + (parseFloat(m.qty) || 0); });
       sec('Progress — Plan vs Actual');
