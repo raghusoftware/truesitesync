@@ -93,7 +93,7 @@ import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js?v=1.0.1';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.51';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.78';
-import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.52';
+import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.53';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.88';
 import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.0';

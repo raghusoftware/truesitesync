@@ -30,21 +30,29 @@ export function renderPartiesList() {
     allParties.push({ id: v.id, name: v.name, type: 'Vendor', balance: purchased - paid });
   });
   state.labourMaster.forEach(l => {
+    // Workers hired UNDER a contractor are not shown individually — the
+    // contractor is the party, and only the settled amount shows in its ledger.
+    if (l.contractorId) return;
     let totalSalary = state.labourSalaries.filter(s => s.labourId === l.id).reduce((sum, s) => sum + parseFloat(s.amount), 0);
     let totalPaid = state.labourPayments.filter(p => p.labourId === l.id).reduce((sum, p) => sum + parseFloat(p.amount), 0);
     allParties.push({ id: l.id, name: l.name + ' (Labour)', type: 'Labour', balance: totalSalary - totalPaid });
   });
-  // Contractors / gang leaders (piece-rate). Owe = value of approved work; Paid = gang
-  // payouts + advances already given. Balance = what's still owed to the gang.
+  // Contractors / gang leaders. Dues = approved piece-rate work + wages of the
+  // workers under them; Settled = gang payouts + advances + payments to those
+  // workers. Balance = amount still to settle with the contractor.
   (state.labourContractors || []).forEach(g => {
     const earned = (state.workMeasurements || []).filter(m => m.gangId === g.id && m.approved).reduce((s, m) => {
       const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
       return s + (rate?.rate || 0) * (m.quantity || 0);
     }, 0);
+    const wIds = new Set((state.labourMaster || []).filter(w => w.contractorId === g.id).map(w => w.id));
+    const wages = (state.labourSalaries || []).filter(s => wIds.has(s.labourId)).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+    const wagesPaid = (state.labourPayments || []).filter(p => wIds.has(p.labourId)).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
     const paid = (state.expenses || []).filter(e => e.gangId === g.id && e.category === 'Piece-Rate Gang Payout').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
       + (state.labourAdvances || []).filter(a => a.labourId === g.id).reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
-    if (earned === 0 && paid === 0) return; // skip gangs with no financial activity
-    allParties.push({ id: g.id, name: g.name + ' (Gang)', type: 'Contractor', balance: earned - paid });
+    const dues = earned + wages, settled = paid + wagesPaid;
+    if (dues === 0 && settled === 0) return; // skip contractors with no financial activity
+    allParties.push({ id: g.id, name: g.name, type: 'Contractor', balance: dues - settled });
   });
   allParties.sort((a, b) => a.name.localeCompare(b.name));
   allParties.forEach(p => {
@@ -108,6 +116,14 @@ export function renderPartyTransactions() {
     (state.expenses || []).filter(e => e.gangId === id && e.category === 'Piece-Rate Gang Payout').forEach(e => txs.push({ date: e.date, number: 'Gang Payout', type: 'Payment Made', total: parseFloat(e.amount) || 0, isDebit: true, _src: 'expenses', _id: e.id }));
     // Advances already given (debit)
     (state.labourAdvances || []).filter(a => a.labourId === id).forEach(a => txs.push({ date: a.date, number: 'Advance', type: 'Payment Made', total: parseFloat(a.amount) || 0, isDebit: true, _src: 'labourAdvances', _id: a.id }));
+    // Workers under this contractor: aggregate their wages as dues, and show each
+    // settlement (payment) — individual workers are not listed as separate parties.
+    const workers = (state.labourMaster || []).filter(w => w.contractorId === id);
+    const wIds = new Set(workers.map(w => w.id));
+    const sals = (state.labourSalaries || []).filter(s => wIds.has(s.labourId));
+    const wageTot = sals.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+    if (wageTot > 0) txs.push({ date: sals.map(s => s.date).filter(Boolean).sort()[0] || g.createdAt || '', number: workers.length + ' worker(s)', type: 'Labour Wages (accrued)', total: wageTot, isDebit: false, _src: '', _id: '' });
+    (state.labourPayments || []).filter(p => wIds.has(p.labourId)).forEach(p => txs.push({ date: p.date, number: p.ref || 'Settlement', type: 'Payment Made', total: parseFloat(p.amount) || 0, isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
   }
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
   const tbody = document.getElementById('partyTransactionsBody');
