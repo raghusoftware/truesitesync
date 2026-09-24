@@ -236,23 +236,9 @@ export function getCurrencySymbol() {
   return (state.currencySettings || {}).symbol || '₹';
 }
 
-/** ── Region / billing terminology packs (go-global) ──
- *  The same workflow is called different things by region. `region` lives on
- *  currencySettings; India stays the default so nothing changes for existing users. */
-const TERM_PACKS = {
-  IN:   { raBill: 'RA Bill', raBillShort: 'RA', tax: 'GST', taxLong: 'GST', taxId: 'GSTIN', wht: 'TDS' },
-  GCC:  { raBill: 'Payment Certificate', raBillShort: 'IPC', tax: 'VAT', taxLong: 'VAT', taxId: 'TRN', wht: 'WHT' },
-  UK:   { raBill: 'Interim Payment Certificate', raBillShort: 'IPC', tax: 'VAT', taxLong: 'VAT', taxId: 'VAT No.', wht: 'CIS' },
-  INTL: { raBill: 'Progress Claim', raBillShort: 'PC', tax: 'Tax', taxLong: 'Sales Tax', taxId: 'Tax ID', wht: 'WHT' },
-};
-/** Region-aware label. e.g. getTerm('raBill') → 'RA Bill' (IN) / 'Payment Certificate' (GCC). */
-export function getTerm(key) {
-  const region = (state.currencySettings || {}).region || 'IN';
-  const pack = TERM_PACKS[region] || TERM_PACKS.IN;
-  return pack[key] || TERM_PACKS.IN[key] || key;
-}
-export function getRegion() { return (state.currencySettings || {}).region || 'IN'; }
-if (typeof window !== 'undefined') { window.getTerm = getTerm; window.getRegion = getRegion; }
+/** Region / billing terminology — delegated to the Country Rules layer,
+ *  re-exported here so existing imports keep working. */
+export { getTerm, getRegion, feat, getCountryRule, activeCountry } from './countryRules.js';
 
 /** PDF-safe currency prefix — jsPDF Helvetica can't render ₹, so use Rs. */
 export function getPdfCurrency() {
