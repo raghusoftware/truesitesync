@@ -642,7 +642,7 @@ export function renderBillingPanel() {
         ${isCurrent ? '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#10b981;margin-bottom:6px;letter-spacing:1px;">Current Plan</div>' : ''}
         <h4 style="font-size:16px;font-weight:800;color:#1e293b;margin:0 0 4px;">${plan.name}</h4>
         <div style="font-size:22px;font-weight:900;color:#2563eb;margin:8px 0;">${plan.price ? '₹' + plan.price.toLocaleString('en-IN') : 'Free'}</div>
-        <p style="font-size:11px;color:#94a3b8;margin:0 0 12px;">${plan.price ? 'per year' : '7-day trial'}</p>
+        <p style="font-size:11px;color:#94a3b8;margin:0 0 12px;">${plan.price ? 'per year' : '6-day trial'}</p>
         <div style="font-size:11px;color:#64748b;margin-bottom:4px;">✓ ${plan.seats} team seats</div>
         <div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${plan.projects} projects</div>
         ${isCurrent ? '<span style="font-size:11px;color:#10b981;font-weight:600;">Active</span>' :
@@ -777,7 +777,7 @@ export function renderPlanBilling() {
       _planBillingRetried = true;
       loadUserOrg().then(async (loaded) => {
         if (!loaded) {
-          // Brand-new user with no org yet — create one (with 7-day trial)
+          // Brand-new user with no org yet — create one (with 6-day trial)
           const sb = getSupabase();
           if (sb) {
             const { data: { user } } = await sb.auth.getUser();
@@ -802,7 +802,7 @@ export function renderPlanBilling() {
 
   let banner;
   if (onTrial) {
-    banner = `<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#065f46;">🎉 Free Trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left</div><p style="font-size:12px;color:#047857;margin:4px 0 0;">Your 7-day free trial includes the full platform. Choose a plan below to continue after it ends.</p></div>`;
+    banner = `<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#065f46;">🎉 Free Trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left</div><p style="font-size:12px;color:#047857;margin:4px 0 0;">Your 6-day free trial includes the full platform. Choose a plan below to continue after it ends.</p></div>`;
   } else if (trialExpired) {
     banner = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#991b1b;">Your free trial has ended</div><p style="font-size:12px;color:#b91c1c;margin:4px 0 0;">Choose a plan below to keep using True Site Sync.</p></div>`;
   } else {
@@ -832,7 +832,7 @@ export function renderPlanBilling() {
 }
 
 // ══════════════════════════════════════════
-// TRIAL ENFORCEMENT — block the app once the 7-day free trial ends
+// TRIAL ENFORCEMENT — block the app once the 6-day free trial ends
 // ══════════════════════════════════════════
 
 /** Resolve the current trial/subscription status (uses cache when the live org
@@ -884,7 +884,7 @@ function _showTrialPaywall(s) {
     <div style="background:#fff;border-radius:18px;max-width:780px;width:100%;margin:auto;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.35);">
       <div style="text-align:center;margin-bottom:18px;">
         <div style="font-size:42px;">🔒</div>
-        <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:8px 0 6px;">Your 7-day free trial has ended</h2>
+        <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:8px 0 6px;">Your 6-day free trial has ended</h2>
         <p style="font-size:13px;color:#64748b;margin:0;max-width:520px;margin:0 auto;">
           ${admin
             ? 'Choose a plan to continue using True Site Sync. Your data is safe and waiting — you’ll get full access the moment your payment completes.'

@@ -185,7 +185,7 @@ function _renderUsersTab() {
     const activeLabel = daysAgo === 0 ? 'Today' : daysAgo <= 1 ? 'Yesterday' : lastActive ? `${daysAgo}d ago` : 'Never';
 
     // Trial status
-    const trialEnd = u.trial_ends ? new Date(u.trial_ends) : new Date(signedUp.getTime() + 7 * 86400000);
+    const trialEnd = u.trial_ends ? new Date(u.trial_ends) : new Date(signedUp.getTime() + 6 * 86400000);
     const trialDaysLeft = Math.max(0, Math.ceil((trialEnd - now) / 86400000));
     const isTrial = u.org_plan === 'free' || !u.org_plan;
     const trialExpired = isTrial && trialDaysLeft <= 0;

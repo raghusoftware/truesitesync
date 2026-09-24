@@ -52,7 +52,7 @@
     <h1>You're subscribing to</h1>
     <div class="plan-name" id="planName">—</div>
     <div class="price" id="planPrice">—<span> / year</span></div>
-    <div class="trial"><i class="fa-solid fa-gift"></i> Includes 7-day free trial</div>
+    <div class="trial"><i class="fa-solid fa-gift"></i> Includes 6-day free trial</div>
   </div>
   <div class="body">
     <div id="planFeatures"></div>
@@ -194,7 +194,7 @@ async function ensureOrg(user){
   // Find an active org membership
   const { data: mem } = await sb.from('org_members').select('org_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle();
   if (mem && mem.org_id) return mem.org_id;
-  // None — create a workspace with a 7-day trial via the atomic RPC
+  // None — create a workspace with a 6-day trial via the atomic RPC
   // (avoids the RLS RETURNING/SELECT-policy failure on first org).
   const base = (user.user_metadata?.display_name || user.email.split('@')[0]);
   const { data: orgId, error } = await sb.rpc('create_org_with_owner', { p_name: base + "'s Team", p_email: user.email });
