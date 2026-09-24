@@ -9,7 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol, pdfMoney, getCompanyHeaderForPDF, mobileSavePDF, populateDropdowns } from './utils.js';
+import { showToast, getCurrencySymbol, pdfMoney, getCompanyHeaderForPDF, mobileSavePDF, populateDropdowns, getTerm, getTaxConfig } from './utils.js';
 
 export function renderPartiesList() {
   const searchTerm = document.getElementById('partySearch').value.toLowerCase();
@@ -344,7 +344,7 @@ export function _editParty(id, type) {
       _peField('Contact Person', 'pe_contact', rec.contact, { ph: 'Contact person' }),
       _peField('Phone', 'pe_phone', rec.phone, { ph: 'Mobile / Phone' }),
       _peField('Email', 'pe_email', rec.email, { type: 'email', ph: 'name@email.com' }),
-      _peField('GSTIN', 'pe_gst', rec.gst, { mono: true, ph: '22AAAAA0000A1Z5' }),
+      _peField(getTerm('taxId'), 'pe_gst', rec.gst, { mono: true, ph: getTaxConfig().mode === 'gst' ? '22AAAAA0000A1Z5' : '' }),
       _peField('PAN', 'pe_pan', rec.pan, { mono: true, ph: 'ABCDE1234F' }),
       _peField('Payment Terms — Credit Days', 'pe_terms', rec.paymentTermsDays, { type: 'number', min: 0, ph: 'e.g. 30' }),
       isClient ? '' : `<div>

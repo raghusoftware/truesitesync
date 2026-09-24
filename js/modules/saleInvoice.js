@@ -9,7 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol, amountToWordsCur } from './utils.js';
+import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
@@ -346,10 +346,12 @@ export function onSIClientChange() {
   const info = document.getElementById('siFormBuyerInfo');
   if (info) {
     if (client && (client.gst || client.address)) {
-      const st = _gstStateName(client.gst);
+      const _idl = getTerm('taxId');
+      // State is a GST-only concept; skip it for VAT/sales-tax countries.
+      const st = getTaxConfig().mode === 'gst' ? _gstStateName(client.gst) : '';
       info.style.display = 'block';
       info.innerHTML =
-        (client.gst ? `<b>GSTIN:</b> ${client.gst}` : `<span style="color:#e11d48;font-weight:600">No GSTIN on file</span>`) +
+        (client.gst ? `<b>${_idl}:</b> ${client.gst}` : `<span style="color:#e11d48;font-weight:600">No ${_idl} on file</span>`) +
         (st ? ` &nbsp;·&nbsp; <b>State:</b> ${st}` : '') +
         (client.address ? `<br><b>Address:</b> ${client.address}` : '');
     } else { info.style.display = 'none'; info.innerHTML = ''; }
@@ -463,15 +465,14 @@ export function addSIPendingItem(idx) {
 function _siRowHTML(num, data = {}) {
   const units = ['Nos','M3','M2','RMT','SqFt','CuFt','Bag','KG','Ton','Ltr','Set','Lot','LS','Box','Pair','Trip','Day','Hour'];
   const unitOpts = units.map(u => `<option value="${u}" ${u === (data.unit || 'Nos') ? 'selected' : ''}>${u}</option>`).join('');
-  const taxType = data.taxType || 'CGST_SGST';
-  const taxTypeOpts = [
-    { v: 'CGST_SGST', l: 'CGST+SGST' },
-    { v: 'IGST', l: 'IGST' },
-    { v: 'NONE', l: 'None' }
-  ].map(o => `<option value="${o.v}" ${o.v === taxType ? 'selected' : ''}>${o.l}</option>`).join('');
+  const _tx = getTaxConfig();
+  const taxType = data.taxType || _tx.defaultType;
+  const taxTypeOpts = _tx.types
+    .map(o => `<option value="${o.v}" ${o.v === taxType ? 'selected' : ''}>${o.l}</option>`).join('');
   const s = 'border:1px solid #e2e8f0;border-radius:4px;outline:none;';
-  const taxRates = [0, 0.25, 3, 5, 12, 18, 28];
-  const taxRateOpts = taxRates.map(v => `<option value="${v}" ${data.taxPct == v ? 'selected' : ''}>${v}%</option>`).join('');
+  const _defRate = data.taxPct != null && data.taxPct !== '' ? data.taxPct : _tx.defaultRate;
+  const taxRates = _tx.rates;
+  const taxRateOpts = taxRates.map(v => `<option value="${v}" ${_defRate == v ? 'selected' : ''}>${v}%</option>`).join('');
   return `
     <td style="padding:5px 3px;text-align:center;font-size:10px;color:#94a3b8;font-weight:700;" class="si-row-num">${num}</td>
     <td style="padding:5px 4px;position:relative;">
@@ -600,7 +601,7 @@ export function openSaleInvoiceForm(editId) {
       setF('.si-item-rate', it.rate);
       setF('.si-item-disc', it.discPct);
       setF('.si-item-tax', it.taxPct);
-      setF('.si-item-taxtype', it.taxType || 'CGST_SGST');
+      setF('.si-item-taxtype', it.taxType || getTaxConfig().defaultType);
       if (it.ref) r.dataset.ref = it.ref;
       if (it.abstractId) r.dataset.abstractId = it.abstractId;
     });
@@ -651,15 +652,16 @@ export function calcSIFormTotal() {
     const rate = parseFloat(r.querySelector('.si-item-rate')?.value) || 0;
     const discPct = parseFloat(r.querySelector('.si-item-disc')?.value) || 0;
     const taxPct = parseFloat(r.querySelector('.si-item-tax')?.value) || 0;
-    const taxType = r.querySelector('.si-item-taxtype')?.value || 'CGST_SGST';
+    const taxType = r.querySelector('.si-item-taxtype')?.value || getTaxConfig().defaultType;
     const lineGross = qty * rate;
     const lineDisc = lineGross * discPct / 100;
     const taxable = lineGross - lineDisc;
     let lineTax = 0;
     if (taxType !== 'NONE' && taxPct > 0) {
       lineTax = taxable * taxPct / 100;
+      // CGST+SGST is the only split type; VAT / IGST / sales tax are single-column.
       if (taxType === 'CGST_SGST') { totalCGST += lineTax / 2; totalSGST += lineTax / 2; }
-      else if (taxType === 'IGST') { totalIGST += lineTax; }
+      else { totalIGST += lineTax; }
     }
     const lineTotal = taxable + lineTax;
     grossTotal += lineGross;
@@ -687,6 +689,8 @@ export function calcSIFormTotal() {
   if (cgstRow) { cgstRow.style.display = totalCGST > 0 ? 'flex' : 'none'; setT('siSummaryCGST', fmt(totalCGST)); }
   if (sgstRow) { sgstRow.style.display = totalSGST > 0 ? 'flex' : 'none'; setT('siSummarySGST', fmt(totalSGST)); }
   if (igstRow) { igstRow.style.display = totalIGST > 0 ? 'flex' : 'none'; setT('siSummaryIGST', fmt(totalIGST)); }
+  // The single-tax row is "IGST" in India but "VAT"/"GST/HST"/"Sales Tax" elsewhere.
+  setT('siSummaryIGSTLabel', getTaxConfig().singleLabel);
   const gstAmt = totalLineTax;
   setT('siFormGstAmt', fmt(gstAmt));
   // TCS
@@ -718,7 +722,7 @@ export function saveSaleInvoiceForm() {
     const rate = parseFloat(r.querySelector('.si-item-rate')?.value) || 0;
     const discPct = parseFloat(r.querySelector('.si-item-disc')?.value) || 0;
     const taxPct = parseFloat(r.querySelector('.si-item-tax')?.value) || 0;
-    const taxType = r.querySelector('.si-item-taxtype')?.value || 'CGST_SGST';
+    const taxType = r.querySelector('.si-item-taxtype')?.value || getTaxConfig().defaultType;
     if (!desc || qty <= 0) return;
     const lineGross = qty * rate;
     const lineDisc = lineGross * discPct / 100;
@@ -1017,7 +1021,11 @@ export function viewSaleInvoiceInfo(id) {
       <th class="px-3 py-2 text-left">#</th><th class="px-3 py-2 text-left">Item</th><th class="px-3 py-2">HSN</th><th class="px-3 py-2 text-right">Qty</th><th class="px-3 py-2">Unit</th><th class="px-3 py-2 text-right">Rate</th><th class="px-3 py-2 text-right">Tax</th><th class="px-3 py-2 text-right">Amount</th>
     </tr></thead><tbody class="divide-y">`;
   (inv.items || []).forEach((item, i) => {
-    const taxLabel = item.taxType === 'IGST' ? 'IGST' : item.taxType === 'NONE' ? '—' : 'GST';
+    const taxLabel = item.taxType === 'NONE' ? '—'
+      : item.taxType === 'IGST' ? 'IGST'
+      : item.taxType === 'CGST_SGST' ? 'GST'
+      : (item.taxType === 'VAT' || item.taxType === 'TAX') ? getTaxConfig().singleLabel
+      : getTerm('tax');
     html += `<tr><td class="px-3 py-2 text-slate-400">${i + 1}</td><td class="px-3 py-2 font-medium">${item.desc}</td><td class="px-3 py-2 text-center text-slate-500">${item.hsn || '—'}</td><td class="px-3 py-2 text-right">${item.qty}</td><td class="px-3 py-2 text-center">${item.unit}</td><td class="px-3 py-2 text-right">${fmt(item.rate)}</td><td class="px-3 py-2 text-right text-slate-500">${item.taxPct || 0}% ${taxLabel}</td><td class="px-3 py-2 text-right font-bold">${fmt(item.amount)}</td></tr>`;
   });
   html += `</tbody></table></div>`;

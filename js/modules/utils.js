@@ -262,7 +262,7 @@ export function getCurrencySymbol() {
 
 /** Region / billing terminology — delegated to the Country Rules layer,
  *  re-exported here so existing imports keep working. */
-export { getTerm, getRegion, feat, getCountryRule, activeCountry } from './countryRules.js';
+export { getTerm, getRegion, feat, getCountryRule, activeCountry, getTaxConfig } from './countryRules.js?v=1.0.1';
 
 /** PDF-safe currency prefix — jsPDF Helvetica can't render ₹, so use Rs. */
 export function getPdfCurrency() {

@@ -20,7 +20,7 @@
  */
 
 import { state } from './state.js';
-import { getPdfCurrency, mobileSavePDF, showToast, amountToWordsCur } from './utils.js';
+import { getPdfCurrency, mobileSavePDF, showToast, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
 
 const _n2 = formatNumber2;
@@ -50,16 +50,21 @@ function _prep(inv) {
   const cp = state.companyProfile || {};
   const c = (state.clients || []).find(x => x.id === inv.clientId) || {};
   const scode = (g) => (g && /^\d{2}/.test(g)) ? g.slice(0, 2) : '';
+  const _tx = getTaxConfig();
+  const _gstMode = _tx.mode === 'gst';
   const items = (inv.items || []).map((it, i) => {
     const amount = parseFloat(it.amount) || 0, tax = parseFloat(it.taxAmount) || 0;
     const taxable = amount - tax;
-    const type = it.taxType || (tax > 0 ? 'CGST_SGST' : 'NONE');
+    const type = it.taxType || (tax > 0 ? _tx.defaultType : 'NONE');
     const pct = parseFloat(it.taxPct) || 0;
+    // Only India splits into CGST+SGST; VAT / sales tax / IGST go into a single
+    // column (reusing the igst bucket the designs already render as one line).
+    const isSplit = type === 'CGST_SGST';
     return {
       sr: i + 1, desc: it.desc || '', hsn: it.hsn || '', qty: parseFloat(it.qty) || 0,
       unit: it.unit || '', rate: parseFloat(it.rate) || 0, taxable, tax, pct, type,
-      cgst: type === 'CGST_SGST' ? tax / 2 : 0, sgst: type === 'CGST_SGST' ? tax / 2 : 0,
-      igst: type === 'IGST' ? tax : 0, total: amount,
+      cgst: isSplit ? tax / 2 : 0, sgst: isSplit ? tax / 2 : 0,
+      igst: (!isSplit && type !== 'NONE') ? tax : 0, total: amount,
     };
   });
   const sum = f => items.reduce((s, it) => s + f(it), 0);
@@ -69,6 +74,7 @@ function _prep(inv) {
   items.forEach(it => { const k = it.hsn || '-'; (groups[k] = groups[k] || { hsn: k, taxable: 0, cgst: 0, sgst: 0, igst: 0, pct: it.pct }); groups[k].taxable += it.taxable; groups[k].cgst += it.cgst; groups[k].sgst += it.sgst; groups[k].igst += it.igst; });
   return {
     cp, c, items, totals, inter, hsnGroups: Object.values(groups),
+    isGst: _gstMode, taxIdLabel: getTerm('taxId'), taxLabel: _gstMode ? 'GST' : _tx.singleLabel, singleTaxLabel: _tx.singleLabel,
     supplier: { name: cp.CompanyName || 'Your Company', address: cp.Address || '', gstin: cp.GST || '', stateCode: scode(cp.GST), phone: cp.Phone || '', email: cp.Email || '', bankName: cp.BankName || '', bankAcc: cp.BankAcc || '', ifsc: cp.IFSC || '', logo: cp.logo || '' },
     recipient: { name: c.name || inv.clientName || '—', address: c.address || inv.clientAddress || '', gstin: c.gst || '', state: inv.stateOfSupply || '' },
     meta: { no: inv.invoiceNo || '', date: inv.date || '', placeOfSupply: inv.stateOfSupply || '', poNo: inv.poNo || '', poDate: inv.poDate || '', reverseCharge: inv.reverseCharge === 'Yes', tcs: parseFloat(inv.tcsAmount) || 0, roundAmt: parseFloat(inv.roundAmt) || 0, grand: parseFloat(inv.total) || totals.gross, words: amountToWordsCur(parseFloat(inv.total) || totals.gross), notes: inv.notes || '' },
@@ -96,10 +102,10 @@ export function renderStyledInvoice(inv, styleKey) {
 
 // ── Shared building blocks ───────────────────────────────────────────────────
 function _supplierMeta(d) {
-  return [d.supplier.gstin && ('GSTIN ' + d.supplier.gstin + (d.supplier.stateCode ? '   ·   State Code ' + d.supplier.stateCode : ''))].filter(Boolean);
+  return [d.supplier.gstin && (d.taxIdLabel + ' ' + d.supplier.gstin + (d.isGst && d.supplier.stateCode ? '   ·   State Code ' + d.supplier.stateCode : ''))].filter(Boolean);
 }
 function _lineTableData(d) {
-  const head = [['#', 'Description', 'Qty', `Rate`, 'Taxable', 'GST', 'Amount']];
+  const head = [['#', 'Description', 'Qty', `Rate`, 'Taxable', d.taxLabel, 'Amount']];
   const body = d.items.map(it => [
     String(it.sr),
     it.desc + (it.hsn ? `\nHSN/SAC: ${it.hsn}` : ''),
@@ -116,14 +122,16 @@ function _totalRows(d, cur) {
   const r = [['Taxable Value', cur + ' ' + _n2(d.totals.taxable)]];
   if (d.totals.cgst) r.push(['CGST', cur + ' ' + _n2(d.totals.cgst)]);
   if (d.totals.sgst) r.push(['SGST', cur + ' ' + _n2(d.totals.sgst)]);
-  if (d.totals.igst) r.push(['IGST', cur + ' ' + _n2(d.totals.igst)]);
+  if (d.totals.igst) r.push([d.isGst ? 'IGST' : d.singleTaxLabel, cur + ' ' + _n2(d.totals.igst)]);
   if (d.meta.tcs) r.push(['TCS', cur + ' ' + _n2(d.meta.tcs)]);
   if (d.meta.roundAmt) r.push(['Round Off', (d.meta.roundAmt < 0 ? '- ' : '+ ') + cur + ' ' + _n2(Math.abs(d.meta.roundAmt))]);
   return r;
 }
 function _taxSummary(doc, d, x, y, w, accent) {
   const inter = d.inter;
-  const head = inter ? [['HSN/SAC', 'Taxable', 'IGST %', 'IGST', 'Tax']] : [['HSN/SAC', 'Taxable', 'CGST', 'SGST', 'Tax']];
+  const codeCol = d.isGst ? 'HSN/SAC' : 'Code';
+  const single = d.isGst ? 'IGST' : d.singleTaxLabel;
+  const head = inter ? [[codeCol, 'Taxable', single + ' %', single, 'Tax']] : [['HSN/SAC', 'Taxable', 'CGST', 'SGST', 'Tax']];
   const body = d.hsnGroups.map(g => inter
     ? [g.hsn, _n2(g.taxable), (g.pct ? g.pct + '%' : ''), _n2(g.igst), _n2(g.igst)]
     : [g.hsn, _n2(g.taxable), _n2(g.cgst), _n2(g.sgst), _n2(g.cgst + g.sgst)]);
@@ -179,7 +187,7 @@ function _classic(ctx) {
   doc.setFont('times', 'normal'); doc.setFontSize(10.5); doc.text(d.meta.placeOfSupply || '—', pw / 2 + 4, y); y += 5;
   doc.setFont('times', 'normal'); doc.setFontSize(9); doc.setTextColor(70, 76, 88);
   let by = y; if (d.recipient.address) doc.splitTextToSize(d.recipient.address, pw / 2 - 8).forEach(l => { doc.text(l, ml, by); by += 4.2; });
-  if (d.recipient.gstin) { doc.setFont('times', 'bold'); doc.text('GSTIN ' + d.recipient.gstin, ml, by); by += 4.2; }
+  if (d.recipient.gstin) { doc.setFont('times', 'bold'); doc.text(d.taxIdLabel + ' ' + d.recipient.gstin, ml, by); by += 4.2; }
   _rcNote(doc, d, pw / 2 + 4, y + 1);
   y = by + 3;
 
@@ -233,7 +241,7 @@ function _modern(ctx) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('Tax Invoice', pw - mr, 23, { align: 'right' });
   let y = 42;
   // meta strip
-  const cells = [['Invoice No', d.meta.no], ['Date', d.meta.date], ['Place of Supply', d.meta.placeOfSupply || '—'], ['PO No', d.meta.poNo || '—']];
+  const cells = [['Invoice No', d.meta.no], ['Date', d.meta.date], ...(d.isGst ? [['Place of Supply', d.meta.placeOfSupply || '—']] : []), ['PO No', d.meta.poNo || '—']];
   const cw = (pw - ml - mr) / cells.length;
   cells.forEach(([l, v], i) => { const x = ml + i * cw; doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(A[0], A[1], A[2]); doc.text(l.toUpperCase(), x, y); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30, 34, 42); doc.text(String(v), x, y + 5); });
   y += 12;
@@ -243,7 +251,7 @@ function _modern(ctx) {
   doc.setFontSize(11); doc.setTextColor(20, 22, 28); doc.text(d.recipient.name, ml, y); y += 5;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 76, 88);
   if (d.recipient.address) doc.splitTextToSize(d.recipient.address, pw - ml - mr).forEach(l => { doc.text(l, ml, y); y += 4; });
-  if (d.recipient.gstin) { doc.text('GSTIN: ' + d.recipient.gstin, ml, y); y += 4; }
+  if (d.recipient.gstin) { doc.text(d.taxIdLabel + ': ' + d.recipient.gstin, ml, y); y += 4; }
   _rcNote(doc, d, pw - mr, y - 4, 'right'); y += 2;
 
   const t = _lineTableData(d);
@@ -287,7 +295,7 @@ function _sidebar(ctx) {
   const sblock = (label, lines) => { if (!lines.filter(Boolean).length) return; doc.setFont('helvetica', 'bold'); doc.setFontSize(6.3); doc.setTextColor(...(_tint(A, 0.55))); doc.setCharSpace(0.5); doc.text(label.toUpperCase(), px, py); doc.setCharSpace(0); py += 4; doc.setFont('helvetica', 'normal'); doc.setFontSize(7.2); doc.setTextColor(...(_tint(A, 0.82))); lines.filter(Boolean).forEach(t => doc.splitTextToSize(t, sbW - px * 2).forEach(l => { doc.text(l, px, py); py += 3.5; })); py += 3; };
   sblock('Contact', [d.supplier.phone, d.supplier.email]);
   sblock('Address', [d.supplier.address]);
-  sblock('GSTIN', [d.supplier.gstin, d.supplier.stateCode ? 'State Code ' + d.supplier.stateCode : '']);
+  sblock(d.taxIdLabel, [d.supplier.gstin, d.isGst && d.supplier.stateCode ? 'State Code ' + d.supplier.stateCode : '']);
   sblock('Bank Details', [d.supplier.bankName, d.supplier.bankAcc && ('A/c ' + d.supplier.bankAcc), d.supplier.ifsc && ('IFSC ' + d.supplier.ifsc)]);
   // signatory bottom of sidebar
   doc.setDrawColor(...(_tint(A, 0.5))); doc.setLineWidth(0.3); doc.line(px, ph - 30, sbW - px, ph - 30);
@@ -308,7 +316,7 @@ function _sidebar(ctx) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(d.meta.placeOfSupply || '—', pw - mr - 40, y); y += 4.6;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.2); doc.setTextColor(70, 76, 88);
   if (d.recipient.address) doc.splitTextToSize(d.recipient.address, pw - ml - mr - 42).forEach(l => { doc.text(l, ml, y); y += 3.8; });
-  if (d.recipient.gstin) { doc.text('GSTIN: ' + d.recipient.gstin, ml, y); y += 3.8; }
+  if (d.recipient.gstin) { doc.text(d.taxIdLabel + ': ' + d.recipient.gstin, ml, y); y += 3.8; }
   _rcNote(doc, d, ml, y); y += 4;
 
   const t = _lineTableData(d);
@@ -357,7 +365,7 @@ function _minimal(ctx) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(d.meta.placeOfSupply || '—', pw / 2 + 4, y); y += 5;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUT);
   let by = y; if (d.recipient.address) doc.splitTextToSize(d.recipient.address, pw / 2 - 6).forEach(l => { doc.text(l, ml, by); by += 3.8; });
-  if (d.recipient.gstin) { doc.text('GSTIN ' + d.recipient.gstin, ml, by); by += 3.8; }
+  if (d.recipient.gstin) { doc.text(d.taxIdLabel + ' ' + d.recipient.gstin, ml, by); by += 3.8; }
   _rcNote(doc, d, pw / 2 + 4, y); y = by + 6;
 
   const t = _lineTableData(d);
@@ -421,7 +429,7 @@ function _accent(ctx) {
   doc.setFontSize(10.5); doc.setTextColor(25, 28, 36); doc.text(d.recipient.name, ml + 3, y + 11);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(d.meta.placeOfSupply || '—', pw / 2 + 3, y + 11);
   doc.setFontSize(7.6); doc.setTextColor(70, 76, 88);
-  const rline2 = [d.recipient.address, d.recipient.gstin && ('GSTIN: ' + d.recipient.gstin)].filter(Boolean).join('   ·   ');
+  const rline2 = [d.recipient.address, d.recipient.gstin && (d.taxIdLabel + ': ' + d.recipient.gstin)].filter(Boolean).join('   ·   ');
   if (rline2) doc.text(doc.splitTextToSize(rline2, pw / 2 - 6)[0], ml + 3, y + 16);
   _rcNote(doc, d, pw / 2 + 3, y + 16.5);
   y += 25;

@@ -9,7 +9,7 @@
 
 import { getSupabase, SUPABASE_URL } from '../database/supabase.js';
 import { state, saveAllData } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, getTerm } from './utils.js';
 
 const PLANS = {
   free:       { name: 'Free',       seats: 3,  projects: 2,   price: 0,     label: 'Free Trial' },
@@ -700,7 +700,7 @@ function renderOrgSettingsPanel() {
           <input type="tel" id="orgSettingPhone" value="${_currentOrg.phone || ''}" ${admin ? '' : 'readonly'} style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;">
         </div>
         <div>
-          <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">GST Number</label>
+          <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:4px;">${getTerm('taxId')}</label>
           <input type="text" id="orgSettingGST" value="${_currentOrg.gst_number || ''}" ${admin ? '' : 'readonly'} style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;">
         </div>
         <div>

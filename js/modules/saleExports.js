@@ -9,10 +9,10 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob, amountToWordsCur } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2 } from './format.js?v=1.0.1';
-import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.1';
+import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.2';
 
 const _num2 = formatNumber2;
 
@@ -45,6 +45,11 @@ export function exportSaleInvoicePDF(id) {
   const pw = doc.internal.pageSize.getWidth();
   const ml = 14, mr = 14;
   const cur = (getPdfCurrency() || 'Rs.').trim();
+  // Country tax model: India splits CGST/SGST; GCC/UK/US show a single VAT / sales-tax line.
+  const _tx = getTaxConfig();
+  const _isGst = _tx.mode === 'gst';
+  const _taxColLabel = _isGst ? 'GST' : _tx.singleLabel;
+  const _taxIdLabel = getTerm('taxId');
   // User-selectable invoice accent colour (Settings → Print)
   const accent = _rgb(state.printSettings?.invoiceColor, [30, 58, 138]);
 
@@ -67,8 +72,8 @@ export function exportSaleInvoicePDF(id) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
   const addr = (c?.address || inv.clientAddress || '').toString();
   if (addr) doc.splitTextToSize(addr, pw / 2 - ml - 6).forEach(line => { doc.text(line, ml, ly); ly += 4; });
-  if (c?.gst) { doc.text('GSTIN: ' + c.gst, ml, ly); ly += 4; }
-  if (inv.stateOfSupply) { doc.text('State: ' + inv.stateOfSupply, ml, ly); ly += 4; }
+  if (c?.gst) { doc.text(_taxIdLabel + ': ' + c.gst, ml, ly); ly += 4; }
+  if (_isGst && inv.stateOfSupply) { doc.text('State: ' + inv.stateOfSupply, ml, ly); ly += 4; }
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
   doc.text('Invoice Details:', colR, ry); ry += 4.5;
@@ -81,7 +86,7 @@ export function exportSaleInvoicePDF(id) {
   };
   detail('No:', inv.invoiceNo || '');
   detail('Date:', inv.date || '');
-  detail('Place of Supply:', inv.stateOfSupply || '');
+  if (_isGst) detail('Place of Supply:', inv.stateOfSupply || '');
   detail('PO No:', inv.poNo || '');
   detail('PO Date:', inv.poDate || '');
   y = Math.max(ly, ry) + 3;
@@ -105,7 +110,7 @@ export function exportSaleInvoicePDF(id) {
 
   doc.autoTable({
     startY: y,
-    head: [['#', 'Item name', 'HSN/SAC', 'Quantity', 'Unit', `Price/Unit (${cur})`, `GST (${cur})`, `Amount (${cur})`]],
+    head: [['#', 'Item name', _isGst ? 'HSN/SAC' : 'Code', 'Quantity', 'Unit', `Price/Unit (${cur})`, `${_taxColLabel} (${cur})`, `Amount (${cur})`]],
     body,
     foot: [['', 'Total', '', intStr(sumQty), '', '', _num2(sumTax), _num2(sumGross)]],
     theme: 'grid',
@@ -121,22 +126,41 @@ export function exportSaleInvoicePDF(id) {
   });
   y = doc.lastAutoTable.finalY + 4;
 
-  // ── Tax summary (HSN-wise, CGST + SGST split) — left half ──
-  const groups = {};
-  items.forEach(it => {
-    const k = it.hsn || '-';
-    if (!groups[k]) groups[k] = { taxable: 0, tax: 0, rate: parseFloat(it.taxPct) || 0 };
-    groups[k].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
-    groups[k].tax += (parseFloat(it.taxAmount) || 0);
-  });
-  const taxBody = Object.entries(groups).map(([hsn, g]) => {
-    const half = g.tax / 2, hr = g.rate / 2;
-    return [hsn, _num2(g.taxable), hr ? hr + '%' : '', _num2(half), hr ? hr + '%' : '', _num2(half), _num2(g.tax)];
-  });
-  taxBody.push(['TOTAL', _num2(sumTaxable), '', _num2(sumTax / 2), '', _num2(sumTax / 2), _num2(sumTax)]);
+  // ── Tax summary — left half ──
+  // India: HSN-wise CGST + SGST split. Elsewhere: rate-wise single VAT / sales tax.
+  let taxHead, taxBody;
+  if (_isGst) {
+    const groups = {};
+    items.forEach(it => {
+      const k = it.hsn || '-';
+      if (!groups[k]) groups[k] = { taxable: 0, tax: 0, rate: parseFloat(it.taxPct) || 0 };
+      groups[k].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
+      groups[k].tax += (parseFloat(it.taxAmount) || 0);
+    });
+    taxBody = Object.entries(groups).map(([hsn, g]) => {
+      const half = g.tax / 2, hr = g.rate / 2;
+      return [hsn, _num2(g.taxable), hr ? hr + '%' : '', _num2(half), hr ? hr + '%' : '', _num2(half), _num2(g.tax)];
+    });
+    taxBody.push(['TOTAL', _num2(sumTaxable), '', _num2(sumTax / 2), '', _num2(sumTax / 2), _num2(sumTax)]);
+    taxHead = [['HSN/SAC', `Taxable`, 'CGST%', `CGST`, 'SGST%', `SGST`, `Total Tax`]];
+  } else {
+    // Group by tax rate so each VAT band is shown separately (5%, 0% …).
+    const rGroups = {};
+    items.forEach(it => {
+      const r = parseFloat(it.taxPct) || 0;
+      if (!rGroups[r]) rGroups[r] = { taxable: 0, tax: 0 };
+      rGroups[r].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
+      rGroups[r].tax += (parseFloat(it.taxAmount) || 0);
+    });
+    taxBody = Object.entries(rGroups)
+      .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+      .map(([r, g]) => [`${_taxColLabel} ${r}%`, _num2(g.taxable), _num2(g.tax)]);
+    taxBody.push(['TOTAL', _num2(sumTaxable), _num2(sumTax)]);
+    taxHead = [[`${_taxColLabel} rate`, `Taxable (${cur})`, `${_taxColLabel} (${cur})`]];
+  }
   doc.autoTable({
     startY: y,
-    head: [['HSN/SAC', `Taxable`, 'CGST%', `CGST`, 'SGST%', `SGST`, `Total Tax`]],
+    head: taxHead,
     body: taxBody, theme: 'grid',
     headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 7, halign: 'center' },
     styles: { fontSize: 7, cellPadding: 1.4, halign: 'right' },
