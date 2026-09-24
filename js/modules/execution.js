@@ -827,7 +827,8 @@ window._exDprPdf = async function (id) {
     [['Site Engineer', prepBy], ['Project Manager', ''], ['Client Representative', '']].forEach((s, i) => { const x = ml + i * sw; D(LINE); doc.setLineWidth(0.4); doc.line(x, sy, x + sw - 14, sy); T(INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(s[0], x, sy + 5); if (s[1]) { T(MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(s[1], x, sy + 9); } });
 
     const pages = doc.internal.getNumberOfPages();
-    for (let p = 1; p <= pages; p++) { doc.setPage(p); F(NAVY); doc.rect(0, ph - 6, pw, 6, 'F'); T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.text(`${companyName} · Daily Progress Report`, ml, ph - 2); doc.text(`${d.date || ''}`, pw / 2, ph - 2, { align: 'center' }); doc.text(`Page ${p} of ${pages}`, pw - mr, ph - 2, { align: 'right' }); }
+    const footBrand = (company.name || company.companyName) ? `${companyName} · Daily Progress Report` : 'Daily Progress Report';
+    for (let p = 1; p <= pages; p++) { doc.setPage(p); F(NAVY); doc.rect(0, ph - 6, pw, 6, 'F'); T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.text(footBrand, ml, ph - 2); doc.text(`${d.date || ''}`, pw / 2, ph - 2, { align: 'center' }); doc.text(`Page ${p} of ${pages}`, pw - mr, ph - 2, { align: 'right' }); }
 
     mobileSavePDF(doc, `DPR_${(d.dprNum || d.date || 'report').toString().replace(/[\\/ ]/g, '-')}.pdf`);
     showToast('DPR PDF downloaded');
