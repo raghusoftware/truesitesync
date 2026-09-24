@@ -211,7 +211,7 @@ export function renderExecEngine() {
     const start = (a.schedule && a.schedule.plannedStart) || '';
     const dur = num(a.schedule && a.schedule.duration);
     const fin = (a.schedule && a.schedule.plannedFinish) || _eeAddDays(start, dur);
-    const barC = pct >= 100 ? '#16a34a' : (pct > 0 ? '#f59e0b' : '#cbd5e1');
+    const barC = pct >= 100 ? '#c2401c' : (pct > 0 ? '#f59e0b' : '#cbd5e1');
     return `<tr style="border-top:1px solid #f1f5f9;">
       <td style="padding:8px 10px;color:#94a3b8;">${i + 1}</td>
       <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${esc(a.name || 'Untitled')}${a.boqRef ? ` <span style="font-size:9px;color:#7c3aed;background:#f5f3ff;border-radius:5px;padding:1px 5px;">${esc(a.boqRef)}</span>` : ''}</td>
@@ -242,7 +242,7 @@ export function renderExecEngine() {
       </div>
       ${list.length ? `<div style="margin-bottom:12px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:12px;font-weight:700;color:#64748b;">Overall progress</span>
-        <div style="flex:1;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div style="width:${overall}%;height:100%;background:${overall >= 100 ? '#16a34a' : '#7c3aed'};"></div></div>
+        <div style="flex:1;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div style="width:${overall}%;height:100%;background:${overall >= 100 ? '#c2401c' : '#7c3aed'};"></div></div>
         <span style="font-size:14px;font-weight:800;color:#0f172a;">${overall}%</span>
         <span style="font-size:11px;color:#94a3b8;">${list.length} activit${list.length === 1 ? 'y' : 'ies'}</span>
       </div>` : ''}
@@ -844,7 +844,7 @@ window._execConfirmReason = async function () {
 /* ---- versions & change history ---- */
 window._execVersions = function (actId) {
   const plans = plansFor(actId); const a = actById(actId);
-  const body = plans.map(p => `<div class="ee-ver-row"><div><b>${p.version}</b> · ${new Date(p.createdAt).toLocaleString('en-IN')} · ${esc(p.createdBy)}${p.reason ? ` · <span class="ee-tag">${esc(p.reason)}</span>` : ''}</div><div class="ee-mini">${(p.labour || []).reduce((s, l) => s + num(l.workers), 0)} workers · target ${fmtN(p.targetQty)}${p.active ? ' · <b style="color:#16a34a">ACTIVE</b>' : ''}</div></div>`).join('');
+  const body = plans.map(p => `<div class="ee-ver-row"><div><b>${p.version}</b> · ${new Date(p.createdAt).toLocaleString('en-IN')} · ${esc(p.createdBy)}${p.reason ? ` · <span class="ee-tag">${esc(p.reason)}</span>` : ''}</div><div class="ee-mini">${(p.labour || []).reduce((s, l) => s + num(l.workers), 0)} workers · target ${fmtN(p.targetQty)}${p.active ? ' · <b style="color:#c2401c">ACTIVE</b>' : ''}</div></div>`).join('');
   _simpleModal(`Versions · ${esc(a.name)}`, body || 'No versions');
 };
 window._execChangeLog = function (actId) {

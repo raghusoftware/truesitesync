@@ -146,7 +146,7 @@ function _renderHome(root) {
     <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Petty Cash</h2>
     <p class="text-sm text-slate-400 mb-5">Imprest wallets — push funds to field custodians & track every rupee</p>
 
-    <div style="background:linear-gradient(135deg,#0f766e,#10b981);border-radius:20px;padding:22px 26px;color:#fff;margin-bottom:22px;box-shadow:0 10px 30px rgba(16,185,129,.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div style="background:linear-gradient(135deg,#0f766e,#ef8420);border-radius:20px;padding:22px 26px;color:#fff;margin-bottom:22px;box-shadow:0 10px 30px rgba(239,132,32,.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
       <div>
         <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;">Total Cash in Field</div>
         <div style="font-size:34px;font-weight:800;margin-top:2px;">${_fmt(totalInField)}</div>
@@ -161,7 +161,7 @@ function _renderHome(root) {
     </div>` : ''}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
-      ${card('👛', '#10b981', 'Wallets', 'Custodians & balances', "_pcOpen('wallets')")}
+      ${card('👛', '#ef8420', 'Wallets', 'Custodians & balances', "_pcOpen('wallets')")}
       ${card('🧾', '#f59e0b', 'Log Expense', 'Deduct a field spend', "_pcOpen('expense')")}
       ${card('📜', '#2563eb', 'Ledger', 'All transfers & expenses', "_pcOpen('ledger')")}
       ${card('📊', '#7c3aed', 'Reconciliation', 'Issued vs spent vs returned', "_pcOpen('recon')")}
@@ -183,7 +183,7 @@ function _renderWallets(root) {
     const pending = _pendingIn(c.id);
     return `<div onclick="_pcOpen('cust:${c.id}')" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:.15s;" onmouseover="this.style.boxShadow='0 6px 20px rgba(0,0,0,.07)'" onmouseout="this.style.boxShadow=''">
       <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:42px;height:42px;border-radius:50%;background:#10b98115;color:#0f766e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;">${_esc((c.name || '?').charAt(0).toUpperCase())}</div>
+        <div style="width:42px;height:42px;border-radius:50%;background:#ef842015;color:#0f766e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;">${_esc((c.name || '?').charAt(0).toUpperCase())}</div>
         <div>
           <div style="font-weight:700;color:#0f172a;">${_esc(c.name)}</div>
           <div style="font-size:11px;color:#94a3b8;">${_esc(c.role || 'Custodian')}${c.phone ? ' · ' + _esc(c.phone) : ''}</div>
@@ -200,7 +200,7 @@ function _renderWallets(root) {
   const adminBar = _isPettyAdmin() ? `
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <button onclick="_pcCustodianModal()" style="padding:9px 16px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Custodian</button>
-      <button onclick="_pcTransferModal()" style="padding:9px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" ${custs.length ? '' : 'disabled'}>⇪ Transfer Funds</button>
+      <button onclick="_pcTransferModal()" style="padding:9px 16px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" ${custs.length ? '' : 'disabled'}>⇪ Transfer Funds</button>
     </div>` : `<div style="margin-bottom:16px;font-size:12px;color:#94a3b8;">You can view your wallet and log expenses. Funds are issued by the admin.</div>`;
   root.innerHTML = `
     ${_backBar('Wallets')}
@@ -231,7 +231,7 @@ function _renderCustodian(root, custId) {
 
   root.innerHTML = `
     <button onclick="_pcOpen('wallets')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Wallets</button>
-    <div style="background:linear-gradient(135deg,#0f766e,#10b981);border-radius:20px;padding:24px;color:#fff;margin-bottom:18px;box-shadow:0 10px 30px rgba(16,185,129,.25);">
+    <div style="background:linear-gradient(135deg,#0f766e,#ef8420);border-radius:20px;padding:24px;color:#fff;margin-bottom:18px;box-shadow:0 10px 30px rgba(239,132,32,.25);">
       <div style="font-size:13px;opacity:.85;">${_esc(c.name)} · ${_esc(c.role || 'Custodian')}</div>
       <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;margin-top:10px;">Live Balance</div>
       <div style="font-size:40px;font-weight:800;">${_fmt(bal)}</div>
@@ -241,7 +241,7 @@ function _renderCustodian(root, custId) {
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <button onclick="_pcExpenseModal('${custId}')" style="padding:9px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🧾 Log Expense</button>
       <button onclick="_pcReturnModal('${custId}')" style="padding:9px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">↩ Return Funds</button>
-      ${isAdm ? `<button onclick="_pcTransferModal('${custId}')" style="padding:9px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⇪ Add Funds</button>
+      ${isAdm ? `<button onclick="_pcTransferModal('${custId}')" style="padding:9px 16px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⇪ Add Funds</button>
       <button onclick="_pcCustodianModal('${custId}')" style="padding:9px 16px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>` : ''}
     </div>
     <h3 style="font-weight:800;color:#334155;margin-bottom:10px;">History</h3>
@@ -266,7 +266,7 @@ function _renderLedger(root) {
     ${_backBar('Ledger')}
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
       <select onchange="_pcSetLedgerFilter(this.value)" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;background:#fff;">${opts}</select>
-      <span style="font-size:12px;color:#10b981;font-weight:700;">In: ${_fmt(totIn)}</span>
+      <span style="font-size:12px;color:#ef8420;font-weight:700;">In: ${_fmt(totIn)}</span>
       <span style="font-size:12px;color:#f59e0b;font-weight:700;">Out: ${_fmt(totOut)}</span>
       ${totReturned > 0 ? `<span style="font-size:12px;color:#2563eb;font-weight:700;">Returned: ${_fmt(totReturned)}</span>` : ''}
     </div>
@@ -326,7 +326,7 @@ function _renderRecon(root) {
 function _txnRow(t, showName) {
   const isIn = t.type === 'TRANSFER';
   const isReturn = t.type === 'RETURN';
-  const accent = isIn ? '#10b981' : (isReturn ? '#2563eb' : '#f59e0b');
+  const accent = isIn ? '#ef8420' : (isReturn ? '#2563eb' : '#f59e0b');
   const sign = isIn ? '+' : '−';
   const title = isIn ? 'Transfer In' : (isReturn ? 'Returned to ' + _esc(t.toAccountName || 'account') : _esc(t.category || 'Expense'));
   const photo = (t.photo || t.photoPath) ? `<button onclick="_pcLightbox('${t.id}')" title="View receipt" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">🖼️</button>` : '';
@@ -340,16 +340,16 @@ function _txnRow(t, showName) {
     if (st === 'pending') {
       chip = `<span style="font-size:9px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:1px 7px;margin-left:6px;">⏳ Awaiting confirmation</span>`;
       if (canAct) actions = `<div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Yes, I received this</button>
+        <button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#ef8420;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Yes, I received this</button>
         <button onclick="_pcDisputeTransfer('${t.id}')" style="padding:6px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Dispute</button>
       </div>`;
       else subLine = `Waiting for ${_esc(_custName(t.custodianId))} to confirm`;
     } else if (st === 'disputed') {
       chip = `<span style="font-size:9px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:1px 7px;margin-left:6px;">⚠ Disputed</span>`;
       subLine = (t.disputeNote ? '“' + _esc(t.disputeNote) + '” — ' : '') + 'raised by ' + _esc(t.acceptedBy || 'recipient');
-      if (canAct) actions = `<div style="margin-top:8px;"><button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve &amp; confirm receipt</button></div>`;
+      if (canAct) actions = `<div style="margin-top:8px;"><button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#ef8420;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve &amp; confirm receipt</button></div>`;
     } else {
-      chip = `<span style="font-size:9px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:1px 7px;margin-left:6px;">✓ Received</span>`;
+      chip = `<span style="font-size:9px;font-weight:800;color:#c2321f;background:#fff3ea;border:1px solid #f6c9a8;border-radius:8px;padding:1px 7px;margin-left:6px;">✓ Received</span>`;
       if (t.acceptedBy) subLine = 'Confirmed by ' + _esc(t.acceptedBy);
     }
   }
@@ -479,7 +479,7 @@ window._pcTransferModal = function (presetCust) {
       <input id="pcTrAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
       <input id="pcTrDate" type="date" value="${new Date().toISOString().split('T')[0]}" style="${_inp}">
       <input id="pcTrNote" placeholder="Note (e.g. Weekly site expenses)" style="${_inp}">
-      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;" ${accs.length ? '' : 'disabled'}>⇪ Transfer</button>
+      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;" ${accs.length ? '' : 'disabled'}>⇪ Transfer</button>
     </div>`);
 };
 window._pcDoTransfer = function () {
@@ -617,7 +617,7 @@ window._pcExpenseModal = function (custId) {
   const cats = PC_CATEGORIES.map(x => `<option>${x}</option>`).join('');
   _modal(`${_modalHead('Log Expense')}
     <div style="padding:20px;">
-      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#047857;">${_esc(c.name)} · Balance ${_fmt(_balance(custId))}</div>
+      <div style="background:#fff3ea;border:1px solid #f6c9a8;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#c2321f;">${_esc(c.name)} · Balance ${_fmt(_balance(custId))}</div>
       <input id="pcExAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
       <select id="pcExCat" style="${_inp}">${cats}</select>
       <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin:6px 0 4px;">Paid to (optional)</label>

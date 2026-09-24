@@ -98,7 +98,7 @@ function _renderRecipeItemCards(items, cId) {
 
     return `<div class="bg-white rounded-xl border ${hasRecipe ? 'border-green-200' : 'border-slate-200'} shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden" onclick="window._recipeOpenEditor('${item.code}')">
       <div class="flex items-stretch">
-        <div style="width:4px;background:${hasRecipe ? '#10b981' : '#e2e8f0'};flex-shrink:0;"></div>
+        <div style="width:4px;background:${hasRecipe ? '#ef8420' : '#e2e8f0'};flex-shrink:0;"></div>
         <div class="flex-1 p-4">
           <div class="flex items-start justify-between gap-2 mb-2">
             <div class="flex-1 min-w-0">

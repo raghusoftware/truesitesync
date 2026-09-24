@@ -17,7 +17,7 @@ import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js'
 
 export const ISSUE_CATEGORIES = ['Client', 'Communication', 'Compliance', 'Design', 'Environmental', 'Financial', 'Management', 'Operational', 'Quality', 'Request for Information', 'Safety', 'Supply', 'Technical', 'Other'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const PRIORITY_COLOR = { Low: '#10b981', Medium: '#f59e0b', High: '#f97316', Critical: '#ef4444' };
+const PRIORITY_COLOR = { Low: '#ef8420', Medium: '#f59e0b', High: '#f97316', Critical: '#ef4444' };
 const CAT_COLOR = '#6366f1';
 
 // ── helpers ────────────────────────────────────────────────
@@ -153,7 +153,7 @@ function _renderDashboard(root) {
       ${kpi('Open', open, '#1e3a8a', '&#128203;')}
       ${kpi('Pending', pending, '#f59e0b', '&#9203;')}
       ${kpi('Delayed', delayed, '#ef4444', '&#9888;&#65039;')}
-      ${kpi('Solved', solved, '#10b981', '&#9989;')}
+      ${kpi('Solved', solved, '#ef8420', '&#9989;')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;">
@@ -174,7 +174,7 @@ function _renderDashboard(root) {
         ${recent.length ? recent.map(i => `<div onclick="_isOpenForm('${i.id}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="width:8px;height:8px;border-radius:50%;background:${PRIORITY_COLOR[i.priority] || '#94a3b8'};flex-shrink:0;"></span>
           <span style="font-size:12px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(i.title || i.details || 'Issue')}</span>
-          <span style="font-size:10px;font-weight:700;color:${_status(i) === 'Solved' ? '#10b981' : _status(i) === 'Delayed' ? '#ef4444' : '#f59e0b'};">${_status(i)}</span></div>`).join('') : '<p style="font-size:12px;color:#94a3b8;">No issues yet.</p>'}
+          <span style="font-size:10px;font-weight:700;color:${_status(i) === 'Solved' ? '#ef8420' : _status(i) === 'Delayed' ? '#ef4444' : '#f59e0b'};">${_status(i)}</span></div>`).join('') : '<p style="font-size:12px;color:#94a3b8;">No issues yet.</p>'}
       </div>
     </div>`;
 }
@@ -196,7 +196,7 @@ function _renderList(root, status) {
 
 function _issueCard(i) {
   const st = _status(i);
-  const stColor = st === 'Solved' ? '#10b981' : st === 'Delayed' ? '#ef4444' : '#f59e0b';
+  const stColor = st === 'Solved' ? '#ef8420' : st === 'Delayed' ? '#ef4444' : '#f59e0b';
   const pr = i.priority || 'Medium';
   const photo = (i.photo || i.photoPath) ? `<button onclick="event.stopPropagation();_isLightbox('${i.id}')" title="View photo" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">&#128247;</button>` : '';
   const links = [];
@@ -220,7 +220,7 @@ function _issueCard(i) {
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
         ${photo}
-        ${i.status !== 'Solved' ? `<button onclick="event.stopPropagation();_isSolve('${i.id}')" title="Mark solved" style="border:none;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px;font-weight:700;">&#10003; Solve</button>`
+        ${i.status !== 'Solved' ? `<button onclick="event.stopPropagation();_isSolve('${i.id}')" title="Mark solved" style="border:none;background:#fff3ea;color:#c2321f;border:1px solid #f6c9a8;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px;font-weight:700;">&#10003; Solve</button>`
       : `<button onclick="event.stopPropagation();_isReopen('${i.id}')" title="Reopen" style="border:none;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px;font-weight:700;">Reopen</button>`}
         <button onclick="event.stopPropagation();_isDelete('${i.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">&#128465;&#65039;</button>
       </div>
@@ -294,7 +294,7 @@ window._isOpenForm = function (editId) {
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="_isSave('${editId || ''}')" style="flex:1;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${iss ? 'Save Changes' : 'Create Issue'}</button>
-        ${iss && iss.status !== 'Solved' ? `<button onclick="_isSolve('${iss.id}')" style="padding:11px 16px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:10px;font-weight:700;cursor:pointer;">&#10003; Solve</button>` : ''}
+        ${iss && iss.status !== 'Solved' ? `<button onclick="_isSolve('${iss.id}')" style="padding:11px 16px;background:#fff3ea;color:#c2321f;border:1px solid #f6c9a8;border-radius:10px;font-weight:700;cursor:pointer;">&#10003; Solve</button>` : ''}
       </div>
     </div>`);
   // Load an existing Storage-backed photo into the preview via a signed URL.

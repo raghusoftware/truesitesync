@@ -290,7 +290,7 @@ window._imBuild = function (id) {
     const r = rm(c.rawMatId), qtyEl = document.getElementById('imBuildQty');
     const n = (parseFloat(qtyEl?.value) || 0) * (parseFloat(c.qty) || 0);
     const have = _rmOnHand(c.rawMatId);
-    const shortC = n > have ? 'color:#dc2626;font-weight:700;' : 'color:#16a34a;';
+    const shortC = n > have ? 'color:#dc2626;font-weight:700;' : 'color:#c2401c;';
     return `<tr><td style="padding:5px 8px;">${_esc(r.name || c.rawMatId)}</td><td style="padding:5px 8px;text-align:right;color:#64748b;">${c.qty} ${_esc(r.unit || '')}/unit</td><td style="padding:5px 8px;text-align:right;">${n || '—'}</td><td style="padding:5px 8px;text-align:right;${shortC}">${have}</td></tr>`;
   }).join('');
   const wrap = document.createElement('div');

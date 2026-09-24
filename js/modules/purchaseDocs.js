@@ -224,7 +224,7 @@ export function renderPurchaseOrders() {
   filtered.forEach(o => {
     const v = state.vendors.find(x => x.id === o.vendorId);
     const f = _fmap.get(o.id);
-    const barColor = f.status === 'Completed' ? '#16a34a' : (f.status === 'Partial' ? '#f59e0b' : '#cbd5e1');
+    const barColor = f.status === 'Completed' ? '#c2401c' : (f.status === 'Partial' ? '#f59e0b' : '#cbd5e1');
     const chip = f.status === 'Completed'
       ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">Completed</span>'
       : (f.status === 'Partial'
@@ -258,9 +258,9 @@ export function viewPurchaseOrderReport(id) {
   const bills = (state.vendorMaterials || []).filter(b => b.poId === po.id);
   const cur = getCurrencySymbol();
   const qn = n => (+(Number(n) || 0).toFixed(2)).toLocaleString('en-IN');
-  const statusColor = f.status === 'Completed' ? '#16a34a' : (f.status === 'Partial' ? '#f59e0b' : '#64748b');
+  const statusColor = f.status === 'Completed' ? '#c2401c' : (f.status === 'Partial' ? '#f59e0b' : '#64748b');
   const itemRows = f.items.map(it => {
-    const rc = it.remaining <= 0 && it.ordered > 0 ? '#16a34a' : (it.received > 0 ? '#f59e0b' : '#94a3b8');
+    const rc = it.remaining <= 0 && it.ordered > 0 ? '#c2401c' : (it.received > 0 ? '#f59e0b' : '#94a3b8');
     return `<tr style="border-bottom:1px solid #f1f5f9;">
       <td class="px-3 py-2 font-bold text-slate-700">${it.name}</td>
       <td class="px-3 py-2 text-center">${it.unit || ''}</td>

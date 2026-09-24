@@ -749,7 +749,7 @@ const THEME_PREVIEWS = {
   minimalist_table: { headerBg:'#505050', headerText:'#fff', rowAlt:'transparent', border:'#ccc', font:'Arial', accent:'#333' },
   blueprint_tally: { headerBg:'#1e50a0', headerText:'#fff', rowAlt:'#eef4ff', border:'#3b7dd8', font:'Arial', accent:'#1e50a0' },
   compact_onsite: { headerBg:'#f97316', headerText:'#fff', rowAlt:'#fff7ed', border:'#fdba74', font:'Arial', accent:'#ea580c' },
-  engineering_calc: { headerBg:'#166534', headerText:'#fff', rowAlt:'#f0fdf4', border:'#16a34a', font:'Courier', accent:'#166534' },
+  engineering_calc: { headerBg:'#7a1f14', headerText:'#fff', rowAlt:'#fff3ea', border:'#c2401c', font:'Courier', accent:'#7a1f14' },
   tally_abstract_classic: { headerBg:'#dcdcdc', headerText:'#000', rowAlt:'#f5f5f5', border:'#000', font:'Courier', accent:'#333' },
   abstract_modern: { headerBg:'#1e3a8a', headerText:'#fff', rowAlt:'transparent', border:'#93c5fd', font:'Arial', accent:'#1e3a8a' },
   abstract_column_ledger: { headerBg:'#000', headerText:'#fff', rowAlt:'#fafafa', border:'#000', font:'Courier', accent:'#000' },

@@ -200,7 +200,7 @@ function _plannedResourcesSummary(task) {
   const chip = (txt, bg, col) => `<span style="display:inline-block;background:${bg};color:${col};font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;margin:2px 4px 2px 0;">${_esc(txt)}</span>`;
   let h = '<div class="mt-4 p-3 rounded-lg" style="background:#f6faf8;border:1px solid #e6ece8;">';
   h += '<div class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">📋 Carried over from Planning</div>';
-  if (mats.length) h += '<div class="mb-1"><span class="text-[10px] text-slate-400">Material:</span> ' + mats.map(m => chip(((rm(m.materialId)?.name) || m.materialName || '—') + ' · ' + (m.qtyRequired || 0) + (m.fromRecipe ? ' (recipe)' : ''), '#ecfdf5', '#047857')).join('') + '</div>';
+  if (mats.length) h += '<div class="mb-1"><span class="text-[10px] text-slate-400">Material:</span> ' + mats.map(m => chip(((rm(m.materialId)?.name) || m.materialName || '—') + ' · ' + (m.qtyRequired || 0) + (m.fromRecipe ? ' (recipe)' : ''), '#fff3ea', '#c2321f')).join('') + '</div>';
   if (eqs.length) h += '<div class="mb-1"><span class="text-[10px] text-slate-400">Equipment:</span> ' + eqs.map(e => chip((state.equipmentList || []).find(x => x.id === e.equipmentId)?.name || '—', '#f5f3ff', '#6d28d9')).join('') + '</div>';
   if (tools.length) h += '<div><span class="text-[10px] text-slate-400">Tools:</span> ' + tools.map(t => chip(((rm(t.toolId)?.name) || '—') + (t.qty ? ' · ' + t.qty : ''), '#faf6ea', '#92700a')).join('') + '</div>';
   h += '</div>';
@@ -786,7 +786,7 @@ function _renderUtilizationChart(utilData) {
   trades.forEach(trade => {
     html += `<tr><td class="px-2 py-1.5 font-bold text-slate-700 border-r whitespace-nowrap">${trade}</td>`;
     utilData.trades[trade].forEach(pct => {
-      const bg = pct === 0 ? '#f1f5f9' : pct <= 50 ? '#dbeafe' : pct <= 80 ? '#bbf7d0' : pct <= 100 ? '#fef08a' : '#fecaca';
+      const bg = pct === 0 ? '#f1f5f9' : pct <= 50 ? '#dbeafe' : pct <= 80 ? '#fdd9be' : pct <= 100 ? '#fef08a' : '#fecaca';
       const clr = pct === 0 ? '#94a3b8' : pct > 100 ? '#991b1b' : '#1e293b';
       html += `<td class="px-2 py-1.5 text-center font-bold" style="background:${bg};color:${clr}">${pct}%</td>`;
     });
@@ -796,7 +796,7 @@ function _renderUtilizationChart(utilData) {
   html += `<div class="flex gap-3 mt-2 text-[9px] text-slate-500 flex-wrap">
     <span><span class="inline-block w-3 h-3 rounded" style="background:#f1f5f9"></span> 0%</span>
     <span><span class="inline-block w-3 h-3 rounded" style="background:#dbeafe"></span> 1-50%</span>
-    <span><span class="inline-block w-3 h-3 rounded" style="background:#bbf7d0"></span> 51-80%</span>
+    <span><span class="inline-block w-3 h-3 rounded" style="background:#fdd9be"></span> 51-80%</span>
     <span><span class="inline-block w-3 h-3 rounded" style="background:#fef08a"></span> 81-100%</span>
     <span><span class="inline-block w-3 h-3 rounded" style="background:#fecaca"></span> Over 100%</span>
   </div>`;
@@ -998,7 +998,7 @@ export function renderMicroPlanningView() {
         <div style="font-size:14px;font-weight:700;color:#0f172a;">Generate Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Set horizon & allocate</div>
       </div>
       <div onclick="_openMpSection('plan')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-        <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
+        <div style="width:50px;height:50px;background:#ef842015;border:2px solid #ef842030;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
         <div style="font-size:14px;font-weight:700;color:#0f172a;">Generated Plan</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">View saved daily sheets</div>
       </div>
       <div onclick="_openMpSection('rabill')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
@@ -1169,7 +1169,7 @@ window._mpViewSavedPlan = function(planId) {
   if (typeof window._openMpSection === 'function') window._openMpSection('plan');
   // Highlight the selected row, clear the others.
   document.querySelectorAll('#mpSavedPlansList tr[data-planid]').forEach(tr => {
-    tr.style.background = tr.getAttribute('data-planid') === planId ? '#ecfdf5' : '';
+    tr.style.background = tr.getAttribute('data-planid') === planId ? '#fff3ea' : '';
   });
   _mpDecomposed = p.decomposed || {}; _mpAllocations = p.allocations || {}; _mpMode = p.mode || 'daily';
   const allWorkers = _getProjectWorkers();
@@ -1249,7 +1249,7 @@ window.renderPlanVsActual = function() {
   const overallPct = totPlanVal > 0 ? Math.min(100, (totDoneVal / totPlanVal) * 100) : 0;
 
   const body = rows.map(r => {
-    const barColor = r.pct >= 100 ? '#16a34a' : r.pct >= 50 ? '#0891b2' : r.pct > 0 ? '#f59e0b' : '#e2e8f0';
+    const barColor = r.pct >= 100 ? '#c2401c' : r.pct >= 50 ? '#0891b2' : r.pct > 0 ? '#f59e0b' : '#e2e8f0';
     return `<tr class="border-b hover:bg-slate-50">
       <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(r.code)}</td>
       <td class="px-2 py-1.5 text-slate-600">${_esc(r.description)}</td>
@@ -1828,7 +1828,7 @@ window._mpRecordWork = function(dateStr) {
   document.getElementById('mpRecordWorkModal')?.remove();
   const html = `<div id="mpRecordWorkModal" class="ef-overlay" style="z-index:299999" onclick="if(event.target===this)this.remove()">
     <div class="ef-modal" style="max-width:760px;">
-      <div class="ef-header" style="background:linear-gradient(135deg,#059669,#047857)">
+      <div class="ef-header" style="background:linear-gradient(135deg,#d6402c,#c2321f)">
         <h3 class="ef-title" style="color:#fff">📐 Record Work Done</h3>
         <button onclick="document.getElementById('mpRecordWorkModal').remove()" class="ef-close" style="color:#fff">&times;</button>
       </div>
@@ -2583,7 +2583,7 @@ export function renderCostLedger() {
       ${card('Work done (earned)', fmt(income), `Billed ${fmt(billed)} · WIP ${fmt(wip)}`, '#0d9488')}
       ${card('Material cost', fmt(materialTotal), 'recipe × purchase rate', '#ea580c')}
       ${card('Labour cost', fmt(labourCost), 'attendance wages', '#7c3aed')}
-      ${card(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% margin', profit >= 0 ? '#16a34a' : '#dc2626')}
+      ${card(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% margin', profit >= 0 ? '#c2401c' : '#dc2626')}
     </div>
     ${projTable}
 

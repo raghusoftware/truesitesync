@@ -127,8 +127,8 @@ export function renderNotifications() {
     ? `<span style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:#dc2626;color:#fff;border-radius:9px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;">${unread > 99 ? '99+' : unread}</span>`
     : '';
   const rows = mine.slice(0, 40).map(n => `
-    <div onclick="_notifOpen('${n.id}')" style="padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;gap:10px;background:${n.read ? '#fff' : '#f0fdf4'};">
-      <div style="width:8px;flex-shrink:0;display:flex;justify-content:center;padding-top:5px;">${n.read ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#10b981;display:block;"></span>'}</div>
+    <div onclick="_notifOpen('${n.id}')" style="padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;gap:10px;background:${n.read ? '#fff' : '#fff3ea'};">
+      <div style="width:8px;flex-shrink:0;display:flex;justify-content:center;padding-top:5px;">${n.read ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#ef8420;display:block;"></span>'}</div>
       <div style="min-width:0;flex:1;">
         <div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(n.title)}</div>
         ${n.body ? `<div style="font-size:12px;color:#64748b;margin-top:1px;">${_esc(n.body)}</div>` : ''}
@@ -142,7 +142,7 @@ export function renderNotifications() {
         <span style="font-weight:800;color:#0f172a;font-size:14px;">Notifications</span>
         <span style="display:flex;gap:6px;align-items:center;">
           <button id="pushToggleBtn" onclick="event.stopPropagation();" style="border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">🔕 Enable push</button>
-          ${unread > 0 ? `<button onclick="event.stopPropagation();_notifMarkAllRead()" style="border:none;background:#ecfdf5;color:#047857;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">Mark all read</button>` : ''}
+          ${unread > 0 ? `<button onclick="event.stopPropagation();_notifMarkAllRead()" style="border:none;background:#fff3ea;color:#c2321f;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">Mark all read</button>` : ''}
         </span>
       </div>
       ${rows}

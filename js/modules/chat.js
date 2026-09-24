@@ -76,7 +76,7 @@ function initials(name) {
   return String(name || 'U').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
 }
 function avatarColor(id) {
-  const palette = ['#2563eb', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0d9488', '#d97706', '#4f46e5'];
+  const palette = ['#2563eb', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#c2401c', '#0d9488', '#d97706', '#4f46e5'];
   let h = 0; for (const ch of String(id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return palette[h % palette.length];
 }

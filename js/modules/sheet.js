@@ -189,7 +189,7 @@ export function showBOQQuickRef() {
     const refKey = item._boqRef || String(i);
     const used = usedQty[refKey] || usedQty[i] || 0;
     const bal = (item.qty || 0) - used;
-    const balColor = bal <= 0 ? 'color:#ef4444;' : bal < (item.qty || 0) * 0.2 ? 'color:#f59e0b;' : 'color:#10b981;';
+    const balColor = bal <= 0 ? 'color:#ef4444;' : bal < (item.qty || 0) * 0.2 ? 'color:#f59e0b;' : 'color:#ef8420;';
     html += `<tr style="${i % 2 ? 'background:#fafbfc;' : ''}">
       <td class="px-3 py-2 text-center text-slate-400 font-bold border-b">${i + 1}</td>
       <td class="px-3 py-2 text-[9px] font-bold border-b" style="color:#6366f1">${item._boqGroupName || 'BOQ'}</td>
@@ -278,7 +278,7 @@ export function onMeasureItemInput(input) {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
-    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#10b981';
+    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#ef8420';
     const div = document.createElement('div');
     div.className = 'boq-dd-item';
     const groupLabel = item._boqGroupName ? `<span class="dd-group" style="color:#6366f1;font-size:9px;font-weight:700;">[${item._boqGroupName}]</span> ` : '';
@@ -358,7 +358,7 @@ export function onMeasureDescInput(input) {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
-    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#10b981';
+    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#ef8420';
     const div = document.createElement('div');
     div.className = 'boq-dd-item';
     const groupLabel = item._boqGroupName ? `<span class="dd-group" style="color:#6366f1;font-size:9px;font-weight:700;">[${item._boqGroupName}]</span> ` : '';
@@ -906,7 +906,7 @@ function _renderSheetAttribution(sheet) {
   if (!sheet || (!sheet.createdBy && !sheet.reviewedBy && !sheet.locked)) { el.classList.add('hide'); el.innerHTML = ''; return; }
   let html = '';
   if (sheet.createdBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;">📄 Measurement sheet uploaded by <b style="color:#0f172a;">${esc(sheet.createdBy)}</b></span>`;
-  if (sheet.reviewedBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;">✓ Reviewed — changes made by <b>${esc(sheet.reviewedBy)}</b></span>`;
+  if (sheet.reviewedBy) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#fff3ea;color:#c2321f;border:1px solid #f6c9a8;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;">✓ Reviewed — changes made by <b>${esc(sheet.reviewedBy)}</b></span>`;
   if (sheet.locked) html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:800;">🔒 Verified &amp; locked${sheet.verifiedBy ? ' by <b>' + esc(sheet.verifiedBy) + '</b>' : ''}</span>`;
   el.innerHTML = html;
   el.classList.remove('hide');
@@ -1637,7 +1637,7 @@ window._gItemInput = function (input) {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
-    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#10b981';
+    const balColor = bal <= 0 ? '#ef4444' : bal < (item.qty || 0) * 0.2 ? '#f59e0b' : '#ef8420';
     const div = document.createElement('div');
     div.className = 'boq-dd-item';
     const groupLabel = item._boqGroupName ? `<span class="dd-group" style="color:#6366f1;font-size:9px;font-weight:700;">[${item._boqGroupName}]</span> ` : '';

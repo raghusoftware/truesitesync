@@ -79,7 +79,7 @@ export function renderPaymentsHub() {
       #paymentsHubView{
         --bg:#F6F4FF;--card:#fff;--ink:#1C1633;--ink2:#4A4363;--muted:#8A85A6;
         --faint:#F1EEFB;--line:#EAE6F8;--purple:#6D28D9;--purple-tint:#F3EEFE;
-        --indigo:#4F46E5;--green:#059669;--green-tint:#E9F9F1;--red:#E11D3A;--red-tint:#FEECEE;
+        --indigo:#4F46E5;--green:#d6402c;--green-tint:#E9F9F1;--red:#E11D3A;--red-tint:#FEECEE;
         --sh:0 8px 24px -12px rgba(76,42,150,.28);--sh-soft:0 2px 10px -4px rgba(76,42,150,.16);
         background:var(--bg);color:var(--ink);
         padding:14px 14px 104px;max-width:680px;margin:0 auto;
@@ -106,7 +106,7 @@ export function renderPaymentsHub() {
       .pmt-seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:16px;padding:5px;gap:5px;box-shadow:var(--sh-soft)}
       .pmt-seg button{flex:1;border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:800;color:var(--muted);padding:12px;border-radius:12px;cursor:pointer;transition:.18s}
       .pmt-seg button.on-out{background:linear-gradient(135deg,#F43F5E,#E11D3A);color:#fff;box-shadow:0 8px 18px -8px rgba(225,29,58,.7)}
-      .pmt-seg button.on-in{background:linear-gradient(135deg,#10B981,#059669);color:#fff;box-shadow:0 8px 18px -8px rgba(5,150,105,.6)}
+      .pmt-seg button.on-in{background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;box-shadow:0 8px 18px -8px rgba(5,150,105,.6)}
 
       .pmt-card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:15px}
       .pmt-lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
@@ -140,7 +140,7 @@ export function renderPaymentsHub() {
       .pmt-save{width:100%;border:none;font-family:inherit;font-size:16px;font-weight:800;color:#fff;padding:16px;border-radius:16px;cursor:pointer;transition:.16s}
       .pmt-save:active{transform:translateY(1px)}
       .pmt-save.out{background:linear-gradient(135deg,#F43F5E,#E11D3A);box-shadow:0 14px 30px -12px rgba(225,29,58,.8)}
-      .pmt-save.in{background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 14px 30px -12px rgba(5,150,105,.65)}
+      .pmt-save.in{background:linear-gradient(135deg,#ef8420,#d6402c);box-shadow:0 14px 30px -12px rgba(5,150,105,.65)}
       .pmt-hint{font-size:11px;color:var(--muted);line-height:1.5;display:flex;gap:7px}
       .pmt-hint .hi{color:var(--purple)}
 

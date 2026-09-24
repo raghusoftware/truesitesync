@@ -370,12 +370,12 @@ window._eqRentalPayout = function(assetId) {
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Runbook ${eq.rentBasis === 'hourly' ? hours + ' hrs' : eq.rentBasis === 'daily' ? logs.filter(l=>l.type==='Runbook').length + ' days' : 'monthly'} × ${cur}${eq.rentRate}</span><span style="font-weight:700;color:#2563eb;">${cur}${Math.round(gross).toLocaleString('en-IN')}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Fuel we provided</span><span style="font-weight:700;color:#ea580c;">−${cur}${Math.round(fuelProvided).toLocaleString('en-IN')}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#059669;">${cur}${Math.round(net).toLocaleString('en-IN')}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#d6402c;">${cur}${Math.round(net).toLocaleString('en-IN')}</span></div>
       </div>
       <select id="rpAccount" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:10px;">${accOpts}</select>
       <div style="display:flex;gap:8px;">
         <button onclick="this.closest('#rentalPayoutModal').remove()" style="flex:1;padding:10px;background:#f1f5f9;border:none;border-radius:8px;font-weight:700;color:#64748b;cursor:pointer;">Cancel</button>
-        <button onclick="_eqConfirmRentalPay('${assetId}',${Math.round(net)})" style="flex:2;padding:10px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Pay ${cur}${Math.round(net).toLocaleString('en-IN')}</button>
+        <button onclick="_eqConfirmRentalPay('${assetId}',${Math.round(net)})" style="flex:2;padding:10px;background:#d6402c;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Pay ${cur}${Math.round(net).toLocaleString('en-IN')}</button>
       </div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -450,12 +450,12 @@ function _fuelRenderTank() {
     return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div><div style="font-weight:800;color:#0f172a;">🛢️ ${t.name}</div><div style="font-size:11px;color:#94a3b8;">Capacity: ${t.capacity}L</div></div>
-        <div style="text-align:right;"><div style="font-size:20px;font-weight:800;color:${pct<15?'#dc2626':'#059669'};">${bal.toLocaleString('en-IN')}L</div><div style="font-size:9px;color:#94a3b8;">${pct}% full</div></div>
+        <div style="text-align:right;"><div style="font-size:20px;font-weight:800;color:${pct<15?'#dc2626':'#d6402c'};">${bal.toLocaleString('en-IN')}L</div><div style="font-size:9px;color:#94a3b8;">${pct}% full</div></div>
       </div>
-      <div style="height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:${pct}%;background:${pct<15?'#ef4444':'#10b981'};"></div></div>
-      ${variance !== null ? `<div style="font-size:11px;font-weight:600;color:${Math.abs(variance)>5?'#dc2626':'#059669'};">Last dip variance: ${variance>0?'+':''}${variance.toFixed(0)}L ${Math.abs(variance)>5?'⚠ DISCREPANCY':'✓'}</div>` : ''}
+      <div style="height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:${pct}%;background:${pct<15?'#ef4444':'#ef8420'};"></div></div>
+      ${variance !== null ? `<div style="font-size:11px;font-weight:600;color:${Math.abs(variance)>5?'#dc2626':'#d6402c'};">Last dip variance: ${variance>0?'+':''}${variance.toFixed(0)}L ${Math.abs(variance)>5?'⚠ DISCREPANCY':'✓'}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <button onclick="_fuelReceipt('${t.id}')" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">+ Tanker Receipt</button>
+        <button onclick="_fuelReceipt('${t.id}')" style="background:#fff3ea;color:#d6402c;border:1px solid #f6c9a8;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">+ Tanker Receipt</button>
         <button onclick="_fuelDip('${t.id}')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">📏 Dip Reconcile</button>
         <button onclick="_fuelDeleteStorage('${t.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Del</button>
       </div>
@@ -686,9 +686,9 @@ export function renderEquipmentView() {
         const cur = getCurrencySymbol();
         // Status badge
         const status = eq.status || 'ACTIVE';
-        const stMap = { ACTIVE: 'color:#059669;background:#ecfdf5;', SERVICE_DUE: 'color:#d97706;background:#fffbeb;', UNDER_REPAIR: 'color:#dc2626;background:#fef2f2;' };
+        const stMap = { ACTIVE: 'color:#d6402c;background:#fff3ea;', SERVICE_DUE: 'color:#d97706;background:#fffbeb;', UNDER_REPAIR: 'color:#dc2626;background:#fef2f2;' };
         const ownBadge = eq.ownership === 'RENTED' ? '<span style="font-size:9px;font-weight:700;color:#7c3aed;background:#f5f3ff;padding:1px 6px;border-radius:4px;">RENTED</span>' : '<span style="font-size:9px;font-weight:700;color:#0891b2;background:#ecfeff;padding:1px 6px;border-radius:4px;">OWNED</span>';
-        const effFlag = eff && eff.flagged ? `<span style="color:#dc2626;background:#fef2f2;padding:1px 5px;border-radius:4px;" title="Fuel usage spike — possible theft/issue">⚠ ${eff.rate}L/hr</span>` : (eff ? `<span style="color:#10b981;background:#ecfdf5;padding:1px 5px;border-radius:4px;">${eff.rate}L/hr</span>` : '');
+        const effFlag = eff && eff.flagged ? `<span style="color:#dc2626;background:#fef2f2;padding:1px 5px;border-radius:4px;" title="Fuel usage spike — possible theft/issue">⚠ ${eff.rate}L/hr</span>` : (eff ? `<span style="color:#ef8420;background:#fff3ea;padding:1px 5px;border-radius:4px;">${eff.rate}L/hr</span>` : '');
         return `<div class="p-3 border-b">
           <div class="flex justify-between items-start">
             <div onclick="document.getElementById('eqFilterAsset').value='${eq.id}'; renderEquipmentLog();" style="cursor:pointer;">

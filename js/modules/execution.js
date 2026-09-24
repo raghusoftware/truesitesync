@@ -127,7 +127,7 @@ function _renderHome(root) {
       ${card('&#128202;', '#1e3a8a', 'Dashboard', 'Overview & KPIs', 'dashboard')}
       ${card('&#128221;', '#0ea5e9', 'Daily Progress', 'DPR — work done daily', 'dpr', _arr('dailyProgress').length)}
       ${card('&#129521;', '#f97316', 'Concrete Pour Card', 'Pour records & checks', 'pour', _arr('concretePours').length)}
-      ${card('&#9989;', '#10b981', 'Quality', 'Cube tests, NCR, checks', 'quality', _arr('qualityChecks').length)}
+      ${card('&#9989;', '#ef8420', 'Quality', 'Cube tests, NCR, checks', 'quality', _arr('qualityChecks').length)}
       ${card('&#9937;', '#ef4444', 'Safety', 'Incidents & PPE', 'safety', _arr('incidents').length)}
       ${card('&#128100;', '#7c3aed', 'Staff & Attendance', 'GPS punch in/out & pay', 'staff', _arr('staffMaster').length)}
     </div>`;
@@ -150,7 +150,7 @@ function _renderDashboard(root) {
       ${kpi('DPRs this month', dprThisMonth, '#0ea5e9', '&#128221;')}
       ${kpi('Concrete poured', pourVol.toFixed(1) + ' m³', '#f97316', '&#129521;')}
       ${kpi('Pours logged', pours.length, '#f59e0b', '&#128203;')}
-      ${kpi('Open quality items', qOpen, '#10b981', '&#9989;')}
+      ${kpi('Open quality items', qOpen, '#ef8420', '&#9989;')}
       ${kpi('Safety records', safety.length, '#ef4444', '&#9937;')}
     </div>`;
 }
@@ -376,14 +376,14 @@ window._exDprForm = function (id) {
       <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('dpTask', d?.taskId)}</div>
       <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('dpBoq', d?.boqRef)}</div>
     </div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Site Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'dpPrev')" style="font-size:12px;"><div id="dpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#c2401c;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
 
     ${_locDatalist}
     <!-- ── MEASUREMENT — work done today (BOQ × Nos×L×B×H → bill) ── -->
-    <div style="border:1px solid #d1fae5;background:#f0fdf4;border-radius:12px;padding:12px;margin-bottom:12px;">
+    <div style="border:1px solid #fde3d0;background:#fff3ea;border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-        <div style="font-weight:800;font-size:13px;color:#065f46;">📐 Measurement — Work Done Today</div>
-        <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#dcfce7;color:#065f46;border:1px solid #bbf7d0;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
+        <div style="font-weight:800;font-size:13px;color:#7a1f14;">📐 Measurement — Work Done Today</div>
+        <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#ffeede;color:#7a1f14;border:1px solid #fdd9be;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
       </div>
       <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
       <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-meas-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
@@ -541,7 +541,7 @@ window._exPourForm = function (id) {
       <div><label style="${_lbl}">Status</label><select id="cpStatus" style="${_inp}">${sel(['Planned', 'In Progress', 'Completed'], p?.status || 'Completed')}</select></div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Remarks</label><input id="cpRemarks" value="${p ? _esc(p.remarks) : ''}" style="${_inp}"></div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'cpPrev')" style="font-size:12px;"><div id="cpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'cpPrev')" style="font-size:12px;"><div id="cpPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#c2401c;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
     <button onclick="_exPourSave('${id || ''}')" style="width:100%;padding:11px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${p ? 'Save Pour Card' : 'Create Pour Card'}</button>
   </div>`);
 };
@@ -736,7 +736,7 @@ window._exPourSave = function (id) {
 // ══════════════════════════════════════════════════════════
 function _renderQuality(root) {
   const list = _arr('qualityChecks').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const rows = list.map(q => { const ok = q.status === 'Pass' || q.status === 'Closed'; const c = ok ? '#10b981' : '#ef4444';
+  const rows = list.map(q => { const ok = q.status === 'Pass' || q.status === 'Closed'; const c = ok ? '#ef8420' : '#ef4444';
     return `<div onclick="_exQForm('${q.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${c};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(q.type || 'Check')} <span style="font-size:9px;font-weight:800;color:${c};background:${c}15;border-radius:8px;padding:1px 7px;">${_esc(q.status || 'Open')}</span></div>
     <div style="font-size:11px;color:#64748b;">${_esc(q.element || '')} ${q.grade ? '· ' + _esc(q.grade) : ''}${q.result ? ' · ' + _esc(q.result) : ''} · ${_esc(q.date)}</div></div>
@@ -765,8 +765,8 @@ window._exQForm = function (id) {
       <div><label style="${_lbl}">Related Task</label>${_taskSelect('qTask', q?.taskId)}</div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Remarks</label><input id="qRemarks" value="${q ? _esc(q.remarks) : ''}" style="${_inp}"></div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'qPrev')" style="font-size:12px;"><div id="qPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
-    <button onclick="_exQSave('${id || ''}')" style="width:100%;padding:11px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${q ? 'Save' : 'Add Record'}</button>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'qPrev')" style="font-size:12px;"><div id="qPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#c2401c;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
+    <button onclick="_exQSave('${id || ''}')" style="width:100%;padding:11px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${q ? 'Save' : 'Add Record'}</button>
   </div>`);
 };
 window._exQSave = function (id) {
@@ -783,7 +783,7 @@ window._exQSave = function (id) {
 // ══════════════════════════════════════════════════════════
 function _renderSafety(root) {
   const list = _arr('incidents').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const sevC = { Low: '#10b981', Medium: '#f59e0b', High: '#f97316', Critical: '#ef4444' };
+  const sevC = { Low: '#ef8420', Medium: '#f59e0b', High: '#f97316', Critical: '#ef4444' };
   const rows = list.map(s => { const c = sevC[s.severity] || '#94a3b8'; return `<div onclick="_exSForm('${s.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${c};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${_esc(s.type || 'Safety')} <span style="font-size:9px;font-weight:800;color:${c};background:${c}15;border-radius:8px;padding:1px 7px;">${_esc(s.severity || '')}</span></div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(s.description || '')}</div>
@@ -808,7 +808,7 @@ window._exSForm = function (id) {
       <div><label style="${_lbl}">Reported By</label><input id="sReporter" value="${s ? _esc(s.reportedBy) : ''}" style="${_inp}"></div>
       <div><label style="${_lbl}">Related Task</label>${_taskSelect('sTask', s?.taskId)}</div>
     </div>
-    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'sPrev')" style="font-size:12px;"><div id="sPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#16a34a;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Photo</label><input type="file" accept="image/*" capture="environment" onchange="_exCapturePhoto(this,'sPrev')" style="font-size:12px;"><div id="sPrev">${_pendingPhoto ? `<img src="${_pendingPhoto}" style="max-height:120px;border-radius:10px;margin-top:6px;">` : (_pendingPhotoPath ? '<div style="font-size:12px;color:#c2401c;margin-top:6px;">&#10003; Photo attached</div>' : '')}</div></div>
     <button onclick="_exSSave('${id || ''}')" style="width:100%;padding:11px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Record'}</button>
   </div>`);
 };
@@ -857,12 +857,12 @@ function _renderStaff(root) {
     let statusHtml, action;
     if (!a || !a.inAt) {
       statusHtml = `<span style="color:#94a3b8;font-weight:700;">Not marked</span>`;
-      action = canManage ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
+      action = canManage ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#c2401c;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
     } else if (!a.outAt) {
-      statusHtml = `<span style="color:#16a34a;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
+      statusHtml = `<span style="color:#c2401c;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
       action = canManage ? `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
     } else {
-      statusHtml = `<span style="color:#16a34a;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
+      statusHtml = `<span style="color:#c2401c;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
       action = `<span style="font-size:13px;font-weight:800;color:#0f172a;">${_money(a.totalPay)}</span>`;
     }
     const wage = s.wageMode || 'daily';
@@ -897,7 +897,7 @@ function _renderStaff(root) {
       ${canManage ? `<button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>` : `<span style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-weight:700;">🔒 View only — your role can't mark or edit attendance</span>`}
       <span style="font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span>
       <span style="margin-left:auto;display:flex;gap:8px;">
-        <button onclick="_staffExportExcel()" style="padding:8px 12px;background:#059669;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Excel</button>
+        <button onclick="_staffExportExcel()" style="padding:8px 12px;background:#d6402c;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Excel</button>
         <button onclick="_staffExportPDF()" style="padding:8px 12px;background:#dc2626;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ PDF</button>
       </span>
     </div>
@@ -1036,12 +1036,12 @@ window._staffPunch = async function (staffId, kind) {
   _punchPhoto = null; _punchGps = null; _punchFile = null;
   const isIn = kind === 'in';
   _modal(`${_head((isIn ? 'Punch In' : 'Punch Out') + ' — ' + _esc(s.name))}<div style="padding:20px;">
-    <div style="text-align:center;margin-bottom:14px;"><div style="font-size:34px;font-weight:800;color:${isIn ? '#16a34a' : '#dc2626'};">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div style="font-size:12px;color:#94a3b8;">${_today()}</div></div>
+    <div style="text-align:center;margin-bottom:14px;"><div style="font-size:34px;font-weight:800;color:${isIn ? '#c2401c' : '#dc2626'};">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div style="font-size:12px;color:#94a3b8;">${_today()}</div></div>
     <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#64748b;">📍 <span id="punchGpsTxt">Getting location…</span></div>
     <label style="display:block;border:2px dashed #c4b5fd;background:#faf5ff;border-radius:12px;padding:16px;text-align:center;cursor:pointer;margin-bottom:14px;">
       <div style="font-size:26px;">📷</div><div style="font-size:12px;font-weight:700;color:#6d28d9;">Tap to capture photo *</div>
       <input type="file" accept="image/*" capture="user" onchange="_staffPunchPhoto(this)" style="display:none;"><div id="punchPrev" style="margin-top:8px;"></div></label>
-    <button onclick="_staffPunchSave('${staffId}','${kind}')" style="width:100%;padding:12px;background:${isIn ? '#16a34a' : '#dc2626'};color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Confirm ${isIn ? 'Punch In' : 'Punch Out'}</button>
+    <button onclick="_staffPunchSave('${staffId}','${kind}')" style="width:100%;padding:12px;background:${isIn ? '#c2401c' : '#dc2626'};color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Confirm ${isIn ? 'Punch In' : 'Punch Out'}</button>
   </div>`);
   const gps = await getGps();
   _punchGps = gps;

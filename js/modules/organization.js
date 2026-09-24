@@ -346,11 +346,11 @@ function _buyFromWebsiteHtml(org) {
     : `Current plan: ${plan}`;
   return `
     <div style="max-width:520px;margin:0 auto;text-align:center;padding:12px 4px;">
-      <div style="width:64px;height:64px;border-radius:18px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">🌐</div>
+      <div style="width:64px;height:64px;border-radius:18px;background:#fff3ea;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">🌐</div>
       <h3 style="font-size:19px;font-weight:800;color:#0f172a;margin:0 0 8px;">Manage your plan on our website</h3>
       <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 6px;">Plans and billing for True Site Sync are purchased on our website. Sign in with the same account and your plan applies everywhere — web, desktop and this app.</p>
       <p style="font-size:12px;color:#94a3b8;margin:0 0 20px;font-weight:600;">${status}</p>
-      <button onclick="_openPricingWebsite()" style="padding:14px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(21,128,61,.28);">View Plans &amp; Buy on Website →</button>
+      <button onclick="_openPricingWebsite()" style="padding:14px 28px;background:linear-gradient(135deg,#c2401c,#9e3417);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(21,128,61,.28);">View Plans &amp; Buy on Website →</button>
       <p style="font-size:12px;color:#94a3b8;margin:16px 0 0;">truesitesync.com/pricing</p>
     </div>`;
 }
@@ -451,7 +451,7 @@ async function _openRazorpayCheckout(order) {
     prefill: {
       email: _currentOrg?.email || '',
     },
-    theme: { color: '#10b981' },
+    theme: { color: '#ef8420' },
     modal: { ondismiss: () => showToast('Payment cancelled', 'warning') },
   };
 
@@ -494,10 +494,10 @@ export function renderOrgSettings() {
           <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px;">${(_currentOrg.name || 'O')[0].toUpperCase()}</div>
           <div>
             <h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:0;">${_currentOrg.name}</h3>
-            <p style="font-size:11px;color:#64748b;margin:2px 0 0;">Plan: <strong style="color:#10b981;text-transform:capitalize;">${_currentOrg.plan}</strong> · ${activeMembers}/${_currentOrg.max_seats} seats used${_currentOrg.plan === 'free' && trialDays > 0 ? ` · <span style="color:#f59e0b;">${trialDays} days left in trial</span>` : ''}</p>
+            <p style="font-size:11px;color:#64748b;margin:2px 0 0;">Plan: <strong style="color:#ef8420;text-transform:capitalize;">${_currentOrg.plan}</strong> · ${activeMembers}/${_currentOrg.max_seats} seats used${_currentOrg.plan === 'free' && trialDays > 0 ? ` · <span style="color:#f59e0b;">${trialDays} days left in trial</span>` : ''}</p>
           </div>
         </div>
-        ${isOrgAdmin() ? `<button onclick="switchOrgTab('billing')" style="padding:8px 16px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Upgrade Plan</button>` : ''}
+        ${isOrgAdmin() ? `<button onclick="switchOrgTab('billing')" style="padding:8px 16px;background:#ef8420;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Upgrade Plan</button>` : ''}
       </div>
 
       <!-- Tabs -->
@@ -566,7 +566,7 @@ export function renderTeamPanel() {
   const meUser = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
   const myId = meUser?.supabaseId || meUser?.id || '';
   const myEmail = (meUser?.email || '').toLowerCase();
-  const roleColors = { owner: '#7c3aed', admin: '#2563eb', member: '#059669', supervisor: '#d97706', viewer: '#6b7280' };
+  const roleColors = { owner: '#7c3aed', admin: '#2563eb', member: '#d6402c', supervisor: '#d97706', viewer: '#6b7280' };
 
   activeMembers.forEach(m => {
     const isOwner = m.role === 'owner';
@@ -638,14 +638,14 @@ export function renderBillingPanel() {
     const isCurrent = currentPlan === id;
     const isUpgrade = PLANS[currentPlan] && plan.price > PLANS[currentPlan].price;
     html += `
-      <div style="background:#fff;border:${isCurrent ? '2px solid #10b981' : '1px solid #e5e7eb'};border-radius:12px;padding:20px;text-align:center;${isCurrent ? 'box-shadow:0 0 0 3px rgba(16,185,129,.15);' : ''}">
-        ${isCurrent ? '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#10b981;margin-bottom:6px;letter-spacing:1px;">Current Plan</div>' : ''}
+      <div style="background:#fff;border:${isCurrent ? '2px solid #ef8420' : '1px solid #e5e7eb'};border-radius:12px;padding:20px;text-align:center;${isCurrent ? 'box-shadow:0 0 0 3px rgba(239,132,32,.15);' : ''}">
+        ${isCurrent ? '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#ef8420;margin-bottom:6px;letter-spacing:1px;">Current Plan</div>' : ''}
         <h4 style="font-size:16px;font-weight:800;color:#1e293b;margin:0 0 4px;">${plan.name}</h4>
         <div style="font-size:22px;font-weight:900;color:#2563eb;margin:8px 0;">${plan.price ? '₹' + plan.price.toLocaleString('en-IN') : 'Free'}</div>
         <p style="font-size:11px;color:#94a3b8;margin:0 0 12px;">${plan.price ? 'per year' : '6-day trial'}</p>
         <div style="font-size:11px;color:#64748b;margin-bottom:4px;">✓ ${plan.seats} team seats</div>
         <div style="font-size:11px;color:#64748b;margin-bottom:12px;">✓ ${plan.projects} projects</div>
-        ${isCurrent ? '<span style="font-size:11px;color:#10b981;font-weight:600;">Active</span>' :
+        ${isCurrent ? '<span style="font-size:11px;color:#ef8420;font-weight:600;">Active</span>' :
           isUpgrade ? `<button onclick="_orgUpgrade('${id}')" style="padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">Upgrade</button>` :
           '<span style="font-size:11px;color:#94a3b8;">—</span>'}
       </div>`;
@@ -802,7 +802,7 @@ export function renderPlanBilling() {
 
   let banner;
   if (onTrial) {
-    banner = `<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#065f46;">🎉 Free Trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left</div><p style="font-size:12px;color:#047857;margin:4px 0 0;">Your 6-day free trial includes the full platform. Choose a plan below to continue after it ends.</p></div>`;
+    banner = `<div style="background:linear-gradient(135deg,#fff3ea,#fde3d0);border:1px solid #ffc79a;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#7a1f14;">🎉 Free Trial — ${trialDays} day${trialDays !== 1 ? 's' : ''} left</div><p style="font-size:12px;color:#c2321f;margin:4px 0 0;">Your 6-day free trial includes the full platform. Choose a plan below to continue after it ends.</p></div>`;
   } else if (trialExpired) {
     banner = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin-bottom:24px;"><div style="font-size:15px;font-weight:800;color:#991b1b;">Your free trial has ended</div><p style="font-size:12px;color:#b91c1c;margin:4px 0 0;">Choose a plan below to keep using True Site Sync.</p></div>`;
   } else {
@@ -814,14 +814,14 @@ export function renderPlanBilling() {
     const plan = PLANS[id];
     const isCurrent = currentPlan === id;
     const popular = id === 'business';
-    return `<div style="background:#fff;border:${isCurrent ? '2px solid #10b981' : '1px solid #e5e7eb'};border-radius:14px;padding:24px;text-align:center;${popular ? 'box-shadow:0 8px 24px -8px rgba(37,99,235,.25);' : ''}">
+    return `<div style="background:#fff;border:${isCurrent ? '2px solid #ef8420' : '1px solid #e5e7eb'};border-radius:14px;padding:24px;text-align:center;${popular ? 'box-shadow:0 8px 24px -8px rgba(37,99,235,.25);' : ''}">
       ${popular ? '<div style="font-size:9px;font-weight:800;color:#2563eb;letter-spacing:1px;margin-bottom:6px;">MOST POPULAR</div>' : ''}
       <h4 style="font-size:17px;font-weight:800;color:#1e293b;margin:0 0 6px;">${plan.name}</h4>
       <div style="font-size:26px;font-weight:900;color:#2563eb;">₹${plan.price.toLocaleString('en-IN')}<span style="font-size:12px;color:#94a3b8;font-weight:600;">/yr</span></div>
       <div style="font-size:12px;color:#64748b;margin:14px 0 4px;">✓ ${plan.seats} team seat${plan.seats === 1 ? '' : 's'}</div>
       ${id === 'solo' ? '' : `<div style="font-size:12px;color:#64748b;margin-bottom:18px;">✓ ${plan.projects} projects</div>`}
       ${isCurrent
-        ? '<div style="font-size:12px;font-weight:700;color:#10b981;padding:10px;">✓ Current Plan</div>'
+        ? '<div style="font-size:12px;font-weight:700;color:#ef8420;padding:10px;">✓ Current Plan</div>'
         : `<button onclick="_orgUpgrade('${id}')" style="width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">${currentPlan === 'free' ? 'Buy Now' : 'Switch to ' + plan.name}</button>`}
     </div>`;
   }).join('');
@@ -893,7 +893,7 @@ function _showTrialPaywall(s) {
       </div>
       ${admin ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:18px;">${cards}</div>` : ''}
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-        <button onclick="window.__trialRefresh && window.__trialRefresh(this)" style="padding:10px 18px;background:#10b981;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">I’ve already paid — Refresh</button>
+        <button onclick="window.__trialRefresh && window.__trialRefresh(this)" style="padding:10px 18px;background:#ef8420;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">I’ve already paid — Refresh</button>
         <button onclick="window._rbacLogout && window._rbacLogout()" style="padding:10px 18px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Logout</button>
       </div>
       <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:14px;">Secure payment via Razorpay · Annual billing · GST invoice provided.</p>

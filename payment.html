@@ -13,7 +13,7 @@
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(160deg,#f6faf8,#eaf6f0);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;color:#0e1a13}
   .card{background:#fff;border-radius:20px;box-shadow:0 30px 80px -24px rgba(13,40,28,.22);border:1px solid #e6ece8;width:100%;max-width:440px;overflow:hidden}
-  .head{background:linear-gradient(135deg,#10b981,#059669);padding:28px 28px 22px;color:#fff;text-align:center}
+  .head{background:linear-gradient(135deg,#ef8420,#d6402c);padding:28px 28px 22px;color:#fff;text-align:center}
   .head .logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:16px;margin-bottom:14px;opacity:.95}
   .head .logo .mark{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px}
   .head h1{font-size:15px;font-weight:600;opacity:.9}
@@ -23,20 +23,20 @@
   .head .trial{display:inline-block;margin-top:10px;background:rgba(255,255,255,.18);padding:5px 14px;border-radius:100px;font-size:11px;font-weight:700}
   .body{padding:26px 28px 30px}
   .feat{display:flex;align-items:center;gap:10px;font-size:13px;color:#475569;margin-bottom:10px}
-  .feat i{color:#10b981;font-size:13px}
+  .feat i{color:#ef8420;font-size:13px}
   .divider{height:1px;background:#e2e8f0;margin:18px 0}
   label{display:block;font-size:12px;font-weight:700;color:#475569;margin:0 0 5px}
   input{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;margin-bottom:14px;transition:border .2s}
-  input:focus{border-color:#10b981}
+  input:focus{border-color:#ef8420}
   .btn{width:100%;padding:13px;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;transition:transform .1s,opacity .2s}
   .btn:active{transform:scale(.99)}
-  .btn-pay{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+  .btn-pay{background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff}
   .btn-pay:disabled{opacity:.6;cursor:not-allowed}
   .toggle{text-align:center;font-size:12px;color:#64748b;margin-top:14px}
-  .toggle a{color:#10b981;font-weight:700;cursor:pointer;text-decoration:none}
+  .toggle a{color:#ef8420;font-weight:700;cursor:pointer;text-decoration:none}
   .msg{font-size:12px;padding:10px 12px;border-radius:9px;margin-bottom:14px;display:none}
   .msg.err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;display:block}
-  .msg.ok{background:#ecfdf5;color:#047857;border:1px solid #6ee7b7;display:block}
+  .msg.ok{background:#fff3ea;color:#c2321f;border:1px solid #ffc79a;display:block}
   .secure{text-align:center;font-size:10.5px;color:#94a3b8;margin-top:16px}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
   @keyframes s{to{transform:rotate(360deg)}}
@@ -231,7 +231,7 @@ async function pay(){
     const rzp = new Razorpay({
       key: order.key_id, amount: order.amount, currency: order.currency,
       name:'True Site Sync', description: order.plan + ' Plan (annual)', order_id: order.order_id,
-      prefill:{ email:_userEmail }, theme:{ color:'#10b981' },
+      prefill:{ email:_userEmail }, theme:{ color:'#ef8420' },
       handler: async function(resp){
         // Verify the payment signature SERVER-SIDE before showing success.
         showMsg('Verifying payment…', 'ok');
@@ -256,7 +256,7 @@ async function pay(){
         document.querySelector('.card').innerHTML =
           '<div class="head"><div class="logo"><img src="assets/logo.png" alt="TS" class="mark" style="object-fit:contain;background:#fff;"> True Site Sync</div></div>' +
           '<div class="body" style="text-align:center;padding:40px 28px;">' +
-          '<div style="font-size:48px;color:#10b981;margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>' +
+          '<div style="font-size:48px;color:#ef8420;margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>' +
           '<h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">Payment Successful!</h2>' +
           '<p style="font-size:13px;color:#64748b;margin-bottom:22px;">Your <strong>'+plan.name+'</strong> plan is being activated. Welcome aboard!</p>' +
           '<a href="app.html" class="btn btn-pay" style="display:block;text-decoration:none;">Go to Dashboard</a></div>';

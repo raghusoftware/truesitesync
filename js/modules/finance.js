@@ -301,7 +301,7 @@ export function renderAccounts() {
       if (acc.emi) detail += ` · EMI ${cur}${(acc.emi||0).toLocaleString('en-IN',{maximumFractionDigits:0})}`;
     } else if (acc.accountNo) { detail += ` · ${acc.accountNo}`; }
     const isLiab = acc.type === 'Loan' || acc.type === 'CC' || acc.type === 'OD' || acc.type === 'CreditCard';
-    const balColor = bal < 0 ? '#dc2626' : (isLiab && bal === 0 ? '#64748b' : '#059669');
+    const balColor = bal < 0 ? '#dc2626' : (isLiab && bal === 0 ? '#64748b' : '#d6402c');
     container.innerHTML += `<div onclick="_selectAccount('${acc.id}')" style="${sel}cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;" onmouseover="if('${_selectedAccountId}'!=='${acc.id}')this.style.background='#f8fafc'" onmouseout="if('${_selectedAccountId}'!=='${acc.id}')this.style.background=''">
       <div style="min-width:0;"><div style="font-weight:600;color:#1e293b;font-size:13px;">${icon} ${acc.name}</div><div style="font-size:10px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${detail}</div></div>
       <div style="font-weight:700;font-size:14px;color:${balColor};white-space:nowrap;">${cur}${Math.abs(bal).toLocaleString('en-IN', { maximumFractionDigits: 0 })}${bal < 0 ? ' Dr' : ''}</div>
@@ -342,7 +342,7 @@ function _renderAccountTxns() {
   let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead style="position:sticky;top:0;background:#f8fafc;"><tr>
     <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Date</th>
     <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Description</th>
-    <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#059669;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Deposit</th>
+    <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#d6402c;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Deposit</th>
     <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#dc2626;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Withdraw</th>
     <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Balance</th>
     <th style="border-bottom:1px solid #e2e8f0;"></th></tr></thead><tbody>`;
@@ -351,7 +351,7 @@ function _renderAccountTxns() {
     html += `<tr style="border-bottom:1px solid #f1f5f9;">
       <td style="padding:9px 14px;color:#64748b;white-space:nowrap;">${t.date || '—'}</td>
       <td style="padding:9px 14px;font-weight:500;color:#1e293b;">${t.desc}</td>
-      <td style="padding:9px 14px;text-align:right;color:#059669;font-weight:600;">${t.credit ? cur + t.credit.toLocaleString('en-IN') : ''}</td>
+      <td style="padding:9px 14px;text-align:right;color:#d6402c;font-weight:600;">${t.credit ? cur + t.credit.toLocaleString('en-IN') : ''}</td>
       <td style="padding:9px 14px;text-align:right;color:#dc2626;font-weight:600;">${t.debit ? cur + t.debit.toLocaleString('en-IN') : ''}</td>
       <td style="padding:9px 14px;text-align:right;font-weight:700;color:${bal < 0 ? '#dc2626' : '#1e293b'};">${cur}${Math.abs(bal).toLocaleString('en-IN')}</td>
       <td style="padding:9px 8px;text-align:center;"><button onclick="_deleteAccountTx('${t.type}','${t.id}')" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;cursor:pointer;">✕</button></td>
@@ -446,7 +446,7 @@ window._viewAccountLedger = function(accId) {
           <thead><tr style="background:#f8fafc;position:sticky;top:0;">
             <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Date</th>
             <th style="text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Description</th>
-            <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#059669;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Credit</th>
+            <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#d6402c;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Credit</th>
             <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#dc2626;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Debit</th>
             <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Balance</th>
             <th style="text-align:center;padding:10px;border-bottom:1px solid #e5e7eb;"></th>
@@ -456,9 +456,9 @@ window._viewAccountLedger = function(accId) {
     html += `<tr style="border-bottom:1px solid #f3f4f6;">
       <td style="padding:8px 14px;color:#64748b;white-space:nowrap;">${t.date || '—'}</td>
       <td style="padding:8px 14px;font-weight:500;color:#1e293b;">${t.desc}</td>
-      <td style="padding:8px 14px;text-align:right;color:#059669;font-weight:600;">${t.credit ? getCurrencySymbol() + t.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
+      <td style="padding:8px 14px;text-align:right;color:#d6402c;font-weight:600;">${t.credit ? getCurrencySymbol() + t.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
       <td style="padding:8px 14px;text-align:right;color:#dc2626;font-weight:600;">${t.debit ? getCurrencySymbol() + t.debit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
-      <td style="padding:8px 14px;text-align:right;font-weight:700;color:${bal >= 0 ? '#059669' : '#dc2626'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+      <td style="padding:8px 14px;text-align:right;font-weight:700;color:${bal >= 0 ? '#d6402c' : '#dc2626'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
       <td style="padding:8px 10px;text-align:center;"><button onclick="_deleteAccountTx('${t.type}','${t.id}');this.closest('[style*=fixed]').remove()" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;cursor:pointer;">Del</button></td>
     </tr>`;
   });
@@ -466,7 +466,7 @@ window._viewAccountLedger = function(accId) {
   html += `</tbody></table></div>
     <div style="padding:12px 20px;background:#0f172a;color:#fff;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;border-radius:0 0 16px 16px;">
       <span>Closing Balance</span>
-      <span style="font-size:18px;color:${bal >= 0 ? '#10b981' : '#f87171'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', {minimumFractionDigits:2})}${bal < 0 ? ' (Dr)' : ''}</span>
+      <span style="font-size:18px;color:${bal >= 0 ? '#ef8420' : '#f87171'};">${getCurrencySymbol()}${Math.abs(bal).toLocaleString('en-IN', {minimumFractionDigits:2})}${bal < 0 ? ' (Dr)' : ''}</span>
     </div></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 };

@@ -261,7 +261,7 @@ window._planToggleBoard = function () {
 const _BOARD_COLS = [
   { label: 'To-do', canon: 'Not Started', color: '#94a3b8', match: s => { const x = (s || '').toLowerCase(); return !x || ['not started', 'pending', 'to do', 'todo', 'on hold', 'not started'].includes(x); } },
   { label: 'In Progress', canon: 'In Progress', color: '#f59e0b', match: s => ['in progress', 'ongoing', 'started', 'wip'].includes((s || '').toLowerCase()) },
-  { label: 'Done', canon: 'Completed', color: '#16a34a', match: s => ['completed', 'done', 'closed'].includes((s || '').toLowerCase()) },
+  { label: 'Done', canon: 'Completed', color: '#c2401c', match: s => ['completed', 'done', 'closed'].includes((s || '').toLowerCase()) },
 ];
 window.renderStatusBoard = function () {
   const c = document.getElementById('planningBoard');
@@ -408,7 +408,7 @@ function _renderTaskCard(t) {
   const eqCount = (state.taskEquipment || []).filter(e => e.taskId === t.id).length;
   const preflight = checkResourceAvailability(t.id);
   const prioColors = { Critical: '#ef4444', High: '#f97316', Medium: '#3b82f6', Low: '#94a3b8' };
-  const statusColors = { 'Not Started': '#94a3b8', 'Ready to Start': '#10b981', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
+  const statusColors = { 'Not Started': '#94a3b8', 'Ready to Start': '#ef8420', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
   const pc = prioColors[t.priority] || '#94a3b8';
   const sc = statusColors[t.status] || '#94a3b8';
   const progress = t.status === 'Completed' ? 100 : t.status === 'In Progress' ? (parseFloat(t.progress) || 50) : t.status === 'Ready to Start' ? 5 : 0;
@@ -552,7 +552,7 @@ export function openTaskForm(taskId) {
             <!-- Additional material -->
             <label class="ef-label">📦 Additional Material</label>
             <div id="pt_matRows" style="margin-bottom:6px;"></div>
-            <button type="button" onclick="window._ptAddMatRow()" style="font-size:11px;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:4px 10px;cursor:pointer;margin-bottom:12px;">+ Add Material</button>
+            <button type="button" onclick="window._ptAddMatRow()" style="font-size:11px;font-weight:700;color:#d6402c;background:#fff3ea;border:1px solid #f6c9a8;border-radius:6px;padding:4px 10px;cursor:pointer;margin-bottom:12px;">+ Add Material</button>
 
             <!-- Equipment required -->
             <label class="ef-label">🚜 Equipment Required</label>
@@ -719,7 +719,7 @@ export function openTaskDetail(taskId) {
   const materials = (state.taskMaterials || []).filter(m => m.taskId === taskId);
   const equipment = (state.taskEquipment || []).filter(e => e.taskId === taskId);
   const preflight = checkResourceAvailability(taskId);
-  const sc = { 'Not Started': '#94a3b8', 'Ready to Start': '#10b981', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
+  const sc = { 'Not Started': '#94a3b8', 'Ready to Start': '#ef8420', 'In Progress': '#3b82f6', 'On Hold': '#f59e0b', 'Completed': '#6366f1', 'Cancelled': '#ef4444' };
 
   const html = `
     <div id="planTaskDetailModal" class="ef-overlay" onclick="if(event.target===this)window._planCloseDetail()">

@@ -69,7 +69,7 @@ export const REPORT_CATEGORIES = [
     ],
   },
   {
-    id: 'stores', name: 'Inventory & Materials', icon: '📦', color: '#10b981',
+    id: 'stores', name: 'Inventory & Materials', icon: '📦', color: '#ef8420',
     reports: [
       _R('stock_register', 'Stock Register'),
       _R('cement_reconciliation', 'Cement Reconciliation'),
@@ -117,7 +117,7 @@ export const REPORT_CATEGORIES = [
     ],
   },
   {
-    id: 'quality', name: 'Quality & Safety', icon: '✅', color: '#16a34a',
+    id: 'quality', name: 'Quality & Safety', icon: '✅', color: '#c2401c',
     reports: [
       _R('cube_test', 'Cube Test Report'),
       _R('ncr_report', 'NCR Report'),

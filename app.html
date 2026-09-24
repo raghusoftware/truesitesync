@@ -30,11 +30,11 @@
     <!-- ═══ Splash / Loading Screen ═══ -->
     <div id="splashScreen" style="display:flex;position:fixed;inset:0;z-index:9999999;background:linear-gradient(135deg,#0a0f1a 0%,#0f1f35 50%,#0a0f1a 100%);align-items:center;justify-content:center;flex-direction:column;gap:20px;">
       <div style="text-align:center;">
-        <img src="assets/logo.png" alt="True Site Sync" style="display:block;width:96px;height:96px;object-fit:contain;background:#fff;border-radius:18px;margin:0 auto 20px;box-shadow:0 8px 32px rgba(16,185,129,.3);">
+        <img src="assets/logo.png" alt="True Site Sync" style="display:block;width:96px;height:96px;object-fit:contain;background:#fff;border-radius:18px;margin:0 auto 20px;box-shadow:0 8px 32px rgba(239,132,32,.3);">
         <h1 style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px;">True Site Sync</h1>
         <p style="color:#64748b;font-size:12px;font-weight:500;margin:0 0 24px;">Construction Management Platform</p>
         <div id="splashProgress" style="width:200px;height:3px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:0 auto;">
-          <div style="width:30%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px;animation:splashLoad 2s ease-in-out infinite;"></div>
+          <div style="width:30%;height:100%;background:linear-gradient(90deg,#ef8420,#d6402c);border-radius:4px;animation:splashLoad 2s ease-in-out infinite;"></div>
         </div>
         <p id="splashStatus" style="color:#475569;font-size:11px;font-weight:500;margin-top:12px;">Initializing...</p>
         <div id="errorDisplay" style="max-width:400px;margin-top:16px;text-align:left;"></div>
@@ -373,7 +373,7 @@
 
           <!-- ── Section 2: Client ── -->
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden" style="box-shadow:0 1px 4px rgba(0,0,0,.04);">
-            <div class="px-5 py-3 border-b" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);">
+            <div class="px-5 py-3 border-b" style="background:linear-gradient(135deg,#fff3ea,#fff3ea);">
               <h4 class="text-sm font-extrabold text-slate-700 flex items-center gap-2"><span style="font-size:15px;">&#129309;</span> Client</h4>
             </div>
             <div class="p-5">
@@ -678,7 +678,7 @@
             <!-- App-icon grid -->
             <div id="invGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
               <div onclick="_openInvSection('stock')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#10b98115;border:2px solid #10b98130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📦</div>
+                <div style="width:50px;height:50px;background:#ef842015;border:2px solid #ef842030;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📦</div>
                 <div style="font-size:13px;font-weight:700;color:#0f172a;">Stock & Adjust</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Live stock & manual entry</div>
               </div>
               <div onclick="_openInvSection('stores')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
@@ -939,7 +939,7 @@
                 </div>
                 <!-- BOQ/PO Selector -->
                 <div class="flex-1 p-4 flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#10b981,#059669);"><span class="text-white text-lg">&#128209;</span></div>
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#ef8420,#d6402c);"><span class="text-white text-lg">&#128209;</span></div>
                   <div class="flex-1">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">BOQ / PO</p>
                     <select id="sheetBoqGroupSelect" onchange="onSheetBoqGroupChange()" class="w-full mt-1 p-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none font-bold text-green-700 text-xs">
@@ -1261,7 +1261,7 @@
                 <p class="text-[10px] text-slate-400 mt-0.5">Margins, fonts, paper size</p>
               </div>
               <div onclick="openSettingsSection('settCurrency')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-                <div style="width:44px;height:44px;background:#10b98112;border:2px solid #10b98125;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#128176;</div>
+                <div style="width:44px;height:44px;background:#ef842012;border:2px solid #ef842025;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#128176;</div>
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Currency</h4>
                 <p class="text-[10px] text-slate-400 mt-0.5">Symbol, decimals, locale</p>
               </div>
@@ -1435,9 +1435,9 @@
     <div class="shub-card" style="animation-delay:.06s" onclick="switchView('saleOrderView')"><span class="arw">→</span><div class="shub-ic" style="background:#f1ecfe;color:#7c3aed">📋</div><h4>Sale Orders</h4><p>Confirmed customer orders</p></div>
     <div class="shub-card" style="animation-delay:.10s" onclick="switchView('proformaInvoiceView')"><span class="arw">→</span><div class="shub-ic" style="background:#e5f6fb;color:#0891b2">📄</div><h4>Proforma Invoices</h4><p>Quotes &amp; pre-invoices</p></div>
     <div class="shub-card" style="animation-delay:.14s" onclick="switchView('deliveryChallanView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeee3;color:#ea580c">🚚</div><h4>Delivery Challans</h4><p>Goods dispatch notes</p></div>
-    <div class="shub-card" style="animation-delay:.18s" onclick="switchView('estimatesView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">📝</div><h4>Estimates</h4><p>Cost estimates &amp; proposals</p></div>
-    <div class="shub-card" style="animation-delay:.22s" onclick="switchView('estimationView'); if(window.renderEstimationView)window.renderEstimationView();"><span class="arw">→</span><div class="shub-ic" style="background:#e4f5ee;color:#059669">📏</div><h4>Estimation</h4><p>Rate analysis &amp; build-up</p></div>
-    <div class="shub-card" style="animation-delay:.26s" onclick="switchView('paymentInView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#10b981">💵</div><h4>Payment In</h4><p>Receipts from clients</p></div>
+    <div class="shub-card" style="animation-delay:.18s" onclick="switchView('estimatesView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#c2401c">📝</div><h4>Estimates</h4><p>Cost estimates &amp; proposals</p></div>
+    <div class="shub-card" style="animation-delay:.22s" onclick="switchView('estimationView'); if(window.renderEstimationView)window.renderEstimationView();"><span class="arw">→</span><div class="shub-ic" style="background:#e4f5ee;color:#d6402c">📏</div><h4>Estimation</h4><p>Rate analysis &amp; build-up</p></div>
+    <div class="shub-card" style="animation-delay:.26s" onclick="switchView('paymentInView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#ef8420">💵</div><h4>Payment In</h4><p>Receipts from clients</p></div>
     <div class="shub-card" style="animation-delay:.30s" onclick="switchView('saleReturnView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">🔄</div><h4>Sale Returns</h4><p>Credit notes &amp; returns</p></div>
     <div class="shub-card" style="animation-delay:.34s" onclick="switchView('otherIncomeView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdf1e0;color:#d97706">💰</div><h4>Other Income</h4><p>Non-sale income</p></div>
     <div class="shub-card" style="animation-delay:.38s" onclick="switchView('saleFixedAssetsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">🏗️</div><h4>Sale Fixed Assets</h4><p>Asset sales &amp; disposals</p></div>
@@ -1467,7 +1467,7 @@
   <div class="shub-grid">
     <div class="shub-card" style="animation-delay:.02s" onclick="switchView('paymentsHubView')"><span class="arw">→</span><div class="shub-ic" style="background:#f3eefe;color:#6d28d9">💸</div><h4>Payments</h4><p>Payment In &amp; Out</p></div>
     <div class="shub-card" style="animation-delay:.06s" onclick="switchView('partiesLedgerView')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">🤝</div><h4>Parties Ledger</h4><p>Client &amp; vendor balances</p></div>
-    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('accountsManagerView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">🏦</div><h4>Bank &amp; Cash</h4><p>Accounts &amp; balances</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('accountsManagerView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#c2401c">🏦</div><h4>Bank &amp; Cash</h4><p>Accounts &amp; balances</p></div>
     <div class="shub-card" style="animation-delay:.14s" onclick="switchView('cashFlowView')"><span class="arw">→</span><div class="shub-ic" style="background:#e5f6fb;color:#0891b2">📈</div><h4>Cash Flow</h4><p>Money in vs money out</p></div>
     <div class="shub-card" style="animation-delay:.18s" onclick="switchView('costProfitView')"><span class="arw">→</span><div class="shub-ic" style="background:#f1ecfe;color:#7c3aed">📊</div><h4>Cost &amp; Profit</h4><p>Project profitability</p></div>
   </div>
@@ -1479,9 +1479,9 @@
     <p class="text-sm text-slate-500 mt-1">Masters, users, subscription and configuration — set up the app the way you work.</p>
   </div>
   <div class="shub-grid">
-    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('itemsMasterView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#16a34a">🏷️</div><h4>Items</h4><p>Item &amp; material master</p></div>
+    <div class="shub-card" style="animation-delay:.02s" onclick="switchView('itemsMasterView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f6ec;color:#c2401c">🏷️</div><h4>Items</h4><p>Item &amp; material master</p></div>
     <div class="shub-card" style="animation-delay:.06s" onclick="switchView('masterData')"><span class="arw">→</span><div class="shub-ic" style="background:#eaf1ff;color:#2563eb">👥</div><h4>Users &amp; Roles</h4><p>Team &amp; permissions</p></div>
-    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('planBillingView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#10b981">💳</div><h4>Plan &amp; Billing</h4><p>Subscription &amp; usage</p></div>
+    <div class="shub-card" style="animation-delay:.10s" onclick="switchView('planBillingView')"><span class="arw">→</span><div class="shub-ic" style="background:#e6f7ef;color:#ef8420">💳</div><h4>Plan &amp; Billing</h4><p>Subscription &amp; usage</p></div>
     <div class="shub-card" style="animation-delay:.14s" onclick="switchView('settingsView')"><span class="arw">→</span><div class="shub-ic" style="background:#eef1f5;color:#64748b">⚙️</div><h4>Settings &amp; Config</h4><p>App configuration</p></div>
     <div class="shub-card" style="animation-delay:.18s" onclick="switchView('recycleBinView')"><span class="arw">→</span><div class="shub-ic" style="background:#fdeaea;color:#dc2626">🗑️</div><h4>Recycle Bin</h4><p>Restore deleted records</p></div>
   </div>
@@ -2061,7 +2061,7 @@
       <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Fuel, maintenance, movement</div>
     </div>
     <div onclick="_openEquipSection('activity')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#10b98115;border:2px solid #10b98130;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📊</div>
+      <div style="width:54px;height:54px;background:#ef842015;border:2px solid #ef842030;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📊</div>
       <div style="font-size:14px;font-weight:700;color:#0f172a;">Activity Log</div>
       <div style="font-size:11px;color:#94a3b8;margin-top:3px;">History & expenses</div>
     </div>
@@ -2339,7 +2339,7 @@
     <style>
       .acc-lbl{display:block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7c8aa0;margin-bottom:4px}
       .acc-field{width:100%;padding:9px 11px;font-size:13px;color:#0f172a;background:#f7f9fc;border:1px solid #e6ebf3;border-radius:10px;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
-      .acc-field:focus{border-color:#16a34a;background:#fff;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+      .acc-field:focus{border-color:#c2401c;background:#fff;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
       #accountModal select.acc-field,#accountTransferModal select.acc-field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
     </style>
     <div id="accountModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center p-4" style="z-index:199999">
@@ -2920,7 +2920,7 @@
         .si-ac-option .ac-meta{font-size:10px;color:#94a3b8;font-weight:500}
         .si-ac-option .ac-badge{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700}
         .si-ac-option .ac-badge.pending{background:#dbeafe;color:#2563eb}
-        .si-ac-option .ac-badge.used{background:#f0fdf4;color:#16a34a}
+        .si-ac-option .ac-badge.used{background:#fff3ea;color:#c2401c}
         .si-ac-option .ac-badge.new{background:#fef3c7;color:#d97706}
         .si-po-wrap{position:relative}
         .si-po-dropdown{position:absolute;top:100%;left:0;right:0;z-index:9998;background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;box-shadow:0 6px 16px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;display:none}
@@ -3209,8 +3209,8 @@
     <!-- ═══ PAYMENT-IN FORM OVERLAY ═══ -->
     <div id="paymentInFormPanel" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#f0f2f8;">
       <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden;background:#ffffff;">
-        <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="background:linear-gradient(135deg,#065f46 0%,#064e3b 100%);">
-          <div class="flex items-center gap-3"><span class="text-2xl">💵</span><div><h2 class="text-lg font-extrabold text-white" style="-webkit-text-fill-color:white !important;">Record Payment-In</h2><p class="text-xs" style="color:#a7f3d0;">Receive payment from client against invoices.</p></div></div>
+        <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="background:linear-gradient(135deg,#7a1f14 0%,#7a1f14 100%);">
+          <div class="flex items-center gap-3"><span class="text-2xl">💵</span><div><h2 class="text-lg font-extrabold text-white" style="-webkit-text-fill-color:white !important;">Record Payment-In</h2><p class="text-xs" style="color:#f6c9a8;">Receive payment from client against invoices.</p></div></div>
           <button onclick="closeFullScreenForm('paymentInFormPanel')" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:white;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Close (Esc)">&#10005;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:24px;background:#f8fafc;">
@@ -3343,8 +3343,8 @@
     <!-- ═══ OTHER INCOME FORM OVERLAY ═══ -->
     <div id="otherIncomeFormPanel" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#f0f2f8;">
       <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden;background:#ffffff;">
-        <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="background:linear-gradient(135deg,#065f46 0%,#064e3b 100%);">
-          <div class="flex items-center gap-3"><span class="text-2xl">📈</span><div><h2 class="text-lg font-extrabold text-white" style="-webkit-text-fill-color:white !important;">Add Other Income</h2><p class="text-xs" style="color:#a7f3d0;">Record non-sale income like interest, rent, etc.</p></div></div>
+        <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="background:linear-gradient(135deg,#7a1f14 0%,#7a1f14 100%);">
+          <div class="flex items-center gap-3"><span class="text-2xl">📈</span><div><h2 class="text-lg font-extrabold text-white" style="-webkit-text-fill-color:white !important;">Add Other Income</h2><p class="text-xs" style="color:#f6c9a8;">Record non-sale income like interest, rent, etc.</p></div></div>
           <button onclick="closeFullScreenForm('otherIncomeFormPanel')" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:white;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Close (Esc)">&#10005;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:24px;background:#f8fafc;">

@@ -766,7 +766,7 @@ function _upgradeLoginForm() {
       </div>
 
       <div id="loginError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
-      <div id="loginSuccess" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
+      <div id="loginSuccess" style="display:none;background:#fff3ea;border:1px solid #fdd9be;color:#c2401c;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
 
       <!-- Email/Password Form -->
       <div id="signInForm">
@@ -878,7 +878,7 @@ function _showConfirmationScreen(email) {
 
   loginEl.innerHTML = `
     <div style="width:420px;background:#fff;border-radius:24px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.4);text-align:center;">
-      <div style="width:64px;height:64px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#f2802a,#c2401c);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
       </div>
       <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Check Your Email</h2>
@@ -981,9 +981,9 @@ export function showPasswordResetCodeScreen(prefillEmail) {
         <p style="font-size:13px;color:#64748b;margin:0;">Enter your email to get a 6-digit reset code.</p>
       </div>
       <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;text-align:center;"></div>
-      <div id="prHint" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;text-align:center;"></div>
+      <div id="prHint" style="display:none;background:#fff3ea;border:1px solid #fdd9be;color:#c2401c;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;text-align:center;"></div>
       <input id="prEmail" type="email" placeholder="your@email.com" value="${(prefillEmail || '').replace(/"/g, '&quot;')}" style="${inp}" onkeydown="if(event.key==='Enter')window._rbacSendResetCode()">
-      <button id="prSendBtn" onclick="window._rbacSendResetCode()" style="width:100%;padding:13px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:18px;">Send Reset Code</button>
+      <button id="prSendBtn" onclick="window._rbacSendResetCode()" style="width:100%;padding:13px;background:linear-gradient(135deg,#d6402c,#ef8420);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:18px;">Send Reset Code</button>
       <div style="border-top:1px solid #f1f5f9;padding-top:16px;">
         <input id="prCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code from email" style="${inp}text-align:center;letter-spacing:4px;font-size:18px;font-weight:700;">
         <input id="prPass" type="password" placeholder="New password (min 6)" style="${inp}">

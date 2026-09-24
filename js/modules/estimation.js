@@ -298,7 +298,7 @@ function _raHeadTable(it, h) {
           </tr>`).join('') : `<tr><td colspan="9" style="padding:6px;color:#c4bfe0;font-size:12px;">No ${h.label.toLowerCase()} lines.</td></tr>`}</tbody>
       </table></div>
       <button onclick="window._estRAAdd('${h.key}')" style="margin-top:6px;font-size:11px;font-weight:800;color:#5B34D9;background:#F3F0FD;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">+ Add ${h.label} line</button>
-      ${h.key === 'material' ? `<button onclick="window._estAttachRecipe()" style="margin-top:6px;margin-left:6px;font-size:11px;font-weight:800;color:#15803d;background:#ecfdf5;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">📋 Attach Recipe</button>` : ''}
+      ${h.key === 'material' ? `<button onclick="window._estAttachRecipe()" style="margin-top:6px;margin-left:6px;font-size:11px;font-weight:800;color:#9e3417;background:#fff3ea;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">📋 Attach Recipe</button>` : ''}
     </div>`;
 }
 function _suggestList(h) {

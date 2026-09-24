@@ -705,7 +705,7 @@ window._openSyncDoctor = async function () {
   document.getElementById('syncDoctorOverlay')?.remove();
   const d = await (window.getSyncDiagnostics ? window.getSyncDiagnostics() : Promise.resolve(null));
   if (!d) { showToast('Diagnostics unavailable', 'error'); return; }
-  const yes = t => `<span style="color:#059669;font-weight:800;">✓ ${t}</span>`;
+  const yes = t => `<span style="color:#d6402c;font-weight:800;">✓ ${t}</span>`;
   const no = t => `<span style="color:#dc2626;font-weight:800;">✕ ${t}</span>`;
   const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;"><span style="color:#64748b;font-weight:600;">${k}</span><span style="text-align:right;font-weight:700;color:#0f172a;">${v}</span></div>`;
   const rtOk = d.realtime.status === 'SUBSCRIBED';

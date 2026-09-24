@@ -425,12 +425,12 @@ window._cfTileDetail = function (kind) {
   } else if (kind === 'netcash') {
     const inAll = (state.paymentsIn || []).reduce((s, p) => s + N(p.amount), 0);
     const vp = _vendorPaid(null), ex = _expenses(null), lp = _labourPaid(null);
-    total = inAll - (vp + ex + lp); totalColor = total >= 0 ? '#059669' : '#dc2626';
+    total = inAll - (vp + ex + lp); totalColor = total >= 0 ? '#d6402c' : '#dc2626';
     title = '🏦 Net Cash Position';
     subtitle = 'Everything received in, minus everything paid out (to date)';
     cols = ['Flow', '', '', 'Amount', 'Count'];
     rows = [
-      [{ v: 'Payments received (in)', color: '#059669' }, '', '', { v: '+ ' + M(inAll), strong: 1, color: '#059669' }, (state.paymentsIn || []).length + ''],
+      [{ v: 'Payments received (in)', color: '#d6402c' }, '', '', { v: '+ ' + M(inAll), strong: 1, color: '#d6402c' }, (state.paymentsIn || []).length + ''],
       [{ v: 'Vendor payments (out)', color: '#dc2626' }, '', '', { v: '− ' + M(vp), color: '#dc2626' }, (state.vendorPayments || []).length + ''],
       [{ v: 'Expenses (out)', color: '#dc2626' }, '', '', { v: '− ' + M(ex), color: '#dc2626' }, (state.expenses || []).length + ''],
       [{ v: 'Labour payments (out)', color: '#dc2626' }, '', '', { v: '− ' + M(lp), color: '#dc2626' }, (state.labourPayments || []).length + ''],
@@ -438,13 +438,13 @@ window._cfTileDetail = function (kind) {
     foot = 'Net cash = total received − (vendor payments + expenses + labour payments), across all dates.';
   } else if (kind === 'projected') {
     const f = forecast30();
-    total = f.projected; totalColor = f.projected >= 0 ? '#059669' : '#dc2626';
+    total = f.projected; totalColor = f.projected >= 0 ? '#d6402c' : '#dc2626';
     title = f.projected >= 0 ? '✅ Projected Cash · 30d' : '⚠️ Projected Cash · 30d';
     subtitle = 'Where your cash lands after the next 30 days';
     cols = ['Component', '', '', 'Amount', ''];
     rows = [
       [{ v: 'Opening cash (today)', color: '#0f172a' }, '', '', { v: M(f.opening), strong: 1 }, ''],
-      [{ v: 'Expected inflow (receivables)', color: '#059669' }, '', '', { v: '+ ' + M(f.inflow), color: '#059669' }, ''],
+      [{ v: 'Expected inflow (receivables)', color: '#d6402c' }, '', '', { v: '+ ' + M(f.inflow), color: '#d6402c' }, ''],
       [{ v: 'Expected outflow', color: '#dc2626' }, '', '', { v: '− ' + M(f.outflow), color: '#dc2626' }, ''],
     ];
     foot = 'Projected = Opening cash + Expected inflow − Expected outflow. Click the Inflow / Outflow tiles to see their sources.';
@@ -489,13 +489,13 @@ window._cfTileDetail = function (kind) {
     cols = ['Item', 'Purchased', 'Paid', 'Outstanding', 'Due / oldest'];
     foot = 'Material = vendor bills − payments (per vendor), plus labour wages due and the last-30-day expense run-rate. Pay the oldest/due vendors first.';
   } else if (kind === 'cc_net4') {
-    const s = _ccSnap || {}; total = s.net4 || 0; totalColor = (s.net4 || 0) >= 0 ? '#16a34a' : '#dc2626';
+    const s = _ccSnap || {}; total = s.net4 || 0; totalColor = (s.net4 || 0) >= 0 ? '#c2401c' : '#dc2626';
     title = (s.net4 || 0) >= 0 ? '📈 Net (4-week)' : '📉 Shortfall (4-week)';
     subtitle = 'Cash you\'ll have after 4 weeks of collections and dues';
     cols = ['Component', '', '', 'Amount', ''];
     rows = [
       [{ v: 'Cash position (today)', color: '#0d9488' }, '', '', { v: M(s.cash || 0), strong: 1 }, ''],
-      [{ v: 'Expected collections (4 weeks)', color: '#059669' }, '', '', { v: '+ ' + M(s.expect4 || 0), color: '#059669' }, ''],
+      [{ v: 'Expected collections (4 weeks)', color: '#d6402c' }, '', '', { v: '+ ' + M(s.expect4 || 0), color: '#d6402c' }, ''],
       [{ v: 'Dues (material + labour + expenses)', color: '#dc2626' }, '', '', { v: '− ' + M(s.committed4 || 0), color: '#dc2626' }, ''],
     ];
     foot = 'Net (4-week) = Cash + expected 4-week collections − upcoming dues. Click Receivables / Payables to see the underlying transactions.';
@@ -532,18 +532,18 @@ const _scoreRow = (label, value, bold, color) => `
     <span style="font-size:13px;${bold ? 'font-weight:800;color:#0f172a;' : 'color:#475569;'}">${label}</span>
     <span style="font-size:14px;font-weight:${bold ? '800' : '700'};color:${color || '#0f172a'};">${value}</span>
   </div>`;
-const _gradeBadge = (g) => { const c = g === 'A' ? '#059669' : g === 'B' ? '#d97706' : '#dc2626'; const bg = g === 'A' ? '#ecfdf5' : g === 'B' ? '#fffbeb' : '#fef2f2'; return `<span style="display:inline-flex;width:26px;height:26px;border-radius:8px;background:${bg};color:${c};font-weight:800;font-size:13px;align-items:center;justify-content:center;border:1px solid ${c}33;">${g}</span>`; };
+const _gradeBadge = (g) => { const c = g === 'A' ? '#d6402c' : g === 'B' ? '#d97706' : '#dc2626'; const bg = g === 'A' ? '#fff3ea' : g === 'B' ? '#fffbeb' : '#fef2f2'; return `<span style="display:inline-flex;width:26px;height:26px;border-radius:8px;background:${bg};color:${c};font-weight:800;font-size:13px;align-items:center;justify-content:center;border:1px solid ${c}33;">${g}</span>`; };
 
 // ── SECTION RENDERERS ─────────────────────────────────────────────────────────
 function _renderOverview() {
   const cash = cashPosition(), ar = arOutstanding(), ap = apOutstanding();
   const dso = arDays(), dpo = apDays(), invD = inventoryDays(), ccc = dso + invD - dpo;
   const f = forecast30(), ps = profitScorecard(90);
-  const projColor = f.projected >= 0 ? '#059669' : '#dc2626';
-  const cccColor = ccc <= 30 ? '#059669' : ccc <= 60 ? '#d97706' : '#dc2626';
+  const projColor = f.projected >= 0 ? '#d6402c' : '#dc2626';
+  const cccColor = ccc <= 30 ? '#d6402c' : ccc <= 60 ? '#d97706' : '#dc2626';
   const recv = clientScores().filter(c => c.outstanding > 1).slice(0, 5);
   const h = cashHealth();
-  const hColor = h.grade === 'A' ? '#10b981' : h.grade === 'B' ? '#f59e0b' : '#ef4444';
+  const hColor = h.grade === 'A' ? '#ef8420' : h.grade === 'B' ? '#f59e0b' : '#ef4444';
   const meter = (label, v) => `<div style="flex:1;min-width:90px;"><div style="font-size:10px;color:#cbd5e1;font-weight:700;text-transform:uppercase;">${label}</div><div style="height:6px;background:rgba(255,255,255,.15);border-radius:4px;margin-top:4px;overflow:hidden;"><div style="width:${Math.round(v * 100)}%;height:100%;background:${hColor};"></div></div></div>`;
   return `
     <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:18px;padding:20px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:22px;flex-wrap:wrap;">
@@ -563,7 +563,7 @@ function _renderOverview() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px;">
       ${_tile('Net Cash Position', fmt(cash), 'Money in − money out', cash >= 0 ? '#0f172a' : '#dc2626', '🏦', 'netcash')}
-      ${_tile('Expected Inflow · 30d', fmt(f.inflow), 'Outstanding receivables', '#059669', '📥', 'inflow')}
+      ${_tile('Expected Inflow · 30d', fmt(f.inflow), 'Outstanding receivables', '#d6402c', '📥', 'inflow')}
       ${_tile('Expected Outflow · 30d', fmt(f.outflow), 'Vendors + labour + OpEx', '#dc2626', '📤', 'outflow')}
       ${_tile('Projected Cash · 30d', fmt(f.projected), f.net >= 0 ? 'Surplus expected' : 'Gap — act now', projColor, f.projected >= 0 ? '✅' : '⚠️', 'projected')}
     </div>
@@ -578,10 +578,10 @@ function _renderOverview() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h3 style="font-size:14px;font-weight:800;color:#0f172a;">📊 Profit Scorecard</h3><span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Last 90 days</span></div>
         ${_scoreRow('Revenue', fmt(ps.revenue))}
         ${_scoreRow('− Direct cost (materials + labour)', fmt(ps.cogs), false, '#64748b')}
-        ${_scoreRow('= Gross Profit', fmt(ps.gross), true, ps.gross >= 0 ? '#059669' : '#dc2626')}
+        ${_scoreRow('= Gross Profit', fmt(ps.gross), true, ps.gross >= 0 ? '#d6402c' : '#dc2626')}
         ${_scoreRow('− Operating expenses', fmt(ps.opex), false, '#64748b')}
-        ${_scoreRow('= Net Profit', fmt(ps.net), true, ps.net >= 0 ? '#059669' : '#dc2626')}
-        <div style="margin-top:10px;padding:10px;border-radius:10px;background:${ps.margin >= 10 ? '#ecfdf5' : ps.margin >= 0 ? '#fffbeb' : '#fef2f2'};display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:700;color:#334155;">Net Margin</span><span style="font-size:18px;font-weight:800;color:${ps.margin >= 10 ? '#059669' : ps.margin >= 0 ? '#d97706' : '#dc2626'};">${fmt1(ps.margin)}%</span></div>
+        ${_scoreRow('= Net Profit', fmt(ps.net), true, ps.net >= 0 ? '#d6402c' : '#dc2626')}
+        <div style="margin-top:10px;padding:10px;border-radius:10px;background:${ps.margin >= 10 ? '#fff3ea' : ps.margin >= 0 ? '#fffbeb' : '#fef2f2'};display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:700;color:#334155;">Net Margin</span><span style="font-size:18px;font-weight:800;color:${ps.margin >= 10 ? '#d6402c' : ps.margin >= 0 ? '#d97706' : '#dc2626'};">${fmt1(ps.margin)}%</span></div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
         <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">💧 Where your cash is stuck</h3>
@@ -600,7 +600,7 @@ function _renderClients() {
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
       <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div><h3 style="font-size:14px;font-weight:800;color:#0f172a;">⭐ Client Scorecard (A / B / C)</h3><p style="font-size:11px;color:#94a3b8;">Payment speed (45%) · revenue value (30%) · order frequency (25%)</p></div>
-        <span style="font-size:11px;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:999px;padding:4px 10px;">${aCount} A-grade client${aCount === 1 ? '' : 's'}</span>
+        <span style="font-size:11px;font-weight:700;color:#d6402c;background:#fff3ea;border:1px solid #f6c9a8;border-radius:999px;padding:4px 10px;">${aCount} A-grade client${aCount === 1 ? '' : 's'}</span>
       </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px;">
@@ -613,7 +613,7 @@ function _renderClients() {
             <td style="padding:9px 12px;text-align:center;color:#475569;">${c.orders}</td>
             <td style="padding:9px 12px;text-align:right;color:#334155;">${cur}${Math.round(c.billed).toLocaleString('en-IN')}</td>
             <td style="padding:9px 12px;text-align:right;font-weight:700;color:${c.outstanding > 1 ? '#dc2626' : '#94a3b8'};">${cur}${Math.round(c.outstanding).toLocaleString('en-IN')}</td>
-            <td style="padding:9px 12px;text-align:center;color:${c.avgDays > 45 ? '#dc2626' : c.avgDays > 0 ? '#d97706' : '#059669'};font-weight:700;">${c.outstanding <= 1 ? '✓ paid' : c.avgDays + 'd'}</td>
+            <td style="padding:9px 12px;text-align:center;color:${c.avgDays > 45 ? '#dc2626' : c.avgDays > 0 ? '#d97706' : '#d6402c'};font-weight:700;">${c.outstanding <= 1 ? '✓ paid' : c.avgDays + 'd'}</td>
             <td style="padding:9px 12px;text-align:center;">${_bar(c.paymentSpeed)}</td>
             <td style="padding:9px 12px;text-align:center;">${_bar(c.value)}</td>
             <td style="padding:9px 12px;text-align:center;font-weight:800;color:#0f172a;">${c.score}</td>
@@ -622,10 +622,10 @@ function _renderClients() {
           </tbody>
         </table>
       </div>
-      <div style="padding:14px 18px;background:#f0fdf4;border-top:1px solid #dcfce7;font-size:12px;color:#166534;"><b>Grow your A-clients:</b> give them priority service & flexible terms — they pay fast and order often. Put <b>C-clients</b> on advance/partial payment.</div>
+      <div style="padding:14px 18px;background:#fff3ea;border-top:1px solid #ffeede;font-size:12px;color:#7a1f14;"><b>Grow your A-clients:</b> give them priority service & flexible terms — they pay fast and order often. Put <b>C-clients</b> on advance/partial payment.</div>
     </div>`;
 }
-const _bar = (pct) => `<div style="display:inline-block;width:54px;height:7px;border-radius:4px;background:#e2e8f0;overflow:hidden;vertical-align:middle;"><div style="width:${Math.max(3, pct)}%;height:100%;background:${pct >= 70 ? '#059669' : pct >= 45 ? '#d97706' : '#dc2626'};"></div></div>`;
+const _bar = (pct) => `<div style="display:inline-block;width:54px;height:7px;border-radius:4px;background:#e2e8f0;overflow:hidden;vertical-align:middle;"><div style="width:${Math.max(3, pct)}%;height:100%;background:${pct >= 70 ? '#d6402c' : pct >= 45 ? '#d97706' : '#dc2626'};"></div></div>`;
 
 function _renderLeaks() {
   const L = detectLeaks();
@@ -660,14 +660,14 @@ function _renderForecast() {
       <div style="font-size:20px;font-weight:800;color:${color};margin-top:4px;">${fmt(amt)}</div>
       <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${note}</div>
     </div>`;
-  const projColor = tf.projected >= 0 ? '#059669' : '#dc2626';
+  const projColor = tf.projected >= 0 ? '#d6402c' : '#dc2626';
   return `
     <!-- Tiered 30-day forecast -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;">
-        <h3 style="font-size:13px;font-weight:800;color:#059669;margin-bottom:10px;">📥 Expected Inflows · 30 days</h3>
+        <h3 style="font-size:13px;font-weight:800;color:#d6402c;margin-bottom:10px;">📥 Expected Inflows · 30 days</h3>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          ${inTier('Confirmed (A)', tf.confirmed, '#059669', 'Reliable payers')}
+          ${inTier('Confirmed (A)', tf.confirmed, '#d6402c', 'Reliable payers')}
           ${inTier('Likely (B)', tf.likely, '#d97706', 'Usually pay')}
           ${inTier('Possible (C)', tf.possible, '#dc2626', 'Chase hard')}
         </div>
@@ -683,7 +683,7 @@ function _renderForecast() {
         </div>
       </div>
     </div>
-    <div style="background:${tf.gap >= 0 ? 'linear-gradient(135deg,#065f46,#059669)' : 'linear-gradient(135deg,#7f1d1d,#dc2626)'};border-radius:16px;padding:16px 18px;margin-bottom:18px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <div style="background:${tf.gap >= 0 ? 'linear-gradient(135deg,#7a1f14,#d6402c)' : 'linear-gradient(135deg,#7f1d1d,#dc2626)'};border-radius:16px;padding:16px 18px;margin-bottom:18px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">30-day projected cash (opening ${fmt(tf.opening)})</div><div style="font-size:26px;font-weight:800;">${fmt(tf.projected)}</div></div>
       <div style="font-size:13px;opacity:.95;max-width:300px;">${tf.gap >= 0 ? '✅ Surplus — deploy it: pre-pay A-vendors or set aside profit.' : '⚠️ Gap — accelerate A/B collections before committing new spend.'}</div>
     </div>
@@ -697,9 +697,9 @@ function _renderForecast() {
         </tr></thead>
         <tbody>${wk.map(r => `<tr style="border-top:1px solid #f1f5f9;">
           <td style="padding:9px 14px;font-weight:700;">Week ${r.week}</td>
-          <td style="padding:9px 14px;text-align:right;color:#059669;font-weight:700;">${cur}${Math.round(r.inflow).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;text-align:right;color:#d6402c;font-weight:700;">${cur}${Math.round(r.inflow).toLocaleString('en-IN')}</td>
           <td style="padding:9px 14px;text-align:right;color:#dc2626;font-weight:700;">${cur}${Math.round(r.outflow).toLocaleString('en-IN')}</td>
-          <td style="padding:9px 14px;text-align:right;font-weight:700;color:${r.gap >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.round(r.gap).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:700;color:${r.gap >= 0 ? '#d6402c' : '#dc2626'};">${cur}${Math.round(r.gap).toLocaleString('en-IN')}</td>
           <td style="padding:9px 14px;text-align:right;font-weight:800;color:${r.running >= 0 ? '#0f172a' : '#dc2626'};">${cur}${Math.round(r.running).toLocaleString('en-IN')}</td>
           <td style="padding:9px 14px;color:#475569;font-size:11px;">${r.strat}</td>
         </tr>`).join('')}</tbody>
@@ -771,10 +771,10 @@ function _renderTools() {
           ${sl('simArDays', 'Collect faster', 'days', 1)}
           ${sl('simInv', 'Reduce inventory', '%', 1)}
         </div>
-        <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:16px;">
-          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#166534;font-weight:600;">Extra annual profit</span><span id="simProfitOut" style="font-size:15px;font-weight:800;color:#059669;">+₹0</span></div>
-          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#166534;font-weight:600;">Cash freed up</span><span id="simCashOut" style="font-size:15px;font-weight:800;color:#059669;">+₹0</span></div>
-          <div style="border-top:1px dashed #86efac;padding-top:10px;display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#14532d;font-weight:800;">Total cash impact</span><span id="simTotalOut" style="font-size:20px;font-weight:800;color:#047857;">₹0</span></div>
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;background:#fff3ea;border:1px solid #fdd9be;border-radius:14px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#7a1f14;font-weight:600;">Extra annual profit</span><span id="simProfitOut" style="font-size:15px;font-weight:800;color:#d6402c;">+₹0</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#7a1f14;font-weight:600;">Cash freed up</span><span id="simCashOut" style="font-size:15px;font-weight:800;color:#d6402c;">+₹0</span></div>
+          <div style="border-top:1px dashed #ffd0a8;padding-top:10px;display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#14532d;font-weight:800;">Total cash impact</span><span id="simTotalOut" style="font-size:20px;font-weight:800;color:#c2321f;">₹0</span></div>
         </div>
       </div>
     </div>`;
@@ -784,10 +784,10 @@ function _renderSurvival() {
   const s = survival();
   const cur = getCurrencySymbol();
   const rw = s.runwayMonths;
-  const rwColor = rw >= 6 ? '#059669' : rw >= 3 ? '#d97706' : '#dc2626';
+  const rwColor = rw >= 6 ? '#d6402c' : rw >= 3 ? '#d97706' : '#dc2626';
   const rwLabel = rw >= 99 ? '∞' : fmt1(rw);
   const resPct = s.targetReserve > 0 ? Math.min(100, Math.max(0, s.cash / s.targetReserve * 100)) : 0;
-  const beColor = s.beAchieved >= 100 ? '#059669' : s.beAchieved >= 70 ? '#d97706' : '#dc2626';
+  const beColor = s.beAchieved >= 100 ? '#d6402c' : s.beAchieved >= 70 ? '#d97706' : '#dc2626';
   return `
     <!-- RUNWAY hero -->
     <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:18px;padding:22px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
@@ -810,12 +810,12 @@ function _renderSurvival() {
           <span style="font-size:13px;color:#334155;font-weight:600;">Target reserve:</span>
           <input id="cfReserveMonths" type="number" min="0" step="0.5" value="${s.reserveMonths}" style="width:64px;padding:7px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;font-size:14px;font-weight:700;">
           <span style="font-size:13px;color:#64748b;">months</span>
-          <button onclick="window._cfSaveReserve()" style="margin-left:auto;padding:7px 14px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
+          <button onclick="window._cfSaveReserve()" style="margin-left:auto;padding:7px 14px;background:linear-gradient(135deg,#d6402c,#ef8420);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
         </div>
         ${_scoreRow('Target reserve amount', fmt(s.targetReserve), true)}
-        ${_scoreRow('Currently in bank', fmt(s.cash), false, s.cash >= s.targetReserve ? '#059669' : '#334155')}
-        ${_scoreRow(s.reserveGap > 0 ? 'Still to set aside' : 'Reserve fully funded', s.reserveGap > 0 ? fmt(s.reserveGap) : '✓', true, s.reserveGap > 0 ? '#dc2626' : '#059669')}
-        <div style="height:8px;background:#e2e8f0;border-radius:5px;margin-top:10px;overflow:hidden;"><div style="width:${resPct}%;height:100%;background:${resPct >= 100 ? '#059669' : '#f59e0b'};"></div></div>
+        ${_scoreRow('Currently in bank', fmt(s.cash), false, s.cash >= s.targetReserve ? '#d6402c' : '#334155')}
+        ${_scoreRow(s.reserveGap > 0 ? 'Still to set aside' : 'Reserve fully funded', s.reserveGap > 0 ? fmt(s.reserveGap) : '✓', true, s.reserveGap > 0 ? '#dc2626' : '#d6402c')}
+        <div style="height:8px;background:#e2e8f0;border-radius:5px;margin-top:10px;overflow:hidden;"><div style="width:${resPct}%;height:100%;background:${resPct >= 100 ? '#d6402c' : '#f59e0b'};"></div></div>
         <div style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right;">${fmt1(resPct)}% funded</div>
       </div>
 
@@ -828,7 +828,7 @@ function _renderSurvival() {
           <div style="font-size:11px;color:#64748b;margin-top:2px;">at your ${fmt1(s.marginRatio * 100)}% gross margin</div>
         </div>
         ${_scoreRow('Your current monthly revenue', fmt(s.monthlyRev))}
-        <div style="margin-top:8px;padding:10px;border-radius:10px;background:${s.beAchieved >= 100 ? '#ecfdf5' : '#fffbeb'};display:flex;justify-content:space-between;align-items:center;">
+        <div style="margin-top:8px;padding:10px;border-radius:10px;background:${s.beAchieved >= 100 ? '#fff3ea' : '#fffbeb'};display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;font-weight:700;color:#334155;">Break-even achieved</span>
           <span style="font-size:18px;font-weight:800;color:${beColor};">${fmt1(s.beAchieved)}%</span>
         </div>
@@ -842,7 +842,7 @@ function _renderTargets() {
   const t = _settings().targets;
   const rows = targetsScorecard();
   const cur = getCurrencySymbol();
-  const dot = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
+  const dot = { green: '#ef8420', amber: '#f59e0b', red: '#ef4444' };
   const dotLabel = { green: 'On track', amber: 'Watch', red: 'Off track' };
   const onTrack = rows.filter(r => r.status === 'green').length;
   const fmtV = (r, v) => r.fmt === 'money' ? fmt(v) : r.fmt === 'pct' ? fmt1(v) + '%' : Math.round(v) + 'd';
@@ -850,7 +850,7 @@ function _renderTargets() {
   return `
     <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Board snapshot · ${now}</div><div style="font-size:20px;font-weight:800;">Plan vs Actual</div></div>
-      <div style="text-align:right;"><div style="font-size:26px;font-weight:800;color:${onTrack >= 3 ? '#10b981' : onTrack >= 2 ? '#f59e0b' : '#ef4444'};">${onTrack}/4</div><div style="font-size:11px;color:#94a3b8;">targets on track</div></div>
+      <div style="text-align:right;"><div style="font-size:26px;font-weight:800;color:${onTrack >= 3 ? '#ef8420' : onTrack >= 2 ? '#f59e0b' : '#ef4444'};">${onTrack}/4</div><div style="font-size:11px;color:#94a3b8;">targets on track</div></div>
     </div>
 
     <!-- Variance table -->
@@ -859,7 +859,7 @@ function _renderTargets() {
         <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;font-weight:800;"><th style="padding:11px 16px;text-align:left;">Metric</th><th style="padding:11px 16px;text-align:right;">Target</th><th style="padding:11px 16px;text-align:right;">Actual (monthly)</th><th style="padding:11px 16px;text-align:right;">Variance</th><th style="padding:11px 16px;text-align:center;">Status</th></tr></thead>
         <tbody>${rows.map(r => {
           const variance = r.lowerBetter ? r.target - r.actual : r.actual - r.target;
-          const vColor = (r.lowerBetter ? variance >= 0 : variance >= 0) ? '#059669' : '#dc2626';
+          const vColor = (r.lowerBetter ? variance >= 0 : variance >= 0) ? '#d6402c' : '#dc2626';
           return `<tr style="border-top:1px solid #f1f5f9;">
             <td style="padding:11px 16px;font-weight:700;color:#0f172a;">${r.metric}</td>
             <td style="padding:11px 16px;text-align:right;color:#64748b;">${r.target ? fmtV(r, r.target) : '—'}</td>
@@ -874,7 +874,7 @@ function _renderTargets() {
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <h3 style="font-size:14px;font-weight:800;color:#0f172a;">🎯 Set Your Monthly Targets</h3>
-        <button onclick="window._cfSaveTargets()" style="padding:7px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save Targets</button>
+        <button onclick="window._cfSaveTargets()" style="padding:7px 16px;background:linear-gradient(135deg,#d6402c,#ef8420);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save Targets</button>
       </div>
       <p style="font-size:11px;color:#94a3b8;margin-bottom:14px;">Decide what "winning" looks like — the system tracks you against it every day.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;">
@@ -890,14 +890,14 @@ function _renderProfitFirst() {
   const f = profitFirst();
   const cur = getCurrencySymbol();
   const buckets = [
-    { k: 'profit', id: 'pfProfit', label: 'Profit', icon: '🏆', color: '#059669', note: 'Set aside — never touch. Your reward.', amt: f.profit },
+    { k: 'profit', id: 'pfProfit', label: 'Profit', icon: '🏆', color: '#d6402c', note: 'Set aside — never touch. Your reward.', amt: f.profit },
     { k: 'ownerPay', id: 'pfOwnerPay', label: 'Owner Pay', icon: '👤', color: '#2563eb', note: 'Pay yourself a real salary, first.', amt: f.ownerPay },
     { k: 'tax', id: 'pfTax', label: 'Tax Reserve', icon: '🏛️', color: '#d97706', note: 'GST + income tax — kept ready, no shocks.', amt: f.tax },
     { k: 'opex', id: 'pfOpex', label: 'Operating Expenses', icon: '⚙️', color: '#64748b', note: 'Runs the business — what is left.', amt: f.opex },
   ];
   const sumOk = f.sum === 100;
   return `
-    <div style="background:linear-gradient(135deg,#064e3b,#059669);border-radius:16px;padding:20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div style="background:linear-gradient(135deg,#7a1f14,#d6402c);border-radius:16px;padding:20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">Allocate first, spend what's left</div><div style="font-size:20px;font-weight:800;">Profit-First on ${fmt(f.income)}/mo income</div><div style="font-size:11px;opacity:.85;margin-top:2px;">Based on your average monthly collections.</div></div>
       <div style="font-size:12px;opacity:.95;max-width:280px;">Transfer each bucket to a <b>separate bank account</b> on a fixed day. Profit you can't see, you won't spend.</div>
     </div>
@@ -914,16 +914,16 @@ function _renderProfitFirst() {
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:${sumOk ? '#059669' : '#dc2626'};">Total allocation: <span data-pf-sum>${f.sum}</span>% ${sumOk ? '✓' : '— must equal 100%'}</div>
-      <button onclick="window._cfSaveProfitFirst()" style="padding:9px 18px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">Save Allocation</button>
+      <div style="font-size:12px;font-weight:700;color:${sumOk ? '#d6402c' : '#dc2626'};">Total allocation: <span data-pf-sum>${f.sum}</span>% ${sumOk ? '✓' : '— must equal 100%'}</div>
+      <button onclick="window._cfSaveProfitFirst()" style="padding:9px 18px;background:linear-gradient(135deg,#d6402c,#ef8420);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">Save Allocation</button>
     </div>
 
     <!-- Reality check -->
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
       <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">🔍 Reality Check — are you living within OpEx?</h3>
       ${_scoreRow('Your target OpEx budget', fmt(f.opex) + '/mo', true)}
-      ${_scoreRow('Your actual operating spend', fmt(f.actualMonthlyCost) + '/mo', false, f.overspend > 0 ? '#dc2626' : '#059669')}
-      <div style="margin-top:10px;padding:12px;border-radius:10px;background:${f.overspend > 0 ? '#fef2f2' : '#ecfdf5'};font-size:12px;color:${f.overspend > 0 ? '#991b1b' : '#166534'};font-weight:600;">
+      ${_scoreRow('Your actual operating spend', fmt(f.actualMonthlyCost) + '/mo', false, f.overspend > 0 ? '#dc2626' : '#d6402c')}
+      <div style="margin-top:10px;padding:12px;border-radius:10px;background:${f.overspend > 0 ? '#fef2f2' : '#fff3ea'};font-size:12px;color:${f.overspend > 0 ? '#991b1b' : '#7a1f14'};font-weight:600;">
         ${f.overspend > 0
           ? `⚠️ You're overspending by <b>${fmt(f.overspend)}/mo</b>. Trim this to fund Profit + Owner Pay + Tax. Small, steady cuts beat one big purge.`
           : `🟢 You're within budget — your Profit, Owner Pay and Tax buckets are fully fundable. Keep the discipline.`}
@@ -938,7 +938,7 @@ window._cfPfPreview = function () {
   const pct = { profit: g('pfProfit'), ownerPay: g('pfOwnerPay'), tax: g('pfTax'), opex: g('pfOpex') };
   const sum = pct.profit + pct.ownerPay + pct.tax + pct.opex;
   ['profit', 'ownerPay', 'tax', 'opex'].forEach(k => { const el = document.querySelector(`[data-pf-amt="${k}"]`); if (el) el.innerHTML = fmt(f.income * pct[k] / 100) + '<span style="font-size:11px;color:#94a3b8;font-weight:600;">/mo</span>'; });
-  const sEl = document.querySelector('[data-pf-sum]'); if (sEl) { sEl.textContent = sum; sEl.parentElement.style.color = sum === 100 ? '#059669' : '#dc2626'; }
+  const sEl = document.querySelector('[data-pf-sum]'); if (sEl) { sEl.textContent = sum; sEl.parentElement.style.color = sum === 100 ? '#d6402c' : '#dc2626'; }
 };
 
 function _renderCommitments() {
@@ -949,11 +949,11 @@ function _renderCommitments() {
   const totIn = inNext30.filter(c => c.type === 'in').reduce((s, c) => s + N(c.amount), 0);
   const totOut = inNext30.filter(c => c.type === 'out').reduce((s, c) => s + N(c.amount), 0);
   const inp = 'padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;';
-  const confColor = { confirmed: '#059669', likely: '#d97706', possible: '#dc2626' };
+  const confColor = { confirmed: '#d6402c', likely: '#d97706', possible: '#dc2626' };
   return `
     <div style="background:linear-gradient(135deg,#0a0f1a,#0f1f35);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">What only you know · next 30 days</div><div style="font-size:18px;font-weight:800;">Add the cash events that aren't invoiced yet</div></div>
-      <div style="display:flex;gap:18px;"><div><div style="font-size:10px;color:#94a3b8;">Committed in</div><div style="font-size:18px;font-weight:800;color:#10b981;">${fmt(totIn)}</div></div><div><div style="font-size:10px;color:#94a3b8;">Committed out</div><div style="font-size:18px;font-weight:800;color:#f87171;">${fmt(totOut)}</div></div></div>
+      <div style="display:flex;gap:18px;"><div><div style="font-size:10px;color:#94a3b8;">Committed in</div><div style="font-size:18px;font-weight:800;color:#ef8420;">${fmt(totIn)}</div></div><div><div style="font-size:10px;color:#94a3b8;">Committed out</div><div style="font-size:18px;font-weight:800;color:#f87171;">${fmt(totOut)}</div></div></div>
     </div>
 
     <!-- Add form -->
@@ -965,7 +965,7 @@ function _renderCommitments() {
         <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Amount (${cur})</label><input id="comAmount" type="number" min="0" style="${inp}width:100%;"></div>
         <div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Expected date</label><input id="comDate" type="date" value="${today}" style="${inp}width:100%;"></div>
         <div id="comConfWrap"><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Confidence</label><select id="comConf" style="${inp}width:100%;"><option value="confirmed">Confirmed</option><option value="likely">Likely</option><option value="possible">Possible</option></select></div>
-        <button onclick="window._cfAddCommitment()" style="padding:9px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;height:38px;">Add</button>
+        <button onclick="window._cfAddCommitment()" style="padding:9px 16px;background:linear-gradient(135deg,#d6402c,#ef8420);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;height:38px;">Add</button>
       </div>
     </div>
 
@@ -977,7 +977,7 @@ function _renderCommitments() {
         return `<div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f1f5f9;${past ? 'opacity:.5;' : ''}">
           <div style="font-size:18px;">${c.type === 'in' ? '💰' : '📤'}</div>
           <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div><div style="font-size:10px;color:#94a3b8;">${c.date}${c.type === 'in' ? ` · <span style="color:${confColor[c.confidence] || '#64748b'};font-weight:700;text-transform:capitalize;">${c.confidence || 'confirmed'}</span>` : ''}${past ? ' · past' : ''}</div></div>
-          <div style="font-size:14px;font-weight:800;color:${c.type === 'in' ? '#059669' : '#dc2626'};">${c.type === 'in' ? '+' : '−'}${fmt(c.amount)}</div>
+          <div style="font-size:14px;font-weight:800;color:${c.type === 'in' ? '#d6402c' : '#dc2626'};">${c.type === 'in' ? '+' : '−'}${fmt(c.amount)}</div>
           <button onclick="window._cfDelCommitment('${c.id}')" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;" title="Delete">🗑️</button>
         </div>`; }).join('') : '<p style="padding:22px;text-align:center;color:#94a3b8;font-size:13px;">No commitments yet. Add a confirmed order, an EMI, a tax bill, or a planned purchase — your forecast becomes real.</p>'}
     </div>
@@ -1048,7 +1048,7 @@ function _renderConstructionCF() {
   const nextOrder = materialAP;                 // outstanding vendor bills as the near-term order proxy
   const coversPayroll = available >= payroll;
   const coversBoth = available >= (payroll + nextOrder);
-  const sig = coversBoth ? { c: '#16a34a', bg: '#f0fdf4', t: 'Healthy', m: 'You can cover payroll and clear vendor dues from expected cash.' }
+  const sig = coversBoth ? { c: '#c2401c', bg: '#fff3ea', t: 'Healthy', m: 'You can cover payroll and clear vendor dues from expected cash.' }
     : coversPayroll ? { c: '#d97706', bg: '#fffbeb', t: 'Tight', m: 'Payroll is covered, but vendor dues may need collections to come in first.' }
       : { c: '#dc2626', bg: '#fef2f2', t: 'At risk', m: 'Expected cash may not cover payroll — chase overdue receivables now.' };
 
@@ -1068,8 +1068,8 @@ function _renderConstructionCF() {
           <p style="font-size:20px;font-weight:900;color:${sig.c};">${fmt(available)}</p></div>
       </div>
       <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;">
-        <span>Payroll due: <b style="color:${coversPayroll ? '#16a34a' : '#dc2626'};">${fmt(payroll)}</b></span>
-        <span>Vendor dues: <b style="color:${coversBoth ? '#16a34a' : '#d97706'};">${fmt(nextOrder)}</b></span>
+        <span>Payroll due: <b style="color:${coversPayroll ? '#c2401c' : '#dc2626'};">${fmt(payroll)}</b></span>
+        <span>Vendor dues: <b style="color:${coversBoth ? '#c2401c' : '#d97706'};">${fmt(nextOrder)}</b></span>
       </div>
     </div>
 
@@ -1077,7 +1077,7 @@ function _renderConstructionCF() {
       ${card('Cash position', cash, 'received − paid out', '#0d9488', 'netcash')}
       ${card('Receivables (money in)', agg.total, `${fmt(netCollectible)} collectible · ${fmt(retentionHeld)} retention`, '#2563eb', 'cc_recv')}
       ${card('Payables (money out)', totalAP, 'material + labour + expenses', '#ea580c', 'cc_pay')}
-      ${card(net4 >= 0 ? 'Net (4-week)' : 'Shortfall (4-week)', net4, 'cash + collections − dues', net4 >= 0 ? '#16a34a' : '#dc2626', 'cc_net4')}
+      ${card(net4 >= 0 ? 'Net (4-week)' : 'Shortfall (4-week)', net4, 'cash + collections − dues', net4 >= 0 ? '#c2401c' : '#dc2626', 'cc_net4')}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -1110,7 +1110,7 @@ function _renderConstructionCF() {
           <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:14px;color:#0f172a;">🔮 Projected runway</div>
           <div style="padding:6px 14px;">
             ${[['Next 4 weeks', expect4, committed4, net4], ['Next 8 weeks', expect8, committed4 + expenseRun, net8]].map(([l, ei, out, net]) => `<div style="padding:8px 0;border-bottom:1px solid #f8fafc;">
-              <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#0f172a;"><span>${l}</span><span style="color:${net >= 0 ? '#16a34a' : '#dc2626'};">${net >= 0 ? '+' : ''}${fmt(net)}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#0f172a;"><span>${l}</span><span style="color:${net >= 0 ? '#c2401c' : '#dc2626'};">${net >= 0 ? '+' : ''}${fmt(net)}</span></div>
               <div style="display:flex;gap:14px;font-size:11px;color:#94a3b8;margin-top:2px;"><span>In ${fmt(ei)}</span><span>Out ${fmt(out)}</span></div></div>`).join('')}
             <p style="font-size:10px;color:#94a3b8;margin-top:6px;">Money-in = expected collections (overdue + part of current, net of retention). Money-out = vendor + labour dues + expense run-rate.</p>
           </div>
@@ -1161,7 +1161,7 @@ window._cfExportSchedulePDF = function () {
 export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
-  const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#059669,#10b981)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
+  const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#d6402c,#ef8420)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
   const body = _cfTab === 'cashflow' ? _renderConstructionCF() : _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
@@ -1280,7 +1280,7 @@ function _renderCockpit() {
   const toReceive = salesReceivable + wip;
   const netPos = toReceive - dueMonth;
   const _payRow = (l, v, note) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${note ? `<br><span style="font-size:10px;color:#94a3b8;">${note}</span>` : ''}</span><b style="color:#dc2626;white-space:nowrap;">${fmt(v)}</b></div>`;
-  const _recvRow = (l, v, sub) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${sub ? `<br><span style="font-size:10px;color:#94a3b8;">${sub}</span>` : ''}</span><b style="color:#16a34a;white-space:nowrap;">${fmt(v)}</b></div>`;
+  const _recvRow = (l, v, sub) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span>${l}${sub ? `<br><span style="font-size:10px;color:#94a3b8;">${sub}</span>` : ''}</span><b style="color:#c2401c;white-space:nowrap;">${fmt(v)}</b></div>`;
 
   // ══ Daily schedule — every dated money movement over the next 30 days ══
   const _horizon = _addDays(_todayStr, 30);
@@ -1374,12 +1374,12 @@ function _renderCockpit() {
         <span style="font-size:12px;font-weight:800;color:#334155;">${_fmtDay(ds)}${ds === _todayStr ? ' <span style="font-size:8px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:1px 5px;border-radius:8px;font-weight:800;">TODAY</span>' : ''}</span>
         ${balHtml}
       </div>
-      ${items.map(e => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#475569;"><span>${e.label}${e.actual ? '' : ' <span style="font-size:9px;color:#94a3b8;">· due</span>'}</span><b style="color:${e.dir === 'in' ? '#16a34a' : '#dc2626'};white-space:nowrap;">${e.dir === 'in' ? '+' : '−'}${fmt(e.amount)}</b></div>`).join('')}
+      ${items.map(e => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#475569;"><span>${e.label}${e.actual ? '' : ' <span style="font-size:9px;color:#94a3b8;">· due</span>'}</span><b style="color:${e.dir === 'in' ? '#c2401c' : '#dc2626'};white-space:nowrap;">${e.dir === 'in' ? '+' : '−'}${fmt(e.amount)}</b></div>`).join('')}
     </div>`;
   });
 
   _cfSchedSnap = { rows: _snapRows, fromD: _fromD, toD: _toD, dir: _dirF, cash: cashPosition(), sumIn: _sumIn, sumOut: _sumOut };
-  const _dirBtn = (v, lbl) => `<button onclick="window._cfSchedSetDir('${v}')" style="padding:4px 11px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${_dirF === v ? 'transparent' : '#e2e8f0'};background:${_dirF === v ? (v === 'in' ? '#16a34a' : v === 'out' ? '#dc2626' : '#334155') : '#fff'};color:${_dirF === v ? '#fff' : '#475569'};">${lbl}</button>`;
+  const _dirBtn = (v, lbl) => `<button onclick="window._cfSchedSetDir('${v}')" style="padding:4px 11px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${_dirF === v ? 'transparent' : '#e2e8f0'};background:${_dirF === v ? (v === 'in' ? '#c2401c' : v === 'out' ? '#dc2626' : '#334155') : '#fff'};color:${_dirF === v ? '#fff' : '#475569'};">${lbl}</button>`;
   const _schedCard = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:16px;">
       <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
@@ -1389,7 +1389,7 @@ function _renderCockpit() {
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;">From <input type="date" value="${_fromD}" onchange="window._cfSchedSetFrom(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"> To <input type="date" value="${_toD}" onchange="window._cfSchedSetTo(this.value)" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;"></div>
           <div style="display:flex;gap:5px;">${_dirBtn('all', 'All')}${_dirBtn('in', 'In')}${_dirBtn('out', 'Out')}</div>
-          <div style="margin-left:auto;font-size:11px;font-weight:700;display:flex;gap:12px;"><span style="color:#16a34a;">In ${fmt(_sumIn)}</span><span style="color:#dc2626;">Out ${fmt(_sumOut)}</span><span style="color:${_sumIn - _sumOut >= 0 ? '#16a34a' : '#dc2626'};">Net ${fmt(_sumIn - _sumOut)}</span></div>
+          <div style="margin-left:auto;font-size:11px;font-weight:700;display:flex;gap:12px;"><span style="color:#c2401c;">In ${fmt(_sumIn)}</span><span style="color:#dc2626;">Out ${fmt(_sumOut)}</span><span style="color:${_sumIn - _sumOut >= 0 ? '#c2401c' : '#dc2626'};">Net ${fmt(_sumIn - _sumOut)}</span></div>
         </div>
       </div>
       <div style="max-height:380px;overflow-y:auto;">${_schedRows || '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px;">No transactions in this range.</div>'}</div>
@@ -1406,12 +1406,12 @@ function _renderCockpit() {
       <p style="font-size:10px;font-weight:800;text-transform:uppercase;color:${color};letter-spacing:.04em;">${label}</p>
       <p style="font-size:20px;font-weight:900;color:#0f172a;margin-top:2px;">${val}</p>${sub ? `<p style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</p>` : ''}</div>`;
 
-  const marginColor = m => m >= 25 ? '#16a34a' : m >= 10 ? '#ca8a04' : m >= 0 ? '#ea580c' : '#dc2626';
+  const marginColor = m => m >= 25 ? '#c2401c' : m >= 10 ? '#ca8a04' : m >= 0 ? '#ea580c' : '#dc2626';
   const leagueRows = league.map(p => `<tr style="border-bottom:1px solid #f1f5f9;">
       <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${_esc(p.projectName)}</td>
       <td style="padding:8px 10px;text-align:right;color:#0d9488;font-weight:700;">${fmt(p.earned)}</td>
       <td style="padding:8px 10px;text-align:right;color:#64748b;">${fmt(p.totalCost)}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:800;color:${p.profit >= 0 ? '#16a34a' : '#dc2626'};">${fmt(p.profit)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:800;color:${p.profit >= 0 ? '#c2401c' : '#dc2626'};">${fmt(p.profit)}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:800;color:${marginColor(p.marginPct)};">${p.marginPct.toFixed(1)}%</td>
       <td style="padding:8px 10px;text-align:right;color:#7c3aed;font-weight:700;">${fmt(p.wip)}</td>
     </tr>`).join('');
@@ -1433,10 +1433,10 @@ function _renderCockpit() {
           ${_payRow('🛠️ Maintenance', payMaint, 'last 30 days')}
         </div>
       </div>
-      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:16px;overflow:hidden;">
-        <div style="padding:12px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:800;color:#15803d;font-size:13px;">🟢 You will receive</span>
-          <span style="font-weight:900;color:#16a34a;font-size:18px;">${fmt(toReceive)}</span>
+      <div style="background:#fff;border:1px solid #fdd9be;border-radius:16px;overflow:hidden;">
+        <div style="padding:12px 16px;background:linear-gradient(135deg,#fff3ea,#ffeede);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:800;color:#9e3417;font-size:13px;">🟢 You will receive</span>
+          <span style="font-weight:900;color:#c2401c;font-size:18px;">${fmt(toReceive)}</span>
         </div>
         <div style="padding:13px 16px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:9px;">
           ${_recvRow('🧾 From Sales — billed, uncollected', salesReceivable, salesDue30 > 0 ? `≈ ${fmt(salesDue30)} due within 30 days (per payment terms)` : 'collected as per each invoice&rsquo;s payment terms')}
@@ -1446,7 +1446,7 @@ function _renderCockpit() {
     </div>
     <div style="background:${netPos >= 0 ? '#052e16' : '#450a0a'};color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
       <div><div style="font-size:12px;font-weight:700;opacity:.9;">Net position — after this month&rsquo;s dues &amp; collecting sales</div><div style="font-size:11px;opacity:.6;margin-top:2px;">Receive ${fmt(toReceive)} &minus; Pay ${fmt(dueMonth)}</div></div>
-      <div style="font-size:24px;font-weight:900;color:${netPos >= 0 ? '#4ade80' : '#f87171'};white-space:nowrap;">${netPos < 0 ? '&minus;' : ''}${fmt(Math.abs(netPos))}</div>
+      <div style="font-size:24px;font-weight:900;color:${netPos >= 0 ? '#ffb066' : '#f87171'};white-space:nowrap;">${netPos < 0 ? '&minus;' : ''}${fmt(Math.abs(netPos))}</div>
     </div>
 
     ${_schedCard}
@@ -1454,7 +1454,7 @@ function _renderCockpit() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
       ${kpi('Work done (earned)', fmt(earned), 'measured value, all projects', '#0d9488')}
       ${kpi('Total cost', fmt(totalCost), 'material + labour + other', '#ea580c')}
-      ${kpi(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% portfolio margin', profit >= 0 ? '#16a34a' : '#dc2626')}
+      ${kpi(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% portfolio margin', profit >= 0 ? '#c2401c' : '#dc2626')}
       ${kpi('WIP (unbilled)', fmt(wip), 'earned, not yet RA-billed', '#7c3aed')}
       ${kpi('Receivables', fmt(receivables), 'billed, not yet collected', '#2563eb')}
     </div>

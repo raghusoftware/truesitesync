@@ -57,7 +57,7 @@ export async function renderOrgTeam() {
     const canRemove = !isMe && m.role !== 'owner';
     return `<div class="flex items-center justify-between py-2.5 px-1 border-b border-slate-100">
       <div class="flex items-center gap-3 min-w-0">
-        <div style="width:34px;height:34px;border-radius:10px;background:#10b98115;border:1px solid #10b98130;display:flex;align-items:center;justify-content:center;font-weight:800;color:#059669;flex-shrink:0;">${_esc((m.email || '?').charAt(0).toUpperCase())}</div>
+        <div style="width:34px;height:34px;border-radius:10px;background:#ef842015;border:1px solid #ef842030;display:flex;align-items:center;justify-content:center;font-weight:800;color:#d6402c;flex-shrink:0;">${_esc((m.email || '?').charAt(0).toUpperCase())}</div>
         <div class="min-w-0">
           <div class="text-sm font-bold text-slate-800 truncate">${_esc(m.email)} ${isMe ? '<span class="text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold">You</span>' : ''}</div>
           <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">${_esc(m.role)}${m.is_active ? '' : ' · inactive'}</div>
@@ -91,7 +91,7 @@ export async function renderOrgTeam() {
       <div class="flex flex-col sm:flex-row gap-2 mb-5">
         <input id="orgInviteEmail" type="email" placeholder="teammate@company.com" class="flex-1 p-2.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-emerald-500" onkeydown="if(event.key==='Enter')window._orgInvite()">
         <select id="orgInviteRole" class="p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 bg-white outline-none">${roleOpt('member')}</select>
-        <button onclick="window._orgInvite()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-white" style="background:linear-gradient(135deg,#059669,#10b981);">+ Invite</button>
+        <button onclick="window._orgInvite()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-white" style="background:linear-gradient(135deg,#d6402c,#ef8420);">+ Invite</button>
       </div>
 
       ${invites.length ? `<div class="mb-4"><div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Pending invites</div>${inviteRows}</div>` : ''}

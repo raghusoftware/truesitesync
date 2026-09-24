@@ -59,12 +59,12 @@ export async function renderSuperAdminDashboard() {
     <!-- KPI Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
       ${_kpi(s.totalUsers, 'Total Users', '#2563eb')}
-      ${_kpi(s.activeToday, 'Active Today', '#10b981')}
-      ${_kpi(s.activeWeek, 'Active 7 Days', '#059669')}
+      ${_kpi(s.activeToday, 'Active Today', '#ef8420')}
+      ${_kpi(s.activeWeek, 'Active 7 Days', '#d6402c')}
       ${_kpi(s.withProjects, 'With Projects', '#7c3aed')}
       ${_kpi(s.totalOrgs, 'Organizations', '#f59e0b')}
-      ${_kpi(s.paidOrgs, 'Paid Plans', '#059669')}
-      ${_kpi('₹' + (s.totalRevenue || 0).toLocaleString('en-IN'), 'Revenue', '#059669')}
+      ${_kpi(s.paidOrgs, 'Paid Plans', '#d6402c')}
+      ${_kpi('₹' + (s.totalRevenue || 0).toLocaleString('en-IN'), 'Revenue', '#d6402c')}
       ${_kpi(s.totalLeads, 'Downloads', '#ea580c')}
       ${_kpi(s.totalDemoLeads || 0, 'Demo Requests', '#7c3aed')}
     </div>
@@ -134,10 +134,10 @@ function _renderDemoTab() {
     const phone = (l.phone || '').replace(/[^0-9]/g, '');
     const wa = phone ? (phone.length === 10 ? '91' + phone : phone) : '';
     const phoneCell = phone
-      ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:#059669;font-family:monospace;font-weight:600;text-decoration:none;">${esc(l.phone)}</a>`
+      ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:#d6402c;font-family:monospace;font-weight:600;text-decoration:none;">${esc(l.phone)}</a>`
       : '<span style="color:#cbd5e1;">—</span>';
     const via = (l.source === 'whatsapp')
-      ? '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#059669;background:#f0fdf4;">WhatsApp</span>'
+      ? '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#d6402c;background:#fff3ea;">WhatsApp</span>'
       : '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#7c3aed;background:#f5f3ff;">Form</span>';
     const when = l.created_at ? new Date(l.created_at).toLocaleString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
     html += `<tr style="border-bottom:1px solid #f3f4f6;">
@@ -181,7 +181,7 @@ function _renderUsersTab() {
     const signedUp = new Date(u.created_at);
     const lastActive = u.last_sign_in ? new Date(u.last_sign_in) : null;
     const daysAgo = lastActive ? Math.floor((now - lastActive) / 86400000) : 999;
-    const activeColor = daysAgo === 0 ? '#10b981' : daysAgo <= 7 ? '#f59e0b' : '#ef4444';
+    const activeColor = daysAgo === 0 ? '#ef8420' : daysAgo <= 7 ? '#f59e0b' : '#ef4444';
     const activeLabel = daysAgo === 0 ? 'Today' : daysAgo <= 1 ? 'Yesterday' : lastActive ? `${daysAgo}d ago` : 'Never';
 
     // Trial status
@@ -192,14 +192,14 @@ function _renderUsersTab() {
 
     let statusHtml = '';
     if (!isTrial) {
-      statusHtml = `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#059669;background:#f0fdf4;">Paid</span>`;
+      statusHtml = `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#d6402c;background:#fff3ea;">Paid</span>`;
     } else if (trialExpired) {
       statusHtml = `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#dc2626;background:#fef2f2;">Trial Expired</span>`;
     } else {
       statusHtml = `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;color:#f59e0b;background:#fffbeb;">Trial ${trialDaysLeft}d left</span>`;
     }
 
-    const planColors = { free:'#6b7280', starter:'#2563eb', business:'#7c3aed', enterprise:'#059669' };
+    const planColors = { free:'#6b7280', starter:'#2563eb', business:'#7c3aed', enterprise:'#d6402c' };
     const plan = u.org_plan || 'free';
 
     html += `<tr style="border-bottom:1px solid #f3f4f6;">
@@ -250,7 +250,7 @@ function _renderLeadsTab() {
       <td style="padding:10px;color:#1e293b;font-family:monospace;font-size:12px;">${l.phone || '—'}</td>
       <td style="padding:10px;color:#64748b;font-size:11px;">${l.email || '—'}</td>
       <td style="text-align:center;padding:10px;">
-        <span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:3px 8px;border-radius:6px;${l.platform === 'windows' ? 'color:#2563eb;background:#eff6ff;' : 'color:#059669;background:#f0fdf4;'}">${l.platform || '—'}</span>
+        <span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:3px 8px;border-radius:6px;${l.platform === 'windows' ? 'color:#2563eb;background:#eff6ff;' : 'color:#d6402c;background:#fff3ea;'}">${l.platform || '—'}</span>
       </td>
       <td style="text-align:center;padding:10px;font-size:11px;color:#94a3b8;">${l.downloaded_at ? new Date(l.downloaded_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
     </tr>`;
@@ -284,7 +284,7 @@ function _renderOrgsTab() {
       <td style="padding:10px 12px;font-weight:600;color:#1e293b;">${o.name}<div style="font-size:10px;color:#94a3b8;">${o.email || ''}</div></td>
       <td style="text-align:center;padding:10px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:6px;color:#2563eb;background:#eff6ff;">${o.plan}</span></td>
       <td style="text-align:center;padding:10px;font-weight:600;">${o.max_seats}</td>
-      <td style="text-align:center;padding:10px;"><span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;${o.is_active ? 'color:#059669;background:#f0fdf4;' : 'color:#dc2626;background:#fef2f2;'}">${o.is_active ? 'Active' : 'Disabled'}</span></td>
+      <td style="text-align:center;padding:10px;"><span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;${o.is_active ? 'color:#d6402c;background:#fff3ea;' : 'color:#dc2626;background:#fef2f2;'}">${o.is_active ? 'Active' : 'Disabled'}</span></td>
       <td style="text-align:center;padding:10px;font-size:11px;color:#94a3b8;">${new Date(o.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short'})}</td>
     </tr>`;
   });

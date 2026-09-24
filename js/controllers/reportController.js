@@ -1034,7 +1034,7 @@ function _renderProjectReportPanel() {
         <select id="prjRptSel" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:18px;">${opts}</select>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button onclick="window.exportProjectReportPDF(document.getElementById('prjRptSel').value)" style="flex:1;min-width:160px;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128424; Download PDF</button>
-          <button onclick="window.exportProjectReportExcel(document.getElementById('prjRptSel').value)" style="flex:1;min-width:160px;padding:12px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128202; Download Excel</button>
+          <button onclick="window.exportProjectReportExcel(document.getElementById('prjRptSel').value)" style="flex:1;min-width:160px;padding:12px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128202; Download Excel</button>
         </div>` : '<p style="color:#94a3b8;">No projects yet. Create a project first.</p>'}
       </div>
     </div>`;
@@ -1047,7 +1047,7 @@ function _renderFinancePanel(kind) {
   const box = (title, desc, body) => `<div style="max-width:640px;margin:0 auto;">${back}<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);"><h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">${title}</h2><p style="font-size:13px;color:#64748b;margin-bottom:18px;">${desc}</p>${body}</div></div>`;
   const btns = (pdfFn, xlFn) => `<div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button onclick="${pdfFn}" style="flex:1;min-width:160px;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128424; Download PDF</button>
-      <button onclick="${xlFn}" style="flex:1;min-width:160px;padding:12px;background:#10b981;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128202; Download Excel</button>
+      <button onclick="${xlFn}" style="flex:1;min-width:160px;padding:12px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128202; Download Excel</button>
     </div>`;
   const selStyle = 'width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:18px;';
   const lbl = 'display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;';

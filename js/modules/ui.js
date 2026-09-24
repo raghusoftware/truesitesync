@@ -19,7 +19,7 @@ const MODULE_CARDS = [
   { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
   { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
   { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
-  { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#10b981', stateKey: 'rawMaterials' },
+  { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#ef8420', stateKey: 'rawMaterials' },
   { id: 'recipeView', icon: '&#129514;', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
   { id: 'assetsView', icon: '&#128295;', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
   { id: 'measurementListView', icon: '&#128208;', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
@@ -251,7 +251,7 @@ export function renderProjectsHome() {
   // (client list, project grid) is filtered through this.
   const isAdmin = (typeof window.isCurrentUserAdmin === 'function') ? window.isCurrentUserAdmin() : true;
   const projects = (typeof window.getVisibleProjects === 'function') ? window.getVisibleProjects() : (state.projects || []);
-  const statusColors = { Planning: '#f59e0b', Active: '#10b981', 'On Hold': '#f97316', Completed: '#6366f1' };
+  const statusColors = { Planning: '#f59e0b', Active: '#ef8420', 'On Hold': '#f97316', Completed: '#6366f1' };
 
   // If the drilled-in client no longer exists, reset
   if (_homeClientId && !clients.some(c => c.id === _homeClientId)) _homeClientId = null;
@@ -386,7 +386,7 @@ export function renderProjectDashboard() {
     const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
     const kpis = [
       { label: 'BOQ / PO', value: boqCount, icon: '📋', color: '#3b82f6' },
-      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#10b981' },
+      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#ef8420' },
       { label: 'Invoices', value: invCount, icon: '🧾', color: '#8b5cf6' },
       { label: 'Open Issues', value: openIssues, icon: '⚠️', color: openIssues ? '#ef4444' : '#94a3b8' },
     ];
@@ -1049,7 +1049,7 @@ window._openPaymentsSection = function(dir) {
   if (grid) grid.style.display = 'none'; if (back) back.style.display = 'inline-block';
 
   const rows = dir === 'in' ? _collectPaymentsIn() : _collectPaymentsOut();
-  const color = dir === 'in' ? '#059669' : '#dc2626';
+  const color = dir === 'in' ? '#d6402c' : '#dc2626';
   let html = `<div class="bg-white border rounded-xl overflow-hidden">
     <div class="p-3 border-b flex justify-between items-center" style="background:${color}10;">
       <h3 class="font-bold text-sm" style="color:${color};">${dir === 'in' ? '📥 Payment In' : '📤 Payment Out'}</h3>
@@ -1221,9 +1221,9 @@ export function renderAnalyticsDashboard() {
     <!-- Financial Hero Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
       ${hero('Total Billed', fmt(totalBilled), '#2563eb', 'Revenue across all projects')}
-      ${hero('Received', fmt(totalReceived), '#059669', 'Payments collected')}
+      ${hero('Received', fmt(totalReceived), '#d6402c', 'Payments collected')}
       ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection')}
-      ${hero('Net Profit', fmt(netProfit), netProfit >= 0 ? '#10b981' : '#dc2626', 'Received − all costs')}
+      ${hero('Net Profit', fmt(netProfit), netProfit >= 0 ? '#ef8420' : '#dc2626', 'Received − all costs')}
     </div>
 
     <!-- Cost Breakdown -->
@@ -1232,7 +1232,7 @@ export function renderAnalyticsDashboard() {
       ${stat('🛒', 'Purchases', fmt(totalPurchases), '#f59e0b')}
       ${stat('👷', 'Labour Paid', fmt(totalLabour), '#8b5cf6')}
       ${stat('🧾', 'Expenses' + (_site ? ' · ' + _siteName : ''), fmt(totalExpenses), '#ef4444')}
-      ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#10b981')}
+      ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#ef8420')}
     </div>
 
     <!-- Expenses by Site -->
@@ -1275,11 +1275,11 @@ export function renderAnalyticsDashboard() {
             (state.abstracts || []).filter(a => a.projectId === p.id || clientIds.includes(a.clientId)).forEach(a => pBilled += (a.totalAmount || 0));
             (state.paymentsIn || []).filter(pm => clientIds.includes(pm.clientId)).forEach(pm => pRecv += (parseFloat(pm.amount) || 0));
             const pOut = pBilled - pRecv;
-            const stColor = (p.status || 'Active') === 'Active' ? '#059669' : '#94a3b8';
+            const stColor = (p.status || 'Active') === 'Active' ? '#d6402c' : '#94a3b8';
             return `<tr style="border-bottom:1px solid #f1f5f9;">
               <td style="padding:10px 14px;font-weight:600;color:#0f172a;">${p.name}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:#2563eb;">${fmt(pBilled)}</td>
-              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#059669;">${fmt(pRecv)}</td>
+              <td style="padding:10px 14px;text-align:right;font-weight:600;color:#d6402c;">${fmt(pRecv)}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:${pOut > 0 ? '#ea580c' : '#94a3b8'};">${fmt(pOut)}</td>
               <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status || 'Active'}</span></td>
             </tr>`;
@@ -1331,7 +1331,7 @@ function _renderMasterDataGrid() {
   _buildIconGrid('masterDataGrid', [
     { icon: '🏢', label: 'Clients', desc: 'Manage client list', color: '#2563eb', action: "document.getElementById('masterDataGrid').innerHTML='';renderClientTable();document.getElementById('masterDataTables').style.display=''" },
     { icon: '📋', label: 'Items Master', desc: 'Execution items', color: '#f97316', action: "document.getElementById('masterDataGrid').innerHTML='';renderItemMasterTable();document.getElementById('masterDataTables').style.display=''" },
-    { icon: '📦', label: 'Materials', desc: 'Raw materials & tools', color: '#10b981', action: "document.getElementById('masterDataGrid').innerHTML='';renderRawMaterialTable();document.getElementById('masterDataTables').style.display=''" },
+    { icon: '📦', label: 'Materials', desc: 'Raw materials & tools', color: '#ef8420', action: "document.getElementById('masterDataGrid').innerHTML='';renderRawMaterialTable();document.getElementById('masterDataTables').style.display=''" },
     { icon: '👥', label: 'Users & Roles', desc: 'Team permissions', color: '#7c3aed', action: "document.getElementById('masterDataGrid').innerHTML='';if(typeof renderUsersRolesPanel==='function')renderUsersRolesPanel();document.getElementById('masterDataTables').style.display=''" },
   ]);
   const tables = document.getElementById('masterDataTables');
@@ -2963,7 +2963,7 @@ function _renderGangMaterial() {
         const g = (state.labourContractors || []).find(x => x.id === i.gangId);
         const fromN = i.fromStoreId ? _invSiteName(i.fromStoreId) : '—';
         const toN = i.toLocId ? _invSiteName(i.toLocId) : (g?.name || (i.purpose || '—'));
-        return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-amber-700">${i.issueNo || '—'}</td><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${i.requestedBy || g?.name || '—'}</td><td class="px-3 py-2">${i.department || '—'}</td><td class="px-3 py-2 text-slate-500">${fromN} → ${toN}</td><td class="px-3 py-2 font-bold">${itemsTxt}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type === 'ISSUE' ? '#ea580c' : '#059669'};">${i.type || 'ISSUE'}</span></td><td class="px-3 py-2 text-center">${i.items ? `<button onclick="_printMaterialIssue('${i.id}')" class="text-blue-600 hover:underline">print</button>` : '—'}</td></tr>`;
+        return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-amber-700">${i.issueNo || '—'}</td><td class="px-3 py-2">${i.date}</td><td class="px-3 py-2 font-bold">${i.requestedBy || g?.name || '—'}</td><td class="px-3 py-2">${i.department || '—'}</td><td class="px-3 py-2 text-slate-500">${fromN} → ${toN}</td><td class="px-3 py-2 font-bold">${itemsTxt}</td><td class="px-3 py-2 text-center"><span style="font-size:10px;font-weight:700;color:${i.type === 'ISSUE' ? '#ea580c' : '#d6402c'};">${i.type || 'ISSUE'}</span></td><td class="px-3 py-2 text-center">${i.items ? `<button onclick="_printMaterialIssue('${i.id}')" class="text-blue-600 hover:underline">print</button>` : '—'}</td></tr>`;
       }).join('') || '<tr><td colspan="8" class="p-5 text-center text-slate-400">No material issues yet.</td></tr>'}
       </tbody></table></div></div>`;
   _miAddRow();
@@ -3154,7 +3154,7 @@ function _renderTools() {
     <div class="bg-white border rounded-xl overflow-hidden">
       <div class="p-3 border-b font-bold text-slate-700 text-sm">${outstanding.length} tools currently held</div>
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Worker</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Tool</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
-      ${all.map(t=>{const l=(state.labourMaster||[]).find(x=>x.id===t.labourId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${l?.name||'—'}</td><td class="px-3 py-2">${t.tool}</td><td class="px-3 py-2 text-right">${getCurrencySymbol()}${(t.value||0).toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${t.returned?`<span style="font-size:10px;color:#059669;font-weight:700;">✓ Returned</span>`:`<button onclick="_returnTool('${t.id}')" style="font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Return</button>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No tools issued.</td></tr>'}
+      ${all.map(t=>{const l=(state.labourMaster||[]).find(x=>x.id===t.labourId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${l?.name||'—'}</td><td class="px-3 py-2">${t.tool}</td><td class="px-3 py-2 text-right">${getCurrencySymbol()}${(t.value||0).toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${t.returned?`<span style="font-size:10px;color:#d6402c;font-weight:700;">✓ Returned</span>`:`<button onclick="_returnTool('${t.id}')" style="font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Return</button>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No tools issued.</td></tr>'}
       </tbody></table></div>`;
 }
 window._saveToolIssue=function(){
@@ -3196,7 +3196,7 @@ function _renderInvTransfer() {
     </div>
     <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Transfers</div>
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">From → To</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
-      ${transfers.map(t=>{const m=state.rawMaterials.find(r=>r.id===t.assetId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2">${_invSiteName(t.fromLocId)} → ${_invSiteName(t.toLocId)}</td><td class="px-3 py-2 text-right font-bold">${t.qty}${t.receivedQty!=null&&t.receivedQty!==t.qty?` (rcv ${t.receivedQty})`:''}</td><td class="px-3 py-2 text-center">${t.status==='IN_TRANSIT'?`<button onclick="_receiveTransfer('${t.id}')" style="font-size:10px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Receive</button>`:`<span style="font-size:10px;color:#059669;font-weight:700;">✓ Received</span>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No transfers.</td></tr>'}
+      ${transfers.map(t=>{const m=state.rawMaterials.find(r=>r.id===t.assetId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2">${_invSiteName(t.fromLocId)} → ${_invSiteName(t.toLocId)}</td><td class="px-3 py-2 text-right font-bold">${t.qty}${t.receivedQty!=null&&t.receivedQty!==t.qty?` (rcv ${t.receivedQty})`:''}</td><td class="px-3 py-2 text-center">${t.status==='IN_TRANSIT'?`<button onclick="_receiveTransfer('${t.id}')" style="font-size:10px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Receive</button>`:`<span style="font-size:10px;color:#d6402c;font-weight:700;">✓ Received</span>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No transfers.</td></tr>'}
       </tbody></table></div>`;
   syncUnitPicker('itMat', 'itQtyUnit');
 }
@@ -3241,7 +3241,7 @@ function _renderInvAudit() {
     </div>
     <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Audit History</div>
       <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Book</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Physical</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Variance</th></tr></thead><tbody>
-      ${audits.map(a=>{const m=state.rawMaterials.find(r=>r.id===a.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${a.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${a.book.toFixed(1)}</td><td class="px-3 py-2 text-right">${a.actual.toFixed(1)}</td><td class="px-3 py-2 text-right font-bold" style="color:${Math.abs(a.variance)>0?(a.variance<0?'#dc2626':'#059669'):'#64748b'};">${a.variance>0?'+':''}${a.variance.toFixed(1)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No audits yet.</td></tr>'}
+      ${audits.map(a=>{const m=state.rawMaterials.find(r=>r.id===a.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${a.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${a.book.toFixed(1)}</td><td class="px-3 py-2 text-right">${a.actual.toFixed(1)}</td><td class="px-3 py-2 text-right font-bold" style="color:${Math.abs(a.variance)>0?(a.variance<0?'#dc2626':'#d6402c'):'#64748b'};">${a.variance>0?'+':''}${a.variance.toFixed(1)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No audits yet.</td></tr>'}
       </tbody></table></div>`;
   syncUnitPicker('auMat', 'auQtyUnit');
   _auShowBook();
@@ -4102,9 +4102,9 @@ window.renderFinalAccount = function () {
     ${row('Less: Advance recovered', d.advance, { sign: '-', color: '#e11d48' })}
     ${row('Less: LD / Penalty', d.ld, { sign: '-', color: '#e11d48' })}
     ${row('Net Billed (across RA bills)', d.netBilled, { border: true, strong: true })}
-    ${row('Payments Received', d.received, { sign: '-', color: '#059669' })}
+    ${row('Payments Received', d.received, { sign: '-', color: '#d6402c' })}
     ${row('Balance of Net Billed', d.balance, { border: true })}
-    ${row('Add: Retention Released (closeout)', d.retention, { sign: '+', color: '#059669' })}
+    ${row('Add: Retention Released (closeout)', d.retention, { sign: '+', color: '#d6402c' })}
     ${row('Final Amount Payable on Closeout', d.finalPayable, { border: true, strong: true, color: '#1d4ed8' })}
     <p class="text-[11px] text-slate-400 mt-3">Across ${d.invs.length} RA bill(s). Record the retention release as a Payment when settled. TDS, advance recovery &amp; LD are not returned.</p>
   </div>`;
@@ -4128,7 +4128,7 @@ window.printFinalAccount = function () {
     table{width:100%;max-width:560px;border-collapse:collapse;font-size:13px}
     td{padding:8px 10px;border-bottom:1px solid #e2e8f0}td.r{text-align:right;font-variant-numeric:tabular-nums}
     tr.strong td{font-weight:bold;border-top:2px solid #94a3b8;background:#f8fafc}
-    tr.less td{color:#b91c1c}tr.add td{color:#047857}tr.final td{font-weight:bold;font-size:15px;color:#1d4ed8;border-top:2px solid #1d4ed8;background:#eff6ff}
+    tr.less td{color:#b91c1c}tr.add td{color:#c2321f}tr.final td{font-weight:bold;font-size:15px;color:#1d4ed8;border-top:2px solid #1d4ed8;background:#eff6ff}
     @media print{body{margin:12mm}}</style></head><body>
     <h1>${esc((proj && proj.name) || client?.name || 'Final Account')}</h1>
     <p class="sub">Final Account Statement</p>
@@ -4422,15 +4422,15 @@ function _labRateGovHTML(l, canApprove) {
   const rate = parseFloat(l.dayRate) || 0;
   const approved = l.rateStatus === 'Approved';
   const pill = approved
-    ? `<span style="font-size:9px;font-weight:800;color:#166534;background:#dcfce7;border:1px solid #bbf7d0;padding:1px 7px;border-radius:20px;">✓ APPROVED</span>`
+    ? `<span style="font-size:9px;font-weight:800;color:#7a1f14;background:#ffeede;border:1px solid #fdd9be;padding:1px 7px;border-radius:20px;">✓ APPROVED</span>`
     : `<span style="font-size:9px;font-weight:800;color:#9a3412;background:#ffedd5;border:1px solid #fed7aa;padding:1px 7px;border-radius:20px;">⏳ PENDING APPROVAL</span>`;
   const enteredBy = l.rateEnteredByName ? `Entered by <b>${_esc(l.rateEnteredByName)}</b> · ${_labDateFmt(l.rateEnteredAt)}` : 'No entry record';
   const approvedBy = approved
-    ? `<span style="color:#166534;">Approved by <b>${_esc(l.rateApprovedByName || '—')}</b> · ${_labDateFmt(l.rateApprovedAt)}</span>`
+    ? `<span style="color:#7a1f14;">Approved by <b>${_esc(l.rateApprovedByName || '—')}</b> · ${_labDateFmt(l.rateApprovedAt)}</span>`
     : `<span style="color:#c2410c;">Awaiting approval</span>`;
   const nHist = Array.isArray(l.rateHistory) ? l.rateHistory.length : 0;
   const approveBtn = (!approved && canApprove)
-    ? `<button onclick="window.approveLabourRate('${l.id}')" style="font-size:10px;font-weight:800;color:#fff;background:#16a34a;border:none;padding:4px 10px;border-radius:7px;cursor:pointer;">✓ Approve rate</button>`
+    ? `<button onclick="window.approveLabourRate('${l.id}')" style="font-size:10px;font-weight:800;color:#fff;background:#c2401c;border:none;padding:4px 10px;border-radius:7px;cursor:pointer;">✓ Approve rate</button>`
     : '';
   const histBtn = nHist ? `<button onclick="window.showLabourRateHistory('${l.id}')" style="font-size:10px;font-weight:700;color:#4f46e5;background:#eef2ff;border:1px solid #e0e7ff;padding:4px 10px;border-radius:7px;cursor:pointer;">🕑 History (${nHist})</button>` : '';
   return `
@@ -4473,7 +4473,7 @@ window.showLabourRateHistory = function (id) {
   const actMeta = {
     set: { t: 'Rate set', c: '#4f46e5', bg: '#eef2ff' },
     changed: { t: 'Rate changed', c: '#c2410c', bg: '#ffedd5' },
-    approved: { t: 'Approved', c: '#166534', bg: '#dcfce7' },
+    approved: { t: 'Approved', c: '#7a1f14', bg: '#ffeede' },
   };
   const rows = hist.length ? hist.map(h => {
     const m = actMeta[h.action] || { t: h.action || '—', c: '#334155', bg: '#f1f5f9' };
@@ -4601,10 +4601,10 @@ window.renderContractorsList = function() {
           ${(parseFloat(c.weeklyAdvance) || 0) > 0 ? `<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:3px;">💸 Weekly advance: ${cur}${(parseFloat(c.weeklyAdvance) || 0).toLocaleString('en-IN')} · ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][(c.weeklyAdvanceDay != null ? c.weeklyAdvanceDay : 6)]}</div>` : ''}
         </div>
         <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:800;color:#059669;font-family:'JetBrains Mono',monospace;">${cur}${wages.toLocaleString('en-IN')}</div>
+          <div style="font-size:18px;font-weight:800;color:#d6402c;font-family:'JetBrains Mono',monospace;">${cur}${wages.toLocaleString('en-IN')}</div>
           <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;">Gang Wages (${selMonth})</div>
           ${paid > 0 ? `<div style="font-size:10px;color:#0284c7;font-weight:700;margin-top:3px;">Paid ${cur}${paid.toLocaleString('en-IN')}</div>` : ''}
-          ${wages > 0 ? `<div style="font-size:11px;font-weight:800;margin-top:1px;color:${balance > 0 ? '#d97706' : '#059669'};">${balance > 0 ? `Balance ${cur}${balance.toLocaleString('en-IN')}` : '✓ Fully Paid'}</div>` : ''}
+          ${wages > 0 ? `<div style="font-size:11px;font-weight:800;margin-top:1px;color:${balance > 0 ? '#d97706' : '#d6402c'};">${balance > 0 ? `Balance ${cur}${balance.toLocaleString('en-IN')}` : '✓ Fully Paid'}</div>` : ''}
         </div>
       </div>
       <div style="margin:10px 0;">${gangList}</div>
@@ -4612,8 +4612,8 @@ window.renderContractorsList = function() {
         ${wages <= 0
           ? `<span style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">No wages this month</span>`
           : balance > 0
-            ? `<button onclick="_payContractor('${c.id}')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Balance (${cur}${balance.toLocaleString('en-IN')})</button>`
-            : `<span style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">✓ Settled for ${selMonth}</span>`}
+            ? `<button onclick="_payContractor('${c.id}')" style="background:#d6402c;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Pay Balance (${cur}${balance.toLocaleString('en-IN')})</button>`
+            : `<span style="background:#fff3ea;color:#d6402c;border:1px solid #f6c9a8;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;">✓ Settled for ${selMonth}</span>`}
         <button onclick="_setGangAdvance('${c.id}')" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" title="Weekly advance paid to this gang">💸 Weekly Advance</button>
         <button onclick="_deleteContractor('${c.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>
       </div>
@@ -4876,7 +4876,7 @@ function _prRenderMeasureList() {
       const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
       const gang = (state.labourContractors || []).find(g => g.id === m.gangId);
       const val = (rate?.rate || 0) * m.quantity;
-      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}</td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${m.approved ? '<span style="color:#059669;font-weight:700;font-size:10px;">✓ Approved</span>' : '<span style="color:#d97706;font-weight:700;font-size:10px;">Pending</span>'}</td></tr>`;
+      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}</td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${m.approved ? '<span style="color:#d6402c;font-weight:700;font-size:10px;">✓ Approved</span>' : '<span style="color:#d97706;font-weight:700;font-size:10px;">Pending</span>'}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">No measurements logged.</td></tr>'}
   </tbody></table></div>`;
 }
@@ -4909,7 +4909,7 @@ function _prRenderApprovals() {
       const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
       const gang = (state.labourContractors || []).find(g => g.id === m.gangId);
       const val = (rate?.rate || 0) * m.quantity;
-      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2 font-bold">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}<div style="font-size:10px;color:#94a3b8;">${m.location || ''}</div></td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center"><button onclick="_prApprove('${m.id}')" style="background:#059669;color:#fff;border:none;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;margin-right:3px;">Approve</button><button onclick="_prRejectMeasure('${m.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✕</button></td></tr>`;
+      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2 font-bold">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}<div style="font-size:10px;color:#94a3b8;">${m.location || ''}</div></td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center"><button onclick="_prApprove('${m.id}')" style="background:#d6402c;color:#fff;border:none;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;margin-right:3px;">Approve</button><button onclick="_prRejectMeasure('${m.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✕</button></td></tr>`;
     }).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">No pending approvals. ✓</td></tr>'}
   </tbody></table></div>`;
 }
@@ -4974,7 +4974,7 @@ window._prCalcPayout = function() {
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;">
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Gross (approved work)</span><span style="font-weight:700;color:#2563eb;">${cur}${gross.toLocaleString('en-IN')}</span></div>
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Gang Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${advances.toLocaleString('en-IN')}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#059669;">${cur}${net.toLocaleString('en-IN')}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#d6402c;">${cur}${net.toLocaleString('en-IN')}</span></div>
     </div>
     <div class="flex gap-2 mt-3">
       <select id="prpAccount" class="flex-1 p-2 border rounded-lg text-sm bg-white">${accOpts}</select>
@@ -5017,7 +5017,7 @@ function _ppeChipsForWorker(labourId) {
   const cur = getCurrencySymbol();
   const chips = recs.map(p => {
     const names = (p.items || []).map(i => i.name).join(', ');
-    return `<span onclick="_ppeManage('${p.id}')" title="Click to return / edit rate" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px;${p.returned ? 'background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;' : 'background:#fffbeb;color:#d97706;border:1px solid #fde68a;'}">${p.returned ? '✓' : '🦺'} ${names} (${cur}${p.totalValue})${p.returned ? ' returned' : ''}</span>`;
+    return `<span onclick="_ppeManage('${p.id}')" title="Click to return / edit rate" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px;${p.returned ? 'background:#fff3ea;color:#d6402c;border:1px solid #f6c9a8;' : 'background:#fffbeb;color:#d97706;border:1px solid #fde68a;'}">${p.returned ? '✓' : '🦺'} ${names} (${cur}${p.totalValue})${p.returned ? ' returned' : ''}</span>`;
   }).join('');
   return `<div style="padding:4px 8px 8px 50px;margin-top:-6px;">${chips}</div>`;
 }
@@ -5058,7 +5058,7 @@ window._payContractor = function(id) {
     </div>
     <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;padding:2px 2px;"><span>Earned this month</span><span style="font-weight:700;">${cur}${gangWages.toLocaleString('en-IN')}</span></div>
     ${alreadyPaid > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#0284c7;padding:2px 2px 8px;"><span>Already paid</span><span style="font-weight:700;">− ${cur}${alreadyPaid.toLocaleString('en-IN')}</span></div>` : ''}
-    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;"><span style="font-weight:600;">Balance to pay</span><span style="font-size:18px;font-weight:800;color:#10b981;">${cur}${outstanding.toLocaleString('en-IN')}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-bottom:12px;"><span style="font-weight:600;">Balance to pay</span><span style="font-size:18px;font-weight:800;color:#ef8420;">${cur}${outstanding.toLocaleString('en-IN')}</span></div>
     <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
     <label class="pm-l">Amount (editable — pay part or full)</label><input type="number" id="pmAmount" class="pm-i" value="${outstanding}" max="${outstanding}">
   `, () => {
@@ -5118,7 +5118,7 @@ export function loadAttendanceSheet() {
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1e293b;color:#fff;flex-wrap:wrap;gap:8px;">
         <h3 style="font-size:14px;font-weight:700;">${date} • ${site}</h3>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button onclick="_attMarkAll('P')" style="background:rgba(16,185,129,.2);color:#a7f3d0;border:1px solid rgba(16,185,129,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✓ All Present</button>
+          <button onclick="_attMarkAll('P')" style="background:rgba(239,132,32,.2);color:#f6c9a8;border:1px solid rgba(239,132,32,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✓ All Present</button>
           <button onclick="_attMarkAll('A')" style="background:rgba(239,68,68,.2);color:#fecaca;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✕ All Absent</button>
           <button onclick="_attMarkAll('H')" style="background:rgba(245,158,11,.2);color:#fde68a;border:1px solid rgba(245,158,11,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">◐ Half</button>
           <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">💾 Save</button>
@@ -5231,7 +5231,7 @@ window._dailyMusterRoll = function() {
         <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#1e3a8a;">${totalHead}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Headcount</div></div>
         <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#f59e0b;">${dayShift}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Day Shift</div></div>
         <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#6366f1;">${nightShift}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Night Shift</div></div>
-        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#10b981;">${totalOT}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">OT Hours</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#ef8420;">${totalOT}</div><div style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:600;">OT Hours</div></div>
       </div>
       <div style="overflow-y:auto;flex:1;padding:14px;">`;
   Object.keys(byTrade).sort().forEach(trade => {
@@ -5240,9 +5240,9 @@ window._dailyMusterRoll = function() {
       ${byTrade[trade].map(w => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;">
         <span style="font-weight:600;color:#1e293b;">${w.name}</span>
         <span style="display:flex;gap:6px;align-items:center;">
-          <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;${w.status === 'P' ? 'background:#ecfdf5;color:#059669;' : 'background:#fffbeb;color:#d97706;'}">${w.status === 'P' ? 'Present' : 'Half'}</span>
+          <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;${w.status === 'P' ? 'background:#fff3ea;color:#d6402c;' : 'background:#fffbeb;color:#d97706;'}">${w.status === 'P' ? 'Present' : 'Half'}</span>
           <span style="font-size:9px;color:#64748b;">${w.shift}</span>
-          ${w.ot ? `<span style="font-size:9px;color:#10b981;font-weight:700;">+${w.ot}h OT</span>` : ''}
+          ${w.ot ? `<span style="font-size:9px;color:#ef8420;font-weight:700;">+${w.ot}h OT</span>` : ''}
         </span>
       </div>`).join('')}
     </div>`;
@@ -5558,7 +5558,7 @@ window._bulkLabourPayment = function() {
       <td style="padding:7px 10px;"><input type="checkbox" class="bp-chk" value="${l.id}" checked style="width:16px;height:16px;" onchange="window._bpRecalc()"></td>
       <td style="padding:7px 10px;font-weight:600;">${l.name}<div style="font-size:10px;color:#94a3b8;">${l.trade || '—'}</div></td>
       <td style="padding:7px 10px;text-align:right;color:#ea580c;font-size:11px;">${adv ? '−' + cur + adv.toLocaleString('en-IN') : '—'}</td>
-      <td class="bp-net" style="padding:7px 10px;text-align:right;font-weight:700;color:#059669;">—</td>
+      <td class="bp-net" style="padding:7px 10px;text-align:right;font-weight:700;color:#d6402c;">—</td>
     </tr>`;
   }).join('');
 
@@ -5583,7 +5583,7 @@ window._bulkLabourPayment = function() {
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f172a;color:#fff;border-radius:8px;margin-top:12px;">
       <span style="font-size:12px;font-weight:600;">Total Payout</span>
-      <span id="bpTotal" style="font-size:18px;font-weight:800;color:#10b981;">${cur}0</span>
+      <span id="bpTotal" style="font-size:18px;font-weight:800;color:#ef8420;">${cur}0</span>
     </div>
   `, () => {
     const amt = parseFloat(document.getElementById('bpAmount').value) || 0;
@@ -5623,7 +5623,7 @@ window._bpRecalc = function() {
     if (chk && chk.checked) {
       const net = Math.max(0, amt - adv);
       netCell.textContent = cur + net.toLocaleString('en-IN');
-      netCell.style.color = '#059669';
+      netCell.style.color = '#d6402c';
       total += net; count++;
     } else {
       netCell.textContent = '—';
@@ -5685,7 +5685,7 @@ window._fsPreview = function() {
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Pending Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${c.advances.toLocaleString('en-IN')}</span></div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Deductions</span><span style="font-weight:700;color:#dc2626;">−${cur}${c.deductions.toLocaleString('en-IN')}</span></div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Unreturned PPE</span><span style="font-weight:700;color:#d97706;">−${cur}${ppeDue.toLocaleString('en-IN')}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Final ${finalNet >= 0 ? 'Payable' : 'Recoverable'}</span><span style="font-weight:800;font-size:15px;color:${finalNet >= 0 ? '#059669' : '#dc2626'};">${cur}${Math.abs(finalNet).toLocaleString('en-IN')}</span></div>`;
+    <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Final ${finalNet >= 0 ? 'Payable' : 'Recoverable'}</span><span style="font-weight:800;font-size:15px;color:${finalNet >= 0 ? '#d6402c' : '#dc2626'};">${cur}${Math.abs(finalNet).toLocaleString('en-IN')}</span></div>`;
 };
 
 /** Reusable payroll modal */
