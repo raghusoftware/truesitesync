@@ -520,6 +520,14 @@ window._exDprForm = function (id) {
     <div style="margin-bottom:12px;"><label style="${_lbl}">Equipment Deployed</label><input id="dpEquip" placeholder="" value="${d ? _esc(d.equipment) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Hindrances / Delays</label><input id="dpHindrance" placeholder="Any blockers" value="${d ? _esc(d.hindrance) : ''}" style="${_inp}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Safety Observations</label><input id="dpSafety" placeholder="Toolbox talk, PPE, incidents…" value="${d ? _esc(d.safety || '') : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Quality / Tests</label><input id="dpQuality" placeholder="Cube test, slump, checks…" value="${d ? _esc(d.quality || '') : ''}" style="${_inp}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">Materials Received (challan)</label><input id="dpMatRecv" placeholder="e.g. Cement 50 bags (DC-1234)" value="${d ? _esc(d.materialsReceived || '') : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Instructions / Visitors</label><input id="dpInstr" placeholder="Client/consultant notes, visitors" value="${d ? _esc(d.instructions || '') : ''}" style="${_inp}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Related Task (Planning)</label>${_taskSelect('dpTask', d?.taskId)}</div>
       <div><label style="${_lbl}">Related BOQ Item</label>${_boqSelect('dpBoq', d?.boqRef)}</div>
     </div>
@@ -601,7 +609,7 @@ window._exDprSave = function (id) {
   // Labour snapshot from attendance + equipment (so period reports can aggregate).
   const attendance = Array.isArray(window.__dprAtt) ? window.__dprAtt : _dprAttForDate(date);
   const equipmentUsed = Array.isArray(window.__dprEquip) ? window.__dprEquip : _dprEquipForProject();
-  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed };
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), safety: v('dpSafety'), quality: v('dpQuality'), materialsReceived: v('dpMatRecv'), instructions: v('dpInstr'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed };
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else {
@@ -711,109 +719,166 @@ async function _fetchImageDataUrl(path) {
 }
 
 // ── Daily Progress Report PDF ──
+// ── Modern Daily Progress Report (PDF) — dashboard-inspired, brand-warm ──
 window._exDprPdf = async function (id) {
   try {
     const d = (state.dailyProgress || []).find(x => x.id === id);
     if (!d) return showToast('DPR not found', 'error');
     if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
-    // Resolve the site photo up front: legacy base64 as-is, or fetch the Storage file.
     const _photoData = (d.photo && typeof d.photo === 'string' && d.photo.startsWith('data:image'))
       ? d.photo : (d.photoPath ? await _fetchImageDataUrl(d.photoPath) : null);
     const proj = (state.projects || []).find(x => x.id === d.projectId) || {};
+    const client = (state.clients || state.parties || []).find(c => c.id === (proj.clientId || proj.client)) || null;
+    const clientName = (client && (client.name || client.company)) || proj.client || '';
+
     const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-    const ml = 14, mr = 14;
-    const accent = [14, 165, 233]; // sky-500 — matches the on-screen DPR colour
+    const ml = 14, mr = 14, cw = pw - ml - mr;
+    // brand-warm palette
+    const NAVY = [15, 23, 42], ORANGE = [239, 132, 32], RED = [198, 48, 28];
+    const TILE = [255, 243, 234], TILEB = [243, 217, 196], MUTED = [100, 116, 139], INK = [17, 28, 22];
+    const setF = (c) => doc.setFillColor(c[0], c[1], c[2]);
+    const setT = (c) => doc.setTextColor(c[0], c[1], c[2]);
+    const setD = (c) => doc.setDrawColor(c[0], c[1], c[2]);
+
+    // attendance fallback for older DPRs without a snapshot
+    const att = (Array.isArray(d.attendance) && d.attendance.length) ? d.attendance : (_dprAttForDate(d.date) || []);
+    const skilled = att.length ? att.filter(a => a.skilled).length : _num(d.manpowerSkilled);
+    const unskilled = att.length ? (att.length - att.filter(a => a.skilled).length) : _num(d.manpowerUnskilled);
+    const totalW = att.length || (skilled + unskilled);
+    const measRows = (d.measurements || []).filter(m => (parseFloat(m.qty) || 0) > 0).map(m => [m.description || m.code || 'Item', (Math.round((parseFloat(m.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—', m.location || '—']);
+    const matRows = (d.overheads || []).filter(o => o.type === 'Material' && (parseFloat(o.qty) || 0) > 0).map(o => [o.resource || o.activity || 'Material', (Math.round((parseFloat(o.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), o.uom || '—']);
+    const equipList = (d.equipment || '') + ((d.equipmentUsed || []).length ? (d.equipment ? ', ' : '') + d.equipmentUsed.map(e => e.name).join(', ') : '');
+    let dayName = '';
+    try { dayName = new Date(d.date).toLocaleDateString('en-IN', { weekday: 'long' }); } catch (e) {}
+    let prepBy = ''; try { prepBy = (getCurrentUser && getCurrentUser()?.name) || ''; } catch (e) {}
 
     let y = (typeof window.getSimpleHeaderForPDF === 'function') ? window.getSimpleHeaderForPDF(doc, { ml, mr }) : 16;
-    doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(ml, y, pw - ml - mr, 9, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text('DAILY PROGRESS REPORT', pw / 2, y + 6.2, { align: 'center' });
-    y += 13; doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text(`Project: ${proj.name || '—'}    |    Date: ${d.date || '—'}    |    Weather: ${d.weather || '—'}`, ml, y);
-    y += 3;
 
-    const fld = (l, v) => [l, (v === undefined || v === null || v === '') ? '—' : String(v)];
-    const skilled = _num(d.manpowerSkilled), unskilled = _num(d.manpowerUnskilled);
-    const pairs = [
-      fld('Area / Location', d.area),
-      fld('Equipment Deployed', d.equipment),
-      fld('Skilled Workers', skilled),
-      fld('Unskilled Workers', unskilled),
-      fld('Total Workers', skilled + unskilled),
-      fld('Related Task', _taskName(d.taskId)),
-      fld('BOQ Item', _boqLabel ? _boqLabel(d.boqRef) : (d.boqRef || '—')),
-      fld('Hindrances / Delays', d.hindrance),
-    ];
-    const rows = [];
-    for (let i = 0; i < pairs.length; i += 2) rows.push([pairs[i][0], pairs[i][1], pairs[i + 1] ? pairs[i + 1][0] : '', pairs[i + 1] ? pairs[i + 1][1] : '']);
-    doc.autoTable({
-      startY: y + 2, body: rows, theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2.2 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38, fillColor: [240, 249, 255] }, 1: { cellWidth: 58 }, 2: { fontStyle: 'bold', cellWidth: 38, fillColor: [240, 249, 255] }, 3: { cellWidth: 'auto' } },
-      margin: { left: ml, right: mr },
+    // ── Title band (navy) with orange accent edge ──
+    const bandH = 16;
+    setF(NAVY); doc.roundedRect(ml, y, cw, bandH, 2.5, 2.5, 'F');
+    setF(ORANGE); doc.rect(ml, y, 3, bandH, 'F');
+    setT([255, 255, 255]); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+    doc.text('DAILY PROGRESS REPORT', ml + 8, y + 7);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); setT([203, 213, 225]);
+    doc.text(`Site Progress${proj.name ? '  •  ' + proj.name : ''}`, ml + 8, y + 12.4);
+    // right block: DPR no + date
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); setT([255, 255, 255]);
+    doc.text(`${d.dprNum || 'DPR'}`, pw - mr - 4, y + 6.5, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); setT([203, 213, 225]);
+    doc.text(`${d.date || '—'}${dayName ? '  •  ' + dayName : ''}`, pw - mr - 4, y + 11.5, { align: 'right' });
+    y += bandH + 4;
+
+    // ── Meta strip ──
+    const meta = [['Client', clientName || '—'], ['Location', d.area || proj.location || '—'], ['Weather', d.weather || '—'], ['Prepared by', prepBy || '—']];
+    doc.setFontSize(8);
+    const mcw = cw / meta.length;
+    meta.forEach((m, i) => {
+      const x = ml + i * mcw;
+      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.text(m[0].toUpperCase(), x, y);
+      setT(INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(doc.splitTextToSize(String(m[1]), mcw - 4), x, y + 4.6); doc.setFontSize(8);
     });
-    y = doc.lastAutoTable.finalY + 6;
+    y += 11;
+    setD(TILEB); doc.setLineWidth(0.3); doc.line(ml, y, pw - mr, y); y += 5;
 
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(3, 105, 161);
-    doc.text('Work Done Today', ml, y); doc.setTextColor(0); y += 4;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-    const workLines = doc.splitTextToSize(d.workDone || '—', pw - ml - mr);
-    workLines.forEach((ln, i) => doc.text(ln, ml, y + i * 4.5));
-    y += workLines.length * 4.5 + 4;
+    // ── KPI tiles ──
+    const tiles = [
+      [String(totalW), 'WORKERS'],
+      [String(skilled), 'SKILLED'],
+      [String(unskilled), 'UNSKILLED'],
+      [String(measRows.length), 'WORK ITEMS'],
+      [String(matRows.length), 'MATERIALS'],
+    ];
+    const gap = 4, tw = (cw - gap * (tiles.length - 1)) / tiles.length, th = 17;
+    tiles.forEach((t, i) => {
+      const x = ml + i * (tw + gap);
+      setF(TILE); setD(TILEB); doc.setLineWidth(0.4); doc.roundedRect(x, y, tw, th, 2.2, 2.2, 'FD');
+      setT(RED); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text(t[0], x + tw / 2, y + 8.4, { align: 'center' });
+      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+      doc.text(t[1], x + tw / 2, y + 13.4, { align: 'center' });
+    });
+    y += th + 7;
 
-    const _sec = (title) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(3, 105, 161); doc.text(title, ml, y); doc.setTextColor(0); y += 2; };
+    // section header: orange square + navy title
+    const sec = (title) => {
+      if (y > ph - 34) { doc.addPage(); y = 16; }
+      setF(ORANGE); doc.rect(ml, y - 3.2, 2.6, 4.4, 'F');
+      setT(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+      doc.text(title, ml + 5, y); setT(INK); y += 3;
+    };
+    const tableAfter = () => { y = doc.lastAutoTable.finalY + 6; };
+    const orangeHead = { fillColor: ORANGE, textColor: [255, 255, 255], fontStyle: 'bold' };
 
-    // ── Measurement — work done today (quantities only) ──
-    const measRows = (d.measurements || []).filter(m => (parseFloat(m.qty) || 0) > 0).map(m => [m.description || m.code || 'Item', (Math.round((parseFloat(m.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—', m.location || '—']);
+    // Work done text
+    sec('Work Done Today');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK);
+    const workLines = doc.splitTextToSize(d.workDone || '—', cw);
+    workLines.forEach((ln, i) => doc.text(ln, ml, y + 3 + i * 4.6));
+    y += workLines.length * 4.6 + 7;
+
     if (measRows.length) {
-      _sec('Measurement — Work Done');
-      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: { fillColor: accent }, body: measRows, margin: { left: ml, right: mr } });
-      y = doc.lastAutoTable.finalY + 6;
+      sec('Measurement — Work Done');
+      doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: measRows, margin: { left: ml, right: mr } });
+      tableAfter();
     }
 
-    // ── Labour — from attendance (present staff, no pay) ──
-    const att = Array.isArray(d.attendance) ? d.attendance : [];
     if (att.length) {
-      _sec('Labour — from Attendance');
-      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 24 }, 3: { halign: 'right', cellWidth: 20 } }, headStyles: { fillColor: accent }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']), margin: { left: ml, right: mr } });
-      y = doc.lastAutoTable.finalY + 3;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text(`Present: ${att.length}    Skilled: ${att.filter(a => a.skilled).length}    Unskilled: ${att.filter(a => !a.skilled).length}`, ml, y); y += 6;
+      sec('Manpower — from Attendance');
+      doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 24 }, 3: { halign: 'right', cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']), margin: { left: ml, right: mr } });
+      y = doc.lastAutoTable.finalY + 2.5;
+      setT(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+      doc.text(`Present: ${att.length}    Skilled: ${skilled}    Unskilled: ${unskilled}    Total man-days: ${att.length}`, ml, y); setT(INK); y += 7;
     }
 
-    // ── Material used (quantities only — no rates/cost) ──
-    const matRows = (d.overheads || []).filter(o => o.type === 'Material' && (parseFloat(o.qty) || 0) > 0).map(o => [o.resource || o.activity || 'Material', (Math.round((parseFloat(o.qty) || 0) * 1000) / 1000).toLocaleString('en-IN'), o.uom || '—']);
-    if (matRows.length) {
-      _sec('Material Used');
-      doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Material', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: { fillColor: accent }, body: matRows, margin: { left: ml, right: mr } });
-      y = doc.lastAutoTable.finalY + 6;
+    if (equipList.trim()) { sec('Equipment Deployed'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK); const el = doc.splitTextToSize(equipList, cw); el.forEach((ln, i) => doc.text(ln, ml, y + 3 + i * 4.6)); y += el.length * 4.6 + 7; }
+
+    if (matRows.length || (d.materialsReceived || '').trim()) {
+      sec('Materials');
+      if ((d.materialsReceived || '').trim()) { doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); setT(MUTED); doc.text('RECEIVED', ml, y + 2); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setT(INK); const rl = doc.splitTextToSize(d.materialsReceived, cw - 24); rl.forEach((ln, i) => doc.text(ln, ml + 24, y + 2 + i * 4.4)); y += Math.max(rl.length * 4.4, 5) + 3; }
+      if (matRows.length) { doc.autoTable({ startY: y + 1, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Material Used', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 20 } }, headStyles: orangeHead, alternateRowStyles: { fillColor: [255, 248, 240] }, body: matRows, margin: { left: ml, right: mr } }); tableAfter(); } else { y += 3; }
     }
 
-    // Embed the site photo if present (legacy base64, or fetched from Storage above).
+    // Site conditions & notes (key/value grid)
+    const notes = [['Weather', d.weather], ['Hindrances / Delays', d.hindrance], ['Safety Observations', d.safety], ['Quality / Tests', d.quality], ['Instructions / Visitors', d.instructions], ['Related Task', _taskName(d.taskId)]].filter(n => (n[1] || '').toString().trim());
+    if (notes.length) {
+      sec('Site Conditions & Notes');
+      doc.autoTable({ startY: y + 1, theme: 'grid', styles: { fontSize: 9, cellPadding: 2.2 }, body: notes.map(n => [n[0], n[1]]), columnStyles: { 0: { fontStyle: 'bold', cellWidth: 46, fillColor: TILE, textColor: RED }, 1: { cellWidth: 'auto', textColor: INK } }, margin: { left: ml, right: mr } });
+      tableAfter();
+    }
+
+    // Photo
     if (_photoData && typeof _photoData === 'string' && _photoData.startsWith('data:image')) {
       try {
-        const imgW = 80, imgH = 60;
-        if (y + imgH > ph - 30) { doc.addPage(); y = 16; }
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Site Photo:', ml, y); y += 3;
+        const imgW = 78, imgH = 58;
+        if (y + imgH > ph - 34) { doc.addPage(); y = 16; }
+        sec('Site Photo');
         const _fmtM = /^data:image\/(png|jpe?g)/i.exec(_photoData);
         const _fmt = _fmtM ? _fmtM[1].toUpperCase().replace('JPG', 'JPEG') : 'JPEG';
-        doc.addImage(_photoData, _fmt, ml, y, imgW, imgH);
-        y += imgH + 6;
+        setD(TILEB); doc.setLineWidth(0.5); doc.roundedRect(ml, y + 1, imgW + 2, imgH + 2, 2, 2, 'S');
+        doc.addImage(_photoData, _fmt, ml + 1, y + 2, imgW, imgH);
+        y += imgH + 8;
       } catch (e) { console.warn('DPR PDF photo embed failed:', e); }
     }
 
-    const sy = Math.max(y + 10, ph - 32);
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    const sigW = (pw - ml - mr) / 3;
-    [['Prepared By', ''], ['Site Engineer', ''], ['Project Manager', '']].forEach(([lbl], i) => {
+    // Signatures
+    const sy = Math.max(y + 8, ph - 30);
+    setT(INK); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    const sigW = cw / 3;
+    [['Site Engineer', prepBy], ['Project Manager', ''], ['Client Representative', '']].forEach(([lbl], i) => {
       const x = ml + i * sigW;
-      doc.line(x, sy, x + sigW - 12, sy);
-      doc.text(lbl, x, sy + 5);
+      setD(MUTED); doc.setLineWidth(0.3); doc.line(x, sy, x + sigW - 12, sy);
+      setT(MUTED); doc.text(lbl, x, sy + 5);
     });
 
-    mobileSavePDF(doc, `DPR_${(d.date || 'date').replace(/[\\/]/g, '-')}.pdf`);
+    // Footer
+    setT(MUTED); doc.setFontSize(7.5);
+    doc.text('Generated by True Site Sync', ml, ph - 8);
+    doc.text(`${d.date || ''}`, pw - mr, ph - 8, { align: 'right' });
+
+    mobileSavePDF(doc, `DPR_${(d.dprNum || d.date || 'report').toString().replace(/[\\/ ]/g, '-')}.pdf`);
     showToast('DPR PDF downloaded');
   } catch (err) {
     console.error('DPR PDF failed:', err);
