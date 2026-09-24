@@ -232,9 +232,17 @@ function _renderDPR(root) {
   const rows = list.map(d => `<div onclick="_exDprForm('${d.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0ea5e9;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;">
     <div style="min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${d.dprNum ? '<span style="color:#0ea5e9;">' + _esc(d.dprNum) + '</span> · ' : ''}${_esc(d.date)} ${d.weather ? '· ' + _esc(d.weather) : ''}${d.area ? ' · ' + _esc(d.area) : ''}</div>
     <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(d.workDone || '')}</div>
-    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}</div></div>
+    <div style="font-size:10px;color:#94a3b8;margin-top:3px;">&#128100; ${(_num(d.manpowerSkilled) + _num(d.manpowerUnskilled)) || 0} workers${d.taskId ? ' · &#128197; ' + _esc(_taskName(d.taskId)) : ''}${d.hindrance ? ' · ⚠ ' + _esc(d.hindrance.slice(0, 30)) : ''}
+      ${d.reviewed ? '<span style="margin-left:4px;font-size:9px;font-weight:800;color:#047857;background:#fff3ea;border:1px solid #f3d9c4;border-radius:6px;padding:1px 6px;">✓ REVIEWED</span>' : '<span style="margin-left:4px;font-size:9px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:1px 6px;">PENDING REVIEW</span>'}</div></div>
     ${_rowActions('dailyProgress', d)}</div>`).join('');
-  root.innerHTML = _listShell('Daily Progress Report', '+ Add DPR', "_exDprForm()", rows, list.length);
+  root.innerHTML = `${_backBar('Daily Progress Report')}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;">
+      <button onclick="_exDprForm()" style="padding:9px 16px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add DPR</button>
+      <button onclick="window._exDprPeriodPdf('week')" style="padding:9px 14px;background:#fff3ea;color:#7a1f14;border:1px solid #fdd9be;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📄 Weekly Report</button>
+      <button onclick="window._exDprPeriodPdf('month')" style="padding:9px 14px;background:#fff3ea;color:#7a1f14;border:1px solid #fdd9be;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📄 Monthly Report</button>
+      <span style="margin-left:auto;font-size:12px;color:#94a3b8;">${list.length} record${list.length === 1 ? '' : 's'}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">${rows || '<div style="text-align:center;padding:40px;color:#94a3b8;">No records yet.</div>'}</div>`;
 }
 // ── DPR shared builders (window-bound for inline handlers) ──
 // Larger, easy-to-read/fill inputs (the DPR opens full-screen).
@@ -312,6 +320,144 @@ function _dprMatRate(id) {
   return rm ? (parseFloat(rm.rate) || parseFloat(rm.lastRate) || parseFloat(rm.stdRate) || parseFloat(rm.purchaseRate) || 0) : 0;
 }
 function _dprOhResOpts(type, selId) { return '<option value="">— select —</option>' + _dprOhResources(type).map(r => `<option value="${_esc(r.id)}" data-rate="${r.rate}" data-name="${_esc(r.name)}" data-unit="${_esc(r.unit)}" ${selId && String(selId) === String(r.id) ? 'selected' : ''}>${_esc(r.name)}${r.rate ? ` · ${r.rate}/${r.unit}` : ''}</option>`).join(''); }
+
+// ══════════════════════════════════════════════════════════
+//  DPR ← attendance / equipment auto-fill · owner review · weekly/monthly reports
+//  The engineer records the DPR; labour is pulled from that day's attendance and
+//  equipment from the project's list, so nothing is re-typed. Money (rates/costs)
+//  is hidden from non-owners — it still flows to Cost & Profit behind the scenes.
+// ══════════════════════════════════════════════════════════
+(function () { if (!document.getElementById('dprMoneyCss')) { const s = document.createElement('style'); s.id = 'dprMoneyCss'; s.textContent = '.dpr-hide-money .dpr-money{display:none!important}'; (document.head || document.documentElement).appendChild(s); } })();
+const _DPR_FULL_ROLES = ['Admin', 'CEO', 'Owner'];
+/** Owner/admin (full access) sees costs + the review control; engineers don't. */
+function _dprIsOwner() { try { const u = getCurrentUser && getCurrentUser(); return !u || _DPR_FULL_ROLES.includes(u.role); } catch (e) { return true; } }
+const _DPR_SKILLED_RE = /engineer|supervisor|foreman|mason|carpenter|electric|plumb|fitter|welder|bar ?bender|operator|surveyor|steel|shutter|painter|tile|mistri|mestri/i;
+function _dprIsSkilled(s) { return _DPR_SKILLED_RE.test((s.designation || '') + ' ' + (s.name || '')); }
+/** Snapshot of staff present (attendance punched-in) for a date, scoped to project. */
+function _dprAttForDate(date) {
+  const pid = _pid(); date = date || _today();
+  const out = [];
+  (state.staffAttendance || []).forEach(a => {
+    if (a.date !== date || !a.inAt) return;
+    const s = (state.staffMaster || []).find(x => x.id === a.staffId);
+    if (!s) return;
+    if (pid && s.projectId && s.projectId !== pid) return;
+    out.push({ staffId: s.id, name: s.name, designation: s.designation || 'Staff', hours: (a.hours != null ? a.hours : ''), otHours: a.otHours || 0, dayPay: a.dayPay || 0, totalPay: a.totalPay || 0, skilled: _dprIsSkilled(s) });
+  });
+  return out;
+}
+function _dprEquipForProject() {
+  const pid = _pid();
+  return (state.equipmentList || []).filter(e => !e.projectId || !pid || e.projectId === pid).map(e => ({ id: e.id, name: e.name || e.code || 'Equipment' }));
+}
+function _dprAttTable(att) {
+  if (!att || !att.length) return '<div style="font-size:11px;color:#94a3b8;">No staff marked present for this date. Mark attendance in <b>Staff &amp; Attendance</b>, then tap &ldquo;Pull from attendance&rdquo;.</div>';
+  return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;"><th style="padding:3px;">Name</th><th style="padding:3px;">Designation</th><th style="padding:3px;">Type</th><th style="padding:3px;text-align:right;">Hours</th></tr></thead><tbody>'
+    + att.map(a => `<tr><td style="padding:3px;font-weight:600;color:#0f172a;">${_esc(a.name)}</td><td style="padding:3px;color:#64748b;">${_esc(a.designation)}</td><td style="padding:3px;"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;${a.skilled ? 'color:#c2401c;background:#fff3ea;' : 'color:#475569;background:#f1f5f9;'}">${a.skilled ? 'Skilled' : 'Unskilled'}</span></td><td style="padding:3px;text-align:right;font-variant-numeric:tabular-nums;">${a.hours !== '' ? a.hours + 'h' : '—'}${a.otHours ? ` <span style="color:#d97706;">+${a.otHours}</span>` : ''}</td></tr>`).join('')
+    + `</tbody></table><div style="margin-top:6px;font-size:11px;color:#475569;">Present: <b>${att.length}</b> &middot; Skilled: <b>${att.filter(a => a.skilled).length}</b> &middot; Unskilled: <b>${att.filter(a => !a.skilled).length}</b></div></div>`;
+}
+/** Pull labour from that day's attendance + equipment from the project into the open DPR. */
+window._dprAutoFill = function (silent) {
+  const date = (document.getElementById('dpDate')?.value) || _today();
+  const att = _dprAttForDate(date);
+  window.__dprAtt = att;
+  const sk = att.filter(a => a.skilled).length, un = att.length - sk;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('dpSkilled', sk || ''); set('dpUnskilled', un || '');
+  const box = document.getElementById('dprAttBox'); if (box) box.innerHTML = _dprAttTable(att);
+  const eq = _dprEquipForProject(); window.__dprEquip = eq;
+  const eqEl = document.getElementById('dpEquip'); if (eqEl && !eqEl.value.trim() && eq.length) eqEl.value = eq.map(e => e.name).join(', ');
+  if (!silent) showToast(att.length ? `Pulled ${att.length} present from attendance` : ('No attendance marked for ' + date), att.length ? 'success' : 'info');
+};
+/** Owner review toggle on the open DPR form. */
+window._dprToggleReview = function (el) {
+  const b = document.getElementById('dprReviewState');
+  if (b) b.textContent = el.checked ? 'Will be marked reviewed by you' : 'Not reviewed';
+};
+
+// ── Consolidated weekly / monthly progress report (PDF) ──
+window._exDprPeriodPdf = async function (period) {
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
+    const pid = _pid();
+    const t = new Date();
+    let start, end, label;
+    if (period === 'week') {
+      const dow = (t.getDay() + 6) % 7; // Monday = 0
+      const s = new Date(t); s.setDate(t.getDate() - dow);
+      const e = new Date(s); e.setDate(s.getDate() + 6);
+      start = _iso(s); end = _iso(e); label = 'WEEKLY PROGRESS REPORT';
+    } else {
+      start = _iso(new Date(t.getFullYear(), t.getMonth(), 1));
+      end = _iso(new Date(t.getFullYear(), t.getMonth() + 1, 0));
+      label = 'MONTHLY PROGRESS REPORT';
+    }
+    const dprs = (state.dailyProgress || []).filter(d => d.projectId === pid && (d.date || '') >= start && (d.date || '') <= end).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (!dprs.length) return showToast(`No DPRs found for this ${period}`, 'info');
+
+    const measMap = {}, matMap = {}, equipSet = {};
+    let manDays = 0, skilledDays = 0, unskilledDays = 0;
+    const daily = [];
+    dprs.forEach(d => {
+      (d.measurements || []).forEach(m => { const k = (m.description || m.code || 'Item') + '||' + (m.uom || ''); const o = measMap[k] || (measMap[k] = { name: m.description || m.code || 'Item', uom: m.uom || '', qty: 0 }); o.qty += (parseFloat(m.qty) || 0); });
+      const att = Array.isArray(d.attendance) ? d.attendance : [];
+      const sk = att.length ? att.filter(a => a.skilled).length : _num(d.manpowerSkilled);
+      const un = att.length ? (att.length - att.filter(a => a.skilled).length) : _num(d.manpowerUnskilled);
+      skilledDays += sk; unskilledDays += un; manDays += (sk + un);
+      (d.overheads || []).forEach(o => {
+        if (o.type === 'Material') { const k = o.resource || o.activity || 'Material'; (matMap[k] = matMap[k] || { name: k, qty: 0, uom: o.uom || '' }).qty += (parseFloat(o.qty) || 0); }
+        if (o.type === 'Equipment') { const k = o.resource || o.activity || 'Equipment'; equipSet[k] = (equipSet[k] || 0) + (parseFloat(o.qty) || 0); }
+      });
+      (d.equipmentUsed || []).forEach(e => { if (e && e.name && !(e.name in equipSet)) equipSet[e.name] = 0; });
+      daily.push([d.date || '—', String((att.length || (sk + un)) || 0), (d.workDone || '—').replace(/\s+/g, ' ').slice(0, 90), d.hindrance ? 'Yes' : '—']);
+    });
+
+    const proj = (state.projects || []).find(x => x.id === pid) || {};
+    const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
+    const pw = doc.internal.pageSize.getWidth(), ml = 14, mr = 14;
+    const accent = [14, 165, 233];
+    let y = (typeof window.getSimpleHeaderForPDF === 'function') ? window.getSimpleHeaderForPDF(doc, { ml, mr }) : 16;
+    doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(ml, y, pw - ml - mr, 9, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(label, pw / 2, y + 6.2, { align: 'center' });
+    y += 13; doc.setTextColor(0);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Project: ${proj.name || '—'}    |    Period: ${start} to ${end}    |    DPRs: ${dprs.length}`, ml, y);
+    y += 4;
+
+    // KPI summary
+    doc.autoTable({
+      startY: y, theme: 'grid', styles: { fontSize: 9, cellPadding: 2.4 },
+      head: [['DPRs', 'Total man-days', 'Skilled', 'Unskilled', 'Items measured', 'Materials']],
+      body: [[String(dprs.length), String(manDays), String(skilledDays), String(unskilledDays), String(Object.keys(measMap).length), String(Object.keys(matMap).length)]],
+      headStyles: { fillColor: [240, 249, 255], textColor: [3, 105, 161], fontStyle: 'bold' },
+      margin: { left: ml, right: mr },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+
+    const section = (title) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(3, 105, 161); doc.text(title, ml, y); doc.setTextColor(0); y += 2; };
+    const measRows = Object.values(measMap).filter(m => m.qty > 0).map(m => [m.name, (Math.round(m.qty * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—']);
+    if (measRows.length) { section('Work Done — Measurement Totals'); doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Item', 'Total Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 24 } }, headStyles: { fillColor: accent }, margin: { left: ml, right: mr } }); y = doc.lastAutoTable.finalY + 6; }
+
+    const labourRows = [['Skilled man-days', String(skilledDays)], ['Unskilled man-days', String(unskilledDays)], ['Total man-days', String(manDays)]];
+    section('Labour (from attendance)'); doc.autoTable({ startY: y + 2, theme: 'grid', styles: { fontSize: 9, cellPadding: 2 }, body: labourRows, columnStyles: { 0: { fontStyle: 'bold', fillColor: [240, 249, 255], cellWidth: 60 }, 1: { halign: 'right' } }, margin: { left: ml, right: mr } }); y = doc.lastAutoTable.finalY + 6;
+
+    const eqNames = Object.keys(equipSet);
+    if (eqNames.length) { section('Equipment Deployed'); doc.autoTable({ startY: y + 2, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.6 }, body: [[eqNames.join(',  ')]], margin: { left: ml, right: mr } }); y = doc.lastAutoTable.finalY + 6; }
+
+    const matRows = Object.values(matMap).filter(m => m.qty > 0).map(m => [m.name, (Math.round(m.qty * 1000) / 1000).toLocaleString('en-IN'), m.uom || '—']);
+    if (matRows.length) { section('Material Consumed'); doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 9, cellPadding: 2 }, head: [['Material', 'Qty', 'Unit']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 24 } }, headStyles: { fillColor: accent }, margin: { left: ml, right: mr } }); y = doc.lastAutoTable.finalY + 6; }
+
+    section('Daily Log'); doc.autoTable({ startY: y + 2, theme: 'striped', styles: { fontSize: 8.5, cellPadding: 1.8 }, head: [['Date', 'Workers', 'Work done', 'Delay']], columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 16, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' } }, headStyles: { fillColor: accent }, body: daily, margin: { left: ml, right: mr } });
+
+    mobileSavePDF(doc, `${period === 'week' ? 'Weekly' : 'Monthly'}_Progress_${start}_to_${end}.pdf`);
+    showToast(`${period === 'week' ? 'Weekly' : 'Monthly'} report downloaded`);
+  } catch (err) {
+    console.error('Period report failed:', err);
+    showToast('Report error: ' + (err && err.message ? err.message : err), 'error');
+  }
+};
+function _iso(d) { return d.toISOString().slice(0, 10); }
 window._dprOhRow = function (o) {
   o = o || {};
   const type = o.type || 'Labour';
@@ -324,8 +470,8 @@ window._dprOhRow = function (o) {
     <td class="dpr-half" data-l="Type" style="padding:4px;"><select class="oh-type" onchange="window._dprOhType(this)" style="${_DPR_INP}width:110px;">${typeOpts}</select></td>
     <td class="dpr-wide oh-res-cell" data-l="Resource" style="padding:4px;">${resCell}</td>
     <td class="dpr-half" data-l="Qty" style="padding:4px;"><input class="oh-qty" type="number" min="0" step="0.01" value="${_esc(qty)}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:64px;text-align:right;"></td>
-    <td class="dpr-half" data-l="Rate" style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
-    <td class="dpr-half" data-l="Cost" style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
+    <td class="dpr-half dpr-money" data-l="Rate" style="padding:4px;"><input class="oh-rate" type="number" min="0" step="0.01" value="${rate !== '' ? _esc(rate) : ''}" oninput="window._dprOhCalc(this)" style="${_DPR_INP}width:80px;text-align:right;"></td>
+    <td class="dpr-half dpr-money" data-l="Cost" style="padding:4px;text-align:right;"><span class="oh-cost" style="font-weight:800;color:#92400e;font-size:14px;">${cost}</span></td>
     <td class="dpr-wide" data-l="Note" style="padding:4px;"><input class="oh-note" value="${_esc(o.note || (type === 'Other' ? '' : o.activity) || '')}" placeholder="" style="${_DPR_INP}width:130px;"></td>
     <td class="dpr-del" style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
@@ -359,16 +505,24 @@ window._exDprForm = function (id) {
     ? d.overheads.map(o => window._dprOhRow(o)).join('')
     : window._dprOhRow();
 
-  _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div style="padding:20px;">
+  _modal(`${_head(d ? 'Edit DPR' : 'Daily Progress Report')}<div class="${_dprIsOwner() ? '' : 'dpr-hide-money'}" style="padding:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div><label style="${_lbl}">Date</label><input id="dpDate" type="date" value="${d ? _esc(d.date) : _today()}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Date</label><input id="dpDate" type="date" value="${d ? _esc(d.date) : _today()}" onchange="window._dprAutoFill(true)" style="${_inp}"></div>
       <div><label style="${_lbl}">Weather</label><input id="dpWeather" placeholder="" value="${d ? _esc(d.weather) : ''}" style="${_inp}"></div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Area / Location</label><input id="dpArea" placeholder="" value="${d ? _esc(d.area) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Work Done Today</label><textarea id="dpWork" rows="3" placeholder="Describe today's progress…" style="${_inp}resize:vertical;">${d ? _esc(d.workDone) : ''}</textarea></div>
+    <div style="border:1px solid #f3d9c4;background:#fdf5ee;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-weight:800;font-size:13px;color:#7a1f14;">👷 Labour — from Attendance</div>
+        <button type="button" onclick="window._dprAutoFill()" style="font-size:11px;font-weight:700;background:#ffeede;color:#7a1f14;border:1px solid #fdd9be;border-radius:7px;padding:4px 10px;cursor:pointer;">⟳ Pull from attendance</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Who was present on this date comes straight from Staff &amp; Attendance — no re-typing. Change the date to pull that day.</div>
+      <div id="dprAttBox">${_dprAttTable(d && Array.isArray(d.attendance) ? d.attendance : [])}</div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div><label style="${_lbl}">Manpower — Skilled</label><input id="dpSkilled" type="number" value="${d ? d.manpowerSkilled || '' : ''}" style="${_inp}"></div>
-      <div><label style="${_lbl}">Manpower — Unskilled</label><input id="dpUnskilled" type="number" value="${d ? d.manpowerUnskilled || '' : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Manpower — Skilled <span style="font-weight:400;color:#94a3b8;">(auto)</span></label><input id="dpSkilled" type="number" value="${d ? d.manpowerSkilled || '' : ''}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Manpower — Unskilled <span style="font-weight:400;color:#94a3b8;">(auto)</span></label><input id="dpUnskilled" type="number" value="${d ? d.manpowerUnskilled || '' : ''}" style="${_inp}"></div>
     </div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Equipment Deployed</label><input id="dpEquip" placeholder="" value="${d ? _esc(d.equipment) : ''}" style="${_inp}"></div>
     <div style="margin-bottom:12px;"><label style="${_lbl}">Hindrances / Delays</label><input id="dpHindrance" placeholder="Any blockers" value="${d ? _esc(d.hindrance) : ''}" style="${_inp}"></div>
@@ -399,12 +553,18 @@ window._exDprForm = function (id) {
       </div>
       <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Internal work NOT paid by the client. Pick <b>Labour / Equipment / Material</b> (or Other) — the rate auto-fills and cost = qty × rate. Tagged <b>Overhead</b>, it hits Cost &amp; Profit but never BOQ billing.</div>
       <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-oh-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
-        <th style="padding:3px;">Type</th><th style="padding:3px;">Resource</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Rate</th><th style="padding:3px;text-align:right;">Cost</th><th style="padding:3px;">Note</th><th style="padding:3px;"></th></tr></thead>
+        <th style="padding:3px;">Type</th><th style="padding:3px;">Resource</th><th style="padding:3px;">Qty</th><th class="dpr-money" style="padding:3px;">Rate</th><th class="dpr-money" style="padding:3px;text-align:right;">Cost</th><th style="padding:3px;">Note</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprOhBody">${ohRows}</tbody></table></div>
     </div>
 
+    ${_dprIsOwner()
+      ? `<label style="display:flex;align-items:center;gap:9px;margin:0 0 12px;cursor:pointer;background:#fff3ea;border:1px solid #f3d9c4;border-radius:10px;padding:11px;"><input type="checkbox" id="dpReviewed" ${d && d.reviewed ? 'checked' : ''} onchange="window._dprToggleReview(this)" style="width:18px;height:18px;"><span style="font-size:12px;color:#7a1f14;"><b>Reviewed by owner</b> — <span id="dprReviewState">${d && d.reviewed ? ('Reviewed' + (d.reviewedAt ? ' · ' + _esc((d.reviewedAt || '').slice(0, 10)) : '')) : 'Not reviewed'}</span></span></label>`
+      : (d && d.reviewed ? `<div style="margin-bottom:12px;font-size:12px;color:#047857;background:#fff3ea;border:1px solid #f3d9c4;border-radius:10px;padding:9px;font-weight:700;">✓ Reviewed by owner</div>` : '')}
     <button onclick="_exDprSave('${id || ''}')" style="width:100%;padding:11px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${d ? 'Save' : 'Create DPR'}</button>
   </div>`, { full: true });
+  window.__dprAtt = (d && Array.isArray(d.attendance)) ? d.attendance : null;
+  window.__dprEquip = (d && Array.isArray(d.equipmentUsed)) ? d.equipmentUsed : null;
+  if (!d) setTimeout(() => window._dprAutoFill(true), 40); // new DPR → pull today's attendance
 };
 window._exDprSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
@@ -448,7 +608,17 @@ window._exDprSave = function (id) {
     overheads.push({ activity: activity || type, category: type, type, resourceId: resSel?.value || '', resource: resName, qty, rate, uom: (resSel?.selectedOptions?.[0]?.dataset.unit) || '', note, cost: Math.round(qty * rate * 100) / 100 });
   });
 
-  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads };
+  // Labour snapshot from attendance + equipment (so period reports can aggregate).
+  const attendance = Array.isArray(window.__dprAtt) ? window.__dprAtt : _dprAttForDate(date);
+  const equipmentUsed = Array.isArray(window.__dprEquip) ? window.__dprEquip : _dprEquipForProject();
+  const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed };
+  // Owner review: only an owner sees the checkbox, so an engineer's save never clears it.
+  const _revEl = document.getElementById('dpReviewed');
+  if (_revEl) {
+    data.reviewed = !!_revEl.checked;
+    if (data.reviewed) { try { data.reviewedBy = (getCurrentUser && getCurrentUser()?.name) || 'Owner'; } catch (e) {} data.reviewedAt = new Date().toISOString(); }
+    else { data.reviewedBy = ''; data.reviewedAt = ''; }
+  }
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else {
