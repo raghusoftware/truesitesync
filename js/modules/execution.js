@@ -758,9 +758,8 @@ window._exDprPdf = async function (id) {
     F(ORANGE); doc.rect(0, 0, pw, 2.4, 'F');
     let hx = ml;
     if (companyLogo) { try { const fm = /^data:image\/(png|jpe?g)/i.exec(companyLogo); doc.addImage(companyLogo, (fm ? fm[1].toUpperCase().replace('JPG', 'JPEG') : 'PNG'), ml, 8, 13, 13); hx = ml + 17; } catch (e) {} }
-    T([148, 163, 184]); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(String(companyName).toUpperCase(), hx, 11);
-    T([255, 255, 255]); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('DAILY PROGRESS REPORT', hx, 20);
-    T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(proj.name || 'Project', hx, 26.5);
+    T([255, 255, 255]); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('DAILY PROGRESS REPORT', hx, 18);
+    T([203, 213, 225]); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text(proj.name || 'Project', hx, 25);
     const chipW = 52, chipX = pw - mr - chipW;
     F([255, 255, 255]); doc.roundedRect(chipX, 7, chipW, 22, 2.5, 2.5, 'F');
     T(MUTED); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.text('DPR NO.', chipX + 5, 12.5);
@@ -782,7 +781,7 @@ window._exDprPdf = async function (id) {
 
     const sec = (title) => { if (y > ph - 40) { doc.addPage(); y = 18; } T(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(title, ml, y); const wdt = doc.getTextWidth(title); D(ORANGE); doc.setLineWidth(1.1); doc.line(ml, y + 1.9, ml + Math.min(wdt, 62), y + 1.9); T(INK); y += 6.5; };
     const headStyles = { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, cellPadding: 2.6, halign: 'left' };
-    const baseTable = (opts) => { doc.autoTable(Object.assign({ theme: 'striped', styles: { fontSize: 9, cellPadding: 2.4, textColor: INK, lineColor: LINE, lineWidth: 0 }, headStyles, alternateRowStyles: { fillColor: SOFT }, margin: { left: ml, right: mr } }, opts)); y = doc.lastAutoTable.finalY + 8; };
+    const baseTable = (opts) => { doc.autoTable(Object.assign({ theme: 'grid', styles: { fontSize: 9, cellPadding: 2.6, textColor: INK, lineColor: LINE, lineWidth: 0.2 }, headStyles, alternateRowStyles: { fillColor: SOFT }, margin: { left: ml, right: mr } }, opts)); y = doc.lastAutoTable.finalY + 8; };
 
     sec('Work Done Today');
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); T(INK);
@@ -796,7 +795,7 @@ window._exDprPdf = async function (id) {
       y -= 3; F(WARM); D(WARMB); doc.setLineWidth(0.4); doc.roundedRect(ml, y, cw, 9, 2, 2, 'FD'); T(RED); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.6); doc.text(`Present ${att.length}      Skilled ${skilled}      Unskilled ${unskilled}      Total man-days ${att.length}`, ml + 4, y + 5.9); y += 15;
     }
 
-    if (equipList.trim()) { sec('Equipment Deployed'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); T(INK); const el = doc.splitTextToSize(equipList, cw); el.forEach((ln, i) => doc.text(ln, ml, y + i * 4.7)); y += el.length * 4.7 + 7; }
+    if (equipList.trim()) { sec('Equipment Deployed'); const eqRows = equipList.split(', ').filter(Boolean).map((e, i) => [String(i + 1), e]); baseTable({ startY: y, head: [['#', 'Equipment']], columnStyles: { 0: { cellWidth: 14, halign: 'center' } }, body: eqRows }); }
 
     if (matRows.length || (d.materialsReceived || '').trim()) {
       sec('Materials');
