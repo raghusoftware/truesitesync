@@ -3,6 +3,12 @@
  * Each theme is a function(doc, data, settings) that renders a full PDF page
  */
 import { state, saveAllData } from './state.js';
+import { getTaxConfig, getTerm } from './utils.js';
+
+/** India splits CGST+SGST; other countries show one VAT / sales-tax line. */
+const _isGstMode = () => getTaxConfig().mode === 'gst';
+const _singleTaxLabel = () => getTaxConfig().singleLabel;
+const _taxIdLabel = () => getTerm('taxId');
 
 // ─── Helpers ───
 function getCp() { return state.companyProfile || {}; }
@@ -123,8 +129,8 @@ function drawCompanyHeader(doc, m, _style) {
   }
   if (hs.showGST && cp.GST) {
     doc.setFontSize(hs.gstSize); doc.setFont(hs.detailsFont, hs.gstStyle);
-    if (hasLogoLeft) doc.text('GSTIN: ' + cp.GST, textX, y + 4);
-    else doc.text('GSTIN: ' + cp.GST, dX, y + 4, {align: dAlign});
+    if (hasLogoLeft) doc.text(_taxIdLabel() + ': ' + cp.GST, textX, y + 4);
+    else doc.text(_taxIdLabel() + ': ' + cp.GST, dX, y + 4, {align: dAlign});
     y += hs.gstSize * 0.5 + 2;
   }
 
@@ -576,7 +582,7 @@ const INVOICE_THEMES = {
         if (hsR.showAddress && cp.Address) { doc.text(cp.Address, m.left, y+2); y+=4; }
         const cParts = []; if (hsR.showPhone && cp.Phone) cParts.push('Ph: '+cp.Phone); if (hsR.showEmail && cp.Email) cParts.push('Email: '+cp.Email);
         if (cParts.length) { doc.text(cParts.join('  '), m.left, y+2); y+=4; }
-        if (hsR.showGST && cp.GST) { doc.text('GSTIN: '+cp.GST, m.left, y+2); y+=4; }
+        if (hsR.showGST && cp.GST) { doc.text(_taxIdLabel() + ': ' + cp.GST, m.left, y+2); y+=4; }
         doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(m.left, y+2, pw-m.right, y+2); y+=5;
       }
 
@@ -609,7 +615,9 @@ const INVOICE_THEMES = {
       const tax = data.taxAmount || data.gstAmount || 0;
       const total = data.totalAmount || data.total || 0;
       doc.text('Subtotal:', pw-m.right-50, fy); doc.text(fmtINR(subtotal), pw-m.right, fy, {align:'right'}); fy+=5;
-      if (data.gstType === 'intra') {
+      if (!_isGstMode()) {
+        if (tax) { doc.text(_singleTaxLabel() + ':', pw-m.right-50, fy); doc.text(fmtINR(tax), pw-m.right, fy, {align:'right'}); fy+=5; }
+      } else if (data.gstType === 'intra') {
         doc.text('CGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
         doc.text('SGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
       } else {
@@ -650,7 +658,7 @@ const INVOICE_THEMES = {
         const eOff = hsE.showLogo && cp.logo ? m.left+22 : m.left;
         if (hsE.showCompanyName) { doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(255); doc.text(cp.CompanyName || '', eOff, 9); }
         doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(255);
-        if (hsE.showGST && cp.GST) doc.text('GSTIN: '+cp.GST, eOff, 15);
+        if (hsE.showGST && cp.GST) doc.text(_taxIdLabel() + ': ' + cp.GST, eOff, 15);
         doc.text('TAX INVOICE', pw-m.right, 9, {align:'right'});
         y = 26;
       }

@@ -9,10 +9,15 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF, getTaxConfig } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
 import { splitTaxForDisplay } from './gstCalc.js';
-import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js';
+
+/** True when the active country splits tax into CGST+SGST (India only). */
+const _isGstMode = () => getTaxConfig().mode === 'gst';
+/** Label for the single (non-split) tax line, e.g. VAT / GST/HST / Sales Tax. */
+const _singleTaxLabel = () => getTaxConfig().singleLabel;
+import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js?v=1.0.1';
 
 const _num2 = formatNumber2;
 
@@ -56,12 +61,17 @@ export function exportInvoicePDF(id) {
   let tY = doc.lastAutoTable.finalY + 10;
   doc.setFont("helvetica", "bold");
   doc.text(`Subtotal:`, 140, tY); doc.text(`${sym} ${_num2(inv.subtotal)}`, 196, tY, null, null, "right"); tY += 6;
-  const taxParts = splitTaxForDisplay(inv.taxAmount, inv.gstType);
-  if (inv.gstType === 'intra') {
-    doc.text(`CGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.cgst)}`, 196, tY, null, null, "right"); tY += 6;
-    doc.text(`SGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.sgst)}`, 196, tY, null, null, "right"); tY += 6;
+  if (!_isGstMode()) {
+    // VAT / sales-tax countries: a single tax line.
+    if (inv.taxAmount) { doc.text(`${_singleTaxLabel()}:`, 140, tY); doc.text(`${sym} ${_num2(inv.taxAmount)}`, 196, tY, null, null, "right"); tY += 6; }
   } else {
-    doc.text(`IGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.igst)}`, 196, tY, null, null, "right"); tY += 6;
+    const taxParts = splitTaxForDisplay(inv.taxAmount, inv.gstType);
+    if (inv.gstType === 'intra') {
+      doc.text(`CGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.cgst)}`, 196, tY, null, null, "right"); tY += 6;
+      doc.text(`SGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.sgst)}`, 196, tY, null, null, "right"); tY += 6;
+    } else {
+      doc.text(`IGST:`, 140, tY); doc.text(`${sym} ${_num2(taxParts.igst)}`, 196, tY, null, null, "right"); tY += 6;
+    }
   }
   doc.setTextColor(0, 0, 0);
   doc.text(`Bill Value (Gross):`, 140, tY); doc.text(`${sym} ${_num2(inv.totalAmount)}`, 196, tY, null, null, "right"); tY += 6;

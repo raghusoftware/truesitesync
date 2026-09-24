@@ -3,7 +3,7 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast, getTerm } from './utils.js';
-import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js';
+import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js?v=1.0.1';
 
 // ─── Settings hub navigation (icon grid → drill into a section) ───
 let _activeSettingsTab = null;
