@@ -1218,6 +1218,33 @@ window._openMpSection = function(section) {
   if (section === 'progress' && typeof window.renderPlanVsActual === 'function') window.renderPlanVsActual();
 };
 
+/** Plan vs Actual DATA (for DPR / reports). Returns
+ *  { overallPct, totPlanVal, totDoneVal, rows:[{code,description,uom,rate,plannedQty,doneQty,pct,remaining}] } */
+window.mpPlanVsActual = function (pid) {
+  pid = pid || _pid();
+  const proj = (state.projects || []).find(p => p.id === pid);
+  if (!proj) return { overallPct: 0, totPlanVal: 0, totDoneVal: 0, rows: [] };
+  const planned = {};
+  (proj.boqs || []).forEach(g => (g.items || []).forEach(it => {
+    const code = it.code || it.itemNo; if (!code) return;
+    const q = parseFloat(it.qty) || 0;
+    if (!planned[code]) planned[code] = { code, description: it.description || it.name || code, uom: it.uom || it.unit || '', rate: parseFloat(it.rate) || 0, plannedQty: 0 };
+    planned[code].plannedQty += q;
+  }));
+  const done = _measuredByCode(pid);
+  const codes = Object.keys(planned).length ? Object.keys(planned) : Object.keys(done);
+  let totPlanVal = 0, totDoneVal = 0;
+  const rows = codes.map(code => {
+    const p = planned[code] || { code, description: (done[code]?.description || code), uom: done[code]?.uom || '', rate: done[code]?.rate || 0, plannedQty: 0 };
+    const dq = (done[code]?.qty) || 0; const pq = p.plannedQty;
+    const pct = pq > 0 ? Math.min(100, (dq / pq) * 100) : (dq > 0 ? 100 : 0);
+    totPlanVal += pq * p.rate; totDoneVal += dq * p.rate;
+    return { code: p.code, description: p.description, uom: p.uom, rate: p.rate, plannedQty: pq, doneQty: dq, pct, remaining: Math.max(0, pq - dq) };
+  }).sort((a, b) => a.pct - b.pct);
+  const overallPct = totPlanVal > 0 ? Math.min(100, (totDoneVal / totPlanVal) * 100) : 0;
+  return { overallPct, totPlanVal, totDoneVal, rows };
+};
+
 /** Plan vs Actual — per BOQ item, planned (contract) qty vs actual done
  *  (cumulative measured), with % complete and remaining. */
 window.renderPlanVsActual = function() {

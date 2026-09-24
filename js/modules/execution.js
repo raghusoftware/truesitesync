@@ -789,6 +789,41 @@ window._exDprPdf = async function (id) {
 
     if (measRows.length) { sec('Measurement — Work Executed'); baseTable({ startY: y, head: [['Item', 'Qty', 'Unit', 'Location']], columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { cellWidth: 22, halign: 'center' }, 3: { cellWidth: 36 } }, body: measRows }); }
 
+    // ── Progress — Plan vs Actual (cumulative measured vs contract BOQ) ──
+    const pva = (typeof window.mpPlanVsActual === 'function') ? window.mpPlanVsActual(d.projectId) : null;
+    if (pva && pva.rows && pva.rows.length) {
+      const todayByCode = {}; (d.measurements || []).forEach(m => { const c = m.code || m.description; todayByCode[c] = (todayByCode[c] || 0) + (parseFloat(m.qty) || 0); });
+      sec('Progress — Plan vs Actual');
+      // overall progress bar
+      const opct = pva.overallPct || 0;
+      T(NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Overall Project Progress', ml, y + 1);
+      T(RED); doc.setFontSize(11); doc.text(`${opct.toFixed(1)}%`, pw - mr, y + 1.5, { align: 'right' });
+      y += 3.5;
+      F([241, 245, 249]); doc.roundedRect(ml, y, cw, 7, 2, 2, 'F');
+      const ocol = opct >= 100 ? RED : opct >= 50 ? ORANGE : AMBER;
+      F(ocol); doc.roundedRect(ml, y, Math.max(3, cw * opct / 100), 7, 2, 2, 'F');
+      y += 12;
+      const pvaBody = pva.rows.map(r => {
+        const today = todayByCode[r.code] || 0;
+        return [r.description || r.code, `${r.plannedQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${r.uom || ''}`.trim(), today ? today.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—', r.doneQty.toLocaleString('en-IN', { maximumFractionDigits: 2 }), r.remaining.toLocaleString('en-IN', { maximumFractionDigits: 2 }), '', `${r.pct.toFixed(0)}%`];
+      });
+      baseTable({
+        startY: y,
+        head: [['Item', 'Planned', 'Today', 'Done', 'Balance', 'Progress', '%']],
+        columnStyles: { 1: { halign: 'right', cellWidth: 24 }, 2: { halign: 'right', cellWidth: 18 }, 3: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }, 4: { halign: 'right', cellWidth: 20 }, 5: { cellWidth: 30 }, 6: { halign: 'right', cellWidth: 14, fontStyle: 'bold' } },
+        body: pvaBody,
+        didDrawCell: (data) => {
+          if (data.section === 'body' && data.column.index === 5) {
+            const r = pva.rows[data.row.index]; if (!r) return;
+            const bx = data.cell.x + 2, bw = data.cell.width - 4, by = data.cell.y + data.cell.height / 2 - 1.4, bh = 2.8;
+            doc.setFillColor(233, 237, 242); doc.roundedRect(bx, by, bw, bh, 1, 1, 'F');
+            const c = r.pct >= 100 ? RED : r.pct >= 50 ? ORANGE : r.pct > 0 ? AMBER : [226, 232, 240];
+            doc.setFillColor(c[0], c[1], c[2]); doc.roundedRect(bx, by, Math.max(0.8, bw * r.pct / 100), bh, 1, 1, 'F');
+          }
+        }
+      });
+    }
+
     if (att.length) {
       sec('Manpower — from Attendance');
       baseTable({ startY: y, head: [['Name', 'Designation', 'Type', 'Hours']], columnStyles: { 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 22 } }, body: att.map(a => [a.name || '—', a.designation || '—', a.skilled ? 'Skilled' : 'Unskilled', (a.hours !== '' && a.hours != null) ? (a.hours + 'h') : '—']) });

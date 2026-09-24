@@ -70,7 +70,7 @@ import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
 import { renderNotifications } from './modules/notifications.js?v=1.0.1';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.113';
+import { renderExecution } from './modules/execution.js?v=1.6.114';
 import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.35';
 import './modules/financeReports.js?v=1.3.38';
@@ -127,7 +127,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.32';
+} from './modules/microPlanning.js?v=1.4.33';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
