@@ -12,7 +12,7 @@
 
 import { state } from './state.js';
 import { showToast, getPdfCurrency, mobileSavePDF, mobileSaveXLSX } from './utils.js';
-import { formatNumber2 } from './format.js';
+import { formatNumber2 } from './format.js?v=1.0.1';
 
 const _n2 = formatNumber2;
 const _num = v => parseFloat(v) || 0;

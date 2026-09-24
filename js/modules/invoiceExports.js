@@ -10,7 +10,7 @@
 
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
-import { formatNumber2 } from './format.js';
+import { formatNumber2 } from './format.js?v=1.0.1';
 import { splitTaxForDisplay } from './gstCalc.js';
 import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js';
 

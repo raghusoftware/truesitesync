@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
@@ -2213,8 +2213,9 @@ window._exportStockStatementPDF = function () {
   doc.text('STOCK STATEMENT', pw / 2, y + 5, { align: 'center' });
   doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
   doc.text(_stmtFilterCaption(f), pw / 2, y + 10, { align: 'center' });
-  const body = rows.map(r => [r.name, r.unit, r.type, _stmtN2(r.opening), _stmtN2(r.inward), _stmtN2(r.outward), _stmtN2(r.closing), 'Rs. ' + _stmtN2(r.rate), 'Rs. ' + _stmtN2(r.value)]);
-  body.push([{ content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold' } }, { content: _stmtN2(totals.inward), styles: { fontStyle: 'bold', halign: 'right' } }, { content: _stmtN2(totals.outward), styles: { fontStyle: 'bold', halign: 'right' } }, '', '', { content: 'Rs. ' + _stmtN2(totals.value), styles: { fontStyle: 'bold', halign: 'right' } }]);
+  const _scur = getPdfCurrency();
+  const body = rows.map(r => [r.name, r.unit, r.type, _stmtN2(r.opening), _stmtN2(r.inward), _stmtN2(r.outward), _stmtN2(r.closing), _scur + _stmtN2(r.rate), _scur + _stmtN2(r.value)]);
+  body.push([{ content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold' } }, { content: _stmtN2(totals.inward), styles: { fontStyle: 'bold', halign: 'right' } }, { content: _stmtN2(totals.outward), styles: { fontStyle: 'bold', halign: 'right' } }, '', '', { content: _scur + _stmtN2(totals.value), styles: { fontStyle: 'bold', halign: 'right' } }]);
   doc.autoTable({
     startY: y + 14,
     head: [['Material', 'Unit', 'Type', 'Opening', 'Inward', 'Outward', 'Closing', 'Rate', 'Value']],

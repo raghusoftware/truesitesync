@@ -9,7 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, getCurrencySymbol, amountToWordsINR } from './utils.js';
+import { showToast, getCurrencySymbol, amountToWordsCur } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
@@ -701,7 +701,7 @@ export function calcSIFormTotal() {
   setT('siFormRoundAmt', roundAmt !== 0 ? (roundAmt > 0 ? '+' : '') + roundAmt.toFixed(2) : '0.00');
   setT('siFormTotal', getCurrencySymbol() + grand.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
   const words = document.getElementById('siFormAmountWords');
-  if (words) words.textContent = grand > 0 ? amountToWordsINR(grand) : '—';
+  if (words) words.textContent = grand > 0 ? amountToWordsCur(grand) : '—';
 }
 
 export function saveSaleInvoiceForm() {

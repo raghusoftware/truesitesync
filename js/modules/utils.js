@@ -1,9 +1,15 @@
 import { $ } from '../lib/dom.js';
 import { state } from './state.js';
-import { formatNumber, formatNumber2, amountToWordsINR } from './format.js';
+import { formatNumber, formatNumber2, amountToWordsINR, amountToWords } from './format.js?v=1.0.1';
 
 // Re-export pure formatters so existing imports from utils.js keep working.
-export { amountToWordsINR } from './format.js';
+export { amountToWordsINR, amountToWords } from './format.js?v=1.0.1';
+
+/** Amount in words for the active currency (INR→Rupees, AED→Dirhams…). */
+export function amountToWordsCur(n) {
+  const code = (state.currencySettings || {}).code || 'INR';
+  return amountToWords(n, code);
+}
 
 /** @param {string} msg @param {'success'|'error'|'warning'} [type] */
 // Owners get a bell notification for every success event. Gated by a real user

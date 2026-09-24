@@ -12,7 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF } from './utils.js';
+import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
 
@@ -1205,8 +1205,9 @@ window._staffExportPDF = function () {
   doc.text('STAFF ATTENDANCE & PAYROLL', pw / 2, y + 5, { align: 'center' });
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
   doc.text(`${proj?.name || ''}   |   Month: ${month}`, pw / 2, y + 10, { align: 'center' });
-  const body = rows.map(r => [r.name, r.designation, r.wageMode, r.present, r.hours, r.ot, 'Rs. ' + n2(r.dayPay), 'Rs. ' + n2(r.otPay), 'Rs. ' + n2(r.total)]);
-  body.push([{ content: 'TOTAL', colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }, { content: 'Rs. ' + n2(rows.reduce((t, r) => t + r.total, 0)), styles: { fontStyle: 'bold', halign: 'right' } }]);
+  const _cur = getPdfCurrency();
+  const body = rows.map(r => [r.name, r.designation, r.wageMode, r.present, r.hours, r.ot, _cur + n2(r.dayPay), _cur + n2(r.otPay), _cur + n2(r.total)]);
+  body.push([{ content: 'TOTAL', colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }, { content: _cur + n2(rows.reduce((t, r) => t + r.total, 0)), styles: { fontStyle: 'bold', halign: 'right' } }]);
   doc.autoTable({
     startY: y + 14,
     head: [['Staff', 'Designation', 'Wage', 'Present', 'Hours', 'OT hrs', 'Day Pay', 'OT Pay', 'Total Pay']],

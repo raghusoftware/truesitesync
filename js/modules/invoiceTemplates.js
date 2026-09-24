@@ -20,8 +20,8 @@
  */
 
 import { state } from './state.js';
-import { getPdfCurrency, mobileSavePDF, showToast } from './utils.js';
-import { formatNumber2, amountToWordsINR } from './format.js';
+import { getPdfCurrency, mobileSavePDF, showToast, amountToWordsCur } from './utils.js';
+import { formatNumber2 } from './format.js?v=1.0.1';
 
 const _n2 = formatNumber2;
 const _intStr = (n) => _n2(n).replace(/\.00$/, '');
@@ -71,7 +71,7 @@ function _prep(inv) {
     cp, c, items, totals, inter, hsnGroups: Object.values(groups),
     supplier: { name: cp.CompanyName || 'Your Company', address: cp.Address || '', gstin: cp.GST || '', stateCode: scode(cp.GST), phone: cp.Phone || '', email: cp.Email || '', bankName: cp.BankName || '', bankAcc: cp.BankAcc || '', ifsc: cp.IFSC || '', logo: cp.logo || '' },
     recipient: { name: c.name || inv.clientName || '—', address: c.address || inv.clientAddress || '', gstin: c.gst || '', state: inv.stateOfSupply || '' },
-    meta: { no: inv.invoiceNo || '', date: inv.date || '', placeOfSupply: inv.stateOfSupply || '', poNo: inv.poNo || '', poDate: inv.poDate || '', reverseCharge: inv.reverseCharge === 'Yes', tcs: parseFloat(inv.tcsAmount) || 0, roundAmt: parseFloat(inv.roundAmt) || 0, grand: parseFloat(inv.total) || totals.gross, words: amountToWordsINR(parseFloat(inv.total) || totals.gross), notes: inv.notes || '' },
+    meta: { no: inv.invoiceNo || '', date: inv.date || '', placeOfSupply: inv.stateOfSupply || '', poNo: inv.poNo || '', poDate: inv.poDate || '', reverseCharge: inv.reverseCharge === 'Yes', tcs: parseFloat(inv.tcsAmount) || 0, roundAmt: parseFloat(inv.roundAmt) || 0, grand: parseFloat(inv.total) || totals.gross, words: amountToWordsCur(parseFloat(inv.total) || totals.gross), notes: inv.notes || '' },
   };
 }
 

@@ -9,9 +9,9 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, amountToWordsINR, mobileSavePDF, mobileSaveXLSX } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, amountToWordsCur, mobileSavePDF, mobileSaveXLSX } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
-import { formatNumber2 } from './format.js';
+import { formatNumber2 } from './format.js?v=1.0.1';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
@@ -69,7 +69,7 @@ export function exportAbstractPlantPdf(id) {
     doc.setFont('helvetica', 'bold'); doc.text('ABSTRACT NO. :', pw - 98, y + 14);
     doc.setFont('helvetica', 'normal'); doc.text(a.abstractNum || '—', pw - 44, y + 14);
 
-    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), _num2(i.rate), getPdfCurrency() + _num2(i.amount)]);
     doc.autoTable({
       startY: y + 20, head: [['Sr No.', 'Description', 'UOM', 'QTY', 'Rate', 'Amount']], body: rows, theme: 'grid',
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9 },
@@ -81,9 +81,9 @@ export function exportAbstractPlantPdf(id) {
     doc.autoTable({
       startY: fy, theme: 'grid',
       body: [[
-        { content: 'Total Amount In Words: ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold' } },
+        { content: 'Total Amount In Words: ' + amountToWordsCur(a.totalAmount), styles: { fontStyle: 'bold' } },
         { content: 'Total Amount', styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right' } }
+        { content: getPdfCurrency() + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right' } }
       ]],
       styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.15 },
       columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 34 }, 2: { cellWidth: 36, halign: 'right' } },
@@ -173,7 +173,7 @@ export function exportAbstractFlintPdf(id) {
     y += boxH + 3;
 
     // ── Main table (navy header) ──
-    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), 'Rs. ' + _num2(i.rate), 'Rs. ' + _num2(i.amount)]);
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), getPdfCurrency() + _num2(i.rate), getPdfCurrency() + _num2(i.amount)]);
     doc.autoTable({
       startY: y, head: [['Sr.No', 'Description', 'UOM', 'Quantity', 'Rate', 'Amount']], body: rows, theme: 'grid',
       headStyles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: NAVY, lineWidth: 0.1, fontSize: 9.5 },
@@ -186,8 +186,8 @@ export function exportAbstractFlintPdf(id) {
     doc.autoTable({
       startY: fy, theme: 'grid',
       body: [[
-        { content: 'Total Amount In Words : ' + amountToWordsINR(a.totalAmount), styles: { fontStyle: 'bold', fillColor: PEACH, textColor: [90, 60, 20] } },
-        { content: 'Rs. ' + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: PEACH, textColor: [90, 60, 20] } }
+        { content: 'Total Amount In Words : ' + amountToWordsCur(a.totalAmount), styles: { fontStyle: 'bold', fillColor: PEACH, textColor: [90, 60, 20] } },
+        { content: getPdfCurrency() + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: PEACH, textColor: [90, 60, 20] } }
       ]],
       styles: { fontSize: 9.5, cellPadding: 2.4, lineColor: [220, 224, 230], lineWidth: 0.1 },
       columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 34, halign: 'right' } },
@@ -235,7 +235,7 @@ export function exportAbstractPDF(id) {
   doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(accent[0], accent[1], accent[2]);
   doc.text(`Grand Total Amount: ${sym} ${_num2(a.totalAmount)}`, 14, gtY);
   doc.setFontSize(9); doc.setFont("helvetica", "italic"); doc.setTextColor(60, 60, 60);
-  const words = doc.splitTextToSize(`Amount in Words: ${amountToWordsINR(a.totalAmount)}`, doc.internal.pageSize.width - 28);
+  const words = doc.splitTextToSize(`Amount in Words: ${amountToWordsCur(a.totalAmount)}`, doc.internal.pageSize.width - 28);
   doc.text(words, 14, gtY + 7);
   mobileSavePDF(doc,`${a.abstractNum || 'Abstract'}.pdf`);
   } catch (err) {
@@ -332,7 +332,7 @@ export function exportDetailedAbstractPDF(id) {
   // Amount in words
   const wordsY = doc.lastAutoTable.finalY + 7;
   doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(40);
-  const dWords = doc.splitTextToSize(`Amount in Words: ${amountToWordsINR(grandTotalAmt)}`, pw - 8);
+  const dWords = doc.splitTextToSize(`Amount in Words: ${amountToWordsCur(grandTotalAmt)}`, pw - 8);
   doc.text(dWords, 4, wordsY);
 
   // Signature area

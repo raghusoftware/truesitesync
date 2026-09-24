@@ -9,10 +9,10 @@
  */
 
 import { state } from './state.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob, amountToWordsCur } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
-import { formatNumber2, amountToWordsINR } from './format.js';
-import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.0';
+import { formatNumber2 } from './format.js?v=1.0.1';
+import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.1';
 
 const _num2 = formatNumber2;
 
@@ -164,7 +164,7 @@ export function exportSaleInvoicePDF(id) {
   y += 6;
   doc.setFont('helvetica', 'bold'); doc.text('Invoice Amount in Words:', ml, y); y += 4.5;
   doc.setFont('helvetica', 'normal');
-  doc.splitTextToSize(amountToWordsINR(inv.total || 0), pw - ml - mr).forEach(line => { doc.text(line, ml, y); y += 4.2; });
+  doc.splitTextToSize(amountToWordsCur(inv.total || 0), pw - ml - mr).forEach(line => { doc.text(line, ml, y); y += 4.2; });
   y += 2;
   const sigY = y;
   // Received / Balance — only when enabled in invoice settings
