@@ -823,8 +823,22 @@ function renderCurrencyTab() {
   const c = document.getElementById('settCurrencyContent');
   if (!c) return;
   const cs = state.currencySettings || {};
+  const presetOpts = CURRENCY_PRESETS.map((p, i) => `<option value="${i}" ${cs.code === p.code && (cs.region || 'IN') === p.region ? 'selected' : ''}>${_esc(p.label)}</option>`).join('');
+  const regionOpts = [['IN', 'India — RA Bill, GST, TDS'], ['GCC', 'Gulf / GCC — Payment Certificate, VAT'], ['UK', 'UK / Commonwealth — IPC, VAT'], ['INTL', 'International — Progress Claim, Tax']].map(r => `<option value="${r[0]}" ${(cs.region || 'IN') === r[0] ? 'selected' : ''}>${r[1]}</option>`).join('');
   c.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+      <div class="md:col-span-2">
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Country / Currency preset</label>
+        <select id="cs_preset" onchange="_csApplyPreset(this.value)" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="">— choose a country to auto-fill —</option>${presetOpts}
+        </select>
+        <p class="text-[11px] text-slate-400 mt-1">Pick a country to set currency, format and billing terminology in one step. India is the default.</p>
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Billing region &amp; terminology</label>
+        <select id="cs_region" class="w-full border rounded-lg px-3 py-2 text-sm">${regionOpts}</select>
+        <p class="text-[11px] text-slate-400 mt-1">Controls document wording — e.g. <b>RA Bill</b> vs <b>Payment Certificate</b>, <b>GST</b> vs <b>VAT</b>.</p>
+      </div>
       <div>
         <label class="block text-xs font-semibold text-slate-600 mb-1">Primary Currency Symbol</label>
         <input type="text" id="cs_symbol" value="${_esc(cs.symbol || '₹')}" class="w-full border rounded-lg px-3 py-2 text-sm">
@@ -859,17 +873,46 @@ function renderCurrencyTab() {
     </div>`;
 }
 
+// ── Country presets: one pick sets currency + format + billing region ──
+const CURRENCY_PRESETS = [
+  { label: 'India (₹ INR)', symbol: '₹', code: 'INR', locale: 'en-IN', decimals: 2, region: 'IN' },
+  { label: 'UAE (AED)', symbol: 'AED ', code: 'AED', locale: 'en-AE', decimals: 2, region: 'GCC' },
+  { label: 'Saudi Arabia (SAR)', symbol: 'SAR ', code: 'SAR', locale: 'en-SA', decimals: 2, region: 'GCC' },
+  { label: 'Qatar (QAR)', symbol: 'QAR ', code: 'QAR', locale: 'en-QA', decimals: 2, region: 'GCC' },
+  { label: 'Oman (OMR)', symbol: 'OMR ', code: 'OMR', locale: 'en-OM', decimals: 3, region: 'GCC' },
+  { label: 'Kuwait (KWD)', symbol: 'KWD ', code: 'KWD', locale: 'en-KW', decimals: 3, region: 'GCC' },
+  { label: 'Bahrain (BHD)', symbol: 'BHD ', code: 'BHD', locale: 'en-BH', decimals: 3, region: 'GCC' },
+  { label: 'United Kingdom (£ GBP)', symbol: '£', code: 'GBP', locale: 'en-GB', decimals: 2, region: 'UK' },
+  { label: 'United States ($ USD)', symbol: '$', code: 'USD', locale: 'en-US', decimals: 2, region: 'INTL' },
+  { label: 'Eurozone (€ EUR)', symbol: '€', code: 'EUR', locale: 'en-IE', decimals: 2, region: 'INTL' },
+  { label: 'Nigeria (₦ NGN)', symbol: '₦', code: 'NGN', locale: 'en-NG', decimals: 2, region: 'INTL' },
+  { label: 'Kenya (KSh)', symbol: 'KSh ', code: 'KES', locale: 'en-KE', decimals: 2, region: 'INTL' },
+  { label: 'South Africa (R ZAR)', symbol: 'R ', code: 'ZAR', locale: 'en-ZA', decimals: 2, region: 'INTL' },
+  { label: 'Philippines (₱ PHP)', symbol: '₱', code: 'PHP', locale: 'en-PH', decimals: 2, region: 'INTL' },
+  { label: 'Australia (A$ AUD)', symbol: 'A$', code: 'AUD', locale: 'en-AU', decimals: 2, region: 'INTL' },
+  { label: 'Canada (C$ CAD)', symbol: 'C$', code: 'CAD', locale: 'en-CA', decimals: 2, region: 'INTL' },
+];
+window._csApplyPreset = function (idx) {
+  const p = CURRENCY_PRESETS[parseInt(idx)];
+  if (!p) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('cs_symbol', p.symbol); set('cs_code', p.code); set('cs_decimals', String(p.decimals)); set('cs_region', p.region);
+  const locSel = document.getElementById('cs_locale');
+  if (locSel) { if (!Array.from(locSel.options).some(o => o.value === p.locale)) locSel.add(new Option(p.locale, p.locale)); locSel.value = p.locale; }
+};
+
 export function saveCurrencySettings() {
   state.currencySettings = {
     symbol: document.getElementById('cs_symbol')?.value || '₹',
     code: document.getElementById('cs_code')?.value || 'INR',
     decimals: parseInt(document.getElementById('cs_decimals')?.value) || 2,
     locale: document.getElementById('cs_locale')?.value || 'en-IN',
+    region: document.getElementById('cs_region')?.value || 'IN',
     showAmountInWords: document.getElementById('cs_showAmountInWords')?.checked ?? true,
     showSymbolInHeaders: document.getElementById('cs_showSymbolInHeaders')?.checked ?? true
   };
   saveAllData();
-  showToast('Currency settings saved');
+  showToast('Currency & region settings saved');
 }
 
 // ─── AUTO-NUMBERING ───
