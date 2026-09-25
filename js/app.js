@@ -75,6 +75,7 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
 import './modules/mobileShell.js?v=1.6.84';
+import './modules/onboarding.js?v=1.0.0';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -523,6 +524,11 @@ function _bootApp() {
   setDateFields();
   loadCompanyProfile();
   addPurchaseRow(3);
+
+  // First-run only: ask a brand-new workspace which country it operates in, and
+  // configure currency + terminology + tax from that one choice. No-ops for any
+  // workspace that already has data or a chosen currency.
+  setTimeout(() => { try { window.maybeShowCountryOnboarding?.(); } catch (e) { console.warn('[boot] onboarding skipped:', e?.message || e); } }, 500);
 
   // Bind organization & super admin modules
   bindOrgWindowFunctions();
