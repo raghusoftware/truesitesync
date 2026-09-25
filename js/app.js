@@ -76,6 +76,7 @@ import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
 import './modules/mobileShell.js?v=1.6.84';
 import './modules/onboarding.js?v=1.0.0';
+import './modules/payApplication.js?v=1.0.0';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -128,7 +129,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.34';
+} from './modules/microPlanning.js?v=1.4.35';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {

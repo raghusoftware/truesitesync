@@ -2089,9 +2089,11 @@ export function renderRABilling() {
       <td class="px-3 py-2 text-slate-500">${b.date}</td>
       <td class="px-3 py-2 text-slate-600 truncate">${_esc((b.locationLabels || []).join(', '))}</td>
       <td class="px-3 py-2 text-right font-bold">${cur}${Math.round(b.total || 0).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2 text-center">${invoiced
+      <td class="px-3 py-2 text-center">${(window.feat && window.feat('payApp'))
+        ? `<button onclick="window.exportPayApplicationPdf('${b.id}')" class="text-violet-600 hover:bg-violet-50 px-2 py-1 rounded text-[11px] font-bold mr-1" title="Download AIA G702/G703 pay application">Pay App</button>`
+        : ''}${invoiced
         ? `<span class="text-[10px] font-bold text-green-600" title="Billed via ${_esc(abs.linkedInvoice || abs.linkedInvoiceId || 'invoice')}">✓ Invoiced</span>`
-        : `<button onclick="window._mpDeleteRA('${b.id}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-[11px] font-bold" title="Delete this RA bill — its quantities return to unbilled">Delete</button>`}</td>
+        : `<button onclick="window._mpDeleteRA('${b.id}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-[11px] font-bold" title="Delete this ${getTerm('raBill')} — its quantities return to unbilled">Delete</button>`}</td>
     </tr>`;
   }).join('');
 
