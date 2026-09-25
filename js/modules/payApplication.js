@@ -83,12 +83,17 @@ export function exportPayApplicationPdf(raBillId) {
         cur + _n2(ret),
       ];
     });
+    // Approved change orders adjust the contract sum (G702 lines 2–3, 9).
+    const coTotal = (state.changeOrders || [])
+      .filter(o => o.projectId === b.projectId && o.status !== 'pending')
+      .reduce((s, o) => s + (Number(o.amount) || 0), 0);
+    const contractToDate = sumC + coTotal;
     const retTotal = sumG * rp / 100;
     const prevRet = sumD * rp / 100;
     const earnedLessRet = sumG - retTotal;
     const lessPrev = sumD - prevRet;
     const currentDue = earnedLessRet - lessPrev; // == sumE - retainage on sumE
-    const balToFinish = sumC - sumG + retTotal;
+    const balToFinish = contractToDate - sumG + retTotal;
 
     const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
     const pw = doc.internal.pageSize.getWidth();
@@ -123,8 +128,8 @@ export function exportPayApplicationPdf(raBillId) {
     // G702 summary block (right-aligned money column)
     const sumRows = [
       ['1. Original Contract Sum', cur + _n2(sumC)],
-      ['2. Net change by Change Orders', cur + _n2(0)],
-      ['3. Contract Sum to Date (1 ± 2)', cur + _n2(sumC)],
+      ['2. Net change by Change Orders', (coTotal < 0 ? '-' : '') + cur + _n2(Math.abs(coTotal))],
+      ['3. Contract Sum to Date (1 ± 2)', cur + _n2(contractToDate)],
       ['4. Total Completed & Stored to Date', cur + _n2(sumG)],
       ['5. Retainage (' + rp + '% of completed work)', cur + _n2(retTotal)],
       ['6. Total Earned Less Retainage (4 − 5)', cur + _n2(earnedLessRet)],

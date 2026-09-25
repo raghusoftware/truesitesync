@@ -2097,7 +2097,38 @@ export function renderRABilling() {
     </tr>`;
   }).join('');
 
+  // ── Change Orders (variations) — adjusts the contract sum; used by the US pay application ──
+  const cos = (state.changeOrders || []).filter(o => o.projectId === proj.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const coNet = cos.filter(o => o.status !== 'pending').reduce((s, o) => s + (Number(o.amount) || 0), 0);
+  const coRows = cos.map(o => `<tr class="border-b">
+      <td class="px-3 py-2 font-mono font-bold text-slate-600">${_esc(o.coNo || '')}</td>
+      <td class="px-3 py-2 text-slate-500">${o.date || ''}</td>
+      <td class="px-3 py-2 text-slate-700">${_esc(o.description || '')}</td>
+      <td class="px-3 py-2 text-right font-bold ${(Number(o.amount) || 0) < 0 ? 'text-red-600' : 'text-emerald-700'}">${(Number(o.amount) || 0) < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(Number(o.amount) || 0)).toLocaleString('en-IN')}</td>
+      <td class="px-3 py-2 text-center"><span class="text-[10px] font-bold ${o.status === 'pending' ? 'text-amber-600' : 'text-emerald-600'}">${o.status === 'pending' ? 'Pending' : 'Approved'}</span></td>
+      <td class="px-3 py-2 text-center"><button onclick="window._mpDeleteCO('${o.id}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-[11px] font-bold">Delete</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" class="p-4 text-center text-slate-400 text-xs">No change orders yet.</td></tr>';
+  const coCard = `
+    <div class="bg-white border rounded-xl p-4 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-bold text-sm text-slate-800">🔧 Change Orders <span class="text-[11px] text-slate-400 font-normal">(variations to the contract)</span></h3>
+        <span class="text-xs font-bold ${coNet < 0 ? 'text-red-600' : 'text-emerald-700'}">Net: ${coNet < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(coNet)).toLocaleString('en-IN')}</span>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3 items-end">
+        <input id="coDesc" type="text" placeholder="Description (e.g. extra RCC, rate revision)" class="flex-1 min-w-[180px] border rounded-lg px-3 py-2 text-sm">
+        <input id="coAmount" type="number" step="any" placeholder="Amount (${cur}) — minus to deduct" class="w-40 border rounded-lg px-3 py-2 text-sm text-right">
+        <select id="coStatus" class="border rounded-lg px-2 py-2 text-sm"><option value="approved">Approved</option><option value="pending">Pending</option></select>
+        <button onclick="window._mpAddCO()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900">+ Add</button>
+      </div>
+      <div class="overflow-x-auto border rounded-lg"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">CO No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
+        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Description</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
+        <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Action</th>
+      </tr></thead><tbody>${coRows}</tbody></table></div>
+    </div>`;
+
   c.innerHTML = `
+    ${coCard}
     <div class="bg-white border rounded-xl p-4 mb-4">
       <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare ${getTerm('raBill')}</h3>
       <p class="text-[11px] text-slate-400 mb-3">Select one location (single bill) or several (consolidated). The bill auto-computes <b>cumulative measured − already billed</b> for each ${getTerm('boq')} item.</p>
@@ -2118,6 +2149,38 @@ export function renderRABilling() {
     </div>`;
 }
 window.renderRABilling = renderRABilling;
+
+/** Add a change order (variation) to the current project. */
+window._mpAddCO = function () {
+  const proj = _currentProject(); if (!proj) return;
+  const desc = (document.getElementById('coDesc')?.value || '').trim();
+  const amount = parseFloat(document.getElementById('coAmount')?.value);
+  const status = document.getElementById('coStatus')?.value || 'approved';
+  if (!desc) { showToast('Enter a description', 'warning'); return; }
+  if (isNaN(amount) || amount === 0) { showToast('Enter an amount (use a minus sign to deduct)', 'warning'); return; }
+  if (!Array.isArray(state.changeOrders)) state.changeOrders = [];
+  const seq = state.changeOrders.filter(o => o.projectId === proj.id).length + 1;
+  state.changeOrders.push({
+    id: 'co_' + Date.now(), projectId: proj.id, coNo: 'CO-' + seq,
+    description: desc, amount: Math.round(amount * 100) / 100, status,
+    date: new Date().toISOString().split('T')[0], createdAt: Date.now(),
+  });
+  saveAllData();
+  renderRABilling();
+  showToast('Change order added', 'success');
+};
+
+/** Delete a change order. */
+window._mpDeleteCO = function (id) {
+  const o = (state.changeOrders || []).find(x => x.id === id);
+  if (!o) return;
+  if (!confirm(`Delete ${o.coNo || 'this change order'}?`)) return;
+  if (window.recycleDelete) window.recycleDelete('changeOrders', id, 'Change Order');
+  else state.changeOrders = (state.changeOrders || []).filter(x => x.id !== id);
+  saveAllData();
+  renderRABilling();
+  showToast('Change order deleted', 'info');
+};
 
 /** Delete an RA bill — its quantities return to unbilled (prevBilled recomputes
  *  from raBills) and the mirrored abstract is removed. Blocked once invoiced. */
