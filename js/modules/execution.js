@@ -12,7 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
-import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency } from './utils.js';
+import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
 
@@ -1065,7 +1065,7 @@ window._exSSave = function (id) {
 const _STD_HRS = 8;
 function _staffToday(staffId, date) { date = date || _today(); return (state.staffAttendance || []).find(a => a.staffId === staffId && a.date === date); }
 function _hm(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return '—'; } }
-function _money(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
+function _money(n) { const cs = state.currencySettings || {}; return (cs.symbol || '₹') + Math.round(Number(n) || 0).toLocaleString(cs.locale || 'en-IN'); }
 
 /** Day pay + overtime for an attendance record, from the staff member's config.
  *  Two worlds, per staff: fixed daily/monthly wage (present = full day) OR
@@ -1233,11 +1233,11 @@ window._staffForm = function (id) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Wage Mode</label><select id="stfMode" style="${_inp}" onchange="_staffModeHint()">${sel([{ v: 'daily', t: 'Daily wage' }, { v: 'monthly', t: 'Monthly salary' }, { v: 'hourly', t: 'Hourly' }], (s && s.wageMode) || 'daily')}</select></div>
-      <div><label style="${_lbl}"><span id="stfRateLbl">Rate (₹/day)</span></label><input id="stfRate" type="number" style="${_inp}" value="${s ? _num(s.rate) : ''}"></div>
+      <div><label style="${_lbl}"><span id="stfRateLbl">Rate (${getCurrencySymbol().trim()}/day)</span></label><input id="stfRate" type="number" style="${_inp}" value="${s ? _num(s.rate) : ''}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div><label style="${_lbl}">Standard hours / day</label><input id="stfStd" type="number" style="${_inp}" value="${s ? (_num(s.standardHours) || 8) : 8}"></div>
-      <div><label style="${_lbl}">OT rate (₹/hr)</label><input id="stfOtRate" type="number" style="${_inp}" placeholder="auto 1.5×" value="${s && s.otRate ? _num(s.otRate) : ''}"></div>
+      <div><label style="${_lbl}">OT rate (${getCurrencySymbol().trim()}/hr)</label><input id="stfOtRate" type="number" style="${_inp}" placeholder="auto 1.5×" value="${s && s.otRate ? _num(s.otRate) : ''}"></div>
     </div>
     <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:16px;cursor:pointer;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:11px;"><input type="checkbox" id="stfOt" ${s && s.otAllowed ? 'checked' : ''} style="width:18px;height:18px;margin-top:1px;"><span style="font-size:12px;color:#334155;"><b>Overtime pay allowed</b> — extra hours beyond the standard day are paid at the OT rate. Leave off for staff who are present-for-day only (no extra pay for extra hours).</span></label>
     <button onclick="_staffSave('${id || ''}')" style="width:100%;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Staff'}</button>
@@ -1248,7 +1248,7 @@ window._staffForm = function (id) {
 window._staffModeHint = function () {
   const m = document.getElementById('stfMode')?.value;
   const l = document.getElementById('stfRateLbl');
-  if (l) l.textContent = m === 'hourly' ? 'Rate (₹/hour)' : (m === 'monthly' ? 'Salary (₹/month)' : 'Rate (₹/day)');
+  if (l) { const _c = getCurrencySymbol().trim(); l.textContent = m === 'hourly' ? `Rate (${_c}/hour)` : (m === 'monthly' ? `Salary (${_c}/month)` : `Rate (${_c}/day)`); }
 };
 window._staffSave = function (id) {
   if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to manage staff', 'error'); return; }

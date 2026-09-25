@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
@@ -1094,7 +1094,7 @@ window._addPaymentTxn = function(dir) {
   _fuelModalLike('Add ' + (dir === 'in' ? 'Payment In' : 'Payment Out'), `
     ${partyField}
     ${catField}
-    <label class="fm-l">Amount (₹)</label><input id="ptxAmount" type="number" class="fm-i" placeholder="0">
+    <label class="fm-l">Amount (${getCurrencySymbol().trim()})</label><input id="ptxAmount" type="number" class="fm-i" placeholder="0">
     <label class="fm-l">Date</label><input id="ptxDate" type="date" class="fm-i" value="${new Date().toISOString().split('T')[0]}">
     <label class="fm-l">Account</label><select id="ptxAccount" class="fm-i">${accOpts}</select>
     <label class="fm-l">Reference / Note</label><input id="ptxRef" class="fm-i" placeholder="UTR / cheque / note">
@@ -3148,7 +3148,7 @@ function _renderTools() {
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
         <select id="tiLabour" class="p-2 border rounded-lg text-sm bg-white">${labOpts}</select>
         <input id="tiTool" placeholder="Tool (e.g. Drill, 50 scaffold tubes)" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="tiValue" type="number" placeholder="Value ₹ (for penalty)" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="tiValue" type="number" placeholder="Value ${getCurrencySymbol().trim()} (for penalty)" class="p-2 border rounded-lg text-sm outline-none">
         <button onclick="_saveToolIssue()" class="bg-violet-600 text-white rounded-lg font-bold text-sm hover:bg-violet-700">Issue Tool</button>
       </div>
     </div>
@@ -3169,7 +3169,7 @@ window._saveToolIssue=function(){
 window._returnTool=function(id){
   const t=(state.toolIssues||[]).find(x=>x.id===id); if(!t) return;
   const dmg=confirm('Returned in good condition? OK = good, Cancel = damaged/penalty');
-  if(!dmg){const pen=parseFloat(prompt('Penalty amount to deduct from wages (₹):','0'))||0;
+  if(!dmg){const pen=parseFloat(prompt('Penalty amount to deduct from wages (' + getCurrencySymbol().trim() + '):','0'))||0;
     if(pen>0){state.labourDeductions.push({id:'ded_'+Date.now(),labourId:t.labourId,deductionType:'Damaged Tool',amount:pen,date:new Date().toISOString().split('T')[0],note:t.tool,settled:false});showToast(`Penalty ${getCurrencySymbol()}${pen} added to worker deductions`,'warning');}}
   t.returned=true; t.returnedDate=new Date().toISOString().split('T')[0];
   saveAllData(); _renderTools();
@@ -4828,7 +4828,7 @@ function _prRenderRates() {
         <input id="prItemCode" placeholder="Item Code" class="p-2 border rounded-lg text-sm outline-none">
         <input id="prCategory" placeholder="Work (e.g. RCC M20)" class="p-2 border rounded-lg text-sm outline-none">
         <select id="prUom" class="p-2 border rounded-lg text-sm outline-none bg-white"><option>M3</option><option>M2</option><option>RMT</option><option>MT</option><option>Nos</option><option>Kg</option><option>Sqft</option><option>Cft</option><option>Bag</option><option>Lot</option></select>
-        <input id="prRate" type="number" placeholder="Rate ₹" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="prRate" type="number" placeholder="Rate ${getCurrencySymbol().trim()}" class="p-2 border rounded-lg text-sm outline-none">
         <button onclick="_prAddRate()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Add</button>
       </div>
     </div>
@@ -5525,7 +5525,7 @@ window._recordAdvance = function() {
   const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
   _payrollModal('Record Advance (Kharchi)', `
     <label class="pm-l">Worker</label><select id="pmWorker" class="pm-i">${opts}</select>
-    <label class="pm-l">Amount (₹)</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
+    <label class="pm-l">Amount (${getCurrencySymbol().trim()})</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
     <label class="pm-l">Date</label><input type="date" id="pmDate" class="pm-i" value="${new Date().toISOString().split('T')[0]}">
     <label class="pm-l">Pay from account</label><select id="pmAccount" class="pm-i">${accOpts}</select>
     <label class="pm-l">Note</label><input type="text" id="pmNote" class="pm-i" placeholder="Advance / Kharchi">
@@ -5538,7 +5538,7 @@ window._recordAdvance = function() {
     if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
     state.labourAdvances.push(window.stampCreate({ id: 'adv_' + Date.now(), labourId, amount, date, accountId, note, settled: false }));
     saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
-    showToast(`Advance ₹${amount.toLocaleString('en-IN')} recorded`, 'success');
+    showToast(`Advance ${formatINR(amount)} recorded`, 'success');
     return true;
   });
 };
@@ -5551,7 +5551,7 @@ window._recordDeduction = function() {
   _payrollModal('Record Deduction', `
     <label class="pm-l">Worker</label><select id="pmWorker" class="pm-i">${opts}</select>
     <label class="pm-l">Type</label><select id="pmType" class="pm-i"><option>Lost Tool</option><option>Damaged PPE</option><option>Penalty</option><option>Damage</option><option>Other</option></select>
-    <label class="pm-l">Amount (₹)</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
+    <label class="pm-l">Amount (${getCurrencySymbol().trim()})</label><input type="number" id="pmAmount" class="pm-i" placeholder="0">
     <label class="pm-l">Date</label><input type="date" id="pmDate" class="pm-i" value="${new Date().toISOString().split('T')[0]}">
     <label class="pm-l">Note</label><input type="text" id="pmNote" class="pm-i" placeholder="Details">
   `, () => {
@@ -5563,7 +5563,7 @@ window._recordDeduction = function() {
     if (amount <= 0) { showToast('Enter valid amount', 'error'); return false; }
     state.labourDeductions.push({ id: 'ded_' + Date.now(), labourId, deductionType, amount, date, note, settled: false });
     saveAllData(); renderMonthlyMuster(); window.renderPartiesList?.();
-    showToast(`Deduction ₹${amount.toLocaleString('en-IN')} (${deductionType}) recorded`, 'success');
+    showToast(`Deduction ${formatINR(amount)} (${deductionType}) recorded`, 'success');
     return true;
   });
 };

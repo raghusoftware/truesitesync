@@ -1,5 +1,5 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
-import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF } from './utils.js';
+import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, getTerm } from './utils.js';
 import { computeGst } from './gstCalc.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 
@@ -114,7 +114,7 @@ export function buildClientLedger(cId) {
   state.invoices.filter(i => i.clientId === cId).forEach(i => {
     if (i.status === 'Cancelled') stmt.push({
       date: i.date,
-      desc: `<span class="line-through text-red-500">GST Applied (Cancelled Invoice ${i.invoiceNum})</span>`,
+      desc: `<span class="line-through text-red-500">${getTerm('tax')} Applied (Cancelled Invoice ${i.invoiceNum})</span>`,
       debit: 0, credit: 0
     });
     else stmt.push({
@@ -369,7 +369,7 @@ function _renderAccountTxns() {
 window._acctDeposit = function() {
   const acc = state.accounts.find(a => a.id === _selectedAccountId);
   if (!acc) { showToast('Select an account first', 'error'); return; }
-  const amt = parseFloat(prompt(`Deposit to ${acc.name} (₹):`)); if (!amt || amt <= 0) return;
+  const amt = parseFloat(prompt(`Deposit to ${acc.name} (${getCurrencySymbol().trim()}):`)); if (!amt || amt <= 0) return;
   const ref = prompt('Note:', 'Manual deposit') || 'Deposit';
   state.paymentsIn.push({ id: 'in_' + Date.now(), clientId: '', accountId: acc.id, date: new Date().toISOString().split('T')[0], amount: amt, ref });
   saveAllData(); renderAccounts();
@@ -378,7 +378,7 @@ window._acctDeposit = function() {
 window._acctWithdraw = function() {
   const acc = state.accounts.find(a => a.id === _selectedAccountId);
   if (!acc) { showToast('Select an account first', 'error'); return; }
-  const amt = parseFloat(prompt(`Withdraw from ${acc.name} (₹):`)); if (!amt || amt <= 0) return;
+  const amt = parseFloat(prompt(`Withdraw from ${acc.name} (${getCurrencySymbol().trim()}):`)); if (!amt || amt <= 0) return;
   const ref = prompt('Note:', 'Manual withdrawal') || 'Withdrawal';
   state.expenses.push({ id: 'exp_' + Date.now(), accountId: acc.id, date: new Date().toISOString().split('T')[0], category: 'Withdrawal', amount: amt, remarks: ref });
   saveAllData(); renderAccounts();

@@ -14,7 +14,7 @@ import {
   renderAccounts, openAccountModal, saveAccount, renderReports,
   renderMasterClientList, renderMasterVendorList, exportMasterList,
   exportVendorLedgerPDF, exportClientStatementPDF
-} from './modules/finance.js?v=1.6.43';
+} from './modules/finance.js?v=1.6.44';
 import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
@@ -36,7 +36,7 @@ import {
   renderMaintenanceLogs, showAssetHistory, openEquipmentModal, saveEquipment,
   renderEquipmentView, saveEquipmentLog, renderEquipmentLog,
   deleteEquipment, deleteEquipmentLog
-} from './modules/fleet.js?v=1.0.0';
+} from './modules/fleet.js?v=1.0.1';
 import {
   switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
@@ -61,7 +61,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.6';
+} from './modules/ui.js?v=1.7.7';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.70';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.0';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
@@ -70,7 +70,7 @@ import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
 import { renderNotifications } from './modules/notifications.js?v=1.0.3';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.117';
+import { renderExecution } from './modules/execution.js?v=1.6.118';
 import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
@@ -93,7 +93,7 @@ import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js?v=1.0.1';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.51';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.78';
-import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.54';
+import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.55';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.88';
 import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.2';

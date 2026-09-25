@@ -337,7 +337,7 @@ window._eqBreakdown = function(assetId) {
 window._eqRepair = function(assetId) {
   const eq = state.equipmentList.find(e => e.id === assetId);
   if (!eq) return;
-  const cost = prompt(`Repair cost for ${eq.name} (₹):`, '0');
+  const cost = prompt(`Repair cost for ${eq.name} (${getCurrencySymbol().trim()}):`, '0');
   if (cost === null) return;
   eq.status = 'ACTIVE';
   state.equipmentLogs.push(window.stampCreate({ id: 'eqlog_' + Date.now(), assetId, date: new Date().toISOString().split('T')[0], type: 'Repair', amount: parseFloat(cost) || 0, remarks: 'Repaired & restored', projectId: state.currentProjectId }));
@@ -492,7 +492,7 @@ window._fuelReceipt = function(storageId) {
   const accOpts = (state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
   _fuelModal('Bulk Fuel Receipt (Tanker)', `
     <label class="fm-l">Quantity delivered (L)</label><input id="frQty" type="number" class="fm-i" placeholder="">
-    <label class="fm-l">Total cost (₹)</label><input id="frAmount" type="number" class="fm-i" placeholder="₹">
+    <label class="fm-l">Total cost (${getCurrencySymbol().trim()})</label><input id="frAmount" type="number" class="fm-i" placeholder="${getCurrencySymbol().trim()}">
     <label class="fm-l">Supplier</label><select id="frSupplier" class="fm-i"><option value="">-- Supplier --</option>${supplierOpts}</select>
     <label class="fm-l">Invoice No</label><input id="frInvoice" class="fm-i" placeholder="invoice #">
     <label class="fm-l">Pay from account (optional)</label><select id="frAccount" class="fm-i"><option value="">-- None --</option>${accOpts}</select>
@@ -599,7 +599,7 @@ function _fuelRenderPump() {
       <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
         <select id="fpAsset" class="p-2 border rounded-lg text-sm bg-white">${assetOpts || '<option value="">No assets</option>'}</select>
         <input id="fpQty" type="number" placeholder="Litres" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="fpAmount" type="number" placeholder="Total ₹" class="p-2 border rounded-lg text-sm outline-none">
+        <input id="fpAmount" type="number" placeholder="Total ${getCurrencySymbol().trim()}" class="p-2 border rounded-lg text-sm outline-none">
         <input id="fpPump" placeholder="Pump name" class="p-2 border rounded-lg text-sm outline-none">
         <input id="fpReceipt" placeholder="Receipt #" class="p-2 border rounded-lg text-sm outline-none">
       </div>

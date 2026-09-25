@@ -182,7 +182,7 @@ window._editPartyTx = function(src, id) {
     try { window.openSaleInvoiceForm(id); return; } catch (e) { console.warn('[ledger edit si]', e); }
   }
   // Fallback: legacy prompt-based edit (preserves existing behaviour for unknown sources).
-  const amount = prompt('Amount (₹):', rec.amount);
+  const amount = prompt('Amount (' + getCurrencySymbol().trim() + '):', rec.amount);
   if (amount === null) return;
   if (isNaN(amount) || parseFloat(amount) <= 0) { showToast('Invalid amount', 'error'); return; }
   rec.amount = parseFloat(amount);
