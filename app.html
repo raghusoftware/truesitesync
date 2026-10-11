@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
-    <script type="module" src="js/app.js?v=1.6.134"></script>
+    <script type="module" src="js/app.js?v=1.6.135"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -150,6 +150,7 @@
           <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
           <button onclick="switchView('chatView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="chatView"><span style="font-size:13px">&#128172;</span> Chat</button>
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
+          <button onclick="switchView('wpsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="wpsView"><span style="font-size:13px">&#128179;</span> WPS Salary</button>
           <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> Equipment</button>
           <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> Inventory</button>
           <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> Petty Cash</button>
@@ -1944,6 +1945,10 @@
 </div>
 
         <!-- ═══════ LABOUR ATTENDANCE ═══════ -->
+<div id="wpsView" class="view-section hide">
+  <div class="px-4 py-4"><div id="wpsContent"></div></div>
+</div>
+
 <div id="labourView" class="view-section hide">
   <div class="flex justify-between items-end mb-4">
     <div><h2>Labour Management</h2><p class="text-slate-500 font-medium mt-1">Attendance, wages, muster cards & payments</p></div>
