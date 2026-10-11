@@ -1416,6 +1416,7 @@ export function switchView(viewId) {
   if (viewId === 'executionView') { if (typeof window.renderExecution === 'function') window.renderExecution(); }
   if (viewId === 'wpsView') { if (typeof window.renderWPS === 'function') window.renderWPS(); }
   if (viewId === 'guaranteesView') { if (typeof window.renderGuarantees === 'function') window.renderGuarantees(); }
+  if (viewId === 'subcontractorsView') { if (typeof window.renderSubcontractors === 'function') window.renderSubcontractors(); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { if (typeof window.renderRecipeView === 'function') window.renderRecipeView(); }
   if (viewId === 'vendorView') {

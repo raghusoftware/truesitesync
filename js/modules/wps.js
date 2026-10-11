@@ -20,6 +20,7 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast, mobileDownloadBlob } from './utils.js';
+import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const _num = n => (Number(n) || 0);
@@ -77,23 +78,22 @@ export function renderWPS() {
         <p style="font-size:12px;color:#7a2e1a;margin:4px 0 0;">Generate a bank-ready <b>.SIF</b> salary file for your UAE payroll. Confirm the exact column layout with your bank or exchange house — formats vary slightly.</p>
       </div>
 
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:16px;">
-        <div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:10px;">Employer details</div>
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;">
-          <div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;">Employer ID (MOHRE, 13-digit)</label>
-            <input id="wpsEmpId" value="${_esc(cfg.employerId || '')}" maxlength="13" placeholder="e.g. 1234567890123" style="width:180px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:monospace;"></div>
-          <div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;">Employer bank routing (9-digit)</label>
-            <input id="wpsEmpRouting" value="${_esc(cfg.routingCode || '')}" maxlength="9" placeholder="e.g. 302240123" style="width:150px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:monospace;"></div>
-          <div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;">Salary month</label>
-            <input id="wpsMonth" type="month" value="${month}" style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;"></div>
-          <button onclick="window._wpsSave()" style="background:#f8fafc;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Save details</button>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="font-size:12px;font-weight:700;color:#64748b;">Salary month</label>
+          <input id="wpsMonth" type="month" value="${month}" style="border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;">
+          ${cfg.employerId && cfg.routingCode
+            ? `<span style="font-size:11px;font-weight:700;color:#059669;background:#ecfdf5;padding:4px 10px;border-radius:9999px;">✓ Employer configured</span>`
+            : `<span style="font-size:11px;font-weight:700;color:#b45309;background:#fffbeb;padding:4px 10px;border-radius:9999px;">⚠ Set employer details</span>`}
         </div>
+        <button onclick="window._wpsOpenSettings()" style="background:#f8fafc;border:1px solid #e2e8f0;color:#475569;border-radius:9px;padding:8px 15px;font-size:12px;font-weight:700;cursor:pointer;">⚙ Employer &amp; bank details</button>
       </div>
 
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #f1f5f9;">
           <span style="font-weight:800;color:#0f172a;font-size:13px;">Workers & pay for ${month}</span>
-          <span style="font-size:11px;color:#94a3b8;">${workers.length} people</span>
+          <span style="display:flex;align-items:center;gap:10px;"><span style="font-size:11px;color:#94a3b8;">${workers.length} people</span>
+            <button onclick="window._wpsSave()" style="background:#f8fafc;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:6px 13px;font-size:11px;font-weight:700;cursor:pointer;">Save</button></span>
         </div>
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -147,22 +147,37 @@ function _persistRows(map) {
   });
 }
 
-window._wpsSave = function () {
+/** Employer / bank details modal (set-once master config). */
+window._wpsOpenSettings = function () {
+  const cfg = _wpsCfg();
+  const body =
+    fsField('Employer ID (MOHRE, 13-digit)', `<input id="wpsEmpId" maxlength="13" style="${FS_INPUT}font-family:monospace;" value="${_esc(cfg.employerId || '')}" placeholder="e.g. 1234567890123">`, { req: true, span: true }) +
+    fsField('Employer bank routing (9-digit)', `<input id="wpsEmpRouting" maxlength="9" style="${FS_INPUT}font-family:monospace;" value="${_esc(cfg.routingCode || '')}" placeholder="e.g. 302240123">`, { req: true, span: true }) +
+    `<p style="grid-column:1/-1;font-size:11px;color:#94a3b8;margin:0;">These come from your bank / exchange-house WPS enrolment. Confirm the exact SIF layout with them — formats vary slightly.</p>`;
+  openFormModal('Employer & bank details', body, { onSave: 'window._wpsSaveEmployer()', saveLabel: 'Save details' });
+};
+window._wpsSaveEmployer = function () {
   const cfg = _wpsCfg();
   cfg.employerId = (document.getElementById('wpsEmpId')?.value || '').trim();
   cfg.routingCode = (document.getElementById('wpsEmpRouting')?.value || '').trim();
+  saveAllData(); closeFormModal(); renderWPS();
+  showToast('Employer details saved', 'success');
+};
+
+window._wpsSave = function () {
+  const cfg = _wpsCfg();
   cfg._month = document.getElementById('wpsMonth')?.value || _defaultMonth();
   _persistRows(_collectRows());
   saveAllData();
-  showToast('WPS details saved', 'success');
+  showToast('Saved', 'success');
 };
 
 window._wpsGenerate = function () {
   const cfg = _wpsCfg();
-  const employerId = (document.getElementById('wpsEmpId')?.value || '').trim();
-  const routingCode = (document.getElementById('wpsEmpRouting')?.value || '').trim();
+  const employerId = (cfg.employerId || '').trim();
+  const routingCode = (cfg.routingCode || '').trim();
   const month = document.getElementById('wpsMonth')?.value || _defaultMonth(); // YYYY-MM
-  cfg.employerId = employerId; cfg.routingCode = routingCode; cfg._month = month;
+  cfg._month = month;
 
   if (!/^\d{13}$/.test(employerId)) { showToast('Enter a valid 13-digit employer (MOHRE) ID', 'warning'); return; }
   if (!/^\d{9}$/.test(routingCode)) { showToast('Enter a valid 9-digit employer bank routing code', 'warning'); return; }
