@@ -109,7 +109,7 @@ window._setDocTemplate = function(v) {
   state.printSettings.docTemplate = v;
   saveAllData();
   renderPrintConfigTab();
-  showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : v === 'flint' ? 'New Format' : 'Standard'), 'success');
+  showToast('Document template: ' + (v === 'plant' ? 'Plant (Tabular)' : v === 'flint' ? 'Modern Design' : 'Standard'), 'success');
 };
 
 window._setInvoiceTemplate = function(v) {
@@ -247,7 +247,7 @@ function _docThumb(key) {
   const A = getDocColor('measurement', 'header') || '#f97316';
   if (key === 'standard') return _thumbFrame(`<div style="height:7px;width:50%;margin:0 auto 5px;background:#0f172a;border-radius:1px"></div><div style="height:6px;background:${A};border-radius:1px;margin-bottom:3px"></div>${_bars(4)}`);
   if (key === 'plant') { let g = ''; for (let r = 0; r < 5; r++) g += `<div style="display:flex;gap:2px;margin-bottom:2px">${[20, 30, 12, 12, 12, 14].map(w => `<div style="height:8px;width:${w}%;border:1px solid #cbd5e1;box-sizing:border-box"></div>`).join('')}</div>`; return _thumbFrame(`<div style="height:6px;width:45%;margin:0 auto 5px;background:#0f172a;border-radius:1px"></div>${g}`); }
-  if (key === 'flint') return _thumbFrame(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div style="height:6px;width:30%;background:${A};border-radius:1px"></div><div style="height:9px;width:26%;background:#e2e8f0;border-radius:2px"></div></div><div style="height:1.5px;background:${A};margin:4px 0"></div>${_bars(4)}`);
+  if (key === 'flint') return _thumbFrame(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div style="height:7px;width:40%;background:#F79646;border-radius:1px"></div><div style="height:9px;width:22%;background:#e2e8f0;border-radius:2px"></div></div><div style="height:2px;background:#4BACC6;margin:4px 0"></div><div style="height:9px;border:1px solid #BFBFBF;border-radius:4px;margin-bottom:3px"></div>${_bars(2)}<div style="height:5px;background:#DCE6F1;border-top:1px solid #4F81BD;border-bottom:1px solid #4F81BD;margin-top:2px"></div>`);
   return _thumbFrame(_bars(5));
 }
 
@@ -260,9 +260,9 @@ const _INV_DESIGNS = [
   ['accent', 'Accent Brand', 'Brand bars · your colour'],
 ];
 const _DOC_TEMPLATES = [
+  ['flint', 'Modern Design', 'Default · logo letterhead & coloured totals'],
   ['standard', 'Standard', 'Clean measurement sheet'],
   ['plant', 'Plant (Tabular)', 'Ruled grid · grouped items'],
-  ['flint', 'New Format', 'Doc ID / Status header'],
 ];
 function _designCard(key, name, desc, sel, thumb, setFn, previewFn) {
   return `<div role="button" tabindex="0" onclick="${setFn}('${key}')" class="text-left border rounded-xl p-2.5 cursor-pointer transition hover:shadow-md ${sel ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40' : 'border-slate-200 bg-white hover:border-blue-200'}">
@@ -288,7 +288,7 @@ function _invoiceDesignCardsHTML() {
   </div>`;
 }
 function _docTemplateCardsHTML() {
-  const cur = (state.printSettings?.docTemplate) || 'standard';
+  const cur = (state.printSettings?.docTemplate) || 'flint';
   return `<div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
     <div class="flex items-center gap-2 mb-1"><span class="text-base">📐</span><h4 class="font-bold text-sm text-slate-800">Measurement & Abstract — Template</h4></div>
     <p class="text-[11px] text-slate-400 mb-3">Layout used when you export or print a measurement sheet / abstract. Tap <b>Preview PDF</b> to see a sample.</p>
@@ -405,7 +405,7 @@ function renderPrintConfigTab() {
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
   const measDec = (state.printSettings?.measurementDecimals ?? 2);
   const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
-  const docTemplate = (state.printSettings?.docTemplate) || 'standard';
+  const docTemplate = (state.printSettings?.docTemplate) || 'flint';
   const invTemplate = (state.printSettings?.invoiceTemplate) || 'standard';
   const invPrefix = (state.printSettings?.invoicePrefix != null ? state.printSettings.invoicePrefix : 'SI-');
   const invNextNo = (state.printSettings?.invoiceNextNo || 1);

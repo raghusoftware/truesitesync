@@ -15,6 +15,7 @@ import { formatNumber2 } from './format.js?v=1.0.1';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
+import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate } from './pdfModernTheme.js';
 
 const _num2 = formatNumber2;
 
@@ -97,9 +98,11 @@ export function exportAbstractPlantPdf(id) {
 }
 
 /**
- * Abstract — "New Format" template (client's Excel style): logo + Document
- * ID/Status/Version header, ruled item grid, and a highlighted
- * "Total Amount In Words … | ₹ | total" row.
+ * Abstract — "Modern Design" template (client's Jay Ambe Modern Design PDF):
+ * peach header band with a slanted edge (logo left, orange ABSTRACT SHEET title
+ * and address right), date, three shadowed reference boxes, navy rounded column
+ * head, ruled rows with the currency symbol set apart, and a peach
+ * "Total Amount In Words" row. Colours are fixed by the template.
  */
 export function exportAbstractFlintPdf(id) {
   try {
@@ -110,101 +113,156 @@ export function exportAbstractFlintPdf(id) {
     const proj = state.projects.find(p => p.id === a.projectId);
     const clientName = c?.name || proj?.clientName || a.clientName || '—';
     const cp = state.companyProfile || {};
-    const doc = new window.jspdf.jsPDF('portrait');
+    const doc = new window.jspdf.jsPDF('portrait', 'mm', 'a4');
     const pw = doc.internal.pageSize.getWidth();
-    const ml = 14, mr = 14;
-    const PEACH = [253, 235, 214], ORANGE = [247, 148, 30], NAVY = [30, 55, 100], BLUE = [40, 90, 170];
+    const ph = doc.internal.pageSize.getHeight();
+    const ml = 14, mr = 14, tableW = pw - ml - mr;
+    const setTxt = (rgb) => doc.setTextColor(rgb[0], rgb[1], rgb[2]);
 
-    // ── Peach header band with a slanted lower edge ──
-    const bandH = 46;
-    doc.setFillColor(PEACH[0], PEACH[1], PEACH[2]);
-    doc.rect(0, 0, pw, bandH, 'F');
-    doc.triangle(0, bandH, pw, bandH, pw, bandH + 9, 'F'); // slant down to the right
-    // Logo (left)
-    let ty = 8;
-    if (cp.logo) { try { doc.addImage(cp.logo, 'PNG', ml, 7, 30, 30); } catch {} }
-    // "ABSTRACT SHEET" title (right)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(ORANGE[0], ORANGE[1], ORANGE[2]);
-    doc.text('ABSTRACT SHEET', pw - mr, 16, { align: 'right' });
-    // Company contact block (right, under title)
-    doc.setFontSize(9.5); doc.setTextColor(ORANGE[0], ORANGE[1], ORANGE[2]);
-    let cy = 24; const rx = pw - mr;
-    if (cp.Address) { doc.splitTextToSize(cp.Address, pw / 2).forEach(ln => { doc.text(ln, rx, cy, { align: 'right' }); cy += 5; }); }
+    // ── Peach band with slanted lower edge (deeper on the left) ──
+    const bx = ml + 1.9, bR = pw - mr, bTop = 6.5, bRight = 53.8, bLeft = 65.5;
+    doc.setFillColor(MD.PEACH[0], MD.PEACH[1], MD.PEACH[2]);
+    doc.rect(bx, bTop, bR - bx, bRight - bTop, 'F');
+    doc.triangle(bx, bRight, bR, bRight, bx, bLeft, 'F');
+
+    // Logo (left). Without a logo, the company name takes its place in orange.
+    const hasLogo = cp.logo && fitImage(doc, cp.logo, ml + 7, 10.5, 43, 46, 'center');
+    if (!hasLogo && cp.CompanyName) {
+      doc.setFont('helvetica', 'bold'); setTxt(MD.ORANGE);
+      let size = 20, lines;
+      do { doc.setFontSize(size); lines = doc.splitTextToSize(String(cp.CompanyName), 50); size -= 1; } while (lines.length > 3 && size > 11);
+      let ny = 26; lines.slice(0, 3).forEach(ln => { doc.text(ln, ml + 6, ny); ny += (size + 1) * 0.3528 * 1.2; });
+    }
+
+    // "ABSTRACT SHEET" title.
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); setTxt(MD.ORANGE);
+    doc.text('ABSTRACT SHEET', 187, 18.7, { align: 'right' });
+
+    // Address / contact block (orange, bold, left-aligned at the band centre).
+    const ax = 73.7, aw = 183 - ax;
+    doc.setFontSize(10.5);
     const contact = [];
     if (cp.Email) contact.push('E-mail : ' + cp.Email);
-    if (cp.Phone) contact.push('Ph: ' + cp.Phone);
-    if (contact.length) { doc.text(contact.join('  |  '), rx, cy, { align: 'right' }); cy += 5; }
-    let y = Math.max(bandH + 12, cy + 6);
+    if (cp.Website) contact.push('Website: ' + cp.Website);
+    else if (cp.Phone) contact.push('Phone : ' + cp.Phone);
+    let addrLines = [];
+    if (cp.Address) addrLines = addrLines.concat(doc.splitTextToSize(String(cp.Address), aw));
+    if (contact.length) addrLines = addrLines.concat(doc.splitTextToSize(contact.join(' | '), aw));
+    addrLines = addrLines.slice(0, 5);
+    const aStep = 4.95;
+    let ay = Math.max(27, 35.6 - Math.max(0, addrLines.length - 3) * aStep);
+    addrLines.forEach(ln => { doc.text(ln, ax, ay); ay += aStep; });
 
-    // Date (right)
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(50);
-    doc.text('Date : ' + _fmtDMY(a.date), pw - mr, y, { align: 'right' });
-    y += 5;
+    // Date (right, below the slant).
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(14); setTxt(MD.INK);
+    doc.text('Date : ' + fmtLongDate(a.date), 186, 63.2, { align: 'right' });
 
-    // ── Three rounded reference boxes ──
-    const gap = 6;
-    const boxW = (pw - ml - mr - 2 * gap) / 3;
-    const boxH = 20;
+    // ── Three reference boxes with a blue shadow ──
+    const boxTop = 67.9, boxH = 23;
     const boxes = [
-      ['TO,', clientName],
-      ['MEASUREMENT\nREFERENCE NO.', a.sheetNum || '—'],
-      ['ABSTRACT NO.', a.abstractNum || '—']
+      { x: 23.4, w: 43.7, label: ['TO,'], value: clientName, align: 'left' },
+      { x: 84.7, w: 45.1, label: ['MEASUREMENT', 'REFERENCE NO.'], value: a.sheetNum || '—', align: 'center' },
+      { x: 144.4, w: 48.4, label: ['ABSTRACT NO.'], value: a.abstractNum || '—', align: 'center' },
     ];
-    doc.setDrawColor(BLUE[0], BLUE[1], BLUE[2]); doc.setLineWidth(0.5);
-    boxes.forEach((b, i) => {
-      const bx = ml + i * (boxW + gap);
-      doc.roundedRect(bx, y, boxW, boxH, 2.5, 2.5, 'S');
-      const cxx = bx + boxW / 2;
-      // Label (upper part)
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70);
-      const labelLines = String(b[0]).split('\n');
-      let ly = y + 6;
-      labelLines.forEach(ln => { doc.text(ln, cxx, ly, { align: 'center' }); ly += 4.2; });
-      // Value (bold, shrunk to fit; wrapped and bottom-anchored inside the box)
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
-      let vSize = 10.5, vLines;
-      do { doc.setFontSize(vSize); vLines = doc.splitTextToSize(String(b[1]), boxW - 5); vSize -= 0.7; }
-      while (vLines.length > 2 && vSize > 6.5);
-      const lh = vSize * 0.45 + 1.4;
-      let vy = y + boxH - 3.5 - (vLines.length - 1) * lh;
-      vLines.forEach(ln => { doc.text(ln, cxx, vy, { align: 'center' }); vy += lh; });
+    boxes.forEach(b => {
+      doc.setFillColor(MD.SHADOW[0], MD.SHADOW[1], MD.SHADOW[2]);
+      doc.roundedRect(b.x - 2, boxTop + 0.5, b.w, boxH, 4, 4, 'F');
+      doc.setFillColor(255, 255, 255); doc.setDrawColor(MD.NAVYLINE[0], MD.NAVYLINE[1], MD.NAVYLINE[2]); doc.setLineWidth(0.7);
+      doc.roundedRect(b.x, boxTop, b.w, boxH, 4, 4, 'FD');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); setTxt(MD.INK);
+      let ly = b.label.length > 1 ? boxTop + 6.1 : boxTop + (b.align === 'left' ? 5.1 : 7.5);
+      b.label.forEach(ln => { doc.text(ln, b.x + (b.align === 'left' ? 6.8 : 6.6), ly); ly += 4.6; });
+      // Value: bold, shrunk to fit at most 2 lines.
+      doc.setFont('helvetica', 'bold');
+      const vw = b.w - (b.align === 'left' ? 8 : 6);
+      let size = 10.5, lines;
+      do { doc.setFontSize(size); lines = doc.splitTextToSize(String(b.value), vw); size -= 0.5; } while (lines.length > 2 && size > 6.5);
+      lines = lines.slice(0, 2);
+      const lh = (size + 0.5) * 0.3528 * 1.25;
+      if (b.align === 'left') {
+        let vy = boxTop + 11.2; lines.forEach(ln => { doc.text(ln, b.x + 4.2, vy); vy += lh; });
+      } else {
+        let vy = boxTop + (b.label.length > 1 ? 17.3 : 15.9) - (lines.length - 1) * lh / 2;
+        lines.forEach(ln => { doc.text(ln, b.x + b.w / 2, vy, { align: 'center' }); vy += lh; });
+      }
     });
     doc.setLineWidth(0.2);
-    y += boxH + 3;
 
-    // ── Main table (navy header) ──
-    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), getPdfCurrency() + _num2(i.rate), getPdfCurrency() + _num2(i.amount)]);
+    // ── Item table: navy rounded head, ruled rows ──
+    const rows = (a.items || []).map((i, idx) => [idx + 1, i.desc || i.code || '', i.uom || '', _qtyDp(i.qty), money2(i.rate), money2(i.amount)]);
+    const moneyCols = [4, 5];
+    const fs = 10.5;
     doc.autoTable({
-      startY: y, head: [['Sr.No', 'Description', 'UOM', 'Quantity', 'Rate', 'Amount']], body: rows, theme: 'grid',
-      headStyles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', lineColor: NAVY, lineWidth: 0.1, fontSize: 9.5 },
-      styles: { fontSize: 9, cellPadding: 2.2, lineColor: [220, 224, 230], lineWidth: 0.1, textColor: [30, 40, 55], valign: 'middle' },
-      columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 16, halign: 'center' }, 3: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 28, halign: 'right' }, 5: { cellWidth: 34, halign: 'right' } },
-      margin: { left: ml, right: mr }
+      startY: 92, head: [['Sr.No', 'Description', 'UOM', 'Quantity', 'Rate', 'Amount']], body: rows, theme: 'plain',
+      margin: { left: ml, right: mr, top: 14, bottom: 16 },
+      styles: { font: 'helvetica', fontSize: fs, textColor: MD.BODY, valign: 'middle', minCellHeight: 10, cellPadding: { top: 1.6, bottom: 1.6, left: 1.5, right: 1.5 }, lineWidth: 0 },
+      headStyles: { fontStyle: 'bold', fontSize: 11.5, textColor: [255, 255, 255], halign: 'center', minCellHeight: 11.2 },
+      columnStyles: {
+        0: { cellWidth: 18, halign: 'center' }, 1: { cellWidth: 'auto', halign: 'left' }, 2: { cellWidth: 16, halign: 'center' },
+        3: { cellWidth: 22, halign: 'right', cellPadding: { top: 1.6, bottom: 1.6, left: 1.5, right: 4 } },
+        4: { cellWidth: 31, halign: 'right', cellPadding: { top: 1.6, bottom: 1.6, left: 5, right: 1.5 } },
+        5: { cellWidth: 35, halign: 'right', cellPadding: { top: 1.6, bottom: 1.6, left: 5, right: 2.5 } }
+      },
+      didParseCell: (d) => {
+        if (d.section !== 'head') return;
+        d.cell.styles.halign = d.column.index === 0 ? 'left' : 'center';
+        d.cell.styles.cellPadding = { top: 1, bottom: 1, left: d.column.index === 0 ? 3.7 : 1, right: 1 };
+      },
+      willDrawCell: (d) => {
+        // The navy band is painted once, under the whole head row.
+        if (d.section === 'head' && d.column.index === 0) {
+          const c = d.cell;
+          doc.setFillColor(MD.NAVY[0], MD.NAVY[1], MD.NAVY[2]); doc.setDrawColor(MD.NAVYLINE[0], MD.NAVYLINE[1], MD.NAVYLINE[2]); doc.setLineWidth(0.6);
+          doc.roundedRect(ml, c.y, tableW, c.height, 1.5, 1.5, 'FD');
+        }
+      },
+      didDrawCell: (d) => {
+        if (d.section !== 'body') return;
+        const c = d.cell;
+        if (moneyCols.includes(d.column.index)) {
+          const by = c.y + c.height / 2 + fs * 0.3528 * 0.36;
+          doc.setFont('helvetica', 'normal');
+          drawCurSym(doc, c.x + 1.3, by, fs, MD.BODY);
+        }
+        if (d.column.index === 0) {
+          doc.setDrawColor(MD.RULE[0], MD.RULE[1], MD.RULE[2]); doc.setLineWidth(0.3);
+          doc.line(ml, c.y + c.height, ml + tableW, c.y + c.height);
+        }
+      }
     });
+
     // ── Peach "Total Amount In Words" row ──
-    const fy = doc.lastAutoTable.finalY;
-    doc.autoTable({
-      startY: fy, theme: 'grid',
-      body: [[
-        { content: 'Total Amount In Words : ' + amountToWordsCur(a.totalAmount), styles: { fontStyle: 'bold', fillColor: PEACH, textColor: [90, 60, 20] } },
-        { content: getPdfCurrency() + _num2(a.totalAmount), styles: { fontStyle: 'bold', halign: 'right', fillColor: PEACH, textColor: [90, 60, 20] } }
-      ]],
-      styles: { fontSize: 9.5, cellPadding: 2.4, lineColor: [220, 224, 230], lineWidth: 0.1 },
-      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 34, halign: 'right' } },
-      margin: { left: ml, right: mr }
-    });
+    let y = doc.lastAutoTable.finalY;
+    const amtX = pw - mr - 35;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    const words = doc.splitTextToSize('Total Amount In Words : ' + amountToWordsCur(a.totalAmount), amtX - ml - 4);
+    const th = Math.max(10.3, 4.6 + words.length * 4.4);
+    if (y + th > ph - 16) { doc.addPage(); y = 14; }
+    doc.setFillColor(MD.PEACH2[0], MD.PEACH2[1], MD.PEACH2[2]);
+    doc.rect(ml, y, tableW, th, 'F');
+    setTxt(MD.BODY);
+    let wy = y + th / 2 - (words.length - 1) * 2.2 + 1.3;
+    words.forEach(ln => { doc.text(ln, ml + 1, wy); wy += 4.4; });
+    const tb = y + th / 2 + 1.6;
+    doc.setFontSize(11.5);
+    drawCurSym(doc, amtX + 1.3, tb, 11.5, MD.BODY);
+    doc.setFont('helvetica', 'bold'); setTxt(MD.BODY);
+    doc.text(moneyTotal(a.totalAmount), pw - mr - 1.5, tb, { align: 'right' });
+    doc.setLineWidth(0.2);
+
     mobileSavePDF(doc, `${a.abstractNum || 'Abstract'}.pdf`);
   } catch (err) {
-    console.error('New-format abstract PDF failed:', err);
+    console.error('Modern abstract PDF failed:', err);
     showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
   }
 }
 
 export function exportAbstractPDF(id) {
   try {
-  // Route to the selected template in Settings.
-  if ((state.printSettings?.docTemplate) === 'flint') return exportAbstractFlintPdf(id);
-  if ((state.printSettings?.docTemplate) === 'plant') return exportAbstractPlantPdf(id);
+  // Route to the selected template (Settings → Print). Modern Design is the default.
+  const _tpl = (state.printSettings?.docTemplate) || 'flint';
+  if (_tpl === 'flint') return exportAbstractFlintPdf(id);
+  if (_tpl === 'plant') return exportAbstractPlantPdf(id);
   const a = state.abstracts.find(x => x.id === id);
   if (!a) return showToast('Abstract not found', 'error');
   if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh the page', 'error');
