@@ -12,6 +12,7 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
+import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const _num = n => (Number(n) || 0);
@@ -63,14 +64,12 @@ export function renderGuarantees() {
       <td style="padding:8px 10px;text-align:center;color:#64748b;font-size:11px;white-space:nowrap;">${g.expiry || '—'}</td>
       <td style="padding:8px 10px;text-align:center;"><span style="font-size:10px;font-weight:800;color:${st.color};background:${st.bg};padding:3px 8px;border-radius:9999px;white-space:nowrap;">${st.label}</span></td>
       <td style="padding:8px 10px;text-align:center;white-space:nowrap;">
+        <button onclick="window._gteOpenForm('${g.id}')" class="text-[11px] font-bold text-slate-600 hover:bg-slate-100 rounded px-2 py-1 mr-1">Edit</button>
         ${g.status !== 'Released' ? `<button onclick="window._gteRelease('${g.id}')" class="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 rounded px-2 py-1 mr-1">Release</button>` : ''}
         <button onclick="window._gteDelete('${g.id}')" class="text-[11px] font-bold text-red-500 hover:bg-red-50 rounded px-2 py-1">Delete</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="padding:26px;text-align:center;color:#94a3b8;">No guarantees yet. Add your first bond below.</td></tr>';
-
-  const projOpts = (state.projects || []).map(p => `<option value="${p.id}">${_esc(p.name)}</option>`).join('');
-  const typeOpts = TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+  }).join('') || '<tr><td colspan="7" style="padding:30px;text-align:center;color:#94a3b8;">No guarantees yet. Click <b>+ Add guarantee</b> to register your first bond.</td></tr>';
 
   c.innerHTML = `
     <div style="max-width:1120px;margin:0 auto;">
@@ -87,33 +86,62 @@ export function renderGuarantees() {
       </div>
 
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:16px;">
-        <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#0f172a;font-size:13px;">🏦 Guarantees &amp; Bonds</div>
+        <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:800;color:#0f172a;font-size:13px;">🏦 Guarantees &amp; Bonds</span>
+          <button onclick="window._gteOpenForm()" style="background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:9px;padding:7px 15px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(214,64,44,.2);">+ Add guarantee</button>
+        </div>
         <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead style="background:#f8fafc;"><tr style="text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;font-weight:800;">
             <th style="padding:8px 10px;">Type / Ref</th><th style="padding:8px 10px;">Bank / Beneficiary</th><th style="padding:8px 10px;">Project</th>
             <th style="padding:8px 10px;text-align:right;">Amount</th><th style="padding:8px 10px;text-align:center;">Expiry</th><th style="padding:8px 10px;text-align:center;">Status</th><th style="padding:8px 10px;text-align:center;">Action</th>
           </tr></thead><tbody>${rows}</tbody></table></div>
       </div>
-
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-        <div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:12px;">Add a guarantee / bond</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;">
-          <div><label class="gte-l">Type</label><select id="gteType" class="gte-i">${typeOpts}</select></div>
-          <div><label class="gte-l">Reference No.</label><input id="gteRef" class="gte-i" placeholder="LG/APG no."></div>
-          <div><label class="gte-l">Issuing bank</label><input id="gteBank" class="gte-i" placeholder="e.g. Emirates NBD"></div>
-          <div><label class="gte-l">Beneficiary</label><input id="gteBen" class="gte-i" placeholder="Employer / client"></div>
-          <div><label class="gte-l">Project</label><select id="gteProject" class="gte-i"><option value="">—</option>${projOpts}</select></div>
-          <div><label class="gte-l">Amount (${cur.trim()})</label><input id="gteAmount" type="number" step="any" class="gte-i" placeholder="0"></div>
-          <div><label class="gte-l">Issue date</label><input id="gteIssue" type="date" class="gte-i"></div>
-          <div><label class="gte-l">Expiry date</label><input id="gteExpiry" type="date" class="gte-i"></div>
-          <div style="align-self:end;"><button onclick="window._gteAdd()" style="width:100%;background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:800;cursor:pointer;">+ Add</button></div>
-        </div>
-      </div>
-    </div>
-    <style>.gte-l{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;}.gte-i{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;}</style>`;
+    </div>`;
 }
 window.renderGuarantees = renderGuarantees;
 
+/** Open the add/edit guarantee modal. */
+window._gteOpenForm = function (id) {
+  const g = (state.guarantees || []).find(x => x.id === id) || {};
+  const cur = getCurrencySymbol().trim();
+  const projOpts = ['<option value="">— No project —</option>']
+    .concat((state.projects || []).map(p => `<option value="${p.id}" ${g.projectId === p.id ? 'selected' : ''}>${_esc(p.name)}</option>`)).join('');
+  const typeOpts = TYPES.map(t => `<option value="${t}" ${g.type === t ? 'selected' : ''}>${t}</option>`).join('');
+  const body =
+    fsField('Guarantee type', `<select id="gteType" style="${FS_INPUT}">${typeOpts}</select>`, { req: true }) +
+    fsField('Reference No.', `<input id="gteRef" style="${FS_INPUT}" value="${_esc(g.ref || '')}" placeholder="LG / APG no.">`) +
+    fsField('Issuing bank', `<input id="gteBank" style="${FS_INPUT}" value="${_esc(g.bank || '')}" placeholder="e.g. Emirates NBD">`) +
+    fsField('Beneficiary', `<input id="gteBen" style="${FS_INPUT}" value="${_esc(g.beneficiary || '')}" placeholder="Employer / client">`) +
+    fsField('Project', `<select id="gteProject" style="${FS_INPUT}">${projOpts}</select>`, { span: true }) +
+    fsField(`Amount (${cur})`, `<input id="gteAmount" type="number" step="any" style="${FS_INPUT}" value="${g.amount != null ? g.amount : ''}" placeholder="0">`, { req: true }) +
+    fsField('Issue date', `<input id="gteIssue" type="date" style="${FS_INPUT}" value="${g.issue || ''}">`) +
+    fsField('Expiry date', `<input id="gteExpiry" type="date" style="${FS_INPUT}" value="${g.expiry || ''}">`, { req: true });
+  openFormModal(id ? 'Edit guarantee' : 'Add guarantee / bond', body, { onSave: `window._gteSaveForm('${id || ''}')`, saveLabel: id ? 'Save changes' : 'Add guarantee' });
+};
+
+/** Save the add/edit guarantee modal. */
+window._gteSaveForm = function (id) {
+  const existing = (state.guarantees || []).find(x => x.id === id);
+  const g = existing || { id: _uid(), status: 'Active', createdAt: Date.now() };
+  g.type = document.getElementById('gteType')?.value || 'Other';
+  g.ref = (document.getElementById('gteRef')?.value || '').trim();
+  g.bank = (document.getElementById('gteBank')?.value || '').trim();
+  g.beneficiary = (document.getElementById('gteBen')?.value || '').trim();
+  g.projectId = document.getElementById('gteProject')?.value || '';
+  g.amount = _num(document.getElementById('gteAmount')?.value);
+  g.issue = document.getElementById('gteIssue')?.value || '';
+  g.expiry = document.getElementById('gteExpiry')?.value || '';
+  if (!g.amount) { showToast('Enter the guarantee amount', 'warning'); return; }
+  if (!g.expiry) { showToast('Enter the expiry date', 'warning'); return; }
+  if (!Array.isArray(state.guarantees)) state.guarantees = [];
+  if (!existing) { g._notified30 = false; state.guarantees.push(g); }
+  saveAllData();
+  closeFormModal();
+  renderGuarantees();
+  showToast(existing ? 'Guarantee updated' : 'Guarantee added', 'success');
+};
+
+/** @deprecated kept for safety; superseded by the modal flow. */
 window._gteAdd = function () {
   const g = {
     id: _uid(),

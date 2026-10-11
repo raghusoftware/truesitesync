@@ -15,6 +15,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol, getPdfCurrency, getCompanyHeaderForPDF, mobileSavePDF, amountToWordsCur, getTaxConfig } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
+import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const _num = n => (Number(n) || 0);
@@ -67,22 +68,20 @@ export function renderSubcontractors() {
         <span>Paid: <b style="color:#059669;">${m(pos.paid)}</b></span>
         <span>Outstanding: <b style="color:#d6402c;">${m(pos.balance)}</b></span>
       </div>
-      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;">
-        <div><label style="display:block;font-size:10px;font-weight:700;color:#64748b;margin-bottom:2px;">Work certified this period (${cur.trim()})</label>
-          <input id="scWork_${sc.id}" type="number" step="any" placeholder="0" style="width:150px;border:1px solid #e2e8f0;border-radius:7px;padding:7px 9px;font-size:13px;text-align:right;"></div>
-        <button onclick="window._scCertify('${sc.id}')" style="background:#0f172a;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer;">Certify payment →</button>
-      </div>
+      <div style="margin-bottom:10px;"><button onclick="window._scOpenCertify('${sc.id}')" style="background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer;">+ Certify payment</button></div>
       <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead style="background:#f8fafc;"><tr style="color:#64748b;font-size:9px;text-transform:uppercase;font-weight:800;text-align:right;">
           <th style="padding:5px 8px;text-align:left;">Date</th><th style="padding:5px 8px;">Work</th><th style="padding:5px 8px;">Net payable</th><th style="padding:5px 8px;text-align:center;">Status</th><th style="padding:5px 8px;text-align:center;">Cert</th>
         </tr></thead><tbody>${certRows}</tbody></table></div>
     </div>`;
-  }).join('') || '<div style="padding:24px;text-align:center;color:#94a3b8;">No subcontract packages yet. Add one below.</div>';
-
-  const projOpts = (state.projects || []).map(p => `<option value="${p.id}">${_esc(p.name)}</option>`).join('');
+  }).join('') || '<div style="padding:30px;text-align:center;color:#94a3b8;background:#fff;border:1px solid #e2e8f0;border-radius:14px;">No subcontract packages yet. Click <b>+ Add package</b> to start.</div>';
 
   c.innerHTML = `
     <div style="max-width:1120px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+        <h2 style="font-size:16px;font-weight:900;color:#0f172a;margin:0;">🤝 Subcontractors</h2>
+        <button onclick="window._scOpenForm()" style="background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(214,64,44,.2);">+ Add package</button>
+      </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
         <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Subcontract value</div><div style="font-size:19px;font-weight:900;color:#0f172a;">${m(totVal)}</div></div>
         <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Certified to date</div><div style="font-size:19px;font-weight:900;color:#0f172a;">${m(totCert)}</div></div>
@@ -91,43 +90,56 @@ export function renderSubcontractors() {
       </div>
 
       ${cards}
-
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-top:4px;">
-        <div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:12px;">Add subcontract package</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;">
-          <div><label class="sc-l">Subcontractor</label><input id="scName" class="sc-i" placeholder="Firm name"></div>
-          <div><label class="sc-l">Trade / scope</label><input id="scTrade" class="sc-i" placeholder="MEP, finishing…"></div>
-          <div><label class="sc-l">Project</label><select id="scProject" class="sc-i"><option value="">—</option>${projOpts}</select></div>
-          <div><label class="sc-l">Contract value (${cur.trim()})</label><input id="scValue" type="number" step="any" class="sc-i" placeholder="0"></div>
-          <div><label class="sc-l">Retention %</label><input id="scRet" type="number" step="any" value="10" class="sc-i"></div>
-          <div><label class="sc-l">Advance paid (${cur.trim()})</label><input id="scAdv" type="number" step="any" value="0" class="sc-i"></div>
-          <div><label class="sc-l">Advance recovery %</label><input id="scAdvRec" type="number" step="any" value="0" class="sc-i"></div>
-          <div style="align-self:end;"><button onclick="window._scAdd()" style="width:100%;background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:800;cursor:pointer;">+ Add package</button></div>
-        </div>
-      </div>
-    </div>
-    <style>.sc-l{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;}.sc-i{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;}</style>`;
+    </div>`;
 }
 window.renderSubcontractors = renderSubcontractors;
 
-window._scAdd = function () {
-  const sc = {
-    id: _uid('sc_'),
-    name: (document.getElementById('scName')?.value || '').trim(),
-    trade: (document.getElementById('scTrade')?.value || '').trim(),
-    projectId: document.getElementById('scProject')?.value || '',
-    contractValue: _num(document.getElementById('scValue')?.value),
-    retentionPct: _num(document.getElementById('scRet')?.value),
-    advancePaid: _num(document.getElementById('scAdv')?.value),
-    advanceRecoveryPct: _num(document.getElementById('scAdvRec')?.value),
-    createdAt: Date.now(),
-  };
+/** Open the add/edit subcontract package modal. */
+window._scOpenForm = function (id) {
+  const sc = (state.subcontracts || []).find(x => x.id === id) || {};
+  const cur = getCurrencySymbol().trim();
+  const projOpts = ['<option value="">— No project —</option>']
+    .concat((state.projects || []).map(p => `<option value="${p.id}" ${sc.projectId === p.id ? 'selected' : ''}>${_esc(p.name)}</option>`)).join('');
+  const body =
+    fsField('Subcontractor', `<input id="scName" style="${FS_INPUT}" value="${_esc(sc.name || '')}" placeholder="Firm name">`, { req: true }) +
+    fsField('Trade / scope', `<input id="scTrade" style="${FS_INPUT}" value="${_esc(sc.trade || '')}" placeholder="MEP, finishing…">`) +
+    fsField('Project', `<select id="scProject" style="${FS_INPUT}">${projOpts}</select>`, { span: true }) +
+    fsField(`Contract value (${cur})`, `<input id="scValue" type="number" step="any" style="${FS_INPUT}" value="${sc.contractValue != null ? sc.contractValue : ''}" placeholder="0">`, { req: true }) +
+    fsField('Retention %', `<input id="scRet" type="number" step="any" style="${FS_INPUT}" value="${sc.retentionPct != null ? sc.retentionPct : 10}">`) +
+    fsField(`Advance paid (${cur})`, `<input id="scAdv" type="number" step="any" style="${FS_INPUT}" value="${sc.advancePaid != null ? sc.advancePaid : 0}">`) +
+    fsField('Advance recovery % of work', `<input id="scAdvRec" type="number" step="any" style="${FS_INPUT}" value="${sc.advanceRecoveryPct != null ? sc.advanceRecoveryPct : 0}">`);
+  openFormModal(id ? 'Edit package' : 'Add subcontract package', body, { onSave: `window._scSaveForm('${id || ''}')`, saveLabel: id ? 'Save changes' : 'Add package' });
+};
+
+window._scSaveForm = function (id) {
+  const existing = (state.subcontracts || []).find(x => x.id === id);
+  const sc = existing || { id: _uid('sc_'), createdAt: Date.now() };
+  sc.name = (document.getElementById('scName')?.value || '').trim();
+  sc.trade = (document.getElementById('scTrade')?.value || '').trim();
+  sc.projectId = document.getElementById('scProject')?.value || '';
+  sc.contractValue = _num(document.getElementById('scValue')?.value);
+  sc.retentionPct = _num(document.getElementById('scRet')?.value);
+  sc.advancePaid = _num(document.getElementById('scAdv')?.value);
+  sc.advanceRecoveryPct = _num(document.getElementById('scAdvRec')?.value);
   if (!sc.name) { showToast('Enter the subcontractor name', 'warning'); return; }
   if (!sc.contractValue) { showToast('Enter the contract value', 'warning'); return; }
   if (!Array.isArray(state.subcontracts)) state.subcontracts = [];
-  state.subcontracts.push(sc);
-  saveAllData(); renderSubcontractors();
-  showToast('Subcontract package added', 'success');
+  if (!existing) state.subcontracts.push(sc);
+  saveAllData(); closeFormModal(); renderSubcontractors();
+  showToast(existing ? 'Package updated' : 'Subcontract package added', 'success');
+};
+
+/** Open the "certify payment" modal for a package. */
+window._scOpenCertify = function (scId) {
+  const sc = (state.subcontracts || []).find(x => x.id === scId); if (!sc) return;
+  const cur = getCurrencySymbol().trim();
+  const pos = _position(sc);
+  const body =
+    `<div style="grid-column:1/-1;font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+       <b style="color:#0f172a;">${_esc(sc.name)}</b> · certified ${cur} ${Math.round(pos.certified).toLocaleString('en-IN')} of ${cur} ${Math.round(_num(sc.contractValue)).toLocaleString('en-IN')} · retention ${_num(sc.retentionPct)}%
+     </div>` +
+    fsField(`Work certified this period (${cur})`, `<input id="scCertWork" type="number" step="any" style="${FS_INPUT}" placeholder="0">`, { req: true, span: true });
+  openFormModal('Certify subcontractor payment', body, { onSave: `window._scCertify('${scId}')`, saveLabel: 'Create certificate', grid: 1 });
 };
 
 window._scDelete = function (id) {
@@ -141,7 +153,7 @@ window._scDelete = function (id) {
 
 window._scCertify = function (scId) {
   const sc = (state.subcontracts || []).find(x => x.id === scId); if (!sc) return;
-  const work = _num(document.getElementById('scWork_' + scId)?.value);
+  const work = _num(document.getElementById('scCertWork')?.value);
   if (work <= 0) { showToast('Enter the work certified this period', 'warning'); return; }
   const posBefore = _position(sc);
   const retThis = work * _num(sc.retentionPct) / 100;
@@ -155,7 +167,7 @@ window._scCertify = function (scId) {
     work, retention: retThis, advRecovery: advThis, net,
     date: new Date().toISOString().split('T')[0], paid: false, createdAt: Date.now(),
   });
-  saveAllData(); renderSubcontractors();
+  saveAllData(); closeFormModal(); renderSubcontractors();
   showToast(`Certificate SPC-${seq} created · net ${getCurrencySymbol()}${Math.round(net).toLocaleString('en-IN')}`, 'success');
 };
 
