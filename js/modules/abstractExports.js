@@ -15,7 +15,7 @@ import { formatNumber2 } from './format.js?v=1.0.1';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
-import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate } from './pdfModernTheme.js';
+import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.1.0';
 
 const _num2 = formatNumber2;
 
@@ -104,7 +104,7 @@ export function exportAbstractPlantPdf(id) {
  * head, ruled rows with the currency symbol set apart, and a peach
  * "Total Amount In Words" row. Colours are fixed by the template.
  */
-export function exportAbstractFlintPdf(id) {
+export async function exportAbstractFlintPdf(id) {
   try {
     const a = state.abstracts.find(x => x.id === id);
     if (!a) return showToast('Abstract not found', 'error');
@@ -113,7 +113,8 @@ export function exportAbstractFlintPdf(id) {
     const proj = state.projects.find(p => p.id === a.projectId);
     const clientName = c?.name || proj?.clientName || a.clientName || '—';
     const cp = state.companyProfile || {};
-    const doc = new window.jspdf.jsPDF('portrait', 'mm', 'a4');
+    const fonts = await loadModernFonts();
+    const { doc, F } = newModernDoc(fonts);
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
     const ml = 14, mr = 14, tableW = pw - ml - mr;
@@ -128,14 +129,14 @@ export function exportAbstractFlintPdf(id) {
     // Logo (left). Without a logo, the company name takes its place in orange.
     const hasLogo = cp.logo && fitImage(doc, cp.logo, ml + 7, 10.5, 43, 46, 'center');
     if (!hasLogo && cp.CompanyName) {
-      doc.setFont('helvetica', 'bold'); setTxt(MD.ORANGE);
+      doc.setFont(F.gothic, 'bold'); setTxt(MD.ORANGE);
       let size = 20, lines;
       do { doc.setFontSize(size); lines = doc.splitTextToSize(String(cp.CompanyName), 50); size -= 1; } while (lines.length > 3 && size > 11);
       let ny = 26; lines.slice(0, 3).forEach(ln => { doc.text(ln, ml + 6, ny); ny += (size + 1) * 0.3528 * 1.2; });
     }
 
     // "ABSTRACT SHEET" title.
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); setTxt(MD.ORANGE);
+    doc.setFont(F.gothic, 'bold'); doc.setFontSize(22); setTxt(MD.ORANGE);
     doc.text('ABSTRACT SHEET', 187, 18.7, { align: 'right' });
 
     // Address / contact block (orange, bold, left-aligned at the band centre).
@@ -154,7 +155,7 @@ export function exportAbstractFlintPdf(id) {
     addrLines.forEach(ln => { doc.text(ln, ax, ay); ay += aStep; });
 
     // Date (right, below the slant).
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(14); setTxt(MD.INK);
+    doc.setFont(F.gothic, 'normal'); doc.setFontSize(14); setTxt(MD.INK);
     doc.text('Date : ' + fmtLongDate(a.date), 186, 63.2, { align: 'right' });
 
     // ── Three reference boxes with a blue shadow ──
@@ -169,11 +170,11 @@ export function exportAbstractFlintPdf(id) {
       doc.roundedRect(b.x - 2, boxTop + 0.5, b.w, boxH, 4, 4, 'F');
       doc.setFillColor(255, 255, 255); doc.setDrawColor(MD.NAVYLINE[0], MD.NAVYLINE[1], MD.NAVYLINE[2]); doc.setLineWidth(0.7);
       doc.roundedRect(b.x, boxTop, b.w, boxH, 4, 4, 'FD');
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); setTxt(MD.INK);
+      doc.setFont(F.gothic, 'normal'); doc.setFontSize(10); setTxt(MD.INK);
       let ly = b.label.length > 1 ? boxTop + 6.1 : boxTop + (b.align === 'left' ? 5.1 : 7.5);
       b.label.forEach(ln => { doc.text(ln, b.x + (b.align === 'left' ? 6.8 : 6.6), ly); ly += 4.6; });
       // Value: bold, shrunk to fit at most 2 lines.
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(F.sans, 'bold');
       const vw = b.w - (b.align === 'left' ? 8 : 6);
       let size = 10.5, lines;
       do { doc.setFontSize(size); lines = doc.splitTextToSize(String(b.value), vw); size -= 0.5; } while (lines.length > 2 && size > 6.5);
@@ -196,7 +197,7 @@ export function exportAbstractFlintPdf(id) {
       startY: 92, head: [['Sr.No', 'Description', 'UOM', 'Quantity', 'Rate', 'Amount']], body: rows, theme: 'plain',
       margin: { left: ml, right: mr, top: 14, bottom: 16 },
       styles: { font: 'helvetica', fontSize: fs, textColor: MD.BODY, valign: 'middle', minCellHeight: 10, cellPadding: { top: 1.6, bottom: 1.6, left: 1.5, right: 1.5 }, lineWidth: 0 },
-      headStyles: { fontStyle: 'bold', fontSize: 11.5, textColor: [255, 255, 255], halign: 'center', minCellHeight: 11.2 },
+      headStyles: { font: F.gothic, fontStyle: 'bold', fontSize: 11.5, textColor: [255, 255, 255], halign: 'center', minCellHeight: 11.2 },
       columnStyles: {
         0: { cellWidth: 18, halign: 'center' }, 1: { cellWidth: 'auto', halign: 'left' }, 2: { cellWidth: 16, halign: 'center' },
         3: { cellWidth: 22, halign: 'right', cellPadding: { top: 1.6, bottom: 1.6, left: 1.5, right: 4 } },
@@ -221,8 +222,8 @@ export function exportAbstractFlintPdf(id) {
         const c = d.cell;
         if (moneyCols.includes(d.column.index)) {
           const by = c.y + c.height / 2 + fs * 0.3528 * 0.36;
-          doc.setFont('helvetica', 'normal');
-          drawCurSym(doc, c.x + 1.3, by, fs, MD.BODY);
+          doc.setFont(F.arial, 'normal');
+          drawCurSym(doc, c.x + 1.3, by, fs, MD.BODY, F);
         }
         if (d.column.index === 0) {
           doc.setDrawColor(MD.RULE[0], MD.RULE[1], MD.RULE[2]); doc.setLineWidth(0.3);
@@ -234,7 +235,7 @@ export function exportAbstractFlintPdf(id) {
     // ── Peach "Total Amount In Words" row ──
     let y = doc.lastAutoTable.finalY;
     const amtX = pw - mr - 35;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(11);
     const words = doc.splitTextToSize('Total Amount In Words : ' + amountToWordsCur(a.totalAmount), amtX - ml - 4);
     const th = Math.max(10.3, 4.6 + words.length * 4.4);
     if (y + th > ph - 16) { doc.addPage(); y = 14; }
@@ -245,8 +246,8 @@ export function exportAbstractFlintPdf(id) {
     words.forEach(ln => { doc.text(ln, ml + 1, wy); wy += 4.4; });
     const tb = y + th / 2 + 1.6;
     doc.setFontSize(11.5);
-    drawCurSym(doc, amtX + 1.3, tb, 11.5, MD.BODY);
-    doc.setFont('helvetica', 'bold'); setTxt(MD.BODY);
+    drawCurSym(doc, amtX + 1.3, tb, 11.5, MD.BODY, F, 'bold');
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(11.5); setTxt(MD.BODY);
     doc.text(moneyTotal(a.totalAmount), pw - mr - 1.5, tb, { align: 'right' });
     doc.setLineWidth(0.2);
 

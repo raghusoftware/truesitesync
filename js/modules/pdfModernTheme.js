@@ -51,16 +51,18 @@ export function fitImage(doc, img, x, y, maxW, maxH, alignX = 'left') {
   return { x: x + dx, y: y + dy, w, h };
 }
 
-/** Currency symbol the template shows (₹ is drawn as vector since core PDF fonts lack the glyph). */
+/** Currency symbol the template shows. */
 export function curSymbol() { return (state.currencySettings || {}).symbol || '₹'; }
 
 /**
  * Draw the currency symbol with its left edge at x and baseline at y.
- * ₹ is drawn as a vector glyph (Helvetica has no ₹), other symbols as text.
+ * With the embedded template fonts ₹ is real text; on the Helvetica fallback
+ * (core PDF fonts have no ₹ glyph) it is drawn as a small vector glyph.
  */
-export function drawCurSym(doc, x, y, sizePt, color) {
+export function drawCurSym(doc, x, y, sizePt, color, F, style = 'normal') {
   const sym = curSymbol();
   doc.setTextColor(color[0], color[1], color[2]);
+  if (F && F.custom) { doc.setFont(F.sans, style); doc.setFontSize(sizePt); doc.text(sym, x, y); return; }
   if (sym !== '₹') { doc.text(sym, x, y); return; }
   const h = sizePt * 0.3528 * 0.72;   // cap height in mm
   const w = h * 0.66;
@@ -75,15 +77,65 @@ export function drawCurSym(doc, x, y, sizePt, color) {
   const ex = x + w * 0.08, ey = top + h * 0.55;
   doc.lines([[w * 0.6, 0, w * 0.6, h * 0.5, ex - sx, ey - sy]], sx, sy, [1, 1], 'S', false);
   doc.line(ex, ey, x + w * 0.82, y);                                // leg
-  doc.setLineCap('butt');
 }
 
-/** Width (mm) the currency symbol occupies at a given font size. */
-export function curSymWidth(doc, sizePt) {
-  const sym = curSymbol();
-  if (sym === '₹') return sizePt * 0.3528 * 0.72 * 0.66;
-  doc.setFontSize(sizePt);
-  return doc.getTextWidth(sym);
+// ── Template fonts ──────────────────────────────────────────────────────────
+// The templates use Century Gothic (headings/labels) and Calibri / Segoe UI
+// (values, figures). Those are proprietary, so we embed close open equivalents
+// from assets/fonts: URW Gothic (Century Gothic look) and TSS Doc Sans (a
+// Carlito subset — metric-compatible with Calibri). Loaded once, on demand.
+const _FONT_FILES = ['URWGothic-Book.ttf', 'URWGothic-Demi.ttf', 'TSSDocSans-Regular.ttf', 'TSSDocSans-Bold.ttf'];
+let _fontPromise = null;
+function _toB64(buf) {
+  const b = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+/** Fetch the template fonts (base64), cached. Resolves null when unavailable (falls back to Helvetica). */
+export function loadModernFonts() {
+  if (!_fontPromise) {
+    _fontPromise = (async () => {
+      try {
+        const base = new URL('../../assets/fonts/', import.meta.url);
+        const bufs = await Promise.all(_FONT_FILES.map(n => fetch(new URL(n, base)).then(r => {
+          if (!r.ok) throw new Error(n + ' ' + r.status);
+          return r.arrayBuffer();
+        })));
+        const out = {};
+        _FONT_FILES.forEach((n, i) => { out[n] = _toB64(bufs[i]); });
+        return out;
+      } catch (e) {
+        console.warn('[Modern PDF] template fonts unavailable — using Helvetica', e);
+        _fontPromise = null; // retry on the next export
+        return null;
+      }
+    })();
+  }
+  return _fontPromise;
+}
+
+/**
+ * New A4 portrait document for the Modern Design. Built from the ORIGINAL
+ * jsPDF constructor so the global monochrome mode (pdfMono.js) does not strip
+ * the template colours, with the template fonts registered when available.
+ * Returns { doc, F } where F.gothic / F.sans are the font families to use.
+ */
+export function newModernDoc(fonts) {
+  const ns = window.jspdf;
+  const J = ns.__monoOrig || ns.jsPDF;
+  const doc = new J('portrait', 'mm', 'a4');
+  const F = { gothic: 'helvetica', sans: 'helvetica', arial: 'helvetica', custom: false };
+  if (fonts) {
+    try {
+      const reg = (file, fam, style) => { doc.addFileToVFS(file, fonts[file]); doc.addFont(file, fam, style); };
+      reg('URWGothic-Book.ttf', 'MDGothic', 'normal');
+      reg('URWGothic-Demi.ttf', 'MDGothic', 'bold');
+      reg('TSSDocSans-Regular.ttf', 'MDSans', 'normal');
+      reg('TSSDocSans-Bold.ttf', 'MDSans', 'bold');
+      Object.assign(F, { gothic: 'MDGothic', sans: 'MDSans', custom: true });
+    } catch (e) { console.warn('[Modern PDF] font registration failed — using Helvetica', e); }
+  }
+  return { doc, F };
 }
 
 /** Format a number the Indian/locale way with 2 decimals (no symbol). */

@@ -14,7 +14,7 @@ const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSi
 import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
-import { MD, fitImage } from './pdfModernTheme.js';
+import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.1.0';
 
 const _lookupBoqItem = lookupBoqItem;
 
@@ -162,7 +162,7 @@ function _mdFit(doc, text, maxW, size, min = 6.5) {
  * name (up to 3 lines), right-hand Document ID / Status / Version, grey title
  * and the teal rule. Returns the y of the teal rule.
  */
-function _mdMeasHeader(doc, { title, docId, status, version }) {
+function _mdMeasHeader(doc, F, { title, docId, status, version }) {
   const cp = state.companyProfile || {};
   const pw = doc.internal.pageSize.getWidth();
   const ml = 14, mr = 14;
@@ -174,7 +174,7 @@ function _mdMeasHeader(doc, { title, docId, status, version }) {
   }
   if (cp.CompanyName) {
     const maxW = 136 - nameX;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(F.gothic, 'bold');
     let size = 26, lines;
     do { doc.setFontSize(size); lines = doc.splitTextToSize(String(cp.CompanyName).toUpperCase(), maxW); size -= 1; }
     while ((lines.length > 3 || lines.some(l => doc.getTextWidth(l) > maxW)) && size > 13);
@@ -189,15 +189,15 @@ function _mdMeasHeader(doc, { title, docId, status, version }) {
   const lx = 168, vx = 174, vw = pw - mr - vx;
   [['Document ID:', docId], ['Status :', status], ['Version:', version]].forEach(([lab, val], i) => {
     const by = 24.5 + i * 12;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
+    doc.setFont(F.gothic, 'bold'); doc.setFontSize(11); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
     doc.text(lab, lx, by, { align: 'right' });
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(MD.INK[0], MD.INK[1], MD.INK[2]);
+    doc.setFont(F.sans, 'normal'); doc.setTextColor(MD.INK[0], MD.INK[1], MD.INK[2]);
     _mdFit(doc, val == null ? '' : val, vw, 10);
     doc.text(String(val == null ? '' : val), vx, by);
   });
   // Title + teal rule.
   const ruleY = Math.max(60.5, bottom + 9);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
+  doc.setFont(F.gothic, 'bold'); doc.setFontSize(13); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
   doc.text(title, cp.logo ? 59 : ml + 2, ruleY - 2);
   doc.setDrawColor(MD.TEAL[0], MD.TEAL[1], MD.TEAL[2]); doc.setLineWidth(1.2);
   doc.line(ml, ruleY, pw - mr, ruleY);
@@ -206,18 +206,18 @@ function _mdMeasHeader(doc, { title, docId, status, version }) {
 }
 
 /** Rounded Project / Site / Area · Engineer / Date / Sheet box. Returns its bottom y. */
-function _mdMeasInfoBox(doc, top, left3, right3) {
+function _mdMeasInfoBox(doc, F, top, left3, right3) {
   const x = 16.8, w = 163, h = 39.6;
   doc.setDrawColor(MD.BOX[0], MD.BOX[1], MD.BOX[2]); doc.setLineWidth(0.6);
   doc.roundedRect(x, top, w, h, 6, 6, 'S');
   const rows = [10.3, 24.9, 36];
   const put = (pairs, labX, valX, valMax) => pairs.forEach(([lab, val], i) => {
     const by = top + rows[i];
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
+    doc.setFont(F.gothic, 'bold'); doc.setFontSize(11); doc.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]);
     doc.text(lab, labX, by);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(MD.INK[0], MD.INK[1], MD.INK[2]);
+    doc.setFont(F.sans, 'normal'); doc.setTextColor(MD.INK[0], MD.INK[1], MD.INK[2]);
     const v = String(val == null ? '' : val);
-    _mdFit(doc, v, valMax, 10);
+    _mdFit(doc, v, valMax, 11);
     doc.text(v, valX, by);
   });
   put(left3, 25.8, 61.8, 120.5 - 61.8);
@@ -239,7 +239,7 @@ function _mdMeasInfoBox(doc, top, left3, right3) {
  * headings, ruled measurement lines and a light-blue "TOTAL <item>" band.
  * Columns follow the sheet's own configuration (renamed headers + custom columns).
  */
-export function exportMeasurementFlintPdf(id) {
+export async function exportMeasurementFlintPdf(id) {
   try {
     const sheetId = id || state.currentSheetId;
     if (!sheetId) return showToast('Save sheet before exporting', 'error');
@@ -249,12 +249,13 @@ export function exportMeasurementFlintPdf(id) {
     const proj = state.projects.find(p => p.id === s.projectId);
     const client = state.clients.find(x => x.id === s.clientId);
     const clientName = client?.name || proj?.clientName || '';
-    const doc = new window.jspdf.jsPDF('portrait', 'mm', 'a4');
+    const fonts = await loadModernFonts();
+    const { doc, F } = newModernDoc(fonts);
     const pw = doc.internal.pageSize.getWidth();
     const ml = 14, mr = 14;
     const status = s.locked ? 'Verified & Locked' : (s.status || 'Draft');
-    const ruleY = _mdMeasHeader(doc, { title: 'Measurement Sheet', docId: 'MES/' + (s.sheetNum || ''), status, version: s.version || '1.0' });
-    const boxBottom = _mdMeasInfoBox(doc, ruleY + 4.3,
+    const ruleY = _mdMeasHeader(doc, F, { title: 'Measurement Sheet', docId: 'MES/' + (s.sheetNum || ''), status, version: s.version || '1.0' });
+    const boxBottom = _mdMeasInfoBox(doc, F, ruleY + 4.3,
       [['Project Name :', proj?.name || clientName || ''], ['Site Location:', proj?.siteLocation || proj?.location || ''], ['Area :', s.area || '']],
       [['Engineer:', s.engineer || ''], ['Date:', _fmtDMY(s.date)], ['Sheet:', s.sheetNum || '']]
     );
@@ -303,18 +304,18 @@ export function exportMeasurementFlintPdf(id) {
       startY: boxBottom + 2.3, head, body, theme: 'plain', showHead: 'firstPage',
       margin: { left: ml, right: mr, top: 14, bottom: 14 },
       rowPageBreak: 'avoid',
-      styles: { font: 'helvetica', fontSize: 9.5, fontStyle: 'bold', textColor: MD.INK, halign: 'center', valign: 'middle', cellPadding: { top: 1.2, bottom: 1.2, left: 1, right: 1 }, minCellHeight: 5.9, lineWidth: 0, overflow: 'linebreak' },
-      headStyles: { fontSize: 10, fontStyle: 'bold', textColor: MD.LABEL, halign: 'center', valign: 'middle', minCellHeight: 11.7, cellPadding: { top: 1, bottom: 1, left: 1, right: 1 } },
+      styles: { font: F.sans, fontSize: 10.5, fontStyle: 'bold', textColor: MD.INK, halign: 'center', valign: 'middle', cellPadding: { top: 1.2, bottom: 1.2, left: 1, right: 1 }, minCellHeight: 5.9, lineWidth: 0, overflow: 'linebreak' },
+      headStyles: { font: F.gothic, fontSize: 10, fontStyle: 'bold', textColor: MD.LABEL, halign: 'center', valign: 'middle', minCellHeight: 11.7, cellPadding: { top: 1, bottom: 1, left: 1, right: 1 } },
       columnStyles: colStyles,
       didParseCell: (d) => {
         if (d.section === 'head') { if (d.column.index === 0) d.cell.styles.halign = 'left'; return; }
         const k = kinds[d.row.index];
         if (k === 'gap') { d.cell.styles.minCellHeight = 5.5; d.cell.styles.cellPadding = 0; d.cell.styles.fontSize = 1; }
         else if (k === 'sec') {
-          d.cell.styles.textColor = MD.LABEL; d.cell.styles.fontSize = 10.5; d.cell.styles.minCellHeight = 6.2;
+          d.cell.styles.font = F.gothic; d.cell.styles.textColor = MD.LABEL; d.cell.styles.fontSize = 10.5; d.cell.styles.minCellHeight = 6.2;
           if (d.column.index === 0) { d.cell.styles.halign = 'left'; d.cell.styles.cellPadding = { top: 1, bottom: 1, left: 2.2, right: 1 }; }
         } else if (k === 'total') {
-          d.cell.styles.fillColor = MD.TOTFILL; d.cell.styles.textColor = MD.TOTTEXT; d.cell.styles.fontSize = 9.5; d.cell.styles.minCellHeight = 5.7;
+          d.cell.styles.font = F.gothic; d.cell.styles.fillColor = MD.TOTFILL; d.cell.styles.textColor = MD.TOTTEXT; d.cell.styles.fontSize = 9.5; d.cell.styles.minCellHeight = 5.7;
           if (d.column.index === 0) { d.cell.styles.halign = 'left'; d.cell.styles.cellPadding = { top: 1, bottom: 1, left: 6, right: 1 }; }
         }
       },
