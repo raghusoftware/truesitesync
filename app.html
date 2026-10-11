@@ -45,6 +45,16 @@
       @keyframes splashLoad { 0%{transform:translateX(-100%)} 50%{transform:translateX(250%)} 100%{transform:translateX(-100%)} }
     </style>
     <script>
+      // Lock number boxes against the mouse wheel. Browsers step a focused
+      // <input type="number"> when you scroll over it, so a stray scroll could
+      // silently change a measurement (Nos/L/B/H) or an amount. Dropping focus
+      // before the wheel is handled keeps the typed value and lets the page
+      // scroll normally instead.
+      document.addEventListener('wheel', function (e) {
+        var el = document.activeElement;
+        if (el && el.type === 'number' && el.tagName === 'INPUT') el.blur();
+      }, { capture: true, passive: true });
+
       // Update splash status as things load
       window._splashStatus = function(msg) {
         const el = document.getElementById('splashStatus');
