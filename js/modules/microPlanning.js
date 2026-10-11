@@ -2089,7 +2089,9 @@ export function renderRABilling() {
       <td class="px-3 py-2 text-slate-500">${b.date}</td>
       <td class="px-3 py-2 text-slate-600 truncate">${_esc((b.locationLabels || []).join(', '))}</td>
       <td class="px-3 py-2 text-right font-bold">${cur}${Math.round(b.total || 0).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2 text-center">${(window.feat && window.feat('payApp'))
+      <td class="px-3 py-2 text-center">${(window.feat && window.feat('ipc'))
+        ? `<button onclick="window.exportIpcPdf('${b.id}')" class="text-violet-600 hover:bg-violet-50 px-2 py-1 rounded text-[11px] font-bold mr-1" title="Download FIDIC Interim Payment Certificate">IPC</button>`
+        : ''}${(window.feat && window.feat('payApp'))
         ? `<button onclick="window.exportPayApplicationPdf('${b.id}')" class="text-violet-600 hover:bg-violet-50 px-2 py-1 rounded text-[11px] font-bold mr-1" title="Download AIA G702/G703 pay application">Pay App</button>`
         : ''}${invoiced
         ? `<span class="text-[10px] font-bold text-green-600" title="Billed via ${_esc(abs.linkedInvoice || abs.linkedInvoiceId || 'invoice')}">✓ Invoiced</span>`
@@ -2127,7 +2129,32 @@ export function renderRABilling() {
       </tr></thead><tbody>${coRows}</tbody></table></div>
     </div>`;
 
+  // ── FIDIC contract terms + retention (GCC/UK — Interim Payment Certificates) ──
+  let fidicCard = '';
+  if (window.feat && window.feat('ipc')) {
+    const t = (window.getContractTerms && window.getContractTerms(proj.id)) || { retentionPct: 10, advancePaid: 0, advanceRecoveryPct: 0 };
+    const rs = (window.retentionSummary && window.retentionSummary(proj.id)) || { held: 0, released: 0, balance: 0 };
+    const m = n => cur + Math.round(Number(n) || 0).toLocaleString('en-IN');
+    fidicCard = `
+      <div class="bg-white border rounded-xl p-4 mb-4">
+        <h3 class="font-bold text-sm text-slate-800 mb-2">📜 Contract terms <span class="text-[11px] text-slate-400 font-normal">(for Interim Payment Certificates)</span></h3>
+        <div class="flex flex-wrap gap-3 items-end mb-3">
+          <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Retention %</label><input id="ctRetPct" type="number" step="any" value="${t.retentionPct}" class="w-24 border rounded-lg px-3 py-2 text-sm"></div>
+          <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Advance paid (${cur.trim()})</label><input id="ctAdvPaid" type="number" step="any" value="${t.advancePaid}" class="w-36 border rounded-lg px-3 py-2 text-sm text-right"></div>
+          <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Advance recovery % of work</label><input id="ctAdvRecPct" type="number" step="any" value="${t.advanceRecoveryPct}" class="w-28 border rounded-lg px-3 py-2 text-sm text-right"></div>
+          <button onclick="window._saveContractTermsFromUI('${proj.id}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900">Save</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-xs bg-slate-50 border rounded-lg px-3 py-2">
+          <span class="text-slate-500">Retention held: <b class="text-slate-800">${m(rs.held)}</b></span>
+          <span class="text-slate-500">Released: <b class="text-emerald-700">${m(rs.released)}</b></span>
+          <span class="text-slate-500">Balance: <b class="text-violet-700">${m(rs.balance)}</b></span>
+          <button onclick="window._recordRetentionRelease('${proj.id}')" class="ml-auto text-[11px] font-bold text-amber-700 hover:bg-amber-50 border border-amber-200 rounded px-2 py-1">Record release</button>
+        </div>
+      </div>`;
+  }
+
   c.innerHTML = `
+    ${fidicCard}
     ${coCard}
     <div class="bg-white border rounded-xl p-4 mb-4">
       <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare ${getTerm('raBill')}</h3>

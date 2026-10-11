@@ -5,7 +5,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.68';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.5';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.6';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -19,7 +19,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.92';
+} from './controllers/reportController.js?v=1.6.93';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -61,11 +61,11 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.7';
-import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.70';
-import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.0';
+} from './modules/ui.js?v=1.7.10';
+import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.73';
+import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.3';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
-import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.23';
+import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.24';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
 import { renderNotifications } from './modules/notifications.js?v=1.0.3';
 import { initPush } from './modules/push.js?v=1.0.0';
@@ -75,8 +75,12 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
 import './modules/mobileShell.js?v=1.6.84';
-import './modules/onboarding.js?v=1.0.0';
+import './modules/onboarding.js?v=1.0.1';
 import './modules/payApplication.js?v=1.0.1';
+import './modules/wps.js?v=1.0.2';
+import './modules/ipc.js?v=1.0.0';
+import './modules/guarantees.js?v=1.0.2';
+import './modules/subcontractors.js?v=1.0.2';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -101,7 +105,7 @@ import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentO
 import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.2';
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.6.72';
 import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.1';
-import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.55';
+import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.56';
 import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.7.2';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
@@ -121,7 +125,7 @@ import {
   renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js?v=1.6.83';
+} from './modules/settings.js?v=1.6.85';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,
@@ -129,7 +133,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.36';
+} from './modules/microPlanning.js?v=1.4.37';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
@@ -530,6 +534,8 @@ function _bootApp() {
   // configure currency + terminology + tax from that one choice. No-ops for any
   // workspace that already has data or a chosen currency.
   setTimeout(() => { try { window.maybeShowCountryOnboarding?.(); } catch (e) { console.warn('[boot] onboarding skipped:', e?.message || e); } }, 500);
+  // Warn owners about guarantees/bonds approaching expiry (once per guarantee).
+  setTimeout(() => { try { window.checkGuaranteeExpiry?.(); } catch (e) { console.warn('[boot] guarantee check skipped:', e?.message || e); } }, 1500);
 
   // Bind organization & super admin modules
   bindOrgWindowFunctions();
