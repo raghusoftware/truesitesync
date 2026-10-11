@@ -10,7 +10,7 @@
 
 import { state } from './state.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.89';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category
@@ -114,6 +114,7 @@ export const REPORT_CATEGORIES = [
       _R('gst_hsn', 'HSN Summary'),
       _R('gst_input_credit', 'Input Tax Credit (ITC) Register'),
       _R('tds_deduction', 'TDS Deduction Report'),
+      _R('vat_return', 'VAT Return Summary (VAT 201)'),
     ],
   },
   {
@@ -580,6 +581,49 @@ export class ReportEngine {
       });
     });
     return { rows, summary: { totalInvoices: rows.length } };
+  }
+
+  // ── VAT Return Summary (VAT 201 — UAE/GCC/UK, also works for GST) ──
+  // Output tax from sales, input tax from purchases, over the selected period.
+  computeVatReturn(params = {}) {
+    let outStd = 0, outVat = 0, outZero = 0;
+    // Sale invoices — per-line taxable / tax (works for VAT single-line and GST).
+    this._filterByParams(this._getDataSource('saleInvoices') || [], params)
+      .filter(inv => inv.status !== 'Cancelled')
+      .forEach(inv => {
+        (inv.items || []).forEach(it => {
+          const amt = parseFloat(it.amount) || 0;
+          const tax = parseFloat(it.taxAmount) || 0;
+          const taxable = amt - tax;
+          if (it.taxType === 'NONE' || !parseFloat(it.taxPct)) outZero += taxable;
+          else { outStd += taxable; outVat += tax; }
+        });
+      });
+    // Finance-module invoices (summary-level tax).
+    this._filterByParams(this._getDataSource('invoices') || [], params)
+      .filter(inv => inv.status !== 'Cancelled')
+      .forEach(inv => {
+        const tax = parseFloat(inv.taxAmount) || 0;
+        const sub = parseFloat(inv.subtotal) || ((parseFloat(inv.total) || 0) - tax);
+        if (tax > 0) { outStd += sub; outVat += tax; } else { outZero += sub; }
+      });
+    // Purchases — recoverable input tax (stored as extras.gst on each bill).
+    let inTaxable = 0, inVat = 0;
+    this._filterByParams(this._getDataSource('purchases') || [], params).forEach(b => {
+      const g = parseFloat(b.extras && b.extras.gst) || 0;
+      const tot = parseFloat(b.totalAmount) || 0;
+      inVat += g; inTaxable += Math.max(0, tot - g);
+    });
+    const net = outVat - inVat;
+    const rows = [
+      { box: '1. Standard-rated supplies (sales)', taxable: outStd, tax: outVat },
+      { box: '2. Zero-rated / exempt supplies', taxable: outZero, tax: 0 },
+      { box: '3. Total output tax due', taxable: outStd + outZero, tax: outVat },
+      { box: '4. Standard-rated expenses (purchases)', taxable: inTaxable, tax: inVat },
+      { box: '5. Recoverable input tax', taxable: inTaxable, tax: inVat },
+      { box: '6. NET TAX PAYABLE / (RECLAIMABLE)', taxable: null, tax: net },
+    ];
+    return { rows, summary: { outputVat: outVat, inputVat: inVat, net }, kpis: { 'Output tax': outVat, 'Input tax': inVat, 'Net payable': net } };
   }
 
   // ── GSTR-3B ──

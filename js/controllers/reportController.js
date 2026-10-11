@@ -8,11 +8,11 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.90';
-import { getReportDefinition } from '../config/reportDefinitions.js';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.91';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
-import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX } from '../modules/utils.js';
+import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX, getPdfCurrency } from '../modules/utils.js';
 import { getEntryFormButton, hasEntryForm } from '../modules/formEngine.js';
 
 const engine = new ReportEngine();
@@ -762,10 +762,11 @@ function _pdfDocNo(reportDef) {
   return `TSS-${abbr}-${ymd}`;
 }
 
-// PDF-safe number formatter (jsPDF core fonts lack the ₹ glyph → use "Rs.")
+// PDF-safe number formatter (jsPDF core fonts lack the ₹ glyph → use the
+// currency-aware prefix: "Rs. " for INR, else "AED "/"$ "/… per settings).
 function _pdfCell(val, type) {
   if (val === undefined || val === null || val === '—' || val === '') return type && type !== 'text' && type !== 'date' && type !== 'badge' ? '—' : (val || '—');
-  if (type === 'currency') { const n = parseFloat(val) || 0; return 'Rs. ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+  if (type === 'currency') { const n = parseFloat(val) || 0; return getPdfCurrency() + n.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
   if (type === 'number') { const n = parseFloat(val); return isNaN(n) ? String(val) : n.toLocaleString('en-IN'); }
   if (type === 'percent') { const n = parseFloat(val); return isNaN(n) ? String(val) : n.toFixed(1) + '%'; }
   if (type === 'badge' && typeof val === 'string') return val.replace(/<[^>]*>/g, '');
