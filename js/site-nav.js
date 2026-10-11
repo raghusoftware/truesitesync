@@ -158,7 +158,9 @@
       '<div class="tssn-inner">' +
         '<a class="tssn-logo" href="/"><img src="/assets/logo.png" alt="True Site Sync" onerror="this.style.display=\'none\'"><span>True Site Sync</span></a>' +
         '<button class="tssn-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>' +
-        '<div class="tssn-menu">' +
+        '<div class="tssn-menu" id="tssn-menu">' +
+          '<div class="tssn-sheet-head"><a class="tssn-logo" href="/"><img src="/assets/logo.png" alt="" onerror="this.style.display=\'none\'"><span>True Site Sync</span></a>' +
+            '<button class="tssn-close" aria-label="Close menu">' + svg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>' +
           '<div class="tssn-drop" data-drop="features"><button class="tssn-top">Features<span class="tssn-car">' + caret + '</span></button>' + featuresPanel + '</div>' +
           '<div class="tssn-drop" data-drop="solutions"><button class="tssn-top">Solutions<span class="tssn-car">' + caret + '</span></button>' + solutionsPanel + '</div>' +
           '<a class="tssn-top tssn-link" href="/about/">About us</a>' +
@@ -250,25 +252,49 @@
     '.tssn-burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}' +
     '.tssn-burger[aria-expanded="true"] span:nth-child(2){opacity:0}' +
     '.tssn-burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}' +
+    '.tssn-sheet-head,.tssn-scrim{display:none}' +
     '@media(max-width:1040px){' +
-      '.tssn-burger{display:flex;position:relative;z-index:3}' +
-      /* backdrop-filter makes .tssn the containing block for fixed children,
-         which clipped the slide-out menu to the navbar height on mobile */
+      '.tssn-burger{display:flex}' +
       '.tssn{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.97)}' +
-      '.tssn-menu{position:fixed;top:0;right:0;bottom:0;height:100vh;height:100dvh;width:min(380px,88vw);flex-direction:column;align-items:stretch;gap:1px;background:#fff;padding:78px 16px 28px;box-shadow:-20px 0 60px rgba(13,40,28,.2);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;margin-left:0}' +
-      '.tssn.open .tssn-menu{transform:translateX(0)}' +
-      '.tssn-top{width:100%;justify-content:space-between;font-size:16px;padding:14px 12px;border-radius:12px}' +
-      '.tssn-drop{width:100%}' +
-      '.tssn-mega{position:static;transform:none;opacity:1;visibility:visible;pointer-events:auto;box-shadow:none;border:0;border-radius:0;padding:0 0 8px;width:100%!important;max-height:0;overflow:hidden;transition:max-height .28s ease}' +
-      '.tssn-drop.open .tssn-mega{transform:none;max-height:1600px}' +
-      '.tssn-mega-cols,.tssn-sol,.tssn-persona-grid,.tssn-city-grid,.tssn-res-grid{grid-template-columns:1fr!important;width:auto!important;display:grid}' +
-      '.tssn-sol-side{border-left:0;border-top:1px solid #eef3f0;padding-left:0;padding-top:12px;margin-top:6px}' +
+      /* the menu is moved to <body> on mobile (see placeMenu) so no ancestor
+         transform/filter can clip it into a box; full-screen sheet on phones */
+      '.tssn-menu{position:fixed;top:0;right:0;bottom:0;left:auto;z-index:2147483001;width:min(440px,100vw);height:100vh;height:100dvh;display:flex;flex-direction:column;align-items:stretch;gap:0;margin:0;padding:0;background:#fff;font-family:"Inter",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;box-shadow:-24px 0 60px rgba(13,40,28,.18);transform:translateX(100%);visibility:hidden;transition:transform .32s cubic-bezier(.4,0,.2,1),visibility 0s linear .32s;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}' +
+      '.tssn-menu.is-open{transform:none;visibility:visible;transition:transform .32s cubic-bezier(.4,0,.2,1)}' +
+      '.tssn-menu,.tssn-menu *{box-sizing:border-box}' +
+      '.tssn-menu svg{display:block}' +
+      '.tssn-scrim{display:block;position:fixed;inset:0;z-index:2147483000;background:rgba(10,20,15,.45);opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s linear .3s}' +
+      '.tssn-scrim.is-open{opacity:1;visibility:visible;transition:opacity .3s}' +
+      '.tssn-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;flex:0 0 auto;padding:16px 18px 14px;background:#fff;border-bottom:1px solid #eef3f0}' +
+      '.tssn-sheet-head::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#EF8420,#C6301C 50%,#EF8420)}' +
+      '.tssn-close{width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(13,40,28,.1);border-radius:12px;background:#fff;color:#0e1a13;cursor:pointer}' +
+      '.tssn-close svg{width:20px;height:20px}' +
+      '.tssn-menu>.tssn-drop,.tssn-menu>.tssn-link{margin:0 12px;width:auto;border-bottom:1px solid #f1f4f2}' +
+      '.tssn-menu>.tssn-drop:first-of-type{margin-top:8px}' +
+      '.tssn-top{width:100%;justify-content:space-between;font-size:16.5px;font-weight:650;color:#0e1a13;padding:17px 8px;border-radius:0;background:none!important}' +
+      '.tssn-top.tssn-active{box-shadow:none}' +
+      '.tssn-car{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#f5f7f6;opacity:1;margin:0}' +
+      '.tssn-drop.open .tssn-car{background:#fdf0e5;color:#c2321f}' +
+      '.tssn-mega{position:static;transform:none!important;opacity:1;visibility:visible;pointer-events:auto;box-shadow:none;border:0;border-radius:0;padding:0;width:100%!important;max-height:0;overflow:hidden;transition:max-height .35s ease}' +
+      '.tssn-drop.open .tssn-mega{max-height:2400px;padding-bottom:12px}' +
+      '.tssn-mega::before,.tssn-drop::after{display:none}' +
+      '.tssn-mega-cols,.tssn-sol,.tssn-persona-grid,.tssn-res-grid{display:grid;grid-template-columns:1fr!important;gap:0;width:auto!important}' +
+      '.tssn-col{background:#fafbfa;border:1px solid #eef3f0;border-radius:16px;padding:6px 6px 4px;margin-bottom:10px}' +
+      '.tssn-col-h{padding:10px 10px 6px;color:#c2321f;letter-spacing:.08em}' +
+      '.tssn-item{padding:10px;gap:12px;align-items:center}' +
+      '.tssn-item:active{background:#fdf5ee}' +
+      '.tssn-ic{width:40px;height:40px;background:#fff}' +
+      '.tssn-it-t{font-size:15px}.tssn-it-d{font-size:13px}' +
+      '.tssn-sol-main{background:#fafbfa;border:1px solid #eef3f0;border-radius:16px;padding:6px;margin-bottom:10px}' +
+      '.tssn-sol-side{border:0;padding:0;margin:0}' +
+      '.tssn-city-grid{grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}' +
+      '.tssn-city{text-align:center;background:#fff;border:1px solid #e6ece8;border-radius:12px;padding:11px 8px}' +
+      '.tssn-browse{display:flex;justify-content:center;padding:13px;border-radius:12px;background:#fdf0e5}' +
       '.tssn-preview{display:none}' +
-      '.tssn-col-h{padding:14px 10px 4px}' +
-      '.tssn-ctas{flex-direction:column;align-items:stretch;margin:14px 0 0;gap:9px}' +
-      '.tssn-cta,.tssn-login,.tssn-demo{justify-content:center;text-align:center;padding:14px}' +
-      '.tssn-drop::after{display:none}' +
-      'body.tssn-lock{overflow:hidden}' +
+      '.tssn-ctas{position:sticky;bottom:0;margin:auto 0 0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#fff;border-top:1px solid #eef3f0;box-shadow:0 -10px 30px rgba(13,40,28,.06)}' +
+      '.tssn-cta{grid-column:1/-1}' +
+      '.tssn-cta,.tssn-login,.tssn-demo{display:flex;justify-content:center;align-items:center;text-align:center;padding:14px;font-size:15px;border-radius:12px}' +
+      '.tssn-login{border:1px solid rgba(13,40,28,.16);color:#0e1a13}' +
+      'html.tssn-lock,body.tssn-lock{overflow:hidden}' +
     '}';
 
   /* ---------- mount ---------- */
@@ -305,18 +331,53 @@
       d.addEventListener('mouseenter', function () { if (!isMobile()) openDrop(d); });
       d.addEventListener('mouseleave', function () { if (!isMobile()) scheduleClose(); });
       btn.addEventListener('click', function (e) {
-        if (isMobile()) { e.preventDefault(); var was = d.classList.contains('open'); closeAll(); if (!was) d.classList.add('open'); }
+        if (isMobile()) {
+          e.preventDefault(); var was = d.classList.contains('open'); closeAll();
+          if (!was) {
+            d.classList.add('open');
+            // bring the opened section's heading to the top of the sheet
+            setTimeout(function () {
+              var head = menu.querySelector('.tssn-sheet-head');
+              menu.scrollTo({ top: d.offsetTop - (head ? head.offsetHeight : 0), behavior: 'smooth' });
+            }, 360);
+          }
+        }
       });
     });
 
     var burger = nav.querySelector('.tssn-burger');
-    function openMenu() { nav.classList.add('open'); burger.setAttribute('aria-expanded', 'true'); document.body.classList.add('tssn-lock'); }
-    function closeMenu() { nav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); document.body.classList.remove('tssn-lock'); closeAll(); }
-    burger.addEventListener('click', function () { nav.classList.contains('open') ? closeMenu() : openMenu(); });
+    var menu = nav.querySelector('.tssn-menu');
+    var inner = nav.querySelector('.tssn-inner');
+    var scrim = document.createElement('div');
+    scrim.className = 'tssn-scrim';
+    document.body.appendChild(scrim);
+    // On mobile the menu lives directly under <body>: page styles on <nav>
+    // (fixed/transform/filter) would otherwise trap the fixed sheet in a box.
+    function placeMenu() {
+      if (isMobile()) { if (menu.parentNode !== document.body) document.body.appendChild(menu); }
+      else if (menu.parentNode !== inner) inner.appendChild(menu);
+    }
+    placeMenu();
+    function isOpen() { return menu.classList.contains('is-open'); }
+    function openMenu() {
+      menu.classList.add('is-open'); scrim.classList.add('is-open'); nav.classList.add('open');
+      burger.setAttribute('aria-expanded', 'true');
+      document.documentElement.classList.add('tssn-lock'); document.body.classList.add('tssn-lock');
+    }
+    function closeMenu() {
+      menu.classList.remove('is-open'); scrim.classList.remove('is-open'); nav.classList.remove('open');
+      burger.setAttribute('aria-expanded', 'false');
+      document.documentElement.classList.remove('tssn-lock'); document.body.classList.remove('tssn-lock');
+      closeAll();
+    }
+    burger.addEventListener('click', function () { isOpen() ? closeMenu() : openMenu(); });
+    menu.querySelector('.tssn-close').addEventListener('click', closeMenu);
+    scrim.addEventListener('click', closeMenu);
+    menu.addEventListener('click', function (e) { if (isMobile() && e.target.closest('a')) closeMenu(); });
 
-    document.addEventListener('click', function (e) { if (!nav.contains(e.target)) { closeAll(); closeMenu(); } });
+    document.addEventListener('click', function (e) { if (!nav.contains(e.target) && !menu.contains(e.target)) { if (!isMobile()) closeAll(); } });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeAll(); closeMenu(); } });
-    window.addEventListener('resize', function () { if (!isMobile()) closeMenu(); });
+    window.addEventListener('resize', function () { placeMenu(); if (!isMobile()) closeMenu(); });
 
     try {
       var p = location.pathname;
@@ -325,7 +386,7 @@
       else if (p.indexOf('/blog') === 0 || p.indexOf('/resources') === 0) markActive('resources');
     } catch (e) {}
     function markActive(name) {
-      var d = nav.querySelector('.tssn-drop[data-drop="' + name + '"] .tssn-top');
+      var d = menu.querySelector('.tssn-drop[data-drop="' + name + '"] .tssn-top');
       if (d) d.classList.add('tssn-active');
     }
   }
