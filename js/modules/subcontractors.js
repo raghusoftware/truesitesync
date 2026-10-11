@@ -47,48 +47,52 @@ export function renderSubcontractors() {
     const pos = _position(sc);
     totVal += _num(sc.contractValue); totCert += pos.certified; totRet += pos.retHeld; totBal += pos.balance;
     const pctCert = _num(sc.contractValue) > 0 ? Math.min(100, pos.certified / _num(sc.contractValue) * 100) : 0;
-    const certRows = pos.pays.slice().reverse().map(p => `<tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:5px 8px;color:#64748b;">${p.date || ''}</td>
-        <td style="padding:5px 8px;text-align:right;">${m(p.work)}</td>
-        <td style="padding:5px 8px;text-align:right;font-weight:700;">${m(p.net)}</td>
-        <td style="padding:5px 8px;text-align:center;">${p.paid ? '<span style="color:#059669;font-weight:700;font-size:10px;">✓ Paid</span>' : `<button onclick="window._scMarkPaid('${p.id}')" style="font-size:10px;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;cursor:pointer;">Mark paid</button>`}</td>
-        <td style="padding:5px 8px;text-align:center;"><button onclick="window._scCertPdf('${p.id}')" style="font-size:10px;font-weight:700;color:#7c3aed;cursor:pointer;background:none;border:none;">PDF</button></td>
-      </tr>`).join('') || '<tr><td colspan="5" style="padding:10px;text-align:center;color:#94a3b8;font-size:11px;">No certificates yet.</td></tr>';
-    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap;">
-        <div><div style="font-weight:800;color:#0f172a;font-size:15px;">${_esc(sc.name)} <span style="font-size:11px;color:#94a3b8;font-weight:600;">· ${_esc(sc.trade || '')}</span></div>
-          <div style="font-size:11px;color:#64748b;margin-top:2px;">${_esc(_proj(sc.projectId)?.name || 'No project')} · Contract ${m(sc.contractValue)} · Retention ${_num(sc.retentionPct)}%</div></div>
-        <button onclick="window._scDelete('${sc.id}')" style="font-size:11px;color:#ef4444;background:none;border:none;cursor:pointer;font-weight:700;">Delete</button>
+    const certRows = pos.pays.slice().reverse().map(p => `<tr>
+        <td style="color:var(--dm-ink-2);">${p.date || ''} <span class="dm-ref">${_esc(p.no || '')}</span></td>
+        <td class="num tnum">${m(p.work)}</td>
+        <td class="num tnum dm-amt">${m(p.net)}</td>
+        <td style="text-align:center;">${p.paid ? '<span class="dm-chip ok"><span class="dot"></span>Paid</span>' : `<button class="dm-iact" style="width:auto;padding:0 11px;font-size:11px;font-weight:700;" onclick="window._scMarkPaid('${p.id}')">Mark paid</button>`}</td>
+        <td class="num"><button class="dm-iact" title="Download certificate" onclick="window._scCertPdf('${p.id}')">⤓</button></td>
+      </tr>`).join('') || '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--dm-ink-3);font-size:12px;">No certificates yet — certify the first payment above.</td></tr>';
+    return `<div class="dm-panel">
+      <div style="padding:16px 16px 0;">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:start;">
+          <div style="min-width:0;"><div class="dm-name" style="font-size:15px;">${_esc(sc.name)} <span style="color:var(--dm-ink-3);font-weight:600;font-size:12px;">· ${_esc(sc.trade || '')}</span></div>
+            <div class="dm-ref" style="font-size:12px;margin-top:3px;">${_esc(_proj(sc.projectId)?.name || 'No project')} · Contract ${m(sc.contractValue)} · Retention ${_num(sc.retentionPct)}%</div></div>
+          <span class="dm-rowact" style="opacity:1;flex-shrink:0;">
+            <button class="dm-iact" title="Edit package" onclick="window._scOpenForm('${sc.id}')">✎</button>
+            <button class="dm-iact" title="Delete package" onclick="window._scDelete('${sc.id}')">🗑</button></span>
+        </div>
+        <div class="dm-prog"><i style="width:${pctCert}%"></i></div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px;font-size:11.5px;color:var(--dm-ink-2);margin-bottom:12px;">
+          <span>Certified <b class="dm-amt tnum">${m(pos.certified)}</b> <span style="color:var(--dm-ink-3);">(${pctCert.toFixed(0)}%)</span></span>
+          <span>Retention <b class="dm-amt tnum">${m(pos.retHeld)}</b></span>
+          <span>Paid <b class="tnum" style="color:var(--dm-ok);">${m(pos.paid)}</b></span>
+          <span>Outstanding <b class="tnum" style="color:var(--dm-accent);">${m(pos.balance)}</b></span>
+        </div>
       </div>
-      <div style="height:6px;background:#f1f5f9;border-radius:3px;margin:10px 0;overflow:hidden;"><div style="height:100%;width:${pctCert}%;background:linear-gradient(90deg,#ef8420,#d6402c);"></div></div>
-      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#64748b;margin-bottom:10px;">
-        <span>Certified: <b style="color:#0f172a;">${m(pos.certified)}</b> (${pctCert.toFixed(0)}%)</span>
-        <span>Retention held: <b style="color:#0f172a;">${m(pos.retHeld)}</b></span>
-        <span>Advance recovered: <b style="color:#0f172a;">${m(pos.advRec)}</b></span>
-        <span>Paid: <b style="color:#059669;">${m(pos.paid)}</b></span>
-        <span>Outstanding: <b style="color:#d6402c;">${m(pos.balance)}</b></span>
+      <div style="border-top:1px solid var(--dm-line);padding:11px 16px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--dm-ink-3);">Payment certificates</span>
+        <button class="dm-btn dm-btn-ghost dm-btn-sm" onclick="window._scOpenCertify('${sc.id}')">+ Certify payment</button>
       </div>
-      <div style="margin-bottom:10px;"><button onclick="window._scOpenCertify('${sc.id}')" style="background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer;">+ Certify payment</button></div>
-      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
-        <thead style="background:#f8fafc;"><tr style="color:#64748b;font-size:9px;text-transform:uppercase;font-weight:800;text-align:right;">
-          <th style="padding:5px 8px;text-align:left;">Date</th><th style="padding:5px 8px;">Work</th><th style="padding:5px 8px;">Net payable</th><th style="padding:5px 8px;text-align:center;">Status</th><th style="padding:5px 8px;text-align:center;">Cert</th>
-        </tr></thead><tbody>${certRows}</tbody></table></div>
+      <div class="dm-tscroll"><table class="dm-table" style="min-width:520px;">
+        <thead><tr><th>Date</th><th class="num">Work</th><th class="num">Net payable</th><th style="text-align:center;">Status</th><th class="num">Cert</th></tr></thead>
+        <tbody>${certRows}</tbody></table></div>
     </div>`;
-  }).join('') || '<div style="padding:30px;text-align:center;color:#94a3b8;background:#fff;border:1px solid #e2e8f0;border-radius:14px;">No subcontract packages yet. Click <b>+ Add package</b> to start.</div>';
+  }).join('') || `<div class="dm-panel"><div class="dm-empty"><div class="ico">🤝</div><h3>No subcontract packages yet</h3><p>Register each subcontract package, then certify payments back-to-back — net of retention and advance — and track what's still owed.</p><button class="dm-btn dm-btn-primary" onclick="window._scOpenForm()">+ Add your first package</button></div></div>`;
 
   c.innerHTML = `
-    <div style="max-width:1120px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
-        <h2 style="font-size:16px;font-weight:900;color:#0f172a;margin:0;">🤝 Subcontractors</h2>
-        <button onclick="window._scOpenForm()" style="background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(214,64,44,.2);">+ Add package</button>
+    <div class="dm">
+      <div class="dm-bar">
+        <div class="dm-lead"><h1>Subcontractors</h1><span class="dm-sub">Back-to-back packages — certify payments net of retention &amp; advance</span></div>
+        <button class="dm-btn dm-btn-primary" onclick="window._scOpenForm()">+ New package</button>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-        <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Subcontract value</div><div style="font-size:19px;font-weight:900;color:#0f172a;">${m(totVal)}</div></div>
-        <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Certified to date</div><div style="font-size:19px;font-weight:900;color:#0f172a;">${m(totCert)}</div></div>
-        <div style="flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Retention held</div><div style="font-size:19px;font-weight:900;color:#0f172a;">${m(totRet)}</div></div>
-        <div style="flex:1;min-width:150px;background:#fff3ea;border:1px solid #ffd9c7;border-radius:12px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;">Outstanding to subs</div><div style="font-size:19px;font-weight:900;color:#d6402c;">${m(totBal)}</div></div>
+        <div class="dm-kpi" style="flex:1;min-width:160px;"><span class="dm-rail"></span><div class="dm-cap">Subcontract value</div><div class="dm-val tnum">${m(totVal)}</div></div>
+        <div class="dm-kpi" style="flex:1;min-width:160px;"><span class="dm-rail"></span><div class="dm-cap">Certified to date</div><div class="dm-val tnum">${m(totCert)}</div></div>
+        <div class="dm-kpi" style="flex:1;min-width:160px;"><span class="dm-rail"></span><div class="dm-cap">Retention held</div><div class="dm-val tnum">${m(totRet)}</div></div>
+        <div class="dm-kpi ${totBal > 0 ? 'attn' : ''}" style="flex:1;min-width:160px;"><span class="dm-rail"></span><div class="dm-cap">Outstanding to subs</div><div class="dm-val tnum">${m(totBal)}</div></div>
       </div>
-
       ${cards}
     </div>`;
 }

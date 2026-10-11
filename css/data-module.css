@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════
+ * True Site Sync — Data-module design system
+ * ═══════════════════════════════════════════════════════════
+ * The premium list + modal pattern, shared by every data module
+ * (Guarantees, Subcontractors, WPS, …). Namespaced `dm-` so it never
+ * collides with existing styles. Light theme — matches the app.
+ *   action bar · risk-first KPI strip · dense scannable table ·
+ *   status chips · hover row actions · teaching empty state.
+ * ═══════════════════════════════════════════════════════════ */
+.dm{
+  --dm-bg:#f6f7fb; --dm-surface:#fff; --dm-surface-2:#fafbfd;
+  --dm-line:#e7e9f0; --dm-line-strong:#d7dae6;
+  --dm-ink:#101626; --dm-ink-2:#51586b; --dm-ink-3:#8a90a2;
+  --dm-accent:#d6402c; --dm-accent-2:#ef8420; --dm-accent-soft:#fff2ea;
+  --dm-ok:#0c8a5a; --dm-ok-soft:#e8f6ef;
+  --dm-warn:#b4690e; --dm-warn-soft:#fdf3e2;
+  --dm-crit:#c6362d; --dm-crit-soft:#fdecea;
+  --dm-ring:rgba(214,64,44,.26);
+  --dm-shadow:0 1px 2px rgba(16,22,38,.04),0 2px 8px rgba(16,22,38,.05);
+  max-width:1120px;margin:0 auto;
+  font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+.dm *{box-sizing:border-box}
+.dm .tnum{font-variant-numeric:tabular-nums}
+
+/* ── Action bar ── */
+.dm-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.dm-bar .dm-lead{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dm-bar h1{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--dm-ink);margin:0}
+.dm-bar .dm-sub{font-size:12.5px;color:var(--dm-ink-2)}
+
+.dm-btn{border:none;border-radius:11px;padding:10px 17px;font-size:13.5px;font-weight:800;display:inline-flex;align-items:center;gap:7px;cursor:pointer;line-height:1}
+.dm-btn-primary{background:linear-gradient(135deg,var(--dm-accent-2),var(--dm-accent));color:#fff;box-shadow:0 6px 16px var(--dm-ring)}
+.dm-btn-primary:hover{filter:brightness(1.04)}
+.dm-btn-ghost{background:var(--dm-surface);border:1px solid var(--dm-line-strong);color:var(--dm-ink-2);font-weight:700}
+.dm-btn-ghost:hover{border-color:var(--dm-ink-3)}
+.dm-btn-sm{padding:7px 13px;font-size:12px;border-radius:9px}
+
+/* ── Metric strip ── */
+.dm-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.dm-kpi{background:var(--dm-surface);border:1px solid var(--dm-line);border-radius:14px;padding:14px 16px;box-shadow:var(--dm-shadow);position:relative;overflow:hidden}
+.dm-kpi .dm-cap{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dm-ink-3);display:flex;align-items:center;gap:6px}
+.dm-kpi .dm-val{font-size:25px;font-weight:800;letter-spacing:-.02em;margin-top:6px;color:var(--dm-ink)}
+.dm-kpi .dm-meta{font-size:11.5px;color:var(--dm-ink-2);margin-top:1px}
+.dm-kpi .dm-rail{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dm-accent)}
+.dm-kpi.attn{background:var(--dm-warn-soft);border-color:transparent}
+.dm-kpi.attn .dm-cap,.dm-kpi.attn .dm-val{color:var(--dm-warn)} .dm-kpi.attn .dm-rail{background:var(--dm-warn)}
+.dm-kpi.danger{background:var(--dm-crit-soft);border-color:transparent}
+.dm-kpi.danger .dm-cap,.dm-kpi.danger .dm-val{color:var(--dm-crit)} .dm-kpi.danger .dm-rail{background:var(--dm-crit)}
+
+/* ── Panel + table ── */
+.dm-panel{background:var(--dm-surface);border:1px solid var(--dm-line);border-radius:14px;box-shadow:var(--dm-shadow);overflow:hidden;margin-bottom:14px}
+.dm-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--dm-line)}
+.dm-panel-head h2{font-size:13.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--dm-ink);margin:0}
+.dm-panel-head .dm-tools{display:flex;gap:8px;align-items:center}
+.dm-search{display:flex;align-items:center;gap:7px;background:var(--dm-surface-2);border:1px solid var(--dm-line);border-radius:9px;padding:6px 10px;color:var(--dm-ink-3);font-size:12.5px}
+.dm-search input{border:none;background:none;outline:none;color:var(--dm-ink);font-family:inherit;font-size:12.5px;width:130px}
+.dm-tscroll{overflow-x:auto}
+.dm-table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+.dm-table thead th{position:sticky;top:0;background:var(--dm-surface-2);text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--dm-ink-3);padding:10px 16px;border-bottom:1px solid var(--dm-line);white-space:nowrap;z-index:1}
+.dm-table th.num,.dm-table td.num{text-align:right}
+.dm-table tbody tr{border-bottom:1px solid var(--dm-line)}
+.dm-table tbody tr:last-child{border-bottom:none}
+.dm-table tbody tr:hover{background:var(--dm-surface-2)}
+.dm-table tbody td{padding:0 16px;height:54px;vertical-align:middle;color:var(--dm-ink-2)}
+.dm-name{font-weight:800;color:var(--dm-ink);font-size:13px;line-height:1.2}
+.dm-ref{font-size:11px;color:var(--dm-ink-3);margin-top:2px}
+.dm-amt{font-weight:800;color:var(--dm-ink)}
+.dm-two{display:flex;flex-direction:column;gap:1px}
+
+/* ── Status chips (dot + word, never colour alone) ── */
+.dm-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 9px 4px 8px;border-radius:999px;white-space:nowrap}
+.dm-chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dm-chip.ok{background:var(--dm-ok-soft);color:var(--dm-ok)} .dm-chip.ok .dot{background:var(--dm-ok)}
+.dm-chip.warn{background:var(--dm-warn-soft);color:var(--dm-warn)} .dm-chip.warn .dot{background:var(--dm-warn)}
+.dm-chip.crit{background:var(--dm-crit-soft);color:var(--dm-crit)} .dm-chip.crit .dot{background:var(--dm-crit)}
+.dm-chip.mut{background:var(--dm-surface-2);color:var(--dm-ink-3);border:1px solid var(--dm-line)} .dm-chip.mut .dot{background:var(--dm-ink-3)}
+
+/* ── Row actions (revealed on hover, always on touch) ── */
+.dm-rowact{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:opacity .12s}
+.dm-table tbody tr:hover .dm-rowact{opacity:1}
+.dm-iact{border:1px solid var(--dm-line-strong);background:var(--dm-surface);border-radius:8px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;color:var(--dm-ink-2);font-size:13px;cursor:pointer;padding:0}
+.dm-iact:hover{border-color:var(--dm-accent);color:var(--dm-accent)}
+@media (hover:none){.dm-rowact{opacity:1}}
+
+/* ── Progress bar (used in package cards) ── */
+.dm-prog{height:6px;background:var(--dm-line);border-radius:3px;overflow:hidden;margin:10px 0}
+.dm-prog > i{display:block;height:100%;background:linear-gradient(90deg,var(--dm-accent-2),var(--dm-accent))}
+
+/* ── Empty state that teaches ── */
+.dm-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:52px 20px}
+.dm-empty .ico{width:54px;height:54px;border-radius:16px;background:var(--dm-accent-soft);color:var(--dm-accent);display:flex;align-items:center;justify-content:center;font-size:24px}
+.dm-empty h3{font-size:16px;font-weight:800;color:var(--dm-ink);margin:0}
+.dm-empty p{font-size:13px;color:var(--dm-ink-2);max-width:380px;margin:0}
+
+/* ── Modal grouped-field helpers (used inside openFormModal) ── */
+.dm-grp{display:flex;flex-direction:column;gap:11px;grid-column:1/-1}
+.dm-grp .dm-glabel{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dm-ink-3)}
+
+@media(max-width:640px){
+  .dm-kpis{grid-template-columns:1fr}
+  .dm-bar h1{font-size:18px}
+}
