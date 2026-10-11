@@ -731,6 +731,17 @@ export const REPORT_DEFINITIONS = {
     compute: 'computeEarnedValue',
   },
 
+  vat_return: {
+    exportTitle: 'VAT Return Summary (VAT 201)',
+    filters: ['dateRange'],
+    columns: [
+      { key: 'box',     label: 'Box',             type: T, width: 240 },
+      { key: 'taxable', label: 'Amount (net)',    type: C, width: 120, align: 'right' },
+      { key: 'tax',     label: 'VAT / Tax',       type: C, width: 120, align: 'right' },
+    ],
+    compute: 'computeVatReturn',
+  },
+
   retention_recovery: {
     exportTitle: 'Retention Money Recovery Tracker',
     filters: ['project', 'client'],
