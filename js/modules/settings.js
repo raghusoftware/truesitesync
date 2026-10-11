@@ -4,6 +4,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getTerm } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js?v=1.0.1';
+import { invoiceDesignKeys, invoiceDesignName, invoiceDesignDesc, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.0';
 
 // ─── Settings hub navigation (icon grid → drill into a section) ───
 let _activeSettingsTab = null;
@@ -117,8 +118,7 @@ window._setInvoiceTemplate = function(v) {
   state.printSettings.invoiceTemplate = v;
   saveAllData();
   renderPrintConfigTab();
-  const names = { standard: 'Standard', classic: 'Corporate Classic', modern: 'Modern Band', sidebar: 'Left Sidebar', minimal: 'Minimal Mono', accent: 'Accent Brand' };
-  showToast('Invoice design: ' + (names[v] || v), 'success');
+  showToast('Invoice design: ' + invoiceDesignName(v), 'success');
 };
 
 window._setInvoicePrefix = function(v) {
@@ -232,16 +232,17 @@ function _pgw(g) { return `</div><div class="pgw" style="display:${_printSubTab 
 function _bars(n, w) { let s = ''; for (let i = 0; i < n; i++) s += `<div style="height:3px;background:#e2e8f0;border-radius:2px;margin:2.5px 0;width:${w || (60 + (i * 13) % 35)}%"></div>`; return s; }
 function _thumbFrame(inner, pad) { return `<div style="border:1px solid #e5e9f0;border-radius:6px;overflow:hidden;height:104px;background:#fff;position:relative;padding:${pad == null ? 7 : pad}px;box-sizing:border-box;">${inner}</div>`; }
 function _invoiceThumb(key) {
-  const A = getDocColor('invoice', 'header') || '#1e3a8a';
-  const gold = '#b08d3e', navy = '#172b54', teal = '#0f766e', ink = '#111827';
-  const hdrRow = (c) => `<div style="display:flex;gap:3px;margin-bottom:3px">${[38, 12, 14, 16].map(w => `<div style="height:6px;width:${w}%;background:${c};border-radius:1px"></div>`).join('')}</div>`;
-  if (key === 'standard') return _thumbFrame(`<div style="height:8px;background:${A};border-radius:2px;margin-bottom:5px"></div>${hdrRow(A)}${_bars(4)}`);
-  if (key === 'classic') return _thumbFrame(`<div style="display:flex;justify-content:space-between;align-items:center"><div style="height:5px;width:34%;background:${navy};border-radius:1px"></div><div style="height:7px;width:30%;background:${navy};border-radius:1px"></div></div><div style="height:2px;background:${gold};margin:4px 0 5px"></div>${hdrRow(navy)}${_bars(3)}<div style="height:7px;background:${navy};border-radius:1px;margin-top:4px"></div>`);
-  if (key === 'modern') return _thumbFrame(`<div style="height:22px;background:${A};border-radius:2px;margin:-7px -7px 6px;display:flex;align-items:center;justify-content:flex-end;padding:0 6px"><div style="height:6px;width:34%;background:rgba(255,255,255,.85);border-radius:1px"></div></div>${hdrRow(A)}${_bars(3)}<div style="height:14px;width:46%;margin-left:54%;background:${A}22;border-radius:3px;margin-top:5px"></div>`, 7);
-  if (key === 'sidebar') return _thumbFrame(`<div style="position:absolute;left:0;top:0;bottom:0;width:32%;background:${A}"></div><div style="margin-left:36%"><div style="height:7px;width:60%;background:${A};border-radius:1px;margin-bottom:5px"></div>${hdrRow(A)}${_bars(4)}</div>`, 7);
-  if (key === 'minimal') return _thumbFrame(`<div style="display:flex;justify-content:space-between"><div style="height:4px;width:30%;background:${ink};border-radius:1px"></div><div style="height:6px;width:34%;background:${ink};border-radius:1px"></div></div><div style="height:1px;background:${ink};margin:6px 0"></div>${_bars(4, 100).replace(/#e2e8f0/g, '#eef1f5')}<div style="height:2px;width:32%;margin-left:68%;background:${A};margin-top:6px"></div>`);
-  if (key === 'accent') return _thumbFrame(`<div style="position:absolute;left:0;right:0;top:0;height:4px;background:${A}"></div><div style="position:absolute;left:0;right:0;bottom:0;height:4px;background:${A}"></div><div style="display:flex;justify-content:flex-end;margin-top:3px"><div style="height:13px;width:38%;background:${A};border-radius:2px"></div></div><div style="margin-top:5px">${hdrRow(A)}${_bars(3)}</div><div style="height:11px;width:46%;margin-left:54%;background:${A};border-radius:2px;margin-top:4px"></div>`, 7);
-  return _thumbFrame(_bars(5));
+  const row = (ws, c, h) => `<div style="display:flex;border-top:1px solid ${c}">${ws.map((w, i) => `<div style="height:${h || 6}px;width:${w}%;${i ? `border-left:1px solid ${c};` : ''}box-sizing:border-box"></div>`).join('')}</div>`;
+  if (key === 'grid') {
+    const g = '#808080';
+    return _thumbFrame(`<div style="height:4px;width:30%;margin:0 auto 3px;background:#000;border-radius:1px"></div><div style="border:1px solid ${g}"><div style="display:flex;height:16px"><div style="width:50%;padding:2px"><div style="height:4px;width:80%;background:#000"></div>${_bars(2)}</div><div style="width:50%;border-left:1px solid ${g}">${row([50, 50], g, 5)}${row([50, 50], g, 5)}</div></div>${row([4, 26, 10, 12, 10, 12, 12, 14], g, 6)}${row([4, 26, 10, 12, 10, 12, 12, 14], g, 6)}${row([50, 50], g, 10)}${row([16, 20, 14, 14, 14, 22], g, 6)}</div>`, 5);
+  }
+  const s = '#3F4155', b = '#F4F4F4';
+  const band = (w) => `<div style="height:5px;width:${w || 100}%;background:${b};border-top:1px solid ${s}"></div>`;
+  if (key === 'detailed') {
+    return _thumbFrame(`<div style="height:4px;width:34%;margin:0 auto 3px;background:${s};border-radius:1px"></div><div style="border:1px solid ${s}"><div style="display:flex;gap:3px;padding:2px"><div style="width:14px;height:12px;background:#e2e8f0;border-radius:2px"></div><div style="flex:1"><div style="height:5px;width:85%;background:${s}"></div>${_bars(1)}</div></div>${band()}${row([50, 50], s, 8)}${band()}<div style="height:4px;border-top:1px solid ${s}"></div></div><div style="border:1px solid ${s};margin-top:2px"><div style="height:5px;background:${b}"></div>${row([4, 26, 10, 12, 10, 12, 12, 14], s, 8)}${row([65, 35], s, 10)}</div>`, 5);
+  }
+  return _thumbFrame(`<div style="height:4px;width:34%;margin:0 auto 3px;background:${s};border-radius:1px"></div><div style="border:1px solid ${s}"><div style="height:6px;width:70%;margin:2px;background:${s}"></div>${band()}${row([50, 50], s, 6)}</div><div style="border:1px solid ${s};margin-top:2px"><div style="height:5px;background:${b}"></div>${row([4, 30, 12, 14, 14, 12, 14], s, 26)}${row([65, 35], s, 8)}</div>`, 5);
 }
 function _docThumb(key) {
   const A = getDocColor('measurement', 'header') || '#f97316';
@@ -251,14 +252,7 @@ function _docThumb(key) {
   return _thumbFrame(_bars(5));
 }
 
-const _INV_DESIGNS = [
-  ['standard', 'Standard', 'Original built-in layout'],
-  ['classic', 'Corporate Classic', 'Serif letterhead · navy & gold'],
-  ['modern', 'Modern Band', 'Brand band header · totals card'],
-  ['sidebar', 'Left Sidebar', 'Coloured side panel'],
-  ['minimal', 'Minimal Mono', 'Clean whitespace · hairlines'],
-  ['accent', 'Accent Brand', 'Brand bars · your colour'],
-];
+const _INV_DESIGNS = invoiceDesignKeys().map(k => [k, invoiceDesignName(k), invoiceDesignDesc(k)]);
 const _DOC_TEMPLATES = [
   ['flint', 'Modern Design', 'Default · logo letterhead & coloured totals'],
   ['standard', 'Standard', 'Clean measurement sheet'],
@@ -277,14 +271,13 @@ function _designCard(key, name, desc, sel, thumb, setFn, previewFn) {
   </div>`;
 }
 function _invoiceDesignCardsHTML() {
-  const cur = (state.printSettings?.invoiceTemplate) || 'standard';
+  const cur = resolveInvoiceDesign(state.printSettings?.invoiceTemplate);
   return `<div class="mb-6 bg-white border border-slate-200 rounded-xl p-5">
     <div class="flex items-center gap-2 mb-1"><span class="text-base">🧾</span><h4 class="font-bold text-sm text-slate-800">Tax Invoice — Design</h4></div>
     <p class="text-[11px] text-slate-400 mb-3">Pick a look for your Tax Invoice PDFs. All are GST-compliant (Rule 46: CGST/SGST or IGST break-up, HSN/SAC, place of supply, amount in words, signature, reverse-charge note). Tap <b>Preview PDF</b> to see it with your data.</p>
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
       ${_INV_DESIGNS.map(([k, n, d]) => _designCard(k, n, d, cur === k, _invoiceThumb(k), 'window._setInvoiceTemplate', 'window._previewInvoiceDesign')).join('')}
     </div>
-    <p class="text-[10px] text-slate-400 mt-2">“Accent Brand” uses your Invoice accent colour (set it under the <b>Colours & Header</b> tab).</p>
   </div>`;
 }
 function _docTemplateCardsHTML() {
@@ -404,9 +397,8 @@ function renderPrintConfigTab() {
 
   const measOrient = (state.printSettings?.measurementOrientation) || 'portrait';
   const measDec = (state.printSettings?.measurementDecimals ?? 2);
-  const invMinRows = (state.printSettings?.invoiceMinRows ?? 8);
+  const invMinRows = (state.printSettings?.invoiceMinRows ?? 0);
   const docTemplate = (state.printSettings?.docTemplate) || 'flint';
-  const invTemplate = (state.printSettings?.invoiceTemplate) || 'standard';
   const invPrefix = (state.printSettings?.invoicePrefix != null ? state.printSettings.invoicePrefix : 'SI-');
   const invNextNo = (state.printSettings?.invoiceNextNo || 1);
   const invPreview = (typeof window.nextInvoiceNumber === 'function') ? (function(){ try { return window.nextInvoiceNumber(); } catch { return invPrefix + invNextNo; } })() : (invPrefix + invNextNo);
@@ -447,10 +439,10 @@ function renderPrintConfigTab() {
       </div>
       <div class="flex items-center gap-3 flex-wrap">
         <input type="number" min="0" max="40" value="${invMinRows}" onchange="window._setInvoiceMinRows(this.value)" class="w-24 border rounded-lg px-3 py-2 text-sm font-bold">
-        <span class="text-[11px] text-slate-500 flex-1 min-w-[200px]">Blank rows are added so the invoice items table always has at least this many lines &mdash; keeps the page looking full and proper. Set 0 to disable.</span>
+        <span class="text-[11px] text-slate-500 flex-1 min-w-[200px]">Blank space is added so the invoice items table always has room for at least this many lines. 0 keeps the design's standard spacing. (GST Compact always runs the table to the foot of the page.)</span>
       </div>
       <label class="flex items-center gap-2 mt-3 cursor-pointer">
-        <input type="checkbox" ${state.printSettings?.invoiceShowReceived ? 'checked' : ''} onchange="window._setInvoiceShowReceived(this.checked)" class="w-4 h-4 accent-blue-600">
+        <input type="checkbox" ${state.printSettings?.invoiceShowReceived !== false ? 'checked' : ''} onchange="window._setInvoiceShowReceived(this.checked)" class="w-4 h-4 accent-blue-600">
         <span class="text-xs font-medium text-slate-700">Show &ldquo;Received&rdquo; &amp; &ldquo;Balance&rdquo; on the Tax Invoice</span>
       </label>
     </div>

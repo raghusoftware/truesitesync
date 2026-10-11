@@ -15,7 +15,7 @@ import { formatNumber2 } from './format.js?v=1.0.1';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
-import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.1.0';
+import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
 
 const _num2 = formatNumber2;
 

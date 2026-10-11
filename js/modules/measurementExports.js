@@ -14,7 +14,7 @@ const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSi
 import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
-import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.1.0';
+import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
 
 const _lookupBoqItem = lookupBoqItem;
 
