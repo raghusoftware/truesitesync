@@ -61,7 +61,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.8';
+} from './modules/ui.js?v=1.7.9';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.71';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.1';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
@@ -79,6 +79,7 @@ import './modules/onboarding.js?v=1.0.1';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/wps.js?v=1.0.0';
 import './modules/ipc.js?v=1.0.0';
+import './modules/guarantees.js?v=1.0.0';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -532,6 +533,8 @@ function _bootApp() {
   // configure currency + terminology + tax from that one choice. No-ops for any
   // workspace that already has data or a chosen currency.
   setTimeout(() => { try { window.maybeShowCountryOnboarding?.(); } catch (e) { console.warn('[boot] onboarding skipped:', e?.message || e); } }, 500);
+  // Warn owners about guarantees/bonds approaching expiry (once per guarantee).
+  setTimeout(() => { try { window.checkGuaranteeExpiry?.(); } catch (e) { console.warn('[boot] guarantee check skipped:', e?.message || e); } }, 1500);
 
   // Bind organization & super admin modules
   bindOrgWindowFunctions();
