@@ -31,19 +31,19 @@ export const COUNTRY_RULES = {
     name: 'United Arab Emirates', region: 'GCC', flag: '🇦🇪',
     currency: { symbol: 'AED ', code: 'AED', locale: 'en-AE', decimals: 2 },
     terms: { billingDoc: 'Payment Certificate', billingDocShort: 'IPC', tax: 'VAT', taxLong: 'VAT', taxId: 'TRN', wht: 'WHT', retention: 'Retention', measurement: 'Measurement', abstract: 'Valuation', boq: 'BOQ' },
-    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: true },
+    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: true, ipc: true },
   },
   SA: {
     name: 'Saudi Arabia', region: 'GCC', flag: '🇸🇦',
     currency: { symbol: 'SAR ', code: 'SAR', locale: 'en-SA', decimals: 2 },
     terms: { billingDoc: 'Payment Certificate', billingDocShort: 'IPC', tax: 'VAT', taxLong: 'VAT', taxId: 'VAT No. (TRN)', wht: 'WHT', retention: 'Retention', measurement: 'Measurement', abstract: 'Valuation', boq: 'BOQ' },
-    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: true },
+    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: true, ipc: true },
   },
   GB: {
     name: 'United Kingdom', region: 'UK', flag: '🇬🇧',
     currency: { symbol: '£', code: 'GBP', locale: 'en-GB', decimals: 2 },
     terms: { billingDoc: 'Interim Payment Certificate', billingDocShort: 'IPC', tax: 'VAT', taxLong: 'VAT', taxId: 'VAT No.', wht: 'CIS', retention: 'Retention', measurement: 'Measurement', abstract: 'Valuation', boq: 'BOQ' },
-    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: false },
+    features: { measurement: true, abstract: true, boq: true, raBill: true, gst: true, retention: true, sov: false, payApp: false, lienWaiver: false, eInvoice: false, ipc: true },
   },
   CA: {
     name: 'Canada', region: 'CA', flag: '🇨🇦',
