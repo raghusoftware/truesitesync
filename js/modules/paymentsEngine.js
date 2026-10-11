@@ -22,7 +22,22 @@
  * is unit-tested in tests/paymentsEngine.test.js.
  */
 
+import { normalizeDeductions, deductionTotal, settledAmount } from './deductions.js';
+
 const _num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+
+/**
+ * Deduction fields for the PARTY leg of a payment (TDS, retention, penalty…).
+ * `amount` stays the cash that moved; `deductions` clear the rest of the bill.
+ */
+function _dedFields(input) {
+  const deductions = normalizeDeductions(input.deductions, input.state);
+  if (!deductions.length) return {};
+  const out = { deductions, settledAmount: settledAmount({ amount: input.amount, deductions }) };
+  if (input.againstBillId) out.againstBillId = input.againstBillId;
+  if (input.againstBillRef) out.againstBillRef = input.againstBillRef;
+  return out;
+}
 
 /** A starter chart of expense heads → sub-heads (editable by the user). */
 export const DEFAULT_EXPENSE_HEADS = [
@@ -56,7 +71,9 @@ export function buildPaymentOut(input) {
   const ref = input.ref || '';
   const src = input.source === 'petty' ? 'petty' : 'account';
   const out = { vendorPayments: [], labourPayments: [], expenses: [], pettyCashTxns: [], accountTransfers: [] };
-  if (!(amount > 0)) return { paymentId, append: out };
+  const ded = _dedFields({ ...input, amount });
+  // A bill can be cleared entirely by deductions (cash 0), e.g. full penalty.
+  if (!(amount > 0) && !(deductionTotal(ded) > 0)) return { paymentId, append: out };
 
   const base = { paymentId, date, amount, projectId, ref };
 
@@ -70,8 +87,8 @@ export function buildPaymentOut(input) {
     return { paymentId, append: out };
   }
 
-  // The cash-out leg.
-  if (src === 'petty') {
+  // The cash-out leg (only when cash actually moved).
+  if (src === 'petty' && amount > 0) {
     out.pettyCashTxns.push({
       id: _id('pcx'), type: 'EXPENSE', custodianId: input.custodianId,
       payeeType: input.payeeType, payeeId: input.payeeId || '',
@@ -89,13 +106,13 @@ export function buildPaymentOut(input) {
   switch (input.payeeType) {
     case 'vendor':
     case 'equipment': // equipment rental is paid to a vendor
-      out.vendorPayments.push({ id: _id('vp'), vendorId: input.payeeId, ...acctFields, ...base });
+      out.vendorPayments.push({ id: _id('vp'), vendorId: input.payeeId, ...acctFields, ...base, ...ded });
       break;
     case 'labour':
-      out.labourPayments.push({ id: _id('lpay'), labourId: input.payeeId, ...acctFields, ...base });
+      out.labourPayments.push({ id: _id('lpay'), labourId: input.payeeId, ...acctFields, ...base, ...ded });
       break;
     case 'contractor':
-      out.expenses.push({ id: _id('exp'), category: 'Piece-Rate Gang Payout', gangId: input.payeeId, head: 'Labour', subHead: 'Contractor', ...acctFields, ...base });
+      out.expenses.push({ id: _id('exp'), category: 'Piece-Rate Gang Payout', gangId: input.payeeId, head: 'Labour', subHead: 'Contractor', ...acctFields, ...base, ...ded });
       break;
     case 'expense':
     case 'statutory':
@@ -106,6 +123,7 @@ export function buildPaymentOut(input) {
         out.expenses.push({
           id: _id('exp'), category: input.head || 'Miscellaneous', head: input.head || 'Miscellaneous',
           subHead: input.subHead || '', party: input.payeeName || '', ...acctFields, ...base,
+          ...(input.settlesDeduction ? { settlesDeduction: input.settlesDeduction, challanNo: input.challanNo || '' } : {}),
         });
       }
       break;
@@ -121,7 +139,8 @@ export function buildPaymentIn(input) {
   const paymentId = input.paymentId || _id('rcpt');
   const ref = input.ref || '';
   const out = { paymentsIn: [], otherIncome: [], pettyCashTxns: [] };
-  if (!(amount > 0)) return { paymentId, append: out };
+  const ded = input.payerType === 'client' || !input.payerType ? _dedFields({ ...input, amount }) : {};
+  if (!(amount > 0) && !(deductionTotal(ded) > 0)) return { paymentId, append: out };
   const base = { paymentId, date, amount, projectId, ref };
 
   if (input.payerType === 'custodianReturn') {
@@ -132,11 +151,12 @@ export function buildPaymentIn(input) {
     return { paymentId, append: out };
   }
   if (input.payerType === 'other' || input.payerType === 'loan' || input.payerType === 'owner') {
-    out.otherIncome.push({ id: _id('oi'), accountId: input.accountId, source: input.payerName || input.payerType, ...base });
+    out.otherIncome.push({ id: _id('oi'), accountId: input.accountId, source: input.payerName || input.payerType, ...base,
+      ...(input.settlesDeduction ? { settlesDeduction: input.settlesDeduction } : {}) });
     return { paymentId, append: out };
   }
   // client receipt
-  out.paymentsIn.push({ id: _id('in'), clientId: input.payerId || '', accountId: input.accountId, ...base });
+  out.paymentsIn.push({ id: _id('in'), clientId: input.payerId || '', accountId: input.accountId, ...base, ...ded });
   return { paymentId, append: out };
 }
 
@@ -183,7 +203,7 @@ export function custodianBalance(state, custId) {
 export function vendorOutstanding(state, vendorId) {
   let bills = 0, paid = 0;
   (state.vendorMaterials || []).forEach(b => { if (b.vendorId === vendorId) bills += _num(b.totalAmount ?? b.amount); });
-  (state.vendorPayments || []).forEach(p => { if (p.vendorId === vendorId) paid += _num(p.amount); });
+  (state.vendorPayments || []).forEach(p => { if (p.vendorId === vendorId) paid += settledAmount(p); });
   return Math.round((bills - paid) * 100) / 100;
 }
 
