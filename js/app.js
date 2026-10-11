@@ -5,7 +5,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.68';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.5';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.6';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -61,7 +61,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.8';
+} from './modules/ui.js?v=1.7.9';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.71';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.1';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
@@ -75,9 +75,11 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
 import './modules/mobileShell.js?v=1.6.84';
-import './modules/onboarding.js?v=1.0.0';
+import './modules/onboarding.js?v=1.0.1';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/wps.js?v=1.0.0';
+import './modules/ipc.js?v=1.0.0';
+import './modules/guarantees.js?v=1.0.0';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.54';
 import './modules/recycleBin.js?v=1.6.63';
@@ -130,7 +132,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.36';
+} from './modules/microPlanning.js?v=1.4.37';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
@@ -531,6 +533,8 @@ function _bootApp() {
   // configure currency + terminology + tax from that one choice. No-ops for any
   // workspace that already has data or a chosen currency.
   setTimeout(() => { try { window.maybeShowCountryOnboarding?.(); } catch (e) { console.warn('[boot] onboarding skipped:', e?.message || e); } }, 500);
+  // Warn owners about guarantees/bonds approaching expiry (once per guarantee).
+  setTimeout(() => { try { window.checkGuaranteeExpiry?.(); } catch (e) { console.warn('[boot] guarantee check skipped:', e?.message || e); } }, 1500);
 
   // Bind organization & super admin modules
   bindOrgWindowFunctions();
