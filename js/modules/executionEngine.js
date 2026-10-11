@@ -26,7 +26,7 @@ import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF } f
 import { uploadExecMedia, openExecMedia, removeExecMedia, getGps, gpsLabel, startVoice, stopVoice, isRecording } from './execMedia.js';
 
 /* ── constants ─────────────────────────────────────────── */
-const TRADES = ['Mason', 'Bar Bender', 'Steel Fixer', 'Shuttering Carpenter', 'Carpenter', 'Fitter', 'Welder', 'Gas Cutter', 'Grinder', 'Fabricator', 'Rigger', 'Scaffolder', 'Plasterer', 'Tiles Mason', 'Painter', 'Waterproofing Applicator', 'Plumber', 'Pipe Fitter', 'Electrician', 'Wireman', 'HVAC / Duct Fitter', 'Crane Operator', 'JCB / Excavator Operator', 'Operator', 'Driver', 'Signalman', 'Foreman', 'Mistri', 'Supervisor', 'Surveyor', 'Engineer', 'Skilled Helper', 'Unskilled Helper', 'Female Helper', 'Watchman'];
+export const TRADES = ['Mason', 'Bar Bender', 'Steel Fixer', 'Shuttering Carpenter', 'Carpenter', 'Fitter', 'Welder', 'Gas Cutter', 'Grinder', 'Fabricator', 'Rigger', 'Scaffolder', 'Plasterer', 'Tiles Mason', 'Painter', 'Waterproofing Applicator', 'Plumber', 'Pipe Fitter', 'Electrician', 'Wireman', 'HVAC / Duct Fitter', 'Crane Operator', 'JCB / Excavator Operator', 'Operator', 'Driver', 'Signalman', 'Foreman', 'Mistri', 'Supervisor', 'Surveyor', 'Engineer', 'Skilled Helper', 'Unskilled Helper', 'Female Helper', 'Watchman'];
 const CHANGE_REASONS = ['Rain / Weather', 'Client Change', 'Drawing Revision', 'Equipment Breakdown', 'Labour Shortage', 'Material Delay', 'Safety Issue', 'Access Restriction', 'Utility Conflict', 'Productivity Improvement', 'Emergency Work', 'Other'];
 const WEATHER = ['Clear', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Hot', 'Windy'];
 const INSPECTIONS = ['Not Required', 'Pending', 'Passed', 'Failed'];
@@ -111,8 +111,8 @@ function blankActivity() {
 
 /**
  * Seed DRAFT baseline activities from a Schedule Builder location.
- * Maps each schedule task → an execActivity (name, code, location, planned
- * start/duration/finish, dependencies). Skips tasks whose (code|location) already
+ * Maps each schedule task → an execActivity (name, code, location, qty, planned
+ * start/duration/finish, dependencies, materials / labour / equipment). Skips tasks whose (code|location) already
  * exists so re-running is idempotent. Returns { added, skipped }.
  */
 export function seedBaselineFromSchedule(loc) {
@@ -131,6 +131,11 @@ export function seedBaselineFromSchedule(loc) {
     a.name = t.name || 'Task'; a.code = code; a.boqRef = code; a.location = loc.name || '';
     a.schedule.plannedStart = t.startDate || '';
     a.schedule.duration = t.duration || '';
+    a.qty.plannedQty = t.qty || ''; a.qty.unit = t.unit || '';
+    // resources filled on the location planner (same row shape) — copied, not shared
+    ['material', 'labour', 'equipment'].forEach(k => {
+      a[k] = (t[k] || []).filter(r => (r.name || r.type || '').trim()).map(r => ({ ...r, id: uid(k[0]) }));
+    });
     if (t.startDate && num(t.duration)) {
       const d = new Date(t.startDate); d.setDate(d.getDate() + Math.max(0, num(t.duration)));
       a.schedule.plannedFinish = d.toISOString().slice(0, 10);
