@@ -8,6 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 
 /** Deterministic avatar gradient from a party name. */
@@ -87,8 +88,8 @@ export function renderSalesLedger() {
   let rowsHtml = '';
   filtered.forEach((inv, i) => {
     const c = state.clients.find(x => x.id === inv.clientId);
-    const received = state.paymentsIn.filter(p => p.invoiceId === inv.id).reduce((s, p) => s + parseFloat(p.amount), 0);
-    const clientReceived = received || state.paymentsIn.filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount), 0);
+    const received = state.paymentsIn.filter(p => p.invoiceId === inv.id).reduce((s, p) => s + settledAmount(p), 0);
+    const clientReceived = received || state.paymentsIn.filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
     const outstanding = Math.max(0, (inv.taxAmount || 0) - clientReceived);
     const isCancelled = inv.status === 'Cancelled';
     kpiTotal += isCancelled ? 0 : (inv.taxAmount || 0);

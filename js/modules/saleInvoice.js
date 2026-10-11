@@ -9,6 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 
@@ -941,7 +942,7 @@ export function renderSaleInvoices() {
   let kTotal = 0, kReceived = 0;
   invoices.forEach(inv => {
     const c = state.clients.find(x => x.id === inv.clientId);
-    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
     const outstanding = inv.total - Math.min(received, inv.total);
     kTotal += inv.total; kReceived += Math.min(received, inv.total);
     const statusBadge = inv.status === 'Cancelled' ? '<span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded font-bold">Cancelled</span>' : '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Active</span>';

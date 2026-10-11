@@ -16,6 +16,8 @@ import {
   buildPaymentOut, buildPaymentIn, DEFAULT_EXPENSE_HEADS,
   accountBalance, custodianBalance,
 } from './paymentsEngine.js';
+import { settledAmount, deductionTotal } from './deductions.js';
+import { deductionsBlockHTML, initDeductions, readDeductions, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const _pid = () => state.currentProjectId || null;
@@ -188,6 +190,32 @@ export function renderPaymentsHub() {
     </div>
   `;
   if (_ui.mode === 'out') { _syncPayeeUI(); _syncSourceUI(); }
+  _initDed();
+}
+
+/* ── deductions (TDS / penalty / retention…) on party payments ── */
+const DED_PAYEES = ['vendor', 'labour', 'contractor', 'equipment'];
+function _dedOn() { return _ui.mode === 'out' ? DED_PAYEES.includes(_ui.payeeType) : (_ui.payerType || 'client') === 'client'; }
+function _initDed() {
+  if (!_dedOn()) return;
+  const out = _ui.mode === 'out';
+  const partySel = document.getElementById(out ? 'pmtPayeeName' : 'pmtInName');
+  initDeductions('pmtd', {
+    cashInputId: out ? 'pmtAmt' : 'pmtInAmt', direction: out ? 'out' : 'in', getState: () => state,
+    bills: () => {
+      const id = partySel ? partySel.value : '';
+      if (!out) return clientBills(state, id);
+      return (_ui.payeeType === 'vendor' || _ui.payeeType === 'equipment') ? vendorBills(state, id) : [];
+    },
+  });
+  if (partySel) partySel.addEventListener('change', () => refreshBills('pmtd'));
+}
+/** Deductions for save, or null + toast on a validation error. */
+function _readDed() {
+  if (!_dedOn()) return { deductions: [] };
+  const d = readDeductions('pmtd');
+  if (d.errors.length) { showToast(d.errors[0], 'error'); return null; }
+  return d;
 }
 
 function _formOut() {
@@ -234,9 +262,10 @@ function _formOut() {
     </div>
 
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">${DED_PAYEES.includes(_ui.payeeType) ? 'Cash paid ₹' : 'Amount ₹'}</label><input id="pmtAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
+    ${DED_PAYEES.includes(_ui.payeeType) ? deductionsBlockHTML('pmtd', { direction: 'out', darkOk: true }) : ''}
     <div><label class="pmt-lbl">Reference / note</label>
       <textarea id="pmtRef" class="pmt-ta" placeholder="e.g. diesel for JCB, bill no…"></textarea></div>
     <button class="pmt-save out" onclick="window._pmtSaveOut()">↑ Save Payment Out</button>
@@ -260,9 +289,10 @@ function _formIn() {
     <div><label class="pmt-lbl">${showCust ? 'Return to account' : 'Deposit to account'}</label>
       <div class="pmt-selwrap"><select id="pmtInAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div></div>
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtInAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">${showClient ? 'Cash received ₹' : 'Amount ₹'}</label><input id="pmtInAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtInDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
+    ${showClient ? deductionsBlockHTML('pmtd', { direction: 'in', darkOk: true }) : ''}
     <div><label class="pmt-lbl">Reference / note</label>
       <textarea id="pmtInRef" class="pmt-ta" placeholder="e.g. RA-2 payment, advance…"></textarea></div>
     <button class="pmt-save in" onclick="window._pmtSaveIn()">↓ Save Payment In</button>
@@ -321,7 +351,9 @@ function _val(id) { const e = document.getElementById(id); return e ? e.value : 
 
 function _pmtSaveOut() {
   const amount = parseFloat(_val('pmtAmt')) || 0;
-  if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
+  const ded = _readDed(); if (!ded) return;
+  if (!(amount > 0) && !(ded.deductions.length)) return showToast('Enter a valid amount', 'error');
+  if (amount < 0) return showToast('Cash paid cannot be negative — check the deductions', 'error');
   const t = _ui.payeeType;
   const source = (t === 'pettyTopup') ? 'account' : _ui.source;
   if (source === 'account' && !accounts().length) return showToast('Add a bank/cash account first (Finance → Accounts)', 'error');
@@ -340,20 +372,23 @@ function _pmtSaveOut() {
     accountId: acc?.id, accountName: acc?.name,
     custodianId: cust?.id,
     head: _val('pmtHead'), subHead: _val('pmtSub'),
+    state, deductions: ded.deductions, againstBillId: ded.billId, againstBillRef: ded.billRef, deductionRemark: ded.remark,
   };
   if (t === 'pettyTopup') { input.payeeId = payeeId; input.accountId = acc?.id; input.accountName = acc?.name; }
 
   const { append } = buildPaymentOut(input);
   _appendAll(append);
   saveAllData();
-  showToast('Payment recorded', 'success');
+  showToast(ded.deductions.length ? 'Payment recorded — bill settled with deductions' : 'Payment recorded', 'success');
   renderPaymentsHub();
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
 
 function _pmtSaveIn() {
   const amount = parseFloat(_val('pmtInAmt')) || 0;
-  if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
+  const ded = _readDed(); if (!ded) return;
+  if (!(amount > 0) && !(ded.deductions.length)) return showToast('Enter a valid amount', 'error');
+  if (amount < 0) return showToast('Cash received cannot be negative — check the deductions', 'error');
   if (!accounts().length) return showToast('Add a bank/cash account first', 'error');
   const acc = accounts().find(a => a.id === _val('pmtInAcc'));
   const nameSel = document.getElementById('pmtInName');
@@ -363,11 +398,12 @@ function _pmtSaveIn() {
     payerName: nameSel && nameSel.selectedOptions[0] ? nameSel.selectedOptions[0].textContent : '',
     amount, date: _val('pmtInDate'), ref: _val('pmtInRef'), projectId: _pid(),
     accountId: acc?.id, accountName: acc?.name,
+    state, deductions: ded.deductions, againstBillId: ded.billId, againstBillRef: ded.billRef, deductionRemark: ded.remark,
   };
   const { append } = buildPaymentIn(input);
   _appendAll(append);
   saveAllData();
-  showToast('Receipt recorded', 'success');
+  showToast(ded.deductions.length ? 'Receipt recorded — bill settled with deductions' : 'Receipt recorded', 'success');
   renderPaymentsHub();
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
@@ -387,15 +423,15 @@ function _recent() {
   // Sortable timestamp — createdAt (ms), else the ms embedded in the id, else the
   // date. Ensures the newest transaction shows first even when many share a date.
   const ts = r => r.createdAt || parseInt((String(r.id || '').match(/(\d{9,})/) || [])[1] || '0', 10) || Date.parse(r.date || '') || 0;
-  (state.vendorPayments || []).forEach(v => rows.push({ icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
-  (state.labourPayments || []).forEach(l => rows.push({ icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
-  (state.expenses || []).forEach(e => rows.push({ icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
+  (state.vendorPayments || []).forEach(v => rows.push({ ded: deductionTotal(v), settled: settledAmount(v), icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
+  (state.labourPayments || []).forEach(l => rows.push({ ded: deductionTotal(l), settled: settledAmount(l), icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
+  (state.expenses || []).forEach(e => rows.push({ ded: deductionTotal(e), settled: settledAmount(e), icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
   (state.pettyCashTxns || []).forEach(t => {
     if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
     if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
     if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
   });
-  (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
+  (state.paymentsIn || []).forEach(p => rows.push({ ded: deductionTotal(p), settled: settledAmount(p), icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
   (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
   rows.sort((a, b) => (b.ts - a.ts) || (new Date(b.date || 0) - new Date(a.date || 0)));
   const top = rows.slice(0, 15);
@@ -403,7 +439,7 @@ function _recent() {
     ? top.map(r =>
       `<div class="pmt-rrow">
          <div class="pmt-tic ${r.dir}">${r.icon || (r.dir === 'out' ? '↑' : '↓')}</div>
-         <div class="pmt-rmeta"><div class="pmt-who">${esc(r.who)}</div><div class="pmt-sub">${esc([r.via, r.date].filter(Boolean).join(' · '))}</div></div>
+         <div class="pmt-rmeta"><div class="pmt-who">${esc(r.who)}</div><div class="pmt-sub">${esc([r.via, r.date].filter(Boolean).join(' · '))}</div>${r.ded > 0 ? `<div class="pmt-sub" style="color:#be123c">− ${money(r.ded)} deducted · settled ${money(r.settled)}</div>` : ''}</div>
          <div class="pmt-amt ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
        </div>`).join('')
     : '<div class="pmt-none">No payments yet.</div>';

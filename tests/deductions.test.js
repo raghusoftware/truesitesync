@@ -129,3 +129,13 @@ test('FY quarter, TDS due date, register names', () => {
   assert.equal(registerName('penalty', 'in', 'LD'), 'Penalty suffered (expense)');
   assert.equal(registerName('tax', 'out', 'TDS'), 'TDS Payable');
 });
+
+test('rates on a separate base (pre-GST work value) are independent of gross', () => {
+  // RA bill: work 1,00,000 + GST 18,000 = 1,18,000; TDS 2% on work value
+  const g = computeDeductions({ anchor: 'gross', gross: 118000, base: 100000, rows: [{ type: 'tds', rate: 2 }] });
+  assert.equal(g.rows[0].amount, 2000);
+  assert.equal(g.cash, 116000);
+  assert.equal(g.rows[0].fixed, undefined);
+  const c = computeDeductions({ anchor: 'cash', cash: 116000, base: 100000, rows: [{ type: 'tds', rate: 2 }] });
+  assert.equal(c.gross, 118000);
+});

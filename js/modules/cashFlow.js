@@ -5,6 +5,7 @@
  * Intelligence layer — reads live from every money module, no new storage.
  * ==========================================================================*/
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { getCurrencySymbol, showToast } from './utils.js';
 
 const N = (v) => parseFloat(v) || 0;
@@ -89,7 +90,7 @@ function clientScores() {
   const out = (state.clients || []).map(c => {
     const invs = invForClient(c.id);
     const billed = invs.reduce((s, i) => s + i.amount, 0);
-    const received = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + N(p.amount), 0);
+    const received = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
     // FIFO: apply receipts to the oldest invoices first → remaining are the real unpaid.
     let pool = received; const unpaid = [];
     invs.forEach(iv => { if (pool >= iv.amount) { pool -= iv.amount; } else { unpaid.push({ date: iv.date, amount: iv.amount - pool }); pool = 0; } });
@@ -212,7 +213,7 @@ function cashHealth() {
 function vendorScores() {
   const rows = (state.vendors || []).map(v => {
     const purchased = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).reduce((s, m) => s + (N(m.totalAmount) || N(m.amount)), 0);
-    const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + N(p.amount), 0);
+    const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
     const bills = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).length;
     return { id: v.id, name: v.name, purchased, paid, outstanding: Math.max(0, purchased - paid), bills };
   }).filter(v => v.purchased > 0).sort((a, b) => b.purchased - a.purchased);
@@ -384,7 +385,7 @@ function _apByVendor() {
   const byV = {};
   const key = o => o.vendorId || o.vendor || '__none';
   (state.vendorMaterials || []).forEach(m => { const v = key(m); (byV[v] = byV[v] || { purchased: 0, paid: 0, oldest: '', due: '' }); byV[v].purchased += (N(m.totalAmount) || N(m.amount)); if (m.date && (!byV[v].oldest || m.date < byV[v].oldest)) byV[v].oldest = m.date; if (m.dueDate && (!byV[v].due || m.dueDate < byV[v].due)) byV[v].due = m.dueDate; });
-  (state.vendorPayments || []).forEach(p => { const v = key(p); (byV[v] = byV[v] || { purchased: 0, paid: 0, oldest: '', due: '' }); byV[v].paid += N(p.amount); });
+  (state.vendorPayments || []).forEach(p => { const v = key(p); (byV[v] = byV[v] || { purchased: 0, paid: 0, oldest: '', due: '' }); byV[v].paid += settledAmount(p); });
   return Object.entries(byV).map(([vid, x]) => ({ name: (state.vendors || []).find(v => v.id === vid)?.name || (vid === '__none' ? 'Unassigned' : vid), ...x, outstanding: Math.max(0, x.purchased - x.paid) })).filter(r => r.outstanding > 0.5).sort((a, b) => b.outstanding - a.outstanding);
 }
 
@@ -993,7 +994,7 @@ function _renderCommitments() {
 function _clientAging(cid) {
   const invs = (state.saleInvoices || []).filter(i => i.clientId === cid && i.status !== 'Cancelled')
     .map(i => ({ date: i.date, bal: N(i.total) })).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  let recv = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+  let recv = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + settledAmount(p), 0);
   const b = { cur: 0, d30: 0, d60: 0, d90: 0, total: 0 };
   invs.forEach(inv => {
     let bal = inv.bal;
@@ -1202,7 +1203,7 @@ function _renderCockpit() {
   pnls.forEach(p => { const proj = projects.find(x => x.id === p.projectId); const cid = proj?.clientId; if (cid) clientBilled[cid] = (clientBilled[cid] || 0) + p.billed; });
   let receivables = 0;
   Object.entries(clientBilled).forEach(([cid, b]) => {
-    const paid = (state.paymentsIn || []).filter(x => x.clientId === cid).reduce((s, x) => s + N(x.amount), 0);
+    const paid = (state.paymentsIn || []).filter(x => x.clientId === cid).reduce((s, x) => s + settledAmount(x), 0);
     receivables += Math.max(0, b - paid);
   });
 
@@ -1224,7 +1225,7 @@ function _renderCockpit() {
   let matWeek = 0, matMonth = 0, matTotal = 0, matOverdue = 0;
   Object.entries(_billsByVendor).forEach(([vid, bills]) => {
     bills.sort((a, b) => new Date(a.date) - new Date(b.date));
-    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + N(p.amount), 0);
+    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + settledAmount(p), 0);
     const v = (state.vendors || []).find(x => x.id === vid);
     const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
     bills.forEach(b => {
@@ -1274,7 +1275,7 @@ function _renderCockpit() {
   let salesReceivable = 0, salesDue30 = 0;
   Object.entries(_byClient).forEach(([cid, list]) => {
     list.sort((a, b) => new Date(a.date) - new Date(b.date));   // oldest first
-    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + settledAmount(p), 0);
     list.forEach(v => { const ap = Math.min(pool, v.total); pool -= ap; const out = Math.max(0, v.total - ap); salesReceivable += out; if (out > 0 && (v.due || '') <= _in30) salesDue30 += out; });
   });
   const toReceive = salesReceivable + wip;
@@ -1290,7 +1291,7 @@ function _renderCockpit() {
   Object.entries(_billsByVendor).forEach(([vid, bills]) => {
     const v = (state.vendors || []).find(x => x.id === vid); const vname = v?.name || 'Vendor';
     const days = N(v?.paymentTermsDays) || N(state.cashFlowSettings?.creditDays) || 30;
-    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + N(p.amount), 0);
+    let pool = (state.vendorPayments || []).filter(p => p.vendorId === vid).reduce((s, p) => s + settledAmount(p), 0);
     [...bills].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(b => {
       const total = _billAmt(b); const ap = Math.min(pool, total); pool -= ap; const out = Math.max(0, total - ap);
       if (out <= 0) return;
@@ -1302,7 +1303,7 @@ function _renderCockpit() {
   // Sales collections — by invoice due date
   Object.entries(_byClient).forEach(([cid, list]) => {
     const cname = (state.clients || []).find(c => c.id === cid)?.name || 'Client';
-    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + N(p.amount), 0);
+    let pool = (state.paymentsIn || []).filter(p => p.clientId === cid).reduce((s, p) => s + settledAmount(p), 0);
     [...list].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(v => {
       const ap = Math.min(pool, v.total); pool -= ap; const out = Math.max(0, v.total - ap);
       if (out <= 0) return; const d = _clampDay(v.due || '');

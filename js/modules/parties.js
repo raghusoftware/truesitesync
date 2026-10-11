@@ -9,6 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol, pdfMoney, getCompanyHeaderForPDF, mobileSavePDF, populateDropdowns, getTerm, getTaxConfig } from './utils.js';
 
 export function renderPartiesList() {
@@ -21,12 +22,12 @@ export function renderPartiesList() {
     let billed = state.abstracts.filter(a => a.clientId === c.id && a.status !== 'invoiced').reduce((s, a) => s + (parseFloat(a.totalAmount) || 0), 0)
       + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + (parseFloat(i.taxAmount) || 0), 0)
       + (state.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-    let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    let paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
     allParties.push({ id: c.id, name: c.name, type: 'Client', balance: billed - paid });
   });
   state.vendors.forEach(v => {
     let purchased = state.vendorMaterials.filter(m => m.vendorId === v.id).reduce((s, m) => s + (m.totalAmount || parseFloat(m.amount) || 0), 0);
-    let paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+    let paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
     allParties.push({ id: v.id, name: v.name, type: 'Vendor', balance: purchased - paid });
   });
   state.labourMaster.forEach(l => {
@@ -34,7 +35,7 @@ export function renderPartiesList() {
     // contractor is the party, and only the settled amount shows in its ledger.
     if (l.contractorId) return;
     let totalSalary = state.labourSalaries.filter(s => s.labourId === l.id).reduce((sum, s) => sum + parseFloat(s.amount), 0);
-    let totalPaid = state.labourPayments.filter(p => p.labourId === l.id).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    let totalPaid = state.labourPayments.filter(p => p.labourId === l.id).reduce((sum, p) => sum + settledAmount(p), 0);
     allParties.push({ id: l.id, name: l.name + ' (Labour)', type: 'Labour', balance: totalSalary - totalPaid });
   });
   // Contractors / gang leaders. Dues = approved piece-rate work + wages of the
@@ -47,8 +48,8 @@ export function renderPartiesList() {
     }, 0);
     const wIds = new Set((state.labourMaster || []).filter(w => w.contractorId === g.id).map(w => w.id));
     const wages = (state.labourSalaries || []).filter(s => wIds.has(s.labourId)).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
-    const wagesPaid = (state.labourPayments || []).filter(p => wIds.has(p.labourId)).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
-    const paid = (state.expenses || []).filter(e => e.gangId === g.id && e.category === 'Piece-Rate Gang Payout').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+    const wagesPaid = (state.labourPayments || []).filter(p => wIds.has(p.labourId)).reduce((s, x) => s + settledAmount(x), 0);
+    const paid = (state.expenses || []).filter(e => e.gangId === g.id && e.category === 'Piece-Rate Gang Payout').reduce((s, e) => s + settledAmount(e), 0)
       + (state.labourAdvances || []).filter(a => a.labourId === g.id).reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
     const dues = earned + wages, settled = paid + wagesPaid;
     if (dues === 0 && settled === 0) return; // skip contractors with no financial activity
@@ -86,21 +87,21 @@ export function renderPartyTransactions() {
     // Sales module invoices (saleInvoices) — the main Sales module. These now
     // flow straight into the client ledger as debits (what the client owes).
     (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => txs.push({ date: i.date, number: i.invoiceNo || 'Invoice', type: 'Sale Invoice', total: parseFloat(i.total) || 0, isDebit: true, _src: 'saleInvoices', _id: i.id }));
-    state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: parseFloat(p.amount), isDebit: false, _src: 'paymentsIn', _id: p.id, _editable: true }));
+    state.paymentsIn.filter(p => p.clientId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Receipt', type: 'Receipt', total: settledAmount(p), isDebit: false, _src: 'paymentsIn', _id: p.id, _editable: true, _rec: p }));
   } else if (type === 'Vendor') {
     const v = state.vendors.find(x => x.id === id);
     document.getElementById('selectedPartyName').textContent = v.name;
     document.getElementById('selectedPartyType').textContent = 'VENDOR';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="window.switchView('vendorView')" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-full font-bold text-xs border border-blue-200 hover:bg-blue-100 shadow-sm">+ Add Purchase</button><button onclick="window.switchView('vendorView')" class="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold text-xs border border-red-200 hover:bg-red-100 shadow-sm">+ Add Payment</button>`;
     state.vendorMaterials.filter(m => m.vendorId === id).forEach(m => txs.push({ date: m.date, number: m.billNo || 'Purchase', type: 'Purchase', total: m.totalAmount || parseFloat(m.amount) || 0, isDebit: false, _src: 'vendorMaterials', _id: m.id }));
-    state.vendorPayments.filter(p => p.vendorId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Payment', type: 'Payment', total: parseFloat(p.amount), isDebit: true, _src: 'vendorPayments', _id: p.id, _editable: true }));
+    state.vendorPayments.filter(p => p.vendorId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Payment', type: 'Payment', total: settledAmount(p), isDebit: true, _src: 'vendorPayments', _id: p.id, _editable: true, _rec: p }));
   } else if (type === 'Labour') {
     const l = state.labourMaster.find(x => x.id === id);
     document.getElementById('selectedPartyName').textContent = l.name;
     document.getElementById('selectedPartyType').textContent = 'LABOUR';
     document.getElementById('partyActionButtons').innerHTML = `<button onclick="openLabourPaymentModal('${l.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm">+ Record Payment</button>`;
     state.labourSalaries.filter(s => s.labourId === id).forEach(s => txs.push({ date: s.date, number: 'Month: ' + s.month, type: 'Salary Generated', total: parseFloat(s.amount), isDebit: false, _src: 'labourSalaries', _id: s.id }));
-    state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: parseFloat(p.amount), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
+    state.labourPayments.filter(p => p.labourId === id).forEach(p => txs.push({ date: p.date, number: p.ref || 'Cash/Bank', type: 'Payment Made', total: settledAmount(p), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true, _rec: p }));
   } else if (type === 'Contractor') {
     const g = (state.labourContractors || []).find(x => x.id === id);
     if (!g) return;
@@ -113,7 +114,7 @@ export function renderPartyTransactions() {
       txs.push({ date: m.date, number: (rate?.workCategory || 'Work') + (m.paid ? ' ✓ paid' : ''), type: 'Piece-Rate Work', total: (rate?.rate || 0) * (m.quantity || 0), isDebit: false, _src: 'workMeasurements', _id: m.id });
     });
     // Payouts (debit)
-    (state.expenses || []).filter(e => e.gangId === id && e.category === 'Piece-Rate Gang Payout').forEach(e => txs.push({ date: e.date, number: 'Gang Payout', type: 'Payment Made', total: parseFloat(e.amount) || 0, isDebit: true, _src: 'expenses', _id: e.id }));
+    (state.expenses || []).filter(e => e.gangId === id && e.category === 'Piece-Rate Gang Payout').forEach(e => txs.push({ date: e.date, number: 'Gang Payout', type: 'Payment Made', total: settledAmount(e), isDebit: true, _src: 'expenses', _id: e.id, _rec: e }));
     // Advances already given (debit)
     (state.labourAdvances || []).filter(a => a.labourId === id).forEach(a => txs.push({ date: a.date, number: 'Advance', type: 'Payment Made', total: parseFloat(a.amount) || 0, isDebit: true, _src: 'labourAdvances', _id: a.id }));
     // Workers under this contractor: aggregate their wages as dues, and show each
@@ -123,7 +124,7 @@ export function renderPartyTransactions() {
     const sals = (state.labourSalaries || []).filter(s => wIds.has(s.labourId));
     const wageTot = sals.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
     if (wageTot > 0) txs.push({ date: sals.map(s => s.date).filter(Boolean).sort()[0] || g.createdAt || '', number: workers.length + ' worker(s)', type: 'Labour Wages (accrued)', total: wageTot, isDebit: false, _src: '', _id: '' });
-    (state.labourPayments || []).filter(p => wIds.has(p.labourId)).forEach(p => txs.push({ date: p.date, number: p.ref || 'Settlement', type: 'Payment Made', total: parseFloat(p.amount) || 0, isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true }));
+    (state.labourPayments || []).filter(p => wIds.has(p.labourId)).forEach(p => txs.push({ date: p.date, number: p.ref || 'Settlement', type: 'Payment Made', total: settledAmount(p), isDebit: true, _src: 'labourPayments', _id: p.id, _editable: true, _rec: p }));
   }
   txs.sort((a, b) => new Date(a.date) - new Date(b.date));
   const tbody = document.getElementById('partyTransactionsBody');
@@ -154,12 +155,28 @@ export function renderPartyTransactions() {
       editBtn = `<button onclick="_editPartyTx('${t._src}','${t._id}')" title="Edit" class="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-[11px] font-bold border border-blue-200">Edit</button>`;
     }
     const delBtn = (t._src && t._id) ? `<button onclick="_deletePartyTx('${t._src}','${t._id}')" title="Delete" class="text-red-400 hover:bg-red-50 px-1.5 py-1 rounded">🗑️</button>` : '';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${tot.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="px-4 py-3 text-slate-600 font-medium">${t.type} ${statusBadge}</td><td class="px-4 py-3 font-bold text-slate-800">${t.number}</td><td class="px-4 py-3 text-slate-500 whitespace-nowrap">${t.date}</td><td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${tot.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-4 py-3 text-right font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-600' : 'text-red-500') : 'text-slate-600'}">${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Adv)' : ''}</td><td class="px-4 py-3 text-center whitespace-nowrap">${recBtn}${editBtn}${delBtn}</td></tr>${_dedSubRows(t._rec, type === 'Client' ? 'in' : 'out')}`;
   });
   if (txs.length === 0) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No transactions found.</td></tr>`;
   const ft = document.getElementById('partyClosingBalance');
   ft.textContent = `${getCurrencySymbol()}${Math.abs(runningBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${runningBal < 0 ? '(Advance)' : ''}`;
   ft.className = `text-xl font-extrabold ${runningBal > 0 ? (type === 'Client' ? 'text-green-400' : 'text-red-400') : 'text-white'}`;
+}
+
+/** Indented "↳ Cash / ↳ TDS / ↳ Penalty…" lines under a payment that carried deductions. */
+function _dedSubRows(rec, dir) {
+  if (!rec || !(deductionTotal(rec) > 0)) return '';
+  const sym = getCurrencySymbol();
+  const f = (n) => sym + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const e = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const acc = (state.accounts || []).find(a => a.id === rec.accountId);
+  const line = (label, amt, cls) => `<tr class="border-b border-slate-50 bg-slate-50/40"><td class="pl-10 pr-4 py-1.5 text-[11px] ${cls}" colspan="3">↳ ${label}</td><td class="px-4 py-1.5 text-right text-[11px] font-semibold ${cls}">${f(amt)}</td><td colspan="2"></td></tr>`;
+  let h = line(`${dir === 'in' ? 'Cash received' : 'Cash paid'}${acc ? ' via ' + e(acc.name) : ''}`, rec.amount, 'text-slate-500');
+  rec.deductions.forEach(d => {
+    const tag = [d.section, d.rate ? '@' + d.rate + '%' : ''].filter(Boolean).join(' ');
+    h += line(`${e(d.label)}${tag ? ' (' + e(tag) + ')' : ''}${d.remark ? ' — ' + e(d.remark) : ''}`, d.amount, 'text-rose-600');
+  });
+  return h;
 }
 
 /** Edit an editable transaction. Routes each src to its native form prefilled,

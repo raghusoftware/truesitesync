@@ -9,6 +9,7 @@
  */
 
 import { state } from './state.js';
+import { settledAmount } from './deductions.js';
 import { formatINR } from './utils.js';
 import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
 
@@ -939,7 +940,7 @@ export class ReportEngine {
     const rows = clients.map(c => {
       const invoices = (state.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled');
       const totalInvoiced = invoices.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-      const totalReceived = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const totalReceived = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
       const outstanding = totalInvoiced - totalReceived;
       const lastInvoice = invoices.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
       const overdueDays = lastInvoice ? Math.max(0, Math.floor((Date.now() - new Date(lastInvoice.date).getTime()) / 86400000) - 30) : 0;
@@ -984,7 +985,7 @@ export class ReportEngine {
     const vendors = state.vendors || [];
     const rows = vendors.map(v => {
       const billed = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).reduce((s, m) => s + (parseFloat(m.totalAmount) || 0), 0);
-      const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
       return { vendorName: v.name, totalBilled: billed, totalPaid: paid, advancePaid: 0, retentionHeld: 0, outstanding: billed - paid, overdueDays: 0 };
     }).filter(r => r.totalBilled > 0);
     return { rows };
@@ -1075,7 +1076,7 @@ export class ReportEngine {
     const rows = projects.map(p => {
       const sales = (state.saleInvoices || []).filter(i => i.projectId === p.id && i.status !== 'Cancelled');
       const totalBilled = sales.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-      const totalReceived = (state.paymentsIn || []).filter(pay => pay.projectId === p.id || sales.some(inv => inv.clientId === pay.clientId)).reduce((s, pay) => s + (parseFloat(pay.amount) || 0), 0);
+      const totalReceived = (state.paymentsIn || []).filter(pay => pay.projectId === p.id || sales.some(inv => inv.clientId === pay.clientId)).reduce((s, pay) => s + settledAmount(pay), 0);
       const materialCost = (state.vendorMaterials || []).filter(v => v.siteId === p.id).reduce((s, v) => s + (parseFloat(v.totalAmount) || 0), 0);
       const labourCost = (state.labourSalaries || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.netPay) || 0), 0);
       const equipmentCost = (state.equipmentLogs || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.cost) || 0), 0);

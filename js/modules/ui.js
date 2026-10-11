@@ -1,4 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
@@ -5514,7 +5515,7 @@ function _labourNetPayable(labourId) {
   const earned = _labourEarnedFromAttendance(labourId);
   // Use the larger of posted salary vs earned-from-attendance so workers always show
   const salary = Math.max(postedSalary, earned);
-  const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + settledAmount(x), 0);
   const advances = (state.labourAdvances || []).filter(a => a.labourId === labourId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   const deductions = (state.labourDeductions || []).filter(d => d.labourId === labourId && !d.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   return { salary, paid, advances, deductions, net: salary - paid - advances - deductions };

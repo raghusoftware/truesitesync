@@ -36,6 +36,7 @@ function _dedFields(input) {
   const out = { deductions, settledAmount: settledAmount({ amount: input.amount, deductions }) };
   if (input.againstBillId) out.againstBillId = input.againstBillId;
   if (input.againstBillRef) out.againstBillRef = input.againstBillRef;
+  if (input.deductionRemark) out.deductionRemark = input.deductionRemark;
   return out;
 }
 

@@ -8,6 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
 import { buildClientLedger, renderMasterClientList } from './finance.js';
 
@@ -18,7 +19,7 @@ export function renderClientHub() {
   content.classList.remove('hide');
   const work = state.abstracts.filter(a => a.clientId === cId).reduce((s, a) => s + a.totalAmount, 0);
   const taxes = state.invoices.filter(i => i.clientId === cId && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
-  const paid = state.paymentsIn.filter(p => p.clientId === cId).reduce((s, p) => s + parseFloat(p.amount), 0);
+  const paid = state.paymentsIn.filter(p => p.clientId === cId).reduce((s, p) => s + settledAmount(p), 0);
   document.getElementById('hubWork').textContent = getCurrencySymbol() + work.toLocaleString('en-IN');
   document.getElementById('hubTax').textContent = getCurrencySymbol() + taxes.toLocaleString('en-IN');
   document.getElementById('hubPay').textContent = getCurrencySymbol() + paid.toLocaleString('en-IN');

@@ -100,7 +100,12 @@ export function settledAmount(rec) {
  *  anchor 'gross': gross is given → amounts → cash = gross − Σ.
  *  anchor 'cash' : cash is given → gross = (cash + Σfixed) / (1 − Σrate%).
  */
-export function computeDeductions({ anchor = 'gross', gross = 0, cash = 0, rows = [] } = {}) {
+export function computeDeductions({ anchor = 'gross', gross = 0, cash = 0, rows = [], base = 0 } = {}) {
+  // With a separate `base` (e.g. pre-GST work value of an RA bill) % rows are
+  // a fixed share of that base, independent of the gross.
+  if (_num(base) > 0) {
+    rows = rows.map(r => (_num(r.rate) > 0 && !r.fixed) ? { ...r, amount: _r2(_num(base) * _num(r.rate) / 100), fixed: true, _fromBase: true } : r);
+  }
   const isRate = (r) => _num(r.rate) > 0 && !r.fixed;
   let g;
   if (anchor === 'cash') {
@@ -110,7 +115,11 @@ export function computeDeductions({ anchor = 'gross', gross = 0, cash = 0, rows 
   } else {
     g = _num(gross);
   }
-  const outRows = rows.map(r => isRate(r) ? { ...r, amount: _r2(g * _num(r.rate) / 100) } : { ...r, amount: _r2(_num(r.amount)) });
+  const outRows = rows.map(r => {
+    const o = isRate(r) ? { ...r, amount: _r2(g * _num(r.rate) / 100) } : { ...r, amount: _r2(_num(r.amount)) };
+    if (o._fromBase) { delete o._fromBase; delete o.fixed; }
+    return o;
+  });
   const total = _r2(outRows.reduce((s, r) => s + r.amount, 0));
   g = _r2(g);
   const c = anchor === 'cash' ? _r2(_num(cash)) : _r2(g - total);
@@ -225,4 +234,11 @@ export function tdsDueDate(date) {
   if (m === 3) return `${y}-04-30`;
   const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
   return `${ny}-${String(nm).padStart(2, '0')}-07`;
+}
+
+/** Short ledger note: " — cash ₹95,000 + TDS ₹2,000 + LD / Delay penalty ₹3,000 (delay)". '' when none. */
+export function deductionNote(rec, fmt) {
+  if (!(deductionTotal(rec) > 0)) return '';
+  const f = typeof fmt === 'function' ? fmt : (n) => '₹' + (Math.round(_num(n) * 100) / 100).toLocaleString('en-IN');
+  return ' — cash ' + f(rec.amount) + rec.deductions.map(d => ` + ${d.label} ${f(d.amount)}${d.remark ? ' (' + d.remark + ')' : ''}`).join('');
 }

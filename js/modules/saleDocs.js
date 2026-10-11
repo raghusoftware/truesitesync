@@ -9,6 +9,8 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { deductionsBlockHTML, initDeductions, readDeductions, loadDeductions, refreshBills, clientBills } from './deductionsUI.js';
+import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm } from './formHelpers.js';
 
@@ -106,12 +108,25 @@ export function openPaymentInForm(editId) {
     setEl('pinFormRef', '');
     setEl('pinFormInvRef', '');
   }
+  // Deductions (TDS / penalty / retention…) — rebuilt each open so it starts clean.
+  const host = document.getElementById('pinDedHost');
+  if (host) {
+    host.innerHTML = deductionsBlockHTML('pind', { direction: 'in' });
+    initDeductions('pind', { cashInputId: 'pinFormAmount', direction: 'in', getState: () => state,
+      bills: () => clientBills(state, document.getElementById('pinFormClient')?.value) });
+    const cSel = document.getElementById('pinFormClient');
+    if (cSel && !cSel.dataset.dedBound) { cSel.dataset.dedBound = '1'; cSel.addEventListener('change', () => refreshBills('pind')); }
+    if (existing) loadDeductions('pind', existing);
+  }
   _openFullScreenForm('paymentInFormPanel');
 }
 export function savePaymentInForm() {
   const clientId = document.getElementById('pinFormClient').value;
-  const amount = parseFloat(document.getElementById('pinFormAmount').value);
-  if (!clientId || !amount) { showToast('Client and Amount required', 'error'); return; }
+  const amount = parseFloat(document.getElementById('pinFormAmount').value) || 0;
+  const ded = document.getElementById('pind') ? readDeductions('pind') : { deductions: [], errors: [] };
+  if (ded.errors.length) { showToast(ded.errors[0], 'error'); return; }
+  if (!clientId || (!(amount > 0) && !ded.deductions.length)) { showToast('Client and Amount required', 'error'); return; }
+  if (amount < 0) { showToast('Amount received cannot be negative — check the deductions', 'error'); return; }
   const panelEl = document.getElementById('paymentInFormPanel');
   const editId = panelEl?.dataset?.editId || '';
   const existing = editId ? (state.paymentsIn || []).find(p => p.id === editId) : null;
@@ -123,9 +138,16 @@ export function savePaymentInForm() {
     amount,
     mode: document.getElementById('pinFormMode')?.value || 'Cash',
     ref: document.getElementById('pinFormRef')?.value || '',
-    invoiceRef: document.getElementById('pinFormInvRef')?.value || '',
+    invoiceRef: document.getElementById('pinFormInvRef')?.value || ded.billRef || '',
     receiptNo: existing ? (existing.receiptNo || ('RCP-' + (Date.now() % 100000))) : ('RCP-' + (Date.now() % 100000))
   };
+  if (existing && existing.projectId !== undefined) rec.projectId = existing.projectId;
+  if (ded.deductions.length) {
+    rec.deductions = ded.deductions;
+    rec.settledAmount = settledAmount(rec);
+    rec.deductionRemark = ded.remark;
+    if (ded.billId) { rec.againstBillId = ded.billId; rec.againstBillRef = ded.billRef; }
+  }
   if (!state.paymentsIn) state.paymentsIn = [];
   if (existing) {
     const idx = state.paymentsIn.findIndex(p => p.id === existing.id);
@@ -162,7 +184,7 @@ export function renderPaymentInList() {
     const c = state.clients.find(x => x.id === p.clientId);
     kTotal += parseFloat(p.amount || 0);
     if (p.date?.startsWith(curMonth)) kMonth += parseFloat(p.amount || 0);
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-mono font-bold text-green-700">${p.receiptNo || p.ref || '-'}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-slate-500">${p.invoiceRef || '-'}</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">${p.mode || 'Cash'}</span></td><td class="px-4 py-3 text-right font-extrabold text-green-700">${getCurrencySymbol()}${parseFloat(p.amount).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center"><button onclick="deletePaymentIn('${p.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-mono font-bold text-green-700">${p.receiptNo || p.ref || '-'}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-slate-500">${p.invoiceRef || '-'}</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">${p.mode || 'Cash'}</span></td><td class="px-4 py-3 text-right font-extrabold text-green-700">${getCurrencySymbol()}${parseFloat(p.amount).toLocaleString('en-IN')}${deductionTotal(p) > 0 ? `<div class="text-[10px] font-bold text-rose-600" title="${(p.deductionRemark || '').replace(/"/g, '&quot;')}">+ ${getCurrencySymbol()}${deductionTotal(p).toLocaleString('en-IN')} deducted</div>` : ''}</td><td class="px-4 py-3 text-center"><button onclick="deletePaymentIn('${p.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
   });
   if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No payment receipts found.</td></tr>';
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
