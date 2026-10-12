@@ -62,34 +62,24 @@ export function renderReportsDashboard() {
   const totalPurchase = (state.vendorMaterials || []).reduce((s, v) => s + (parseFloat(v.totalAmount) || 0), 0);
 
   let html = `
-    <div class="rpt-breadcrumb"><span class="rpt-bc-active">📊 Reports Dashboard</span></div>
-
-    <div class="rpt-kpi-strip">
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${totalReports}</div>
-        <div class="rpt-kpi-lbl">Total Reports</div>
+   <div class="dm">
+    <div class="dm-bar">
+      <div class="dm-lead">
+        <h1>Reports</h1>
+        <div class="dm-sub">${totalReports} reports across ${totalCats} categories · GST, VAT, labour, finance &amp; site</div>
       </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${totalCats}</div>
-        <div class="rpt-kpi-lbl">Categories</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${projectCount}</div>
-        <div class="rpt-kpi-lbl">Projects</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${formatINR(totalSales)}</div>
-        <div class="rpt-kpi-lbl">Total Sales</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${formatINR(totalPurchase)}</div>
-        <div class="rpt-kpi-lbl">Total Purchase</div>
-      </div>
+      <label class="dm-search">🔍
+        <input type="text" id="reportSearchInput" placeholder="Search ${totalReports} reports…"
+               oninput="window._rptSearchReports(this.value)" style="width:200px;">
+      </label>
     </div>
 
-    <div class="rpt-search-bar">
-      <input type="text" id="reportSearchInput" placeholder="🔍 Search across ${totalReports} reports..."
-             class="rpt-search-input" oninput="window._rptSearchReports(this.value)">
+    <div class="dm-kpis" style="grid-template-columns:repeat(5,1fr);">
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total reports</div><div class="dm-val tnum">${totalReports}</div><div class="dm-meta">ready to run</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Categories</div><div class="dm-val tnum">${totalCats}</div><div class="dm-meta">report groups</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Projects</div><div class="dm-val tnum">${projectCount}</div><div class="dm-meta">in scope</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total sales</div><div class="dm-val tnum">${formatINR(totalSales)}</div><div class="dm-meta">${invoiceCount} invoice${invoiceCount === 1 ? '' : 's'}</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total purchase</div><div class="dm-val tnum">${formatINR(totalPurchase)}</div><div class="dm-meta">procured</div></div>
     </div>
 
     <div id="reportSearchResults" class="rpt-search-results hide"></div>
@@ -113,6 +103,8 @@ export function renderReportsDashboard() {
 
   // Recent reports section
   html += `<div id="recentReportsSection"></div>`;
+
+  html += `</div>`;
 
   container.innerHTML = html;
 
