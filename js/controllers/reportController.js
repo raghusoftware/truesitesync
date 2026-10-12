@@ -8,7 +8,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.91';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.92';
 import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
@@ -218,8 +218,8 @@ export function runReport(reportId, params = {}) {
 
   // Custom composite builders
   if (reportId === 'project_report') { _renderProjectReportPanel(); return; }
-  if (reportId === 'bank_statement') { _renderFinancePanel('bank'); return; }
-  if (reportId === 'parties_statement') { _renderFinancePanel('parties'); return; }
+  if (reportId === 'account_statement' || reportId === 'bank_statement') { window.renderLedgerReport?.('bank'); return; }
+  if (reportId === 'party_ledger' || reportId === 'parties_statement') { window.renderLedgerReport?.('party'); return; }
   if (reportId === 'cash_flow_forecast') { _renderFinancePanel('cashflow'); return; }
 
   // Execute query
