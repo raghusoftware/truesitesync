@@ -236,6 +236,50 @@ function renderFilooHome(){
     <div class="fh-list">${recent}</div>`;
 }
 
+// Portfolio command strip above the clients grid (desktop only — the mobile
+// app has its own filoo home). Risk-first KPI tiles using the dm design system.
+function renderHomeKpis(ctx) {
+  const el = document.getElementById('homeKpis');
+  if (!el) return;
+  const isMobile = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (isMobile || !ctx) { el.innerHTML = ''; el.style.display = 'none'; return; }
+
+  const clients = ctx.clients || [];
+  const projects = ctx.projects || [];
+  if (!projects.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+
+  const cur = getCurrencySymbol();
+  const active = projects.filter(p => p.status === 'Active' || p.status === 'Planning').length;
+
+  // Portfolio value: contractValue, falling back to summed BOQ amounts.
+  const portfolio = projects.reduce((s, p) => {
+    let v = Number(p.contractValue) || 0;
+    if (!v && Array.isArray(p.boqs)) v = p.boqs.reduce((a, g) => a + (g.items || []).reduce((b, it) => b + (parseFloat(it.amount) || 0), 0), 0);
+    return s + v;
+  }, 0);
+
+  // Billed to date across all non-cancelled invoices.
+  const billed = (state.invoices || [])
+    .filter(i => i.status !== 'Cancelled')
+    .reduce((s, i) => s + (Number(i.totalAmount) || Number(i.taxAmount) || 0), 0);
+  const billedPct = portfolio > 0 ? Math.min(100, Math.round(billed / portfolio * 100)) : 0;
+
+  const tiles = [
+    { label: 'Clients', val: String(clients.length), sub: clients.length === 1 ? 'account' : 'accounts' },
+    { label: 'Active projects', val: String(active), sub: `of ${projects.length} total`, cls: active ? '' : 'attn' },
+    { label: 'Portfolio value', val: cur + _fhShort(portfolio), sub: 'contract value' },
+    { label: 'Billed to date', val: cur + _fhShort(billed), sub: billedPct + '% of portfolio' },
+  ];
+
+  el.style.display = '';
+  el.innerHTML = `<div class="dm"><div class="dm-kpis" style="grid-template-columns:repeat(4,1fr);">${tiles.map(t =>
+    `<div class="dm-kpi${t.cls ? ' ' + t.cls : ''}"><span class="dm-rail"></span>
+       <div class="dm-cap">${_fhEsc(t.label)}</div>
+       <div class="dm-val tnum">${_fhEsc(t.val)}</div>
+       <div class="dm-meta">${_fhEsc(t.sub)}</div>
+     </div>`).join('')}</div></div>`;
+}
+
 export function renderProjectsHome() {
   const grid = document.getElementById('projectsGrid');
   const empty = document.getElementById('projectsEmpty');
@@ -264,8 +308,9 @@ export function renderProjectsHome() {
     if (actLabel) actLabel.textContent = 'New Client';
     // Members only see clients that own at least one project they can access.
     const visibleClients = isAdmin ? clients : clients.filter(c => projects.some(p => p.clientId === c.id));
-    if (!visibleClients.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+    if (!visibleClients.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); renderHomeKpis(null); return; }
     if (empty) empty.classList.add('hidden');
+    renderHomeKpis({ clients: visibleClients, projects });
     grid.innerHTML = visibleClients.map(c => {
       const projCount = projects.filter(p => p.clientId === c.id).length;
       const initial = (c.name || '?').charAt(0).toUpperCase();
@@ -296,6 +341,7 @@ export function renderProjectsHome() {
   }
 
   // ── MODE B: One client's projects ──────────────────────
+  renderHomeKpis(null);
   const client = clients.find(c => c.id === _homeClientId);
   if (backBtn) backBtn.classList.remove('hidden');
   if (titleEl) titleEl.textContent = client ? client.name : 'Projects';
