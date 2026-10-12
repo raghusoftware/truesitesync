@@ -5,7 +5,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.68';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.6';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.7';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -19,7 +19,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.93';
+} from './controllers/reportController.js?v=1.6.94';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -75,7 +75,7 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
 import './modules/mobileShell.js?v=1.6.84';
-import './modules/onboarding.js?v=1.0.1';
+import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.0';
@@ -116,7 +116,7 @@ import {
   _ensureRbacUser,
   renderUsersRolesPanel, openUserForm, saveUser, deleteUser, closeUserForm,
   togglePermission, toggleGroupPermissions
-} from './modules/rbac.js?v=1.6.84';
+} from './modules/rbac.js?v=1.6.85';
 import {
   THEMES, getThemeList, getActiveThemeId, setActiveTheme, renderWithTheme,
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords
@@ -125,7 +125,7 @@ import {
   renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js?v=1.6.85';
+} from './modules/settings.js?v=1.6.86';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,

@@ -27,6 +27,9 @@ let _currentParams = {};
 // Exclude that category from the Reports module so it shows operational reports only.
 const HIDDEN_CATEGORY_IDS = ['dashboard'];
 const VISIBLE_CATEGORIES = REPORT_CATEGORIES.filter(c => !HIDDEN_CATEGORY_IDS.includes(c.id));
+/** Reports of a category available in the active country (GSTR/TDS India-only,
+ *  VAT 201 GCC/UK/International — see COUNTRY_ONLY in countryRules.js). */
+const _reportsOf = c => c.reports.filter(r => typeof window.countryAllows !== 'function' || window.countryAllows(r.id));
 
 let _currentCategoryId = null;
 let _currentReportId = null;
@@ -49,7 +52,7 @@ export function renderReportsDashboard() {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
 
-  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + c.reports.length, 0);
+  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + _reportsOf(c).length, 0);
   const totalCats = VISIBLE_CATEGORIES.length;
 
   // Summary KPI bar
@@ -97,12 +100,12 @@ export function renderReportsDashboard() {
 
   VISIBLE_CATEGORIES.forEach(cat => {
     html += `
-      <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${cat.reports.length} reports)">
+      <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${_reportsOf(cat).length} reports)">
         <div class="rpt-app-icon-circle" style="background:linear-gradient(135deg, ${cat.color}22, ${cat.color}44); border-color: ${cat.color}55;">
           <span class="rpt-app-icon-emoji">${cat.icon}</span>
         </div>
         <div class="rpt-app-icon-name">${cat.name}</div>
-        <div class="rpt-app-icon-count">${cat.reports.length} reports</div>
+        <div class="rpt-app-icon-count">${_reportsOf(cat).length} reports</div>
       </div>`;
   });
 
@@ -164,7 +167,7 @@ export function openReportCategory(catId) {
       <div class="rpt-cat-header-icon" style="background:${cat.color}22; color:${cat.color};">${cat.icon}</div>
       <div>
         <h3 class="rpt-cat-header-title">${cat.name}</h3>
-        <p class="rpt-cat-header-count">${cat.reports.length} reports available</p>
+        <p class="rpt-cat-header-count">${_reportsOf(cat).length} reports available</p>
       </div>
     </div>
 
@@ -176,7 +179,7 @@ export function openReportCategory(catId) {
     <div class="rpt-report-list" id="catReportList">
   `;
 
-  cat.reports.forEach((r, i) => {
+  _reportsOf(cat).forEach((r, i) => {
     const typeIcon = { dashboard: '📊', table: '📋', kpi: '🎯', chart: '📈' }[r.type] || '📋';
     const typeBadge = { dashboard: 'bg-emerald-100 text-emerald-800', table: 'bg-blue-100 text-blue-800', kpi: 'bg-amber-100 text-amber-800', chart: 'bg-purple-100 text-purple-800' }[r.type] || 'bg-gray-100 text-gray-800';
     html += `
@@ -669,7 +672,7 @@ export function searchReports(query) {
   const q = query.toLowerCase();
   const matches = [];
   VISIBLE_CATEGORIES.forEach(cat => {
-    cat.reports.forEach(r => {
+    _reportsOf(cat).forEach(r => {
       if (r.name.toLowerCase().includes(q) || r.id.includes(q) || cat.name.toLowerCase().includes(q)) {
         matches.push({ ...r, catName: cat.name, catIcon: cat.icon, catId: cat.id });
       }

@@ -113,11 +113,35 @@ export function getRegion() { return getCountryRule().region; }
 /** Feature flag for the active country, e.g. feat('sov'), feat('measurement'). */
 export function feat(flag) { const f = getCountryRule().features || {}; return !!f[flag]; }
 
+/**
+ * Country-specific modules and reports — anything listed here is shown ONLY
+ * in the listed countries (sidebar, hubs, reports, and direct navigation).
+ * Everything not listed is part of the global core and shown everywhere.
+ * Note: Measurement / Abstracts stay global — US & Canada use them (renamed
+ * Quantities / Schedule of Values) to build the Pay Application.
+ */
+const FIDIC_MARKETS = ['AE', 'SA', 'GB', 'INTL'];
+export const COUNTRY_ONLY = {
+  // modules (view ids)
+  wpsView: ['AE'],                       // UAE Wage Protection System (.SIF salary file)
+  guaranteesView: FIDIC_MARKETS,         // bank guarantees & bonds register (GCC / FIDIC)
+  subcontractorsView: FIDIC_MARKETS,     // back-to-back subcontractor payment certificates
+  // reports (report ids)
+  gstr1: ['IN'], gstr3b: ['IN'], gst_summary: ['IN'], gst_hsn: ['IN'], gst_input_credit: ['IN'], tds_deduction: ['IN'],
+  vat_return: FIDIC_MARKETS,             // VAT 201 return summary
+};
+/** Is this module / report available in the active country? */
+export function countryAllows(id) {
+  const only = COUNTRY_ONLY[id];
+  return !only || only.includes(activeCountry());
+}
+
 if (typeof window !== 'undefined') {
   window.getTerm = getTerm;
   window.getRegion = getRegion;
   window.getCountryRule = getCountryRule;
   window.activeCountry = activeCountry;
   window.feat = feat;
+  window.countryAllows = countryAllows;
   window.getTaxConfig = getTaxConfig;
 }

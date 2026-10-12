@@ -639,6 +639,7 @@ function _renderForKeys(keys) {
     execActuals: ['renderExecEngine'],
     execAssignments: ['renderExecEngine'],
     scheduleLocations: ['renderScheduleBuilder'],
+    currencySettings: ['hideRestrictedSidebar'],
   };
   const seen = new Set();
   keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));

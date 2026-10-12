@@ -907,6 +907,8 @@ export function saveCurrencySettings() {
     showSymbolInHeaders: document.getElementById('cs_showSymbolInHeaders')?.checked ?? true
   };
   saveAllData();
+  // show / hide the country-specific modules for the new country
+  if (typeof window.hideRestrictedSidebar === 'function') window.hideRestrictedSidebar();
   showToast('Currency & country settings saved');
 }
 
