@@ -40,6 +40,7 @@ jobs:
 
       - name: Prepare web assets
         run: |
+          npx --yes tailwindcss@3.4.4 -c tools/tailwind.config.cjs -i tools/tailwind.input.css -o css/tailwind.css --minify
           mkdir -p www
           cp app.html www/index.html
           cp -r css www/
