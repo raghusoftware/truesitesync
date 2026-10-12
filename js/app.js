@@ -89,7 +89,7 @@ import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, r
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.5';
 import './modules/executionEngine.js?v=1.6.89';
-import './modules/scheduleBuilder.js?v=1.6.87';
+import './modules/scheduleBuilder.js?v=1.6.88';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.52';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';

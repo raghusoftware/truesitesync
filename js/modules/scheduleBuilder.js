@@ -15,7 +15,9 @@
  */
 import { state, saveAllData, saveLocalKey } from './state.js';
 import { showToast, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
-import { seedBaselineFromSchedule, TRADES } from './executionEngine.js';
+// Same versioned URL as js/app.js imports, so this shares that one fresh module
+// instance (an unversioned URL can be served stale from the browser cache).
+import { seedBaselineFromSchedule, TRADES } from './executionEngine.js?v=1.6.89';
 
 /* ── standard task library (used when a project has no BOQ, and always available) ── */
 const STD_TASKS = [
