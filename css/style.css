@@ -1058,8 +1058,10 @@ div[id$="FormPanel"]:not(.hidden) {
   text-align: center;
 }
 .rpt-app-icon:hover {
-  border-color: var(--blue-500);
-  background: var(--blue-50);
+  border-color: #ef8420;
+  background: #fff2ea;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(214,64,44,.12);
 }
 .rpt-app-icon-circle {
   width: 48px; height: 48px;
@@ -1080,8 +1082,8 @@ div[id$="FormPanel"]:not(.hidden) {
   color: var(--gray-600); font-size: 12px; font-weight: 500;
   cursor: pointer; transition: all 0.15s;
 }
-.rpt-recent-item:hover { background: var(--blue-50); border-color: var(--blue-100); color: var(--blue-700); }
-.rpt-recent-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue-500); }
+.rpt-recent-item:hover { background: #fff2ea; border-color: #f3c4a3; color: #b4420e; }
+.rpt-recent-dot { width: 5px; height: 5px; border-radius: 50%; background: #ef8420; }
 
 /* Category Header */
 .rpt-cat-header {
