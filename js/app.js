@@ -424,12 +424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) { console.warn('[auth] user-switch guard:', e); }
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
-        // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
-        // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
-        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
-        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
-        _bootApp();
-        if (window._hideSplash) window._hideSplash();
+        await _bootWithCloud(session.user.id);
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
       }
     });
@@ -450,10 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
-        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[boot] cloud load failed:', e); }
-        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
-        _bootApp();
-        if (window._hideSplash) window._hideSplash();
+        await _bootWithCloud(session.user.id);
         return;
       }
     } catch (e) {
@@ -473,6 +465,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 window._bootApp = _bootApp;
+window.installPdfMonochrome = installPdfMonochrome; // re-run once the background PDF library arrives
+
+/**
+ * Boot after sign-in. When this device already holds THIS user's data (same uid as
+ * last session, cache present) the app opens instantly from it and the cloud pull
+ * runs in the background — loadFromCloud refreshes the current view when newer
+ * data lands, and pushes stay queued until that first pull completes. A first
+ * login / different user / empty cache still waits for the cloud (capped at 6 s).
+ */
+async function _bootWithCloud(uid) {
+  const cached = _hasCachedDataFor(uid);
+  const pull = loadFromCloud()
+    .catch(e => console.warn('[boot] cloud load failed:', e))
+    .finally(() => { try { dedupNameLists(); } catch {} }); // collapse bloated units/itemCategories from cloud
+  if (!cached) {
+    // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
+    // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
+    await Promise.race([pull, new Promise(r => setTimeout(r, 6000))]);
+  } else {
+    try { dedupNameLists(); } catch {}
+  }
+  _bootApp();
+  if (window._hideSplash) window._hideSplash();
+}
+function _hasCachedDataFor(uid) {
+  try {
+    if (!uid || localStorage.getItem('tss_last_uid') !== uid) return false;
+    return ['projects', 'clients', 'sheets', 'saleInvoices', 'abstracts'].some(k => Array.isArray(state[k]) && state[k].length > 0);
+  } catch { return false; }
+}
 function _bootApp() {
   if (_appBooted) return; // prevent double-boot
   _appBooted = true;
