@@ -11,7 +11,7 @@
 import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
-import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.0';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.1';
 
 const _num2 = formatNumber2;
 

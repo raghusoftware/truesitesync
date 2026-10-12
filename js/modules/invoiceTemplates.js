@@ -364,7 +364,7 @@ function _band(doc, F, x, y, w, h, label, fs) {
 
 function _slate(ctx, compact) {
   const { doc, d, F, m } = ctx;
-  const fs = compact ? 7.6 : 8.4, lh = compact ? 3.95 : 4.5;
+  const fs = compact ? 7.9 : 9.1, lh = compact ? 3.95 : 4.5;   // text sizes measured against the client templates
   const s = d.supplier, r = d.recipient;
   _text(doc, F, 'Tax Invoice', 106.2, compact ? 17.0 : 17.9, compact ? 15.5 : 17, true, SLATE, { align: 'center' });
 
