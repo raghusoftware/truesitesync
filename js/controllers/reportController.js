@@ -1021,7 +1021,7 @@ function _renderProjectReportPanel() {
   const opts = projects.map(p => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${(p.name || 'Project').replace(/</g, '&lt;')}${p.code ? ' (' + p.code + ')' : ''}</option>`).join('');
   container.innerHTML = `
     <div style="max-width:640px;margin:0 auto;">
-      <button onclick="renderReportsDashboard()" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>
+      <button onclick="window._rptOpenCategory('project')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Project &amp; Profitability</button>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
         <h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">&#127970; Project Report (Master)</h2>
         <p style="font-size:13px;color:#64748b;margin-bottom:18px;">One consolidated report — project &amp; WO info, financial summary, schedule, execution (DPR / pours / milestones / quality / safety), labour, equipment, sales &amp; purchase transactions, issues and site photos.</p>
@@ -1039,7 +1039,7 @@ function _renderProjectReportPanel() {
 function _renderFinancePanel(kind) {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
-  const back = `<button onclick="renderReportsDashboard()" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>`;
+  const back = `<button onclick="window._rptOpenCategory('finance')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Finance &amp; Cash</button>`;
   const box = (title, desc, body) => `<div style="max-width:640px;margin:0 auto;">${back}<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);"><h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">${title}</h2><p style="font-size:13px;color:#64748b;margin-bottom:18px;">${desc}</p>${body}</div></div>`;
   const btns = (pdfFn, xlFn) => `<div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button onclick="${pdfFn}" style="flex:1;min-width:160px;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128424; Download PDF</button>
@@ -1079,7 +1079,7 @@ function _renderFinancePanel(kind) {
          </div>
          ${btns("window.exportPartiesStatementPDF(" + args + ")", "window.exportPartiesStatementExcel(" + args + ")")}`
       : '<p style="color:#94a3b8;">No parties yet.</p>';
-    container.innerHTML = box('&#129309; Parties Statement', 'Tally-style debit/credit ledger with opening balance and running balance for any client, vendor, labour or gang — filtered by date.', body);
+    container.innerHTML = box('&#129309; Parties Statement', 'Debit/credit ledger with opening balance and running balance for any client, vendor, labour or gang — filtered by date.', body);
   } else {
     container.innerHTML = box('&#128176; Cash Flow Forecast', 'Current cash &amp; bank position, expected inflows (receivables) and outflows (payables), with a 6-month projection.', btns('window.exportCashFlowForecastPDF()', 'window.exportCashFlowForecastExcel()'));
   }

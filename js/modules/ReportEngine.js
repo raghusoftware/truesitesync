@@ -33,8 +33,8 @@ export const REPORT_CATEGORIES = [
     reports: [
       _R('expense_register', 'Expense Register (All Expenses)'),
       _R('expense_analysis', 'Expense Analysis (by Head)'),
-      _R('account_statement', 'Account Statement — Bank & Cash (Tally Ledger)'),
-      _R('party_ledger', 'Party Ledger — Clients, Vendors, Labour (Tally)'),
+      _R('account_statement', 'Account Statement — Bank & Cash'),
+      _R('party_ledger', 'Party Ledger — Clients, Vendors, Labour'),
       _R('cash_book', 'Cash Book'),
       _R('cash_flow', 'Cash Flow Statement'),
       _R('retention_recovery', 'Retention Recovery Register'),

@@ -199,12 +199,12 @@ function _draw() {
   const ledgers = _ledgersOf(S.group);
   if (S.id && !ledgers.some(l => l.id === S.id)) S.id = '';
   const title = isBank ? 'Account Statement — Bank &amp; Cash' : 'Party Ledger';
-  const sub = isBank ? 'Tally-style bank / cash book: opening balance, every receipt, payment and contra entry, running balance and closing balance.'
-    : 'Tally-style ledger for every client (Sundry Debtors), vendor (Sundry Creditors), worker and contractor.';
+  const sub = isBank ? 'Bank / cash book: opening balance, every receipt, payment and contra entry, running balance and closing balance.'
+    : 'Ledger for every client (Sundry Debtors), vendor (Sundry Creditors), worker and contractor.';
   const ledOpts = `<option value="">— All ${GROUPS[S.group].short} (Summary) —</option>` + ledgers.map(l => `<option value="${l.id}" ${l.id === S.id ? 'selected' : ''}>${_esc(l.name)}</option>`).join('');
 
   let html = `<div style="${css.wrap}">
-    <button onclick="renderReportsDashboard()" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>
+    <button onclick="(window._rptOpenCategory||renderReportsDashboard)('finance')" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Finance &amp; Cash</button>
     <div style="margin-bottom:12px;"><h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0;">${title}</h2><p style="font-size:12.5px;color:#64748b;margin:2px 0 0;">${sub}</p></div>
     <div style="${css.card}">
       <div style="${css.bar}">

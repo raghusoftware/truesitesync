@@ -19,7 +19,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.96';
+} from './controllers/reportController.js?v=1.6.97';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -74,7 +74,7 @@ import { renderExecution } from './modules/execution.js?v=1.6.118';
 import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.39';
-import './modules/ledgerReports.js?v=1.0.0';
+import './modules/ledgerReports.js?v=1.0.1';
 import './modules/mobileShell.js?v=1.6.84';
 import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
