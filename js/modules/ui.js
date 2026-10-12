@@ -1,5 +1,6 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
 import { settledAmount, deductionTotal } from './deductions.js';
+import { computeAnalytics } from './analyticsCalc.js';
 import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
@@ -1150,44 +1151,15 @@ export function renderAnalyticsDashboard() {
   const cur = getCurrencySymbol();
   const fmt = (n) => cur + (n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const _site = _analyticsSite || '';
-  const _siteExp = (arr) => _site ? (arr || []).filter(e => e.siteId === _site) : (arr || []);
 
-  // ── Compute company-wide metrics ──
-  const projects = state.projects || [];
-  const activeProjects = projects.filter(p => (p.status || 'Active') === 'Active').length;
-
-  // Revenue: abstracts + sale invoices + invoices tax
-  let totalBilled = 0, totalReceived = 0;
-  (state.abstracts || []).forEach(a => totalBilled += (a.totalAmount || 0));
-  (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') totalBilled += (i.grandTotal || i.total || 0); });
-  (state.paymentsIn || []).forEach(p => totalReceived += (parseFloat(p.amount) || 0));
-  const outstanding = totalBilled - totalReceived;
-
-  // Expenses (respect the site filter)
-  let totalExpenses = 0, totalPurchases = 0, totalLabour = 0;
-  _siteExp(state.expenses).forEach(e => totalExpenses += (parseFloat(e.amount) || 0));
-  (state.vendorMaterials || []).forEach(m => totalPurchases += (m.totalAmount || parseFloat(m.amount) || 0));
-  (state.labourPayments || []).forEach(l => totalLabour += (parseFloat(l.amount) || 0));
-  const netProfit = totalReceived - totalExpenses - totalPurchases - totalLabour;
-
-  // Counts
-  const clientCount = (state.clients || []).length;
-  const vendorCount = (state.vendors || []).length;
-  const labourCount = (state.labourMaster || []).length;
-  const sheetCount = (state.sheets || []).length;
-  const equipCount = (state.equipmentList || []).length;
-  const poCount = (state.purchaseOrders || []).length;
-
-  // Bank balances
-  let totalCash = 0;
-  (state.accounts || []).forEach(acc => {
-    let bal = 0;
-    (state.paymentsIn || []).filter(p => p.accountId === acc.id).forEach(p => bal += (parseFloat(p.amount) || 0));
-    (state.expenses || []).filter(e => e.accountId === acc.id).forEach(e => bal -= (parseFloat(e.amount) || 0));
-    (state.vendorPayments || []).filter(v => v.accountId === acc.id).forEach(v => bal -= (parseFloat(v.amount) || 0));
-    (state.labourPayments || []).filter(l => l.accountId === acc.id).forEach(l => bal -= (parseFloat(l.amount) || 0));
-    totalCash += bal;
-  });
+  // Every figure below follows the project / site filter (analyticsCalc.js).
+  const A = computeAnalytics(state, _site);
+  const projects = _site ? (state.projects || []).filter(p => p.id === _site) : (state.projects || []);
+  const { billed: totalBilled, received: totalReceived, outstanding, purchases: totalPurchases, labour: totalLabour,
+    expenses: totalExpenses, netProfit, cash: totalCash } = A;
+  const activeProjects = A.counts.activeProjects;
+  const clientCount = A.counts.clients, vendorCount = A.counts.vendors, labourCount = A.counts.labour;
+  const sheetCount = A.counts.sheets, equipCount = A.counts.equipment, poCount = A.counts.purchaseOrders;
 
   const hero = (label, value, color, sub) => `
     <div style="background:linear-gradient(135deg,${color},${color}dd);border-radius:16px;padding:20px;color:#fff;box-shadow:0 4px 16px ${color}40;">
@@ -1202,10 +1174,7 @@ export function renderAnalyticsDashboard() {
       <p style="font-size:22px;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">${value}</p>
     </div>`;
 
-  // Site-wise expense breakdown (all sites, independent of the active filter).
-  const _siteMap = {};
-  (state.expenses || []).forEach(e => { const k = e.siteName || (e.siteId ? '(removed site)' : 'General / Unallocated'); _siteMap[k] = (_siteMap[k] || 0) + (parseFloat(e.amount) || 0); });
-  const _siteRows = Object.entries(_siteMap).sort((a, b) => b[1] - a[1]);
+  const _siteRows = A.expenseRows;
   const _locLabel = l => l.projectName ? l.name + ' — ' + l.projectName : l.name;
   const _locOpts = getAllLocations().map(l => `<option value="${l.id}" ${_site === l.id ? 'selected' : ''}>${_locLabel(l)}</option>`).join('');
   const _siteName = _site ? (() => { const l = getAllLocations().find(x => x.id === _site); return l ? _locLabel(l) : 'Selected site'; })() : '';
@@ -1213,18 +1182,19 @@ export function renderAnalyticsDashboard() {
   c.innerHTML = `
     <!-- Site filter -->
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;">
-      <span style="font-size:12px;font-weight:700;color:#64748b;">📍 Site filter</span>
-      <select onchange="window._setAnalyticsSite(this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;">
-        <option value="">All sites</option>${_locOpts}
+      <span style="font-size:12px;font-weight:700;color:#64748b;">📍 Project / site</span>
+      <select onchange="window._setAnalyticsSite(this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;max-width:100%;">
+        <option value="">All projects</option>${_locOpts}
       </select>
-      ${_site ? `<span style="font-size:11px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:4px 9px;">Expenses filtered to: ${_siteName}</span>` : '<span style="font-size:11px;color:#94a3b8;">Expense figures below reflect the chosen site.</span>'}
+      ${_site ? `<span style="font-size:11px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:4px 9px;">Showing only: ${_siteName}</span>` : '<span style="font-size:11px;color:#94a3b8;">Pick a project to see its own billing, purchases, labour, expenses and profit.</span>'}
     </div>
+    ${_site && A.unallocated.count ? `<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;margin:-6px 0 14px;">⚠️ ${A.unallocated.count} entr${A.unallocated.count === 1 ? 'y' : 'ies'} (${fmt(A.unallocated.amount)}) are not linked to any project and are left out. Tag them with a project / site to include them.</div>` : ''}
 
     <!-- Financial Hero Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
-      ${hero('Total Billed', fmt(totalBilled), '#2563eb', 'Revenue across all projects')}
-      ${hero('Received', fmt(totalReceived), '#d6402c', 'Payments collected')}
-      ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection')}
+      ${hero('Total Billed', fmt(totalBilled), '#2563eb', _site ? 'Billed on this project' : 'Revenue across all projects')}
+      ${hero('Received', fmt(totalReceived), '#d6402c', _site ? 'Collected on this project' : 'Payments collected')}
+      ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection (after TDS & deductions)')}
       ${hero('Net Profit', fmt(netProfit), netProfit >= 0 ? '#ef8420' : '#dc2626', 'Received − all costs')}
     </div>
 
@@ -1233,15 +1203,15 @@ export function renderAnalyticsDashboard() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
       ${stat('🛒', 'Purchases', fmt(totalPurchases), '#f59e0b')}
       ${stat('👷', 'Labour Paid', fmt(totalLabour), '#8b5cf6')}
-      ${stat('🧾', 'Expenses' + (_site ? ' · ' + _siteName : ''), fmt(totalExpenses), '#ef4444')}
-      ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#ef8420')}
+      ${stat('🧾', 'Expenses', fmt(totalExpenses), '#ef4444')}
+      ${stat('🏦', _site ? 'Project cash (in − out)' : 'Cash & Bank', fmt(totalCash), '#ef8420')}
     </div>
 
     <!-- Expenses by Site -->
-    ${_siteRows.length ? `<h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📍 Expenses by Site</h3>
+    ${_siteRows.length ? `<h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">${_site ? '🧾 Expenses by Head' : '📍 Expenses by Site'}</h3>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;"><div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f8fafc;">
-        <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Site / Project</th>
+        <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">${_site ? 'Head' : 'Site / Project'}</th>
         <th style="text-align:right;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Total Expense</th>
       </tr></thead><tbody>
       ${_siteRows.map(([nm, amt]) => `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:9px 14px;font-weight:600;color:#0f172a;">${nm}</td><td style="padding:9px 14px;text-align:right;font-weight:800;color:#ef4444;">${fmt(amt)}</td></tr>`).join('')}
@@ -1250,7 +1220,7 @@ export function renderAnalyticsDashboard() {
     <!-- Operational Stats -->
     <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📊 Operations</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px;">
-      ${stat('🏗️', 'Projects', activeProjects + ' / ' + projects.length, '#2563eb')}
+      ${stat('🏗️', 'Projects', _site ? (activeProjects ? 'Active' : (projects[0]?.status || '—')) : activeProjects + ' / ' + projects.length, '#2563eb')}
       ${stat('📐', 'Measurements', sheetCount, '#0ea5e9')}
       ${stat('🏢', 'Clients', clientCount, '#7c3aed')}
       ${stat('🏭', 'Vendors', vendorCount, '#f59e0b')}
@@ -1271,19 +1241,15 @@ export function renderAnalyticsDashboard() {
             <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Outstanding</th>
             <th style="text-align:center;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Status</th>
           </tr></thead><tbody>
-          ${projects.map(p => {
-            const clientIds = (state.clients || []).filter(cl => cl.projectId === p.id).map(cl => cl.id);
-            let pBilled = 0, pRecv = 0;
-            (state.abstracts || []).filter(a => a.projectId === p.id || clientIds.includes(a.clientId)).forEach(a => pBilled += (a.totalAmount || 0));
-            (state.paymentsIn || []).filter(pm => clientIds.includes(pm.clientId)).forEach(pm => pRecv += (parseFloat(pm.amount) || 0));
-            const pOut = pBilled - pRecv;
-            const stColor = (p.status || 'Active') === 'Active' ? '#d6402c' : '#94a3b8';
+          ${A.projectRows.map(p => {
+            const pBilled = p.billed, pRecv = p.received, pOut = p.outstanding;
+            const stColor = p.status === 'Active' ? '#d6402c' : '#94a3b8';
             return `<tr style="border-bottom:1px solid #f1f5f9;">
               <td style="padding:10px 14px;font-weight:600;color:#0f172a;">${p.name}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:#2563eb;">${fmt(pBilled)}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:#d6402c;">${fmt(pRecv)}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:${pOut > 0 ? '#ea580c' : '#94a3b8'};">${fmt(pOut)}</td>
-              <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status || 'Active'}</span></td>
+              <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status}</span></td>
             </tr>`;
           }).join('') || '<tr><td colspan="5" style="padding:30px;text-align:center;color:#94a3b8;">No projects yet</td></tr>'}
         </tbody></table>
