@@ -85,6 +85,9 @@ jobs:
           # Play requires targetSdk >= 36. Capacitor 6 defaults to 34.
           sed -i -E 's/(compileSdkVersion = )[0-9]+/\136/' android/variables.gradle
           sed -i -E 's/(targetSdkVersion = )[0-9]+/\136/' android/variables.gradle
+          # Play automatic protection requires minSdk >= 24 (Android 7.0); Capacitor 6 defaults to 22.
+          sed -i -E 's/(minSdkVersion = )[0-9]+/\124/' android/variables.gradle
+          grep -q 'minSdkVersion = 24' android/variables.gradle || { echo '::error::minSdkVersion was not set to 24'; exit 1; }
           # AGP 8.2 (Capacitor 6) warns on compileSdk 36 — suppress so the build passes.
           echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
           echo "----- android/variables.gradle -----"; cat android/variables.gradle
