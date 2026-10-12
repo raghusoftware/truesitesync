@@ -163,7 +163,7 @@ const SOURCES = [
 function _nm(list, id) { return ((list || []).find(x => x.id === id) || {}).name || ''; }
 
 /** Flat list of every deduction across all payments, newest first. */
-export function deductionRegister(state, { from = '', to = '', projectId = null, direction = '', type = '' } = {}) {
+export function deductionRegister(state, { from = '', to = '', projectId = null, direction = '', type = '', clientId = '' } = {}) {
   const rows = [];
   SOURCES.forEach(src => {
     (state[src.key] || []).forEach(p => {
@@ -172,6 +172,7 @@ export function deductionRegister(state, { from = '', to = '', projectId = null,
       if (to && (p.date || '') > to) return;
       if (projectId && p.projectId && p.projectId !== projectId) return;
       if (direction && direction !== src.dir) return;
+      if (clientId && p.clientId !== clientId) return;
       const [partyType, partyName] = src.party(state, p);
       p.deductions.forEach(d => {
         if (type && d.type !== type) return;
@@ -204,6 +205,8 @@ export function deductionBalances(state, opts = {}) {
     map[k].deducted += r.amount;
   });
   const settle = (dir, p) => {
+    if (opts.clientId && p.clientId !== opts.clientId) return;
+    if ((opts.from && (p.date || '') < opts.from) || (opts.to && (p.date || '') > opts.to)) return;
     const k = dir + ':' + p.settlesDeduction;
     if (!map[k]) {
       const t = findType(state, p.settlesDeduction);
@@ -241,4 +244,24 @@ export function deductionNote(rec, fmt) {
   if (!(deductionTotal(rec) > 0)) return '';
   const f = typeof fmt === 'function' ? fmt : (n) => '₹' + (Math.round(_num(n) * 100) / 100).toLocaleString('en-IN');
   return ' — cash ' + f(rec.amount) + rec.deductions.map(d => ` + ${d.label} ${f(d.amount)}${d.remark ? ' (' + d.remark + ')' : ''}`).join('');
+}
+
+/**
+ * Mark the oldest not-yet-deposited deductions of `type` (payments OUT) as
+ * deposited under `challanNo`, up to `amount`. Mutates the payment records.
+ * Returns how much was matched.
+ */
+export function markDeposited(state, type, amount, challanNo = '', date = '') {
+  const cands = [];
+  ['vendorPayments', 'labourPayments', 'expenses'].forEach(k => (state[k] || []).forEach(p => {
+    (p.deductions || []).forEach(d => { if (d.type === type && !d.deposited) cands.push({ p, d }); });
+  }));
+  cands.sort((a, b) => String(a.p.date || '').localeCompare(String(b.p.date || '')));
+  let left = _num(amount), matched = 0;
+  for (const { d } of cands) {
+    if (_num(d.amount) > left + 0.005) break;
+    d.deposited = true; if (challanNo) d.challanNo = challanNo; if (date) d.depositDate = date;
+    left -= _num(d.amount); matched += _num(d.amount);
+  }
+  return _r2(matched);
 }

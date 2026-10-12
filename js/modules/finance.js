@@ -1,5 +1,6 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
-import { settledAmount, deductionNote } from './deductions.js';
+import { settledAmount, deductionNote, deductionTotal } from './deductions.js';
+import { mountDeductions, applyDeductionsTo, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, getTerm } from './utils.js';
 import { computeGst } from './gstCalc.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
@@ -140,17 +141,39 @@ export function savePaymentIn() {
   const clientId = document.getElementById('accInClient').value;
   const amount = document.getElementById('accInAmount').value;
   const accountId = document.getElementById('accInAccount').value;
-  if (!clientId || !amount || !accountId) return showToast('Client, Account and Amount required', 'error');
-  state.paymentsIn.push(window.stampCreate({
+  const rec = {
     id: 'in_' + Date.now(), clientId, accountId,
     date: document.getElementById('accInDate').value,
-    amount, ref: document.getElementById('accInRef').value
-  }));
+    amount: parseFloat(amount) || 0, ref: document.getElementById('accInRef').value
+  };
+  const dr = applyDeductionsTo(rec, 'accinded');
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (!clientId || !accountId || rec.amount < 0 || (!(rec.amount > 0) && !(deductionTotal(rec) > 0))) return showToast('Client, Account and Amount required', 'error');
+  state.paymentsIn.push(window.stampCreate(rec));
   saveAllData();
+  ensureQuickDeductions();
   showToast('Payment Saved');
   document.getElementById('accInAmount').value = '';
   updateDashboard();
   renderMasterClientList();
+}
+
+/** (Re)mount the deductions section on the quick Payment-In and vendor-payment forms. */
+export function ensureQuickDeductions() {
+  const inAmt = document.getElementById('accInAmount');
+  if (inAmt) {
+    mountDeductions('accinded', inAmt, { cashInputId: 'accInAmount', direction: 'in', getState: () => state,
+      bills: () => clientBills(state, document.getElementById('accInClient')?.value) });
+    const c = document.getElementById('accInClient');
+    if (c && !c.dataset.dedBound) { c.dataset.dedBound = '1'; c.addEventListener('change', () => refreshBills('accinded')); }
+  }
+  const vAmt = document.getElementById('venPayAmount');
+  if (vAmt) {
+    mountDeductions('venpded', vAmt, { cashInputId: 'venPayAmount', direction: 'out', getState: () => state,
+      bills: () => vendorBills(state, document.getElementById('venPayVendor')?.value) });
+    const v = document.getElementById('venPayVendor');
+    if (v && !v.dataset.dedBound) { v.dataset.dedBound = '1'; v.addEventListener('change', () => refreshBills('venpded')); }
+  }
 }
 
 export function saveExpense() {
@@ -176,13 +199,17 @@ export function saveVendorPayment() {
   const vId = document.getElementById('venPayVendor').value;
   const amt = document.getElementById('venPayAmount').value;
   const accountId = document.getElementById('venPayAccount').value;
-  if (!vId || !amt || !accountId) return showToast('Required fields missing', 'error');
-  state.vendorPayments.push(window.stampCreate({
+  const rec = {
     id: 'vp_' + Date.now(), vendorId: vId, accountId,
     date: document.getElementById('venPayDate').value,
-    amount: amt, ref: document.getElementById('venPayRef').value
-  }));
+    amount: parseFloat(amt) || 0, ref: document.getElementById('venPayRef').value
+  };
+  const dr = applyDeductionsTo(rec, 'venpded');
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (!vId || !accountId || rec.amount < 0 || (!(rec.amount > 0) && !(deductionTotal(rec) > 0))) return showToast('Required fields missing', 'error');
+  state.vendorPayments.push(window.stampCreate(rec));
   saveAllData();
+  ensureQuickDeductions();
   showToast('Payment Saved');
   renderVendorLedger();
   document.getElementById('venPayAmount').value = '';
@@ -749,3 +776,5 @@ export function exportClientStatementPDF() {
 function updateDashboard() {
   if (!document.getElementById('dashboard').classList.contains('hide')) window.renderGlobalDashboard();
 }
+
+if (typeof window !== 'undefined') window.ensureQuickDeductions = ensureQuickDeductions;

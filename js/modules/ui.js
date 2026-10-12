@@ -1,5 +1,6 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
-import { settledAmount } from './deductions.js';
+import { settledAmount, deductionTotal } from './deductions.js';
+import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
@@ -1348,6 +1349,8 @@ export function switchView(viewId) {
     const allowed = window.enforceAccess(viewId);
     if (allowed === false) return;
   }
+  // Deductions section on the quick Payment-In / vendor-payment forms
+  if (viewId === 'accountingView' || viewId === 'vendorView') { try { window.ensureQuickDeductions?.(); } catch {} }
   // Close mobile sidebar on navigation
   const sidebar = document.getElementById('appSidebar');
   const overlay = document.getElementById('mobileOverlay');
@@ -5459,6 +5462,8 @@ export function openLabourPaymentModal(labourId, editId) {
   accSelect.innerHTML = '<option value="">-- Select Payment Account --</option>';
   state.accounts.forEach(a => accSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
   if (existing) accSelect.value = existing.accountId || '';
+  const lpAmt = document.getElementById('lpAmount');
+  mountDeductions('lpded', lpAmt, { cashInputId: 'lpAmount', direction: 'out', getState: () => state, withBill: false }, existing);
   modal.classList.remove('hidden');
 }
 
@@ -5468,11 +5473,14 @@ export function saveLabourPayment() {
   const accountId = document.getElementById('lpAccount').value;
   const amount = parseFloat(document.getElementById('lpAmount').value) || 0;
   const ref = document.getElementById('lpRef').value;
-  if (amount <= 0 || !accountId) return showToast('Account and Valid Amount are required', 'error');
   const modal = document.getElementById('labourPaymentModal');
   const editId = modal?.dataset?.editId || '';
   const existing = editId ? (state.labourPayments || []).find(p => p.id === editId) : null;
   const rec = { id: existing ? existing.id : ('lpay_' + Date.now()), labourId, date, accountId, amount, ref };
+  if (existing) ['projectId', 'source', 'custodianId', 'contractorId'].forEach(k => { if (existing[k] !== undefined) rec[k] = existing[k]; });
+  const dr = applyDeductionsTo(rec, 'lpded', existing);
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (amount < 0 || (!(amount > 0) && !(deductionTotal(rec) > 0)) || !accountId) return showToast('Account and Valid Amount are required', 'error');
   if (existing) {
     rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
     window.stampUpdate(rec);

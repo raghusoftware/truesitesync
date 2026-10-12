@@ -313,3 +313,42 @@ export function vendorBills(state, vendorId) {
     return { id: b.id, ref: b.billNo || 'Bill', label: `${b.billNo || 'Bill'} · ${b.date || ''} · ${money(gross)}`, gross, base: _num(b.subtotal), deductions: [] };
   });
 }
+
+/**
+ * Mount (or re-mount) the deductions section right after `afterEl` — for forms
+ * whose markup lives in app.html. Returns the prefix, or '' when not mounted.
+ *   mountDeductions('poded', document.getElementById('poFormAmount').closest('div'), { cashInputId: 'poFormAmount', … })
+ */
+export function mountDeductions(prefix, afterEl, opts = {}, existing = null) {
+  if (!afterEl || !afterEl.parentNode) return '';
+  document.getElementById(prefix + '_host')?.remove();
+  const host = document.createElement('div');
+  host.id = prefix + '_host';
+  host.style.margin = '6px 0 14px';
+  if (opts.gridSpan) host.style.gridColumn = '1 / -1';
+  host.innerHTML = deductionsBlockHTML(prefix, { direction: opts.direction || 'out', withBill: opts.withBill !== false });
+  afterEl.parentNode.insertBefore(host, afterEl.nextSibling);
+  initDeductions(prefix, opts);
+  if (existing) loadDeductions(prefix, existing);
+  return prefix;
+}
+
+/** Apply widget deductions to a record being saved (and keep old ones if the widget isn't there). */
+export function applyDeductionsTo(rec, prefix, existing = null) {
+  if (!document.getElementById(prefix)) {
+    if (existing && Array.isArray(existing.deductions)) {
+      ['deductions', 'settledAmount', 'deductionRemark', 'againstBillId', 'againstBillRef'].forEach(k => { if (existing[k] !== undefined) rec[k] = existing[k]; });
+      rec.settledAmount = Math.round((parseFloat(rec.amount) || 0) * 100 + existing.deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0) * 100, 0)) / 100;
+    }
+    return { ok: true };
+  }
+  const d = readDeductions(prefix);
+  if (d.errors.length) return { ok: false, error: d.errors[0] };
+  if (d.deductions.length) {
+    rec.deductions = d.deductions;
+    rec.settledAmount = Math.round(((parseFloat(rec.amount) || 0) + d.deductions.reduce((s, x) => s + x.amount, 0)) * 100) / 100;
+    rec.deductionRemark = d.remark;
+    if (d.billId) { rec.againstBillId = d.billId; rec.againstBillRef = d.billRef; }
+  }
+  return { ok: true, count: d.deductions.length };
+}

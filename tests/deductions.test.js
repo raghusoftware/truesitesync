@@ -139,3 +139,31 @@ test('rates on a separate base (pre-GST work value) are independent of gross', (
   const c = computeDeductions({ anchor: 'cash', cash: 116000, base: 100000, rows: [{ type: 'tds', rate: 2 }] });
   assert.equal(c.gross, 118000);
 });
+
+import { markDeposited } from '../js/modules/deductions.js';
+
+test('tax deposit + held release records settle their registers', () => {
+  const s = { clients: [{ id: 'c1', name: 'ABC' }], vendors: [{ id: 'v1', name: 'V' }],
+    paymentsIn: [], otherIncome: [], expenses: [], vendorPayments: [], accountTransfers: [{ toAccountId: ACC, amount: 100000 }] };
+  apply(s, buildPaymentIn({ payerType: 'client', payerId: 'c1', accountId: ACC, amount: 93000,
+    deductions: [{ type: 'tds', amount: 2000 }, { type: 'retention', amount: 5000 }] }).append);
+  apply(s, buildPaymentOut({ payeeType: 'vendor', payeeId: 'v1', source: 'account', accountId: ACC, amount: 9900, date: '2026-10-01', deductions: [{ type: 'tds', amount: 100 }] }).append);
+  apply(s, buildPaymentOut({ payeeType: 'vendor', payeeId: 'v1', source: 'account', accountId: ACC, amount: 19800, date: '2026-10-02', deductions: [{ type: 'tds', amount: 200 }] }).append);
+  // release retention
+  apply(s, buildPaymentIn({ payerType: 'heldRelease', payerId: 'c1', payerName: 'ABC', settlesDeduction: 'retention', accountId: ACC, amount: 5000 }).append);
+  assert.equal(s.paymentsIn.length, 1); // client ledger untouched by the release
+  // deposit the first 100 of TDS
+  apply(s, buildPaymentOut({ payeeType: 'taxDeposit', settlesDeduction: 'tds', subHead: 'TDS', challanNo: 'CIN123', accountId: ACC, amount: 100, source: 'petty' }).append);
+  assert.equal(s.expenses[0].source, 'account');
+  assert.equal(markDeposited(s, 'tds', 100, 'CIN123', '2026-11-07'), 100);
+  assert.equal(s.vendorPayments[0].deductions[0].deposited, true);
+  assert.equal(s.vendorPayments[1].deductions[0].deposited, undefined);
+  const bal = deductionBalances(s);
+  const get = (d, t) => bal.find(b => b.direction === d && b.type === t);
+  assert.equal(get('in', 'retention').balance, 0);
+  assert.equal(get('in', 'tds').balance, 2000);
+  assert.equal(get('out', 'tds').balance, 200);
+  // bank: +100000 +93000 +5000 −9900 −19800 −100
+  assert.equal(accountBalance(s, ACC), 168200);
+  assert.equal(deductionBalances(s, { clientId: 'c1' }).find(b => b.type === 'retention' && b.direction === 'in').balance, 0);
+});

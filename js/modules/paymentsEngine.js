@@ -54,9 +54,9 @@ export const DEFAULT_EXPENSE_HEADS = [
 ];
 
 /** Payee kinds a payment can go to (Payment Out). */
-export const PAYEE_TYPES = ['vendor', 'labour', 'contractor', 'expense', 'equipment', 'owner', 'statutory', 'pettyTopup'];
+export const PAYEE_TYPES = ['vendor', 'labour', 'contractor', 'expense', 'equipment', 'owner', 'statutory', 'pettyTopup', 'taxDeposit'];
 /** Payer kinds money can come in from (Payment In). */
-export const PAYER_TYPES = ['client', 'other', 'owner', 'loan', 'custodianReturn'];
+export const PAYER_TYPES = ['client', 'other', 'owner', 'loan', 'custodianReturn', 'heldRelease'];
 
 const _id = (p) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -84,6 +84,17 @@ export function buildPaymentOut(input) {
       id: _id('pct'), type: 'TRANSFER', custodianId: input.payeeId,
       fromAccountId: input.accountId, fromAccountName: input.accountName || '',
       status: 'accepted', note: ref, ...base,
+    });
+    return { paymentId, append: out };
+  }
+
+  // Depositing deducted TDS / GST-TDS / cess with the government clears that
+  // payable register (always paid from a bank/cash account).
+  if (input.payeeType === 'taxDeposit') {
+    out.expenses.push({
+      id: _id('exp'), category: 'Statutory', head: 'Statutory', subHead: input.subHead || 'TDS',
+      party: 'Govt. — ' + (input.subHead || 'TDS'), settlesDeduction: input.settlesDeduction || 'tds',
+      challanNo: input.challanNo || '', accountId: input.accountId, accountName: input.accountName || '', source: 'account', ...base,
     });
     return { paymentId, append: out };
   }
@@ -149,6 +160,13 @@ export function buildPaymentIn(input) {
       id: _id('pcr'), type: 'RETURN', custodianId: input.payerId,
       toAccountId: input.accountId, toAccountName: input.accountName || '', note: ref, ...base,
     });
+    return { paymentId, append: out };
+  }
+  // Retention / security deposit returned by a client: money in, clears the
+  // "held by client" register — NOT the client ledger (already cleared).
+  if (input.payerType === 'heldRelease') {
+    out.otherIncome.push({ id: _id('oi'), accountId: input.accountId, source: (input.payerName || 'Client') + ' — release',
+      clientId: input.payerId || '', settlesDeduction: input.settlesDeduction || 'retention', ...base });
     return { paymentId, append: out };
   }
   if (input.payerType === 'other' || input.payerType === 'loan' || input.payerType === 'owner') {

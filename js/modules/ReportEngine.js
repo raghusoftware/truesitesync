@@ -9,9 +9,9 @@
  */
 
 import { state } from './state.js';
-import { settledAmount } from './deductions.js';
+import { settledAmount, deductionRegister, fyQuarter, tdsDueDate, findType } from './deductions.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.91';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category
@@ -37,6 +37,9 @@ export const REPORT_CATEGORIES = [
       _R('cash_book', 'Cash Book'),
       _R('cash_flow', 'Cash Flow Statement'),
       _R('retention_recovery', 'Retention Recovery Register'),
+      _R('deduction_register', 'Payment Deductions Register (TDS, penalty, retention…)'),
+      _R('held_tracker', 'Retention & Security Deposit Held (from payments)'),
+      _R('penalty_register', 'Penalties Register (suffered & levied)'),
     ],
   },
   {
@@ -114,7 +117,8 @@ export const REPORT_CATEGORIES = [
       _R('gst_summary', 'GST Summary'),
       _R('gst_hsn', 'HSN Summary'),
       _R('gst_input_credit', 'Input Tax Credit (ITC) Register'),
-      _R('tds_deduction', 'TDS Deduction Report'),
+      _R('tds_deduction', 'TDS Payable (deducted by us)'),
+      _R('tds_receivable', 'TDS Receivable (deducted by clients)'),
       _R('vat_return', 'VAT Return Summary (VAT 201)'),
     ],
   },
@@ -708,20 +712,77 @@ export class ReportEngine {
     return { rows };
   }
 
-  // ── TDS Deduction Register ──
-  computeTDSDeduction(params = {}) {
-    const payments = this._filterByParams([...(state.vendorPayments || []), ...(state.vendorPayments || [])], params);
-    const rows = payments.filter(p => parseFloat(p.tdsAmount) > 0 || parseFloat(p.tds) > 0).map(p => {
-      const vendor = (state.vendors || []).find(v => v.id === p.vendorId);
-      const gross = parseFloat(p.amount) || 0;
-      const tds = parseFloat(p.tdsAmount) || parseFloat(p.tds) || 0;
-      return {
-        date: p.date, vendorName: vendor?.name || p.partyName || '—', pan: vendor?.pan || '—',
-        section: p.tdsSection || '194C', grossAmount: gross, tdsRate: gross ? (tds / gross * 100) : 0,
-        tdsAmount: tds, netPayable: gross - tds, challanNo: p.challanNo || '—', depositDate: p.tdsDepositDate || '—',
-      };
+  // ── Payment deductions (TDS, GST-TDS, retention, penalty…) — see deductions.js ──
+  _dedRows(params = {}, opts = {}) {
+    const p = params || {};
+    return deductionRegister(state, {
+      from: p.dateRange?.start || '', to: p.dateRange?.end || '',
+      projectId: p.filters?.projectId || null, ...opts,
     });
+  }
+  _partyPan(r) {
+    const p = (state[r.src] || []).find(x => x.id === r.paymentId) || {};
+    const party = p.clientId ? (state.clients || []).find(c => c.id === p.clientId)
+      : p.vendorId ? (state.vendors || []).find(v => v.id === p.vendorId)
+      : p.labourId ? (state.labourMaster || []).find(l => l.id === p.labourId)
+      : p.gangId ? (state.labourContractors || []).find(g => g.id === p.gangId) : null;
+    return party?.pan || '—';
+  }
+
+  // TDS / GST-TDS / cess WE deducted from vendors, contractors, labour (payable to Govt.)
+  computeTDSDeduction(params = {}) {
+    const rows = this._dedRows(params, { direction: 'out' }).filter(r => r.nature === 'tax').map(r => ({
+      date: r.date, quarter: fyQuarter(r.date), vendorName: r.partyName || '—', pan: this._partyPan(r), tax: r.label,
+      section: r.section || '—', grossAmount: r.settled, tdsRate: r.rate || (r.settled ? r.amount / r.settled * 100 : 0),
+      tdsAmount: r.amount, netPayable: r.cash, dueDate: tdsDueDate(r.date),
+      challanNo: (state[r.src] || []).find(x => x.id === r.paymentId)?.deductions?.find(d => d.type === r.type && d.challanNo)?.challanNo || '—',
+      status: r.deposited ? 'Deposited' : (tdsDueDate(r.date) < new Date().toISOString().slice(0, 10) ? 'Overdue' : 'Pending'),
+    }));
     return { rows };
+  }
+
+  // TDS / GST-TDS deducted BY CLIENTS from our receipts (claim in ITR; match with 26AS / AIS)
+  computeTDSReceivable(params = {}) {
+    const rows = this._dedRows(params, { direction: 'in' }).filter(r => r.nature === 'tax').map(r => ({
+      date: r.date, quarter: fyQuarter(r.date), clientName: r.partyName || '—', pan: this._partyPan(r), tax: r.label,
+      section: r.section || '—', billRef: r.billRef || '—', grossAmount: r.settled, tdsRate: r.rate || 0,
+      tdsAmount: r.amount, cashReceived: r.cash, matched: r.matched26AS ? 'Matched' : 'Not checked',
+    }));
+    return { rows };
+  }
+
+  computeDeductionRegister(params = {}) {
+    const rows = this._dedRows(params).map(r => ({
+      date: r.date, direction: r.direction === 'in' ? 'Payment In' : 'Payment Out', partyType: r.partyType, partyName: r.partyName || '—',
+      billRef: r.billRef || '—', deduction: r.label, nature: r.nature, section: r.section || '', amount: r.amount,
+      cash: r.cash, settled: r.settled, register: r.register, remark: r.remark || '',
+    }));
+    return { rows };
+  }
+
+  computePenaltyRegister(params = {}) {
+    const rows = this._dedRows(params).filter(r => r.nature === 'penalty').map(r => ({
+      date: r.date, kind: r.direction === 'in' ? 'Suffered (client deducted)' : 'Levied (we deducted)',
+      partyName: r.partyName || '—', billRef: r.billRef || '—', deduction: r.label, amount: r.amount, remark: r.remark || '—',
+    }));
+    return { rows };
+  }
+
+  computeHeldTracker(params = {}) {
+    const rows = this._dedRows(params).filter(r => r.nature === 'held').map(r => ({
+      date: r.date, kind: r.direction === 'in' ? 'Held by client (receivable)' : 'Held by us (payable)',
+      partyName: r.partyName || '—', billRef: r.billRef || '—', deduction: r.label, amount: r.amount, remark: r.remark || '',
+    }));
+    (state.otherIncome || []).filter(o => o.settlesDeduction && this._inRange(o, params)).forEach(o => rows.push({
+      date: o.date, kind: 'Released by client', partyName: (state.clients || []).find(c => c.id === o.clientId)?.name || o.source || '—',
+      billRef: '—', deduction: findType(state, o.settlesDeduction).label, amount: -(parseFloat(o.amount) || 0), remark: o.ref || '',
+    }));
+    rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return { rows };
+  }
+  _inRange(r, params = {}) {
+    const d = r.date || '';
+    return (!params.dateRange?.start || d >= params.dateRange.start) && (!params.dateRange?.end || d <= params.dateRange.end);
   }
 
   // ── Measurement Book (MB) ──

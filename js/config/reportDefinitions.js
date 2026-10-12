@@ -146,20 +146,23 @@ export const REPORT_DEFINITIONS = {
   // ═══════════════════════════════════════════════
 
   tds_deduction: {
-    exportTitle: 'TDS Deduction Register',
+    exportTitle: 'TDS Payable Register (deducted by us)',
     statutory: true,
-    filters: ['dateRange', 'vendor'],
+    filters: ['dateRange', 'project'],
     columns: [
-      { key: 'date',          label: 'Date of Payment',     type: D, width: 90 },
-      { key: 'vendorName',    label: 'Deductee Name',       type: T, width: 150 },
-      { key: 'pan',           label: 'PAN',                 type: T, width: 100 },
-      { key: 'section',       label: 'Section',             type: T, width: 70 },  // 194C, 194J etc.
-      { key: 'grossAmount',   label: 'Gross Amount (₹)',    type: C, width: 110, align: 'right' },
-      { key: 'tdsRate',       label: 'TDS Rate (%)',        type: P, width: 70, align: 'right' },
-      { key: 'tdsAmount',     label: 'TDS Amount (₹)',      type: C, width: 100, align: 'right' },
-      { key: 'netPayable',    label: 'Net Payable (₹)',     type: C, width: 100, align: 'right' },
+      { key: 'date',          label: 'Date of Payment',     type: D, width: 85 },
+      { key: 'quarter',       label: 'Quarter',             type: T, width: 95 },
+      { key: 'vendorName',    label: 'Deductee Name',       type: T, width: 140 },
+      { key: 'pan',           label: 'PAN',                 type: T, width: 90 },
+      { key: 'tax',           label: 'Tax',                 type: T, width: 70 },
+      { key: 'section',       label: 'Section',             type: T, width: 80 },  // 393(1) / 194C, 194J…
+      { key: 'grossAmount',   label: 'Bill Amount (₹)',     type: C, width: 100, align: 'right' },
+      { key: 'tdsRate',       label: 'Rate (%)',            type: P, width: 60, align: 'right' },
+      { key: 'tdsAmount',     label: 'TDS Amount (₹)',      type: C, width: 95, align: 'right' },
+      { key: 'netPayable',    label: 'Cash Paid (₹)',       type: C, width: 95, align: 'right' },
+      { key: 'dueDate',       label: 'Deposit Due',         type: D, width: 85 },
       { key: 'challanNo',     label: 'Challan No.',         type: T, width: 90 },
-      { key: 'depositDate',   label: 'Date of Deposit',     type: D, width: 90 },
+      { key: 'status',        label: 'Status',              type: B, width: 80 },
     ],
     aggregates: [
       { key: 'grossAmount', fn: 'sum' },
@@ -167,6 +170,87 @@ export const REPORT_DEFINITIONS = {
       { key: 'netPayable',  fn: 'sum' },
     ],
     compute: 'computeTDSDeduction',
+    notes: 'From Payment Out deductions. Deposit by the 7th of next month (30 April for March); record the deposit as Payment Out → TDS / tax deposit.',
+  },
+
+  tds_receivable: {
+    exportTitle: 'TDS Receivable Register (deducted by clients)',
+    statutory: true,
+    filters: ['dateRange', 'project'],
+    columns: [
+      { key: 'date',          label: 'Date',                type: D, width: 85 },
+      { key: 'quarter',       label: 'Quarter',             type: T, width: 95 },
+      { key: 'clientName',    label: 'Deductor (Client)',   type: T, width: 140 },
+      { key: 'pan',           label: 'Client PAN',          type: T, width: 90 },
+      { key: 'tax',           label: 'Tax',                 type: T, width: 70 },
+      { key: 'section',       label: 'Section',             type: T, width: 80 },
+      { key: 'billRef',       label: 'Bill',                type: T, width: 80 },
+      { key: 'grossAmount',   label: 'Bill Amount (₹)',     type: C, width: 100, align: 'right' },
+      { key: 'tdsRate',       label: 'Rate (%)',            type: P, width: 60, align: 'right' },
+      { key: 'tdsAmount',     label: 'TDS (₹)',             type: C, width: 90, align: 'right' },
+      { key: 'cashReceived',  label: 'Cash Received (₹)',   type: C, width: 100, align: 'right' },
+      { key: 'matched',       label: '26AS / AIS',          type: B, width: 80 },
+    ],
+    aggregates: [
+      { key: 'grossAmount', fn: 'sum' },
+      { key: 'tdsAmount',   fn: 'sum' },
+      { key: 'cashReceived', fn: 'sum' },
+    ],
+    compute: 'computeTDSReceivable',
+    notes: 'Tax credit to claim in your return — tally each quarter against Form 26AS / AIS.',
+  },
+
+  deduction_register: {
+    exportTitle: 'Payment Deductions Register',
+    filters: ['dateRange', 'project'],
+    columns: [
+      { key: 'date',       label: 'Date',          type: D, width: 85 },
+      { key: 'direction',  label: 'Payment',       type: B, width: 85 },
+      { key: 'partyType',  label: 'Party Type',    type: T, width: 75 },
+      { key: 'partyName',  label: 'Party',         type: T, width: 140 },
+      { key: 'billRef',    label: 'Bill',          type: T, width: 75 },
+      { key: 'deduction',  label: 'Deduction',     type: T, width: 120 },
+      { key: 'section',    label: 'Section',       type: T, width: 75 },
+      { key: 'amount',     label: 'Deducted (₹)',  type: C, width: 95, align: 'right' },
+      { key: 'cash',       label: 'Cash (₹)',      type: C, width: 95, align: 'right' },
+      { key: 'settled',    label: 'Bill Settled (₹)', type: C, width: 100, align: 'right' },
+      { key: 'register',   label: 'Booked To',     type: T, width: 150 },
+      { key: 'remark',     label: 'Remark',        type: T, width: 160 },
+    ],
+    aggregates: [{ key: 'amount', fn: 'sum' }],
+    compute: 'computeDeductionRegister',
+  },
+
+  penalty_register: {
+    exportTitle: 'Penalties Register',
+    filters: ['dateRange', 'project'],
+    columns: [
+      { key: 'date',      label: 'Date',        type: D, width: 85 },
+      { key: 'kind',      label: 'Type',        type: B, width: 150 },
+      { key: 'partyName', label: 'Party',       type: T, width: 140 },
+      { key: 'billRef',   label: 'Bill',        type: T, width: 80 },
+      { key: 'deduction', label: 'Penalty',     type: T, width: 140 },
+      { key: 'amount',    label: 'Amount (₹)',  type: C, width: 95, align: 'right' },
+      { key: 'remark',    label: 'Reason',      type: T, width: 200 },
+    ],
+    aggregates: [{ key: 'amount', fn: 'sum' }],
+    compute: 'computePenaltyRegister',
+  },
+
+  held_tracker: {
+    exportTitle: 'Retention & Security Deposit Held',
+    filters: ['dateRange', 'project'],
+    columns: [
+      { key: 'date',      label: 'Date',        type: D, width: 85 },
+      { key: 'kind',      label: 'Movement',    type: B, width: 170 },
+      { key: 'partyName', label: 'Party',       type: T, width: 140 },
+      { key: 'billRef',   label: 'Bill',        type: T, width: 80 },
+      { key: 'deduction', label: 'Type',        type: T, width: 110 },
+      { key: 'amount',    label: 'Amount (₹)',  type: C, width: 95, align: 'right' },
+      { key: 'remark',    label: 'Remark',      type: T, width: 160 },
+    ],
+    aggregates: [{ key: 'amount', fn: 'sum', label: 'Net held' }],
+    compute: 'computeHeldTracker',
   },
 
   // ═══════════════════════════════════════════════
