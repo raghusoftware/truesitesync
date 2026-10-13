@@ -66,3 +66,29 @@ export async function idbRemove(key) {
     });
   } catch { return false; }
 }
+
+/** Remove EVERY cached key (logout / account switch). Best-effort. */
+export async function idbClear() {
+  try {
+    const db = await _open();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    });
+  } catch { return false; }
+}
+
+/** All cached keys (used to tell whether this device holds any workspace data). */
+export async function idbKeys() {
+  try {
+    const db = await _open();
+    return await new Promise((resolve) => {
+      const rq = db.transaction(STORE, 'readonly').objectStore(STORE).getAllKeys();
+      rq.onsuccess = () => resolve(rq.result || []);
+      rq.onerror = () => resolve([]);
+    });
+  } catch { return []; }
+}

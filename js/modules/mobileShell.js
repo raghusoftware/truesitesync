@@ -178,6 +178,8 @@ const PROJECT_VIEWS = new Set([
   'measurementListView','abstractsView','pettyCashView','documentsView','entrySheet',
 ]);
 function currentNav() {
+  // Shop / Manufacturing have no projects — always the business bar.
+  if (typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction') return GLOBAL_NAV;
   return PROJECT_VIEWS.has(window.__currentViewId || '') ? PROJECT_NAV : GLOBAL_NAV;
 }
 
@@ -222,7 +224,7 @@ function highlightBottomNav() {
   buildBottomNav(); // rebuilds if the project↔global context changed
   const v = window.__currentViewId || '';
   const map = {
-    home: ['projectsHome', 'projectDashboard'],
+    home: ['projectsHome', 'projectDashboard', 'bizHomeView'],
     labour: ['labourView'],
     inventory: ['inventoryView'],
     equipment: ['equipmentView'],

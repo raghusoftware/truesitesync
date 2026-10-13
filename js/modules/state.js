@@ -1,5 +1,5 @@
 import { syncPush, syncReplace, syncRecordDeletions, syncPullAll, syncPushAll, registerStorageKeys, getLocalKeyTs, setLocalKeyTs, markSyncReady, seedSyncBaseline, hasPendingPush } from '../database/sync.js';
-import { idbSet, idbGet } from '../database/idbCache.js';
+import { idbSet, idbGet, idbClear, idbKeys } from '../database/idbCache.js';
 
 const STORAGE_KEYS = {
   clients: 'mes_clients',
@@ -124,7 +124,14 @@ registerStorageKeys(STORAGE_KEYS);
  * browser, so one user's leftover localStorage can never seed another user's
  * (brand-new, empty) workspace — the cause of cross-account data bleed.
  */
+// Set once this device's workspace data has been wiped (logout / account switch).
+// The page reloads right after; until then NOTHING may be saved — the
+// beforeunload saveAllData() used to write the old account's in-memory data
+// straight back into localStorage, which then leaked into the next account.
+let _localWiped = false;
+
 export function clearLocalAppData() {
+  _localWiped = true;
   try {
     const toRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -136,8 +143,52 @@ export function clearLocalAppData() {
     toRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
   } catch {}
   try { sessionStorage.removeItem('mes_current_user'); } catch {}
+  // Chat keeps its local copy / unsent outbox under 'tss_chat_*' — never carry
+  // one user's messages into another user's workspace.
+  try {
+    const chatKeys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('tss_chat_')) chatKeys.push(k); }
+    chatKeys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  } catch {}
+  try { localStorage.removeItem(DATA_OWNER_KEY); } catch {}
+  // Big keys that overflowed localStorage live in IndexedDB — wipe those too
+  // (returned so callers that reload right after can await it).
+  return idbClear();
 }
 if (typeof window !== 'undefined') window.clearLocalAppData = clearLocalAppData;
+
+/**
+ * Whose workspace data is cached on this device. Stamped when a signed-in user's
+ * data is loaded; falls back to the last signed-in uid for older installs.
+ */
+const DATA_OWNER_KEY = 'tss_data_uid';
+export function localDataOwner() {
+  try { return localStorage.getItem(DATA_OWNER_KEY) || localStorage.getItem('tss_last_uid') || null; } catch { return null; }
+}
+
+/**
+ * MUST run before any cloud pull/push for a signed-in user. If this device holds
+ * workspace data that belongs to someone else (or to nobody we can identify),
+ * wipe it all — localStorage, IndexedDB overflow cache, chat copies — so it can
+ * never be merged or pushed into this user's workspace. Cloud stays the source
+ * of truth, so nothing of the real owner's is lost.
+ * Returns 'wiped' when data was removed (caller must reload to drop in-memory
+ * state), otherwise 'ok'.
+ */
+export async function claimLocalData(uid) {
+  if (!uid) return 'ok';
+  const owner = localDataOwner();
+  if (owner === uid) { try { localStorage.setItem(DATA_OWNER_KEY, uid); localStorage.setItem('tss_last_uid', uid); } catch {} return 'ok'; }
+  let had = false;
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('mes_') && k !== 'mes_current_user') { had = true; break; } } } catch {}
+  if (!had) { try { had = (await idbKeys()).length > 0; } catch {} }
+  if (!had) had = ['clients', 'projects', 'sheets', 'vendors', 'saleInvoices'].some(k => Array.isArray(state[k]) && state[k].length > 0);
+  if (had) { try { await clearLocalAppData(); } catch {} }
+  try { localStorage.setItem(DATA_OWNER_KEY, uid); localStorage.setItem('tss_last_uid', uid); } catch {}
+  if (had) console.warn('[auth] cleared another account\'s cached data from this device');
+  return had ? 'wiped' : 'ok';
+}
+if (typeof window !== 'undefined') window.claimLocalData = claimLocalData;
 
 function load(key, fallback) {
   try {
@@ -309,6 +360,7 @@ function _isEmptyVal(v) {
  *  Each key is isolated so one oversized key (e.g. KYC photos hitting the
  *  ~5MB localStorage quota) cannot abort the whole save or block cloud sync. */
 export function saveAllData() {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
     if (state[key] === undefined) continue;
     const json = JSON.stringify(state[key]);
@@ -330,6 +382,7 @@ export function saveAllData() {
 
 /** Persist ONE key locally + normal (union-merge) cloud push. */
 export function saveKey(key) {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   if (state[key] === undefined) return;
   const json = JSON.stringify(state[key]);
   try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
@@ -347,6 +400,7 @@ export async function recordPermanentDeletions(entries) {
  *  Use when SHRINKING a synced array — emptying the recycle bin, permanent delete,
  *  restore — which a normal merge push can never do (it only re-adds removed rows). */
 export function saveKeyReplace(key) {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   if (state[key] === undefined) return;
   const json = JSON.stringify(state[key]);
   try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
@@ -405,6 +459,7 @@ export async function hydrateLocalCache() {
  * so a mid-edit sync can't make a just-added item vanish.
  */
 export function saveLocalKey(key) {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   const storageKey = STORAGE_KEYS[key];
   if (!storageKey || state[key] === undefined) return;
   try { localStorage.setItem(storageKey, JSON.stringify(state[key])); } catch (e) { console.warn('[state] local save failed for', key, e?.name || e); }
@@ -413,6 +468,7 @@ export function saveLocalKey(key) {
 
 /** Persist labour-specific data */
 export function saveLabourData() {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   const keys = ['labourMaster', 'attendanceLogs', 'labourSalaries', 'labourPayments'];
   keys.forEach(k => {
     localStorage.setItem(STORAGE_KEYS[k], JSON.stringify(state[k]));
@@ -422,6 +478,7 @@ export function saveLabourData() {
 
 /** Persist equipment data */
 export function saveEquipmentData() {
+  if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
   const keys = ['equipmentList', 'equipmentLogs'];
   keys.forEach(k => {
     localStorage.setItem(STORAGE_KEYS[k], JSON.stringify(state[k]));
