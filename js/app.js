@@ -86,7 +86,7 @@ import './modules/guarantees.js?v=1.0.2';
 import './modules/subcontractors.js?v=1.0.2';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.55';
-import './modules/recycleBin.js?v=1.6.63';
+import './modules/recycleBin.js?v=1.6.64';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.8';
 import './modules/estimateFlow.js?v=1.0.4';
