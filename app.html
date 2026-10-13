@@ -53,12 +53,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.6.58">
+    <link rel="stylesheet" href="css/style.css?v=1.6.59">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.1">
-    <script type="module" src="js/app.js?v=1.6.158"></script>
+    <script type="module" src="js/app.js?v=1.6.159"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -3027,6 +3027,14 @@
         #siFormTableBody input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
         #siFormTableBody input[type="number"]{-moz-appearance:textfield}
         #siFormTableBody select{padding-right:18px;cursor:pointer}
+        /* Tax cell: beat the global input padding (style.css, !important) so the type and rate always show in full */
+        #siFormTableBody select.si-item-taxtype{min-width:118px;padding:8px 26px 8px 10px!important}
+        #siFormTableBody select.si-item-tax{width:78px;min-width:78px;flex:0 0 78px;padding:8px 24px 8px 10px!important;text-align:left}
+        #siFormTableBody select.si-item-tax.si-tax-zero{background:#fff7ed!important;color:#c2410c;box-shadow:inset 0 0 0 1px #fdba74}
+        #siFormTableBody .si-row-amt{line-height:1.25}
+        #siFormTableBody .si-amt-total{font-size:13px;font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums}
+        #siFormTableBody .si-amt-tax{font-size:10.5px;font-weight:600;color:#64748b;margin-top:2px;font-variant-numeric:tabular-nums}
+        #siFormTableBody .si-amt-notax .si-amt-tax{color:#c2410c}
         .si-field{width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;outline:none;transition:border .15s}
         .si-field:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
         .si-lbl{display:block;font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
@@ -3174,8 +3182,8 @@
                       <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:78px;">Unit</th>
                       <th style="padding:8px 4px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:110px;">Rate</th>
                       <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:56px;">Disc%</th>
-                      <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:130px;">Tax</th>
-                      <th style="padding:8px 6px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#334155;width:110px;">Amount</th>
+                      <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:210px;">Tax</th>
+                      <th style="padding:8px 6px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#334155;width:150px;">Amount</th>
                       <th style="padding:8px 2px;width:28px;"></th>
                     </tr>
                   </thead>

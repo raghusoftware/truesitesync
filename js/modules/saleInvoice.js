@@ -502,6 +502,12 @@ export function addSIPendingItem(idx) {
   showToast('Abstract added to invoice');
 }
 
+/** Money for display: currency symbol + Indian grouping + always 2 decimals. */
+function _siMoney(v) {
+  const n = Number(v) || 0;
+  return getCurrencySymbol() + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Money rate for the Rate box: rounded to paise, so float noise from a
  *  calculated rate (237940.59999999998) shows and saves as 237940.60. */
 function _siRate(v) {
@@ -537,11 +543,11 @@ function _siRowHTML(num, data = {}) {
     <td style="padding:5px 2px;"><input type="number" value="${data.discPct || ''}" min="0" max="100" step="any" class="si-item-disc" style="width:100%;padding:6px 3px;${s}font-size:11px;text-align:center;" oninput="calcSIFormTotal()" placeholder="0"></td>
     <td style="padding:5px 3px;">
       <div style="display:flex;gap:2px;align-items:center;">
-        <select class="si-item-taxtype" style="padding:5px 2px;${s}font-size:9px;font-weight:600;flex:1;" onchange="calcSIFormTotal()">${taxTypeOpts}</select>
-        <select class="si-item-tax" style="padding:5px 2px;${s}font-size:10px;font-weight:700;width:48px;" onchange="calcSIFormTotal()">${taxRateOpts}</select>
+        <select class="si-item-taxtype" style="${s}font-weight:600;flex:1;" onchange="calcSIFormTotal()" title="Tax type">${taxTypeOpts}</select>
+        <select class="si-item-tax" style="${s}font-weight:700;" onchange="calcSIFormTotal()" title="Tax rate">${taxRateOpts}</select>
       </div>
     </td>
-    <td style="padding:5px 4px;text-align:right;font-weight:700;color:#1e293b;font-size:12px;white-space:nowrap;" class="si-row-amt">${getCurrencySymbol()}0</td>
+    <td style="padding:5px 4px;text-align:right;font-weight:700;color:#1e293b;font-size:12px;white-space:nowrap;" class="si-row-amt"><div class="si-amt-total">${getCurrencySymbol()}0.00</div><div class="si-amt-tax"></div></td>
     <td style="padding:5px 2px;text-align:center;"><button onclick="this.closest('tr').remove();_renumberSIRows();calcSIFormTotal()" style="width:20px;height:20px;border-radius:50%;background:#fef2f2;color:#f87171;border:none;cursor:pointer;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;" title="Delete">&#10005;</button></td>`;
 }
 
@@ -720,11 +726,22 @@ export function calcSIFormTotal() {
     totalLineTax += lineTax;
     if (qty > 0 || rate > 0) rowCount++;
     const amtCell = r.querySelector('.si-row-amt');
-    if (amtCell) amtCell.textContent = lineTotal > 0 ? getCurrencySymbol() + lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : getCurrencySymbol() + '0';
+    if (amtCell) {
+      // Line total + the tax inside it, so tax is visible on every line; a
+      // filled line with no tax is flagged so a missed rate is easy to spot.
+      const tEl = amtCell.querySelector('.si-amt-total'), xEl = amtCell.querySelector('.si-amt-tax');
+      if (tEl) tEl.textContent = _siMoney(lineTotal);
+      const taxLabel = taxType === 'CGST_SGST' ? 'GST' : getTaxConfig().singleLabel;
+      const noTax = taxable > 0 && !(lineTax > 0);
+      if (xEl) xEl.textContent = !(taxable > 0) ? '' : noTax ? (taxType === 'NONE' ? 'No tax' : '0% tax') : `incl. ${_siMoney(lineTax)} ${taxLabel} @${taxPct}%`;
+      amtCell.classList.toggle('si-amt-notax', noTax);
+      const rateSel = r.querySelector('.si-item-tax');
+      if (rateSel) rateSel.classList.toggle('si-tax-zero', noTax && taxType !== 'NONE');
+    }
   });
   const taxableAmount = grossTotal - totalDiscount;
   const setT = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const fmt = (v) => getCurrencySymbol() + v.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const fmt = _siMoney;
   setT('siTotalRows', rowCount);
   setT('siTotalQty', totalQty);
   setT('siFormSubtotal', fmt(taxableAmount + totalLineTax));
