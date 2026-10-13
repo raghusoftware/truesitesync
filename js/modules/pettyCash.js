@@ -18,6 +18,8 @@ const PC_CATEGORIES = ['Site Materials', 'Travel / Transport', 'Food / Refreshme
 
 // ── helpers ────────────────────────────────────────────────
 function _pid() { return state.currentProjectId || null; }
+/** Shop / Manufacturing have no projects — petty cash runs at business level (projectId null). */
+function _bizLevel() { return typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction'; }
 function _fmt(n) { return getCurrencySymbol() + (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -35,11 +37,11 @@ function _canSeeCustodian(c) {
 
 function _custodians() {
   const pid = _pid();
-  return (state.pettyCashCustodians || []).filter(c => c.projectId === pid && _canSeeCustodian(c));
+  return (state.pettyCashCustodians || []).filter(c => (c.projectId || null) === pid && _canSeeCustodian(c));
 }
 function _txns() {
   const pid = _pid();
-  return (state.pettyCashTxns || []).filter(t => t.projectId === pid);
+  return (state.pettyCashTxns || []).filter(t => (t.projectId || null) === pid);
 }
 function _accountBalanceFor(accId) {
   if (typeof window._getAccountBalancePublic === 'function') return window._getAccountBalancePublic(accId);
@@ -111,7 +113,7 @@ let _pcLedgerFilter = '';     // custodian id filter
 export function renderPettyCash() {
   const root = document.getElementById('pettyCashRoot');
   if (!root) return;
-  if (!_pid()) {
+  if (!_pid() && !_bizLevel()) {
     root.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8;">
       <div style="font-size:42px;margin-bottom:10px;">💰</div>
       <p style="font-weight:700;color:#475569;">Open a project first</p>

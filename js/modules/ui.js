@@ -34,6 +34,8 @@ const MODULE_CARDS = [
 // mid-edit in a full-screen sheet or the project form, to avoid yanking the UI.
 if (typeof window !== 'undefined') {
   window.refreshCurrentView = function () {
+    // The business type (Settings → Business Type) may have changed on another device.
+    try { window.hideRestrictedSidebar?.(); } catch {}
     const v = window.__currentViewId;
     if (!v) return;
     if (document.querySelector('.fullscreen-sheet')) return;
@@ -1310,6 +1312,8 @@ function _renderMasterDataGrid() {
 // VIEW SWITCHING
 // ==========================================
 export function switchView(viewId) {
+  // Shop / Manufacturing have no projects: "Home" is the business dashboard.
+  if (viewId === 'projectsHome' && typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction') viewId = 'bizHomeView';
   // RBAC access check
   if (typeof window.enforceAccess === 'function') {
     const allowed = window.enforceAccess(viewId);
@@ -1352,6 +1356,8 @@ export function switchView(viewId) {
   try { window.highlightBottomNav?.(); } catch {}
 
   if (viewId === 'paymentsHubView') { try { window.renderPaymentsHub?.(); } catch (e) { console.warn(e); } }
+  if (viewId === 'bizHomeView') window.renderBizHome?.();
+  if (viewId === 'creditBookView') window.renderCreditBook?.();
   if (viewId === 'projectsHome') renderProjectsHome();
   if (viewId === 'projectDashboard') renderProjectDashboard();
   if (viewId === 'accountsManagerView') renderAccounts();

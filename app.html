@@ -58,7 +58,7 @@
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.1">
-    <script type="module" src="js/app.js?v=1.6.155"></script>
+    <script type="module" src="js/app.js?v=1.6.156"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -166,7 +166,7 @@
         <img src="assets/logo.png" alt="True Site Sync" style="width:36px;height:36px;object-fit:contain;background:#fff;border-radius:10px;flex-shrink:0;">
         <div>
           <h1 class="text-base font-extrabold tracking-tight" style="line-height:1.15;">True Site Sync</h1>
-          <p class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Construction Management</p>
+          <p id="sidebarTagline" class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Construction Management</p>
         </div>
       </div>
       <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto" id="sidebarNav">
@@ -180,6 +180,20 @@
         <button onclick="switchView('reportsView')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm" data-target="reportsView">
           <span style="font-size:15px">&#128202;</span> Reports
         </button>
+
+        <!-- ── Business (Shop / Manufacturing types only — see bizHome.js) ── -->
+        <div id="bizNav" style="display:none">
+          <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">Business</p>
+          <button onclick="switchView('bizHomeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="bizHomeView"><span style="font-size:13px">&#127968;</span> <span class="lbl">Home</span></button>
+          <button onclick="switchView('creditBookView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="creditBookView"><span style="font-size:13px">&#128210;</span> <span class="lbl">Udhaar Book</span></button>
+          <button onclick="switchView('itemsMasterView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="itemsMasterView"><span style="font-size:13px">&#127991;</span> <span class="lbl">Items</span></button>
+          <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> <span class="lbl">Stock</span></button>
+          <button onclick="switchView('itemsMasterView'); window.setItemCategoryFilter && window.setItemCategoryFilter('Production Items')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs biz-mfg-only" data-target="itemsMasterView"><span style="font-size:13px">&#129516;</span> <span class="lbl">Production (BOM)</span></button>
+          <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> <span class="lbl">Staff</span></button>
+          <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> <span class="lbl">Petty Cash</span></button>
+          <button onclick="switchView('assetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="assetsView"><span style="font-size:13px">&#128295;</span> <span class="lbl">Tools</span></button>
+          <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> <span class="lbl">Machines</span></button>
+        </div>
 
         <!-- ── Project Context Nav (hidden until project opened) ── -->
         <div id="projectContextNav" class="hidden mt-3">
@@ -275,6 +289,8 @@
     <div id="hubBackBar" style="display:none;margin-bottom:14px;"></div>
 
     <!-- ═══════ PROJECTS HOME (Landing) ═══════ -->
+    <div id="bizHomeView" class="view-section hide" style="padding:20px 16px 90px"></div>
+    <div id="creditBookView" class="view-section hide" style="padding:20px 16px 90px"></div>
     <div id="projectsHome" class="view-section">
       <div id="filooHome"></div>
       <button id="projHomeBack" onclick="backToClients()" class="hidden mb-3 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition"><span style="font-size:16px;">&larr;</span> All Clients</button>
@@ -1293,6 +1309,11 @@
             </div>
             <button id="settingsBack" onclick="backToSettingsHome()" class="hidden mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition"><span style="font-size:16px;">&larr;</span> All Settings</button>
             <div id="settingsHomeGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-5">
+              <div onclick="openSettingsSection('settBusiness')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
+                <div style="width:44px;height:44px;background:#ef842012;border:2px solid #ef842025;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#127978;</div>
+                <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Business Type</h4>
+                <p class="text-[10px] text-slate-400 mt-0.5">Construction, Shop or Manufacturing</p>
+              </div>
               <div onclick="openSettingsSection('settCompany')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
                 <div style="width:44px;height:44px;background:#3b82f612;border:2px solid #3b82f625;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#127970;</div>
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Company</h4>
@@ -1333,6 +1354,15 @@
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Backup</h4>
                 <p class="text-[10px] text-slate-400 mt-0.5">Export / import all data</p>
               </div>
+            </div>
+            <!-- Business type (Construction / Shop / Manufacturing) -->
+            <div id="settBusiness" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">&#127978;</span>
+                <div><h3 class="text-base font-bold text-slate-800">Business Type</h3>
+                <p class="text-[10px] text-slate-400">Show only the modules your kind of business needs</p></div>
+              </div>
+              <div id="settBusinessContent"></div>
             </div>
             <!-- Company Profile (merged into settings) -->
             <div id="settCompany" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
