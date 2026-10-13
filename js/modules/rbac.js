@@ -7,7 +7,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { state, saveAllData, loadFromCloud, pushAllToCloud, clearLocalAppData } from './state.js';
+import { state, saveAllData, loadFromCloud, pushAllToCloud, clearLocalAppData, claimLocalData } from './state.js';
 import { showToast } from './utils.js';
 import { getSupabase } from '../database/supabase.js';
 
@@ -517,6 +517,16 @@ export async function signupUserSupabase(email, password, displayName, phone) {
   };
 }
 
+/** Cross-account guard for the login/signup/reset flows: wipe another user's
+ *  cached data before any cloud sync; returns true when the page is reloading. */
+async function _claimOrReload(uid) {
+  try {
+    if (!uid) { const sb = getSupabase(); const { data } = sb ? await sb.auth.getSession() : { data: {} }; uid = data?.session?.user?.id; }
+    if (uid && await claimLocalData(uid) === 'wiped') { window.location.reload(); return true; }
+  } catch (e) { console.warn('[auth] user-switch guard:', e); }
+  return false;
+}
+
 export function _ensureRbacUser(supaUser) {
   if (!state.rbacUsers) state.rbacUsers = [];
   // Drop the legacy seeded local "admin" placeholder (pre-Supabase) if present
@@ -599,7 +609,7 @@ export async function logoutUser() {
   // this browser starts clean and can never seed their org with the previous
   // user's data (cross-account data-bleed bug). A hard reload guarantees the
   // in-memory state is rebuilt empty too.
-  try { clearLocalAppData(); } catch {}
+  try { await clearLocalAppData(); } catch {}
   try { localStorage.removeItem('tss_last_uid'); } catch {}
   try { window.location.reload(); return; } catch {}
   // Reset login form so it can be re-upgraded
@@ -956,6 +966,7 @@ export async function verifySignupOtp(email) {
     if (error) { const r = await sb.auth.verifyOtp({ email, token, type: 'email' }); if (r.error) throw error; }
     const { data: { user } } = await sb.auth.getUser();
     if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    if (await _claimOrReload(user?.id)) return;
     try { await pushAllToCloud(); } catch {}
     if (typeof window._bootApp === 'function') window._bootApp();
     showToast('Email verified — welcome!', 'success');
@@ -1055,6 +1066,7 @@ export async function resetWithCode() {
     if (error) throw error;
     const { data: { user } } = await sb.auth.getUser();
     if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    if (await _claimOrReload(user?.id)) return;
     showToast('Password updated — signed in!', 'success');
     try { await loadFromCloud(); } catch {}
     if (typeof window._bootApp === 'function') window._bootApp();
@@ -1100,6 +1112,9 @@ export async function submitNewPassword() {
     if (error) throw error;
     const { data: { user } } = await sb.auth.getUser();
     if (user) { _cachedUser = _mapSupabaseUser(user); _ensureRbacUser(user); }
+    // Strip the recovery token from the URL before a possible reload below.
+    try { history.replaceState(null, '', window.location.pathname); } catch {}
+    if (await _claimOrReload(user?.id)) return;
     showToast('Password updated — signed in!', 'success');
     // Strip the recovery token from the URL so a refresh doesn't re-enter recovery mode.
     try { history.replaceState(null, '', window.location.pathname); } catch {}
@@ -1171,6 +1186,11 @@ export async function handleLogin() {
       const syncText = document.getElementById('syncStatusText');
       if (syncText) syncText.textContent = 'Setting up your workspace...';
 
+      // A brand-new account must never inherit what another account left on
+      // this device — otherwise the push below would seed the new workspace
+      // with the other account's clients/projects.
+      if (await _claimOrReload()) return;
+
       // CRITICAL — pull the company's data FIRST. If this account was invited into
       // an existing organization, that org already has data we must ADOPT, never
       // overwrite with this new user's empty local state. Only seed the cloud
@@ -1198,6 +1218,9 @@ export async function handleLogin() {
 
       // Show sync status
       if (syncEl) syncEl.style.display = '';
+
+      // Different account than the data cached on this device? Wipe it first.
+      if (await _claimOrReload()) return;
 
       // Pull cloud data — but never hang the login if org resolution stalls.
       let hadCloud = false;

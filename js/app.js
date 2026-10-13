@@ -117,7 +117,7 @@ import {
   _ensureRbacUser,
   renderUsersRolesPanel, openUserForm, saveUser, deleteUser, closeUserForm,
   togglePermission, toggleGroupPermissions
-} from './modules/rbac.js?v=1.6.85';
+} from './modules/rbac.js?v=1.6.86';
 import {
   THEMES, getThemeList, getActiveThemeId, setActiveTheme, renderWithTheme,
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords
@@ -414,14 +414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // data — otherwise a brand-new/empty account could be seeded with the
         // previous user's leftover localStorage (cross-account data bleed).
         try {
-          const prevUid = localStorage.getItem('tss_last_uid');
-          if (prevUid && prevUid !== session.user.id) {
-            if (typeof window.clearLocalAppData === 'function') window.clearLocalAppData();
-            localStorage.setItem('tss_last_uid', session.user.id);
-            window.location.reload();
-            return;
-          }
-          localStorage.setItem('tss_last_uid', session.user.id);
+          if (await window.claimLocalData(session.user.id) === 'wiped') { window.location.reload(); return; }
         } catch (e) { console.warn('[auth] user-switch guard:', e); }
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
@@ -444,6 +437,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (session && !_appBooted) {
+        // Restored session: make sure the cached data on this device is THIS
+        // user's before anything is pulled or pushed (cross-account bleed guard).
+        try { if (await window.claimLocalData(session.user.id) === 'wiped') { window.location.reload(); return; } } catch (e) { console.warn('[auth] user-switch guard:', e); }
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
         await _bootWithCloud(session.user.id);
