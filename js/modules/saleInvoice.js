@@ -316,7 +316,7 @@ function _fillSIRowFromItem(row, item) {
   const unitSel = row.querySelector('.si-item-unit');
   if (unitSel) unitSel.value = item.unit || 'Nos';
   const rateInput = row.querySelector('.si-item-rate');
-  if (rateInput) rateInput.value = item.rate || '';
+  if (rateInput) rateInput.value = item.rate ? _siRate(item.rate) : '';
   if (item.qty) {
     const qtyInput = row.querySelector('.si-item-qty');
     if (qtyInput) qtyInput.value = item.qty;
@@ -484,7 +484,7 @@ export function addSIPendingItem(idx) {
         const hsnInput = row.querySelector('.si-item-hsn'); if (hsnInput) hsnInput.value = r.hsn || '';
         if (qtyInput) qtyInput.value = r.qty;
         const unitSel = row.querySelector('.si-item-unit'); if (unitSel) unitSel.value = r.unit || 'LS';
-        const rateInput = row.querySelector('.si-item-rate'); if (rateInput) rateInput.value = r.rate;
+        const rateInput = row.querySelector('.si-item-rate'); if (rateInput) rateInput.value = _siRate(r.rate);
         if (r.abstractId) row.dataset.abstractId = r.abstractId;
         if (r.abstractNum) row.dataset.ref = r.abstractNum;
         filled = true;
@@ -500,6 +500,15 @@ export function addSIPendingItem(idx) {
   calcSIFormTotal();
   loadSIPendingItems();
   showToast('Abstract added to invoice');
+}
+
+/** Money rate for the Rate box: rounded to paise, so float noise from a
+ *  calculated rate (237940.59999999998) shows and saves as 237940.60. */
+function _siRate(v) {
+  if (v === '' || v == null) return '';
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
 }
 
 // ── Row HTML builder ──
@@ -524,7 +533,7 @@ function _siRowHTML(num, data = {}) {
     <td style="padding:5px 3px;"><input type="text" value="${data.hsn || ''}" class="si-item-hsn" style="width:100%;padding:6px 4px;${s}font-size:11px;text-align:center;font-family:monospace;" placeholder="HSN/SAC"></td>
     <td style="padding:5px 3px;"><input type="number" value="${data.qty || ''}" min="0" step="any" class="si-item-qty" style="width:100%;padding:6px 4px;${s}font-size:12px;text-align:center;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0"></td>
     <td style="padding:5px 3px;"><select class="si-item-unit" style="width:100%;padding:6px 2px;${s}font-size:11px;font-weight:600;">${unitOpts}</select></td>
-    <td style="padding:5px 3px;"><input type="number" value="${data.rate || ''}" min="0" step="any" class="si-item-rate" style="width:100%;padding:6px 6px;${s}font-size:12px;text-align:right;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0.00"></td>
+    <td style="padding:5px 3px;"><input type="number" value="${data.rate ? _siRate(data.rate) : ''}" min="0" step="any" class="si-item-rate" style="width:100%;padding:6px 6px;${s}font-size:12px;text-align:right;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0.00"></td>
     <td style="padding:5px 2px;"><input type="number" value="${data.discPct || ''}" min="0" max="100" step="any" class="si-item-disc" style="width:100%;padding:6px 3px;${s}font-size:11px;text-align:center;" oninput="calcSIFormTotal()" placeholder="0"></td>
     <td style="padding:5px 3px;">
       <div style="display:flex;gap:2px;align-items:center;">
