@@ -11,11 +11,14 @@
  * handlers and reconciliation logic are unchanged from v1.
  */
 import { state, saveAllData } from './state.js';
-import { showToast, formatINR } from './utils.js';
+import { showToast, formatINR, mobileSaveXLSX } from './utils.js';
 import {
   buildPaymentOut, buildPaymentIn, DEFAULT_EXPENSE_HEADS,
   accountBalance, custodianBalance,
 } from './paymentsEngine.js';
+import { settledAmount, deductionTotal, deductionTypes, deductionBalances, markDeposited } from './deductions.js';
+import { exportCAPack, fyRange } from './caExport.js';
+import { deductionsBlockHTML, initDeductions, readDeductions, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const _pid = () => state.currentProjectId || null;
@@ -43,11 +46,11 @@ const clients = () => (state.clients || []);
 const PAYEE_LABELS = {
   vendor: 'Vendor / Supplier', labour: 'Labour', contractor: 'Contractor / Gang',
   expense: 'Expense head', equipment: 'Equipment (rental)', statutory: 'Statutory (GST/PF…)',
-  owner: 'Owner / Drawings', pettyTopup: 'Petty-cash top-up',
+  owner: 'Owner / Drawings', pettyTopup: 'Petty-cash top-up', taxDeposit: 'TDS / tax deposit',
 };
-const PAYER_LABELS = { client: 'Client receipt', other: 'Other income', owner: 'Owner / Capital', loan: 'Loan', custodianReturn: 'Petty-cash return' };
-const PAYEE_ICONS = { vendor: '🧾', labour: '👷', contractor: '🤝', expense: '📂', equipment: '🚜', statutory: '🏛️', owner: '👤', pettyTopup: '👛' };
-const PAYER_ICONS = { client: '🏗️', other: '💼', owner: '👤', loan: '🏦', custodianReturn: '👛' };
+const PAYER_LABELS = { client: 'Client receipt', heldRelease: 'Retention released', other: 'Other income', owner: 'Owner / Capital', loan: 'Loan', custodianReturn: 'Petty-cash return' };
+const PAYEE_ICONS = { vendor: '🧾', labour: '👷', contractor: '🤝', expense: '📂', equipment: '🚜', statutory: '🏛️', owner: '👤', pettyTopup: '👛', taxDeposit: '📮' };
+const PAYER_ICONS = { heldRelease: '🔓', client: '🏗️', other: '💼', owner: '👤', loan: '🏦', custodianReturn: '👛' };
 
 function _opts(list, idKey = 'id', nameKey = 'name', extra) {
   return list.map(x => `<option value="${esc(x[idKey])}">${esc(x[nameKey] || '—')}${extra ? extra(x) : ''}</option>`).join('');
@@ -184,10 +187,36 @@ export function renderPaymentsHub() {
         </div>
         <div class="pmt-card">${_ui.mode === 'out' ? _formOut() : _formIn()}</div>
       </div>
-      <div class="pmt-side">${_recent()}</div>
+      <div class="pmt-side">${_dedCard()}${_recent()}</div>
     </div>
   `;
   if (_ui.mode === 'out') { _syncPayeeUI(); _syncSourceUI(); }
+  _initDed();
+}
+
+/* ── deductions (TDS / penalty / retention…) on party payments ── */
+const DED_PAYEES = ['vendor', 'labour', 'contractor', 'equipment'];
+function _dedOn() { return _ui.mode === 'out' ? DED_PAYEES.includes(_ui.payeeType) : (_ui.payerType || 'client') === 'client'; }
+function _initDed() {
+  if (!_dedOn()) return;
+  const out = _ui.mode === 'out';
+  const partySel = document.getElementById(out ? 'pmtPayeeName' : 'pmtInName');
+  initDeductions('pmtd', {
+    cashInputId: out ? 'pmtAmt' : 'pmtInAmt', direction: out ? 'out' : 'in', getState: () => state,
+    bills: () => {
+      const id = partySel ? partySel.value : '';
+      if (!out) return clientBills(state, id);
+      return (_ui.payeeType === 'vendor' || _ui.payeeType === 'equipment') ? vendorBills(state, id) : [];
+    },
+  });
+  if (partySel) partySel.addEventListener('change', () => refreshBills('pmtd'));
+}
+/** Deductions for save, or null + toast on a validation error. */
+function _readDed() {
+  if (!_dedOn()) return { deductions: [] };
+  const d = readDeductions('pmtd');
+  if (d.errors.length) { showToast(d.errors[0], 'error'); return null; }
+  return d;
 }
 
 function _formOut() {
@@ -215,7 +244,8 @@ function _formOut() {
       </div>
     </div>
 
-    <div>
+    ${_ui.payeeType === 'taxDeposit' ? _taxDepositBlock() : ''}
+    <div ${_ui.payeeType === 'taxDeposit' ? 'style="display:none"' : ''}>
       <label class="pmt-lbl">Pay from</label>
       <div class="pmt-payfrom">
         <div class="pmt-pf ${_ui.source === 'account' ? 'active' : ''}" onclick="window._pmtSetSource('account')">
@@ -229,14 +259,18 @@ function _formOut() {
           <div class="pmt-pf-b">${cust0 ? esc(cust0.name) + ' · ' + money(custodianBalance(state, cust0.id)) : 'No custodian'}</div>
         </div>
       </div>
+    </div>
+    <div ${_ui.payeeType === 'taxDeposit' ? '' : 'style="display:none"'}><label class="pmt-lbl">Pay from account</label></div>
+    <div>
       <div id="pmtAccWrap" style="margin-top:10px"><div class="pmt-selwrap"><select id="pmtAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div></div>
       <div id="pmtCustWrap" style="margin-top:10px;display:none"><div class="pmt-selwrap"><select id="pmtCust" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select></div></div>
     </div>
 
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">${DED_PAYEES.includes(_ui.payeeType) ? 'Cash paid ₹' : 'Amount ₹'}</label><input id="pmtAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
+    ${DED_PAYEES.includes(_ui.payeeType) ? deductionsBlockHTML('pmtd', { direction: 'out', darkOk: true }) : ''}
     <div><label class="pmt-lbl">Reference / note</label>
       <textarea id="pmtRef" class="pmt-ta" placeholder="e.g. diesel for JCB, bill no…"></textarea></div>
     <button class="pmt-save out" onclick="window._pmtSaveOut()">↑ Save Payment Out</button>
@@ -256,17 +290,50 @@ function _formIn() {
       <div class="pmt-chips">${chips}</div>
     </div>
     ${showClient ? `<div><label class="pmt-lbl">Client</label><div class="pmt-selwrap"><select id="pmtInName" class="pmt-sel">${_opts(clients())}</select></div></div>` : ''}
+    ${_ui.payerType === 'heldRelease' ? _heldReleaseBlock() : ''}
     ${showCust ? `<div><label class="pmt-lbl">Custodian returning cash</label><div class="pmt-selwrap"><select id="pmtInName" class="pmt-sel">${_opts(custodians(), 'id', 'name', c => ' — ' + money(custodianBalance(state, c.id)))}</select></div></div>` : ''}
     <div><label class="pmt-lbl">${showCust ? 'Return to account' : 'Deposit to account'}</label>
       <div class="pmt-selwrap"><select id="pmtInAcc" class="pmt-sel">${_opts(accounts(), 'id', 'name', a => ' — ' + money(accountBalance(state, a.id)))}</select></div></div>
     <div class="pmt-row">
-      <div><label class="pmt-lbl">Amount ₹</label><input id="pmtInAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
+      <div><label class="pmt-lbl">${showClient ? 'Cash received ₹' : 'Amount ₹'}</label><input id="pmtInAmt" class="pmt-in pmt-amtbig" type="number" inputmode="decimal" placeholder="0"></div>
       <div><label class="pmt-lbl">Date</label><input id="pmtInDate" class="pmt-in" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
+    ${showClient ? deductionsBlockHTML('pmtd', { direction: 'in', darkOk: true }) : ''}
     <div><label class="pmt-lbl">Reference / note</label>
       <textarea id="pmtInRef" class="pmt-ta" placeholder="e.g. RA-2 payment, advance…"></textarea></div>
     <button class="pmt-save in" onclick="window._pmtSaveIn()">↓ Save Payment In</button>
   `;
+}
+
+/* ── TDS deposit (Payment Out) & retention release (Payment In) ── */
+function _taxDepositBlock() {
+  const bal = deductionBalances(state, { direction: 'out' });
+  const opts = deductionTypes(state).filter(t => t.nature === 'tax').map(t => {
+    const b = bal.find(x => x.type === t.key);
+    return `<option value="${esc(t.key)}">${esc(t.label)} — pending ${money(b ? b.balance : 0)}</option>`;
+  }).join('');
+  return `<div class="pmt-row">
+      <div><label class="pmt-lbl">Deposit which tax</label><div class="pmt-selwrap"><select id="pmtTaxType" class="pmt-sel">${opts}</select></div></div>
+      <div><label class="pmt-lbl">Challan / CIN no.</label><input id="pmtChallan" class="pmt-in" placeholder="BSR + challan no."></div>
+    </div>
+    <div class="pmt-hint"><span class="hi">ℹ️</span> Clears the TDS you deducted from vendors / contractors. Due by the 7th of next month (30 April for March).</div>`;
+}
+function _heldReleaseBlock() {
+  const held = deductionTypes(state).filter(t => t.nature === 'held');
+  const c0 = clients()[0];
+  const balFor = (cid, key) => { const b = deductionBalances(state, { direction: 'in', clientId: cid }).find(x => x.type === key); return b ? b.balance : 0; };
+  return `<div><label class="pmt-lbl">Client releasing it</label><div class="pmt-selwrap"><select id="pmtInName" class="pmt-sel" onchange="window._pmtHeldRefresh()">${_opts(clients())}</select></div></div>
+    <div><label class="pmt-lbl">What is being released</label><div class="pmt-selwrap"><select id="pmtHeldType" class="pmt-sel">${held.map(t => `<option value="${esc(t.key)}">${esc(t.label)} — held ${money(c0 ? balFor(c0.id, t.key) : 0)}</option>`).join('')}</select></div></div>
+    <div class="pmt-hint"><span class="hi">ℹ️</span> Retention / security deposit was already cleared from the client's ledger when it was deducted — this just records the money coming back.</div>`;
+}
+function _pmtHeldRefresh() {
+  const cid = _val('pmtInName'); const sel = document.getElementById('pmtHeldType'); if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = deductionTypes(state).filter(t => t.nature === 'held').map(t => {
+    const b = deductionBalances(state, { direction: 'in', clientId: cid }).find(x => x.type === t.key);
+    return `<option value="${esc(t.key)}">${esc(t.label)} — held ${money(b ? b.balance : 0)}</option>`;
+  }).join('');
+  sel.value = keep;
 }
 
 /* ── dependent-dropdown sync (no full re-render, keeps typed values) ── */
@@ -291,7 +358,7 @@ function _syncPayeeUI() {
   }
   if (t === 'expense' || t === 'statutory' || t === 'owner') _fillHeads();
   // top-up always comes from main account
-  if (t === 'pettyTopup' && _ui.source === 'petty') { _ui.source = 'account'; }
+  if ((t === 'pettyTopup' || t === 'taxDeposit') && _ui.source === 'petty') { _ui.source = 'account'; _syncSourceUI(); }
   void isExpense;
 }
 function _fillHeads() {
@@ -321,9 +388,11 @@ function _val(id) { const e = document.getElementById(id); return e ? e.value : 
 
 function _pmtSaveOut() {
   const amount = parseFloat(_val('pmtAmt')) || 0;
-  if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
+  const ded = _readDed(); if (!ded) return;
+  if (!(amount > 0) && !(ded.deductions.length)) return showToast('Enter a valid amount', 'error');
+  if (amount < 0) return showToast('Cash paid cannot be negative — check the deductions', 'error');
   const t = _ui.payeeType;
-  const source = (t === 'pettyTopup') ? 'account' : _ui.source;
+  const source = (t === 'pettyTopup' || t === 'taxDeposit') ? 'account' : _ui.source;
   if (source === 'account' && !accounts().length) return showToast('Add a bank/cash account first (Finance → Accounts)', 'error');
   if (source === 'petty' && !custodians().length) return showToast('Add a petty-cash custodian first', 'error');
 
@@ -340,20 +409,29 @@ function _pmtSaveOut() {
     accountId: acc?.id, accountName: acc?.name,
     custodianId: cust?.id,
     head: _val('pmtHead'), subHead: _val('pmtSub'),
+    state, deductions: ded.deductions, againstBillId: ded.billId, againstBillRef: ded.billRef, deductionRemark: ded.remark,
   };
   if (t === 'pettyTopup') { input.payeeId = payeeId; input.accountId = acc?.id; input.accountName = acc?.name; }
+  if (t === 'taxDeposit') {
+    if (!acc) return showToast('Add a bank/cash account first (Finance → Accounts)', 'error');
+    const tt = deductionTypes(state).find(x => x.key === _val('pmtTaxType'));
+    Object.assign(input, { source: 'account', settlesDeduction: tt?.key || 'tds', subHead: tt?.label || 'TDS', challanNo: _val('pmtChallan') });
+  }
 
   const { append } = buildPaymentOut(input);
   _appendAll(append);
+  if (t === 'taxDeposit') markDeposited(state, input.settlesDeduction, amount, input.challanNo, input.date);
   saveAllData();
-  showToast('Payment recorded', 'success');
+  showToast(ded.deductions.length ? 'Payment recorded — bill settled with deductions' : 'Payment recorded', 'success');
   renderPaymentsHub();
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
 
 function _pmtSaveIn() {
   const amount = parseFloat(_val('pmtInAmt')) || 0;
-  if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
+  const ded = _readDed(); if (!ded) return;
+  if (!(amount > 0) && !(ded.deductions.length)) return showToast('Enter a valid amount', 'error');
+  if (amount < 0) return showToast('Cash received cannot be negative — check the deductions', 'error');
   if (!accounts().length) return showToast('Add a bank/cash account first', 'error');
   const acc = accounts().find(a => a.id === _val('pmtInAcc'));
   const nameSel = document.getElementById('pmtInName');
@@ -363,11 +441,13 @@ function _pmtSaveIn() {
     payerName: nameSel && nameSel.selectedOptions[0] ? nameSel.selectedOptions[0].textContent : '',
     amount, date: _val('pmtInDate'), ref: _val('pmtInRef'), projectId: _pid(),
     accountId: acc?.id, accountName: acc?.name,
+    state, deductions: ded.deductions, againstBillId: ded.billId, againstBillRef: ded.billRef, deductionRemark: ded.remark,
   };
+  if (input.payerType === 'heldRelease') input.settlesDeduction = _val('pmtHeldType') || 'retention';
   const { append } = buildPaymentIn(input);
   _appendAll(append);
   saveAllData();
-  showToast('Receipt recorded', 'success');
+  showToast(ded.deductions.length ? 'Receipt recorded — bill settled with deductions' : 'Receipt recorded', 'success');
   renderPaymentsHub();
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
@@ -380,6 +460,43 @@ function _appendAll(append) {
   }
 }
 
+/* ── Deductions & CA card: register balances + one-tap Excel for the CA ── */
+function _dedCard() {
+  const fy = fyRange();
+  const bal = deductionBalances(state, { from: fy.from, to: fy.to });
+  const pick = (dir, nature) => bal.filter(b => b.direction === dir && b.nature === nature).reduce((s, b) => s + b.balance, 0);
+  const lines = [
+    ['TDS / tax deducted by clients', pick('in', 'tax'), 'tds_receivable', 'Claim in return · tally with 26AS'],
+    ['TDS / tax to deposit (deducted by us)', pick('out', 'tax'), 'tds_deduction', 'Due 7th of next month'],
+    ['Retention / deposit held by clients', pick('in', 'held'), 'held_tracker', 'Comes back at closeout'],
+    ['Penalties suffered', pick('in', 'penalty'), 'penalty_register', 'Deducted by clients'],
+  ];
+  return `<div class="pmt-listcard" style="margin-bottom:14px">
+    <div class="pmt-listhead"><b>Deductions &amp; CA</b><span class="cnt">${esc(fy.label)}</span></div>
+    ${lines.map(([t, v, rid, sub]) => `<div class="pmt-rrow" style="cursor:pointer" onclick="window._pmtOpenReport('${rid}')">
+      <div class="pmt-rmeta"><div class="pmt-who">${esc(t)}</div><div class="pmt-sub">${esc(sub)}</div></div>
+      <div class="pmt-amt" style="color:${v > 0 ? 'var(--ink)' : 'var(--muted)'}">${money(v)}</div></div>`).join('')}
+    <div style="padding:12px 16px 16px;display:grid;grid-template-columns:1fr auto;gap:8px;border-top:1px solid var(--line)">
+      <div class="pmt-selwrap"><select id="pmtCaPeriod" class="pmt-sel" style="padding:11px 12px;font-size:13.5px">
+        <option value="fy0">This FY</option><option value="fy-1">Last FY</option><option value="all">All dates</option></select></div>
+      <button class="pmt-save in" style="width:auto;padding:11px 16px;font-size:14px" onclick="window._pmtExportCA()">📊 Export for CA</button>
+      <button onclick="window._pmtOpenReport('deduction_register')" style="grid-column:1/-1;border:1px dashed var(--line);background:transparent;color:var(--purple);font:inherit;font-size:13px;font-weight:700;padding:10px;border-radius:12px;cursor:pointer">Open full deductions register →</button>
+    </div>
+  </div>`;
+}
+function _pmtOpenReport(id) {
+  try { window.switchView && window.switchView('reportsView'); setTimeout(() => window._rptRunReport && window._rptRunReport(id), 150); } catch {}
+}
+function _pmtExportCA() {
+  const v = _val('pmtCaPeriod') || 'fy0';
+  const r = v === 'all' ? { from: '', to: '' } : fyRange(undefined, v === 'fy-1' ? -1 : 0);
+  try {
+    const company = (state.companyProfile && (state.companyProfile.CompanyName || state.companyProfile.name)) || '';
+    exportCAPack(state, { from: r.from, to: r.to, company }, mobileSaveXLSX);
+    showToast('CA pack downloaded', 'success');
+  } catch (e) { showToast('Export failed: ' + (e.message || e), 'error'); }
+}
+
 /* ── recent payments (with attribution) ── */
 function _recent() {
   const rows = [];
@@ -387,23 +504,23 @@ function _recent() {
   // Sortable timestamp — createdAt (ms), else the ms embedded in the id, else the
   // date. Ensures the newest transaction shows first even when many share a date.
   const ts = r => r.createdAt || parseInt((String(r.id || '').match(/(\d{9,})/) || [])[1] || '0', 10) || Date.parse(r.date || '') || 0;
-  (state.vendorPayments || []).forEach(v => rows.push({ icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
-  (state.labourPayments || []).forEach(l => rows.push({ icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
-  (state.expenses || []).forEach(e => rows.push({ icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
+  (state.vendorPayments || []).forEach(v => rows.push({ ded: deductionTotal(v), settled: settledAmount(v), icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
+  (state.labourPayments || []).forEach(l => rows.push({ ded: deductionTotal(l), settled: settledAmount(l), icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
+  (state.expenses || []).forEach(e => rows.push({ ded: deductionTotal(e), settled: settledAmount(e), icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
   (state.pettyCashTxns || []).forEach(t => {
     if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
     if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
     if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
   });
-  (state.paymentsIn || []).forEach(p => rows.push({ icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
-  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
+  (state.paymentsIn || []).forEach(p => rows.push({ ded: deductionTotal(p), settled: settledAmount(p), icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
+  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: o.settlesDeduction ? 'Retention / deposit released: ' + (pName('clients', o.clientId) || o.source || '') : 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
   rows.sort((a, b) => (b.ts - a.ts) || (new Date(b.date || 0) - new Date(a.date || 0)));
   const top = rows.slice(0, 15);
   const body = top.length
     ? top.map(r =>
       `<div class="pmt-rrow">
          <div class="pmt-tic ${r.dir}">${r.icon || (r.dir === 'out' ? '↑' : '↓')}</div>
-         <div class="pmt-rmeta"><div class="pmt-who">${esc(r.who)}</div><div class="pmt-sub">${esc([r.via, r.date].filter(Boolean).join(' · '))}</div></div>
+         <div class="pmt-rmeta"><div class="pmt-who">${esc(r.who)}</div><div class="pmt-sub">${esc([r.via, r.date].filter(Boolean).join(' · '))}</div>${r.ded > 0 ? `<div class="pmt-sub" style="color:#be123c">− ${money(r.ded)} deducted · settled ${money(r.settled)}</div>` : ''}</div>
          <div class="pmt-amt ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
        </div>`).join('')
     : '<div class="pmt-none">No payments yet.</div>';
@@ -417,7 +534,7 @@ function _recent() {
 /* ── self-bind for inline handlers ── */
 if (typeof window !== 'undefined') {
   Object.assign(window, {
-    renderPaymentsHub, _pmtSetMode, _pmtSetPayee, _pmtSetSource, _pmtSetPayer,
+    renderPaymentsHub, _pmtSetMode, _pmtSetPayee, _pmtSetSource, _pmtSetPayer, _pmtHeldRefresh, _pmtOpenReport, _pmtExportCA,
     _pmtHeadChange, _pmtSaveOut, _pmtSaveIn,
   });
 }

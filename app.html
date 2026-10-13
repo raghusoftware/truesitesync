@@ -58,7 +58,7 @@
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.1">
-    <script type="module" src="js/app.js?v=1.6.153"></script>
+    <script type="module" src="js/app.js?v=1.6.154"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -3284,6 +3284,7 @@
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Mode</label><select id="pinFormMode" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Cash">Cash</option><option value="Bank">Bank Transfer</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Reference / UTR No</label><input type="text" id="pinFormRef" placeholder="" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-green-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Invoice Ref</label><input type="text" id="pinFormInvRef" placeholder="INV-XXX" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-green-500"></div>
+                <div class="md:col-span-2" id="pinDedHost"></div>
               </div>
             </div>
             <div class="text-right"><button onclick="savePaymentInForm()" class="bg-green-600 text-white px-10 py-3.5 rounded-lg font-bold shadow-lg hover:bg-green-700 text-lg inline-flex items-center gap-2">Save Payment-In</button></div>

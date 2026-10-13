@@ -9,6 +9,7 @@
  */
 
 import { state } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
 import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.1';
@@ -75,7 +76,7 @@ export function exportSalesLedgerPDF() {
   const rows = (state.saleInvoices || []).map(inv => {
     const c = state.clients.find(x => x.id === inv.clientId);
     const proj = inv.projectId ? (state.projects || []).find(p => p.id === inv.projectId) : null;
-    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
     return [inv.invoiceNo, inv.date, c?.name || inv.clientName || '—', proj?.name || '—', inv.poNo || '—',
       _num2(inv.subtotal), _num2(inv.gstAmount), _num2(inv.total),
       _num2(Math.min(received, inv.total)), _num2(inv.total - Math.min(received, inv.total)), inv.status];
@@ -97,7 +98,7 @@ export function exportSalesLedgerExcel() {
   (state.saleInvoices || []).forEach(inv => {
     const c = state.clients.find(x => x.id === inv.clientId);
     const proj = inv.projectId ? (state.projects || []).find(p => p.id === inv.projectId) : null;
-    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
     csv += `"${inv.invoiceNo}","${inv.date}","${c?.name || inv.clientName || ''}","${proj?.name || ''}","${inv.poNo || ''}",${inv.subtotal || 0},${inv.gstAmount || 0},${inv.total || 0},${Math.min(received, inv.total)},${inv.total - Math.min(received, inv.total)},"${inv.status}"\n`;
   });
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

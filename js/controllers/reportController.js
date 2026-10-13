@@ -8,8 +8,8 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.92';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.90';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.93';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
 import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX, getPdfCurrency } from '../modules/utils.js';

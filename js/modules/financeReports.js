@@ -10,6 +10,7 @@
  */
 
 import { state } from './state.js';
+import { settledAmount, deductionNote } from './deductions.js';
 import { showToast, getPdfCurrency, mobileSavePDF, mobileSaveXLSX } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
 
@@ -63,10 +64,10 @@ function _partyLedger(type, id) {
     (state.abstracts || []).filter(a => a.clientId === id).forEach(a => t.push({ date: a.date, desc: 'Work Bill / Abstract ' + (a.abstractNum || ''), debit: _num(a.totalAmount), credit: 0 }));
     (state.invoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, desc: 'Tax Invoice (GST) ' + (i.invoiceNum || ''), debit: _num(i.taxAmount), credit: 0 }));
     (state.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, desc: 'Sale Invoice ' + (i.invoiceNo || ''), debit: _num(i.total), credit: 0 }));
-    (state.paymentsIn || []).filter(p => p.clientId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Received ' + (p.ref || ''), debit: 0, credit: _num(p.amount) }));
+    (state.paymentsIn || []).filter(p => p.clientId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Received ' + (p.ref || '') + deductionNote(p), debit: 0, credit: settledAmount(p) }));
   } else if (type === 'labour') {
     (state.labourSalaries || []).filter(s => s.labourId === id).forEach(s => t.push({ date: s.date, desc: 'Wages / Salary ' + (s.month || ''), debit: 0, credit: _num(s.amount) }));
-    (state.labourPayments || []).filter(p => p.labourId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || ''), debit: _num(p.amount), credit: 0 }));
+    (state.labourPayments || []).filter(p => p.labourId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || '') + deductionNote(p), debit: settledAmount(p), credit: 0 }));
   } else if (type === 'contractor') {
     (state.workMeasurements || []).filter(m => m.gangId === id && m.approved).forEach(m => {
       const r = (state.workItemRates || []).find(x => x.id === m.rateId);
@@ -76,7 +77,7 @@ function _partyLedger(type, id) {
     (state.labourAdvances || []).filter(a => a.labourId === id).forEach(a => t.push({ date: a.date, desc: 'Advance', debit: _num(a.amount), credit: 0 }));
   } else {
     (state.vendorMaterials || []).filter(b => b.vendorId === id).forEach(b => t.push({ date: b.date, desc: 'Purchase Bill ' + (b.billNo || ''), debit: 0, credit: _num(b.totalAmount ?? b.amount) }));
-    (state.vendorPayments || []).filter(p => p.vendorId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || ''), debit: _num(p.amount), credit: 0 }));
+    (state.vendorPayments || []).filter(p => p.vendorId === id).forEach(p => t.push({ date: p.date, desc: 'Payment Made ' + (p.ref || '') + deductionNote(p), debit: settledAmount(p), credit: 0 }));
   }
   t.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   return t;

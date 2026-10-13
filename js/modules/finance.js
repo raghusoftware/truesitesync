@@ -1,4 +1,6 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
+import { settledAmount, deductionNote, deductionTotal } from './deductions.js';
+import { mountDeductions, applyDeductionsTo, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, getTerm } from './utils.js';
 import { computeGst } from './gstCalc.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
@@ -127,8 +129,8 @@ export function buildClientLedger(cId) {
     const acc = state.accounts.find(x => x.id === p.accountId);
     stmt.push({
       date: p.date,
-      desc: `Payment Received (${p.ref || 'No Ref'}) via ${acc ? acc.name : 'Unknown'}`,
-      debit: 0, credit: parseFloat(p.amount)
+      desc: `Payment Received (${p.ref || 'No Ref'}) via ${acc ? acc.name : 'Unknown'}${deductionNote(p)}`,
+      debit: 0, credit: settledAmount(p)
     });
   });
   stmt.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -139,17 +141,39 @@ export function savePaymentIn() {
   const clientId = document.getElementById('accInClient').value;
   const amount = document.getElementById('accInAmount').value;
   const accountId = document.getElementById('accInAccount').value;
-  if (!clientId || !amount || !accountId) return showToast('Client, Account and Amount required', 'error');
-  state.paymentsIn.push(window.stampCreate({
+  const rec = {
     id: 'in_' + Date.now(), clientId, accountId,
     date: document.getElementById('accInDate').value,
-    amount, ref: document.getElementById('accInRef').value
-  }));
+    amount: parseFloat(amount) || 0, ref: document.getElementById('accInRef').value
+  };
+  const dr = applyDeductionsTo(rec, 'accinded');
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (!clientId || !accountId || rec.amount < 0 || (!(rec.amount > 0) && !(deductionTotal(rec) > 0))) return showToast('Client, Account and Amount required', 'error');
+  state.paymentsIn.push(window.stampCreate(rec));
   saveAllData();
+  ensureQuickDeductions();
   showToast('Payment Saved');
   document.getElementById('accInAmount').value = '';
   updateDashboard();
   renderMasterClientList();
+}
+
+/** (Re)mount the deductions section on the quick Payment-In and vendor-payment forms. */
+export function ensureQuickDeductions() {
+  const inAmt = document.getElementById('accInAmount');
+  if (inAmt) {
+    mountDeductions('accinded', inAmt, { cashInputId: 'accInAmount', direction: 'in', getState: () => state,
+      bills: () => clientBills(state, document.getElementById('accInClient')?.value) });
+    const c = document.getElementById('accInClient');
+    if (c && !c.dataset.dedBound) { c.dataset.dedBound = '1'; c.addEventListener('change', () => refreshBills('accinded')); }
+  }
+  const vAmt = document.getElementById('venPayAmount');
+  if (vAmt) {
+    mountDeductions('venpded', vAmt, { cashInputId: 'venPayAmount', direction: 'out', getState: () => state,
+      bills: () => vendorBills(state, document.getElementById('venPayVendor')?.value) });
+    const v = document.getElementById('venPayVendor');
+    if (v && !v.dataset.dedBound) { v.dataset.dedBound = '1'; v.addEventListener('change', () => refreshBills('venpded')); }
+  }
 }
 
 export function saveExpense() {
@@ -175,13 +199,17 @@ export function saveVendorPayment() {
   const vId = document.getElementById('venPayVendor').value;
   const amt = document.getElementById('venPayAmount').value;
   const accountId = document.getElementById('venPayAccount').value;
-  if (!vId || !amt || !accountId) return showToast('Required fields missing', 'error');
-  state.vendorPayments.push(window.stampCreate({
+  const rec = {
     id: 'vp_' + Date.now(), vendorId: vId, accountId,
     date: document.getElementById('venPayDate').value,
-    amount: amt, ref: document.getElementById('venPayRef').value
-  }));
+    amount: parseFloat(amt) || 0, ref: document.getElementById('venPayRef').value
+  };
+  const dr = applyDeductionsTo(rec, 'venpded');
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (!vId || !accountId || rec.amount < 0 || (!(rec.amount > 0) && !(deductionTotal(rec) > 0))) return showToast('Required fields missing', 'error');
+  state.vendorPayments.push(window.stampCreate(rec));
   saveAllData();
+  ensureQuickDeductions();
   showToast('Payment Saved');
   renderVendorLedger();
   document.getElementById('venPayAmount').value = '';
@@ -246,7 +274,7 @@ export function renderVendorLedger() {
     if (m.items) ledger.push({ id: m.id, type: 'bill', date: m.date, desc: `Purchase Bill: <span class="font-bold text-blue-700">${m.billNo}</span> (${m.items.length} items. Extras: ${getCurrencySymbol()}${(m.extras.transport + m.extras.loading + m.extras.gst).toFixed(2)})`, debit: m.totalAmount, credit: 0 });
     else ledger.push({ id: m.id, type: 'mat', date: m.date, desc: `Legacy Material: ${m.name}`, debit: m.amount, credit: 0 });
   });
-  state.vendorPayments.filter(p => p.vendorId === vId).forEach(p => ledger.push({ id: p.id, type: 'pay', date: p.date, desc: `Payment Out: Ref - ${p.ref || 'N/A'}`, debit: 0, credit: parseFloat(p.amount) }));
+  state.vendorPayments.filter(p => p.vendorId === vId).forEach(p => ledger.push({ id: p.id, type: 'pay', date: p.date, desc: `Payment Out: Ref - ${p.ref || 'N/A'}${deductionNote(p)}`, debit: 0, credit: settledAmount(p) }));
   ledger.sort((a, b) => new Date(a.date) - new Date(b.date));
   const tbody = document.getElementById('vendorLedgerBody');
   tbody.innerHTML = '';
@@ -647,7 +675,7 @@ export function renderMasterClientList() {
   let totalBilled = 0, totalReceived = 0, totalBal = 0;
   state.clients.forEach(c => {
     const billed = state.abstracts.filter(a => a.clientId === c.id).reduce((s, a) => s + a.totalAmount, 0) + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
-    const paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+    const paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
     totalBilled += billed; totalReceived += paid; totalBal += (billed - paid);
     tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold">${c.name}</td><td class="px-3 py-2 text-right">${getCurrencySymbol()}${billed.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-3 py-2 text-right text-green-600">${getCurrencySymbol()}${paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-3 py-2 text-right font-bold text-blue-700">${getCurrencySymbol()}${(billed - paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>`;
   });
@@ -661,7 +689,7 @@ export function renderMasterVendorList() {
   state.vendors.forEach(v => {
     let sup = 0;
     state.vendorMaterials.filter(m => m.vendorId === v.id).forEach(m => { sup += (m.totalAmount || parseFloat(m.amount) || 0); });
-    const paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+    const paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
     totalSup += sup; totalPaid += paid; totalBal += (sup - paid);
     tbody.innerHTML += `<tr><td class="px-3 py-2 font-bold">${v.name}</td><td class="px-3 py-2 text-right text-red-600">${getCurrencySymbol()}${sup.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-3 py-2 text-right text-green-600">${getCurrencySymbol()}${paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td class="px-3 py-2 text-right font-bold text-orange-700">${getCurrencySymbol()}${(sup - paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>`;
   });
@@ -677,7 +705,7 @@ export function exportMasterList(type) {
     doc.text("CLIENT FINANCIAL SUMMARY", 105, y + 5, null, null, "center");
     state.clients.forEach(c => {
       const billed = state.abstracts.filter(a => a.clientId === c.id).reduce((s, a) => s + a.totalAmount, 0) + state.invoices.filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + i.taxAmount, 0);
-      const paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+      const paid = state.paymentsIn.filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
       rows.push([c.name, pdfMoney(billed), pdfMoney(paid), pdfMoney(billed - paid)]);
     });
     const cur = getPdfCurrency().trim();
@@ -687,7 +715,7 @@ export function exportMasterList(type) {
     state.vendors.forEach(v => {
       let sup = 0;
       state.vendorMaterials.filter(m => m.vendorId === v.id).forEach(m => { sup += (m.totalAmount || parseFloat(m.amount) || 0); });
-      const paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+      const paid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
       rows.push([v.name, pdfMoney(sup), pdfMoney(paid), pdfMoney(sup - paid)]);
     });
     const cur = getPdfCurrency().trim();
@@ -711,7 +739,7 @@ export function exportVendorLedgerPDF() {
     if (m.items) ledger.push({ date: m.date, desc: `Purchase Bill: ${m.billNo}`, debit: m.totalAmount, credit: 0 });
     else ledger.push({ date: m.date, desc: `Material: ${m.name}`, debit: m.amount, credit: 0 });
   });
-  state.vendorPayments.filter(p => p.vendorId === vId).forEach(p => ledger.push({ date: p.date, desc: `Payment Out: ${p.ref || 'No ref'}`, debit: 0, credit: parseFloat(p.amount) }));
+  state.vendorPayments.filter(p => p.vendorId === vId).forEach(p => ledger.push({ date: p.date, desc: `Payment Out: ${p.ref || 'No ref'}${deductionNote(p)}`, debit: 0, credit: settledAmount(p) }));
   ledger.sort((a, b) => new Date(a.date) - new Date(b.date));
   let rows = []; let bal = 0;
   ledger.forEach(l => {
@@ -748,3 +776,5 @@ export function exportClientStatementPDF() {
 function updateDashboard() {
   if (!document.getElementById('dashboard').classList.contains('hide')) window.renderGlobalDashboard();
 }
+
+if (typeof window !== 'undefined') window.ensureQuickDeductions = ensureQuickDeductions;
