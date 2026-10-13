@@ -11,7 +11,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
-import { COUNTRY_RULES, getCountryRule } from './countryRules.js?v=1.0.1';
+import { COUNTRY_RULES, getCountryRule } from './countryRules.js?v=1.0.3';
 
 /** Countries offered at onboarding — only those with a full rule pack
  *  (currency + terminology + tax), so the choice configures everything. */

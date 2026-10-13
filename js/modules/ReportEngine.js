@@ -9,8 +9,9 @@
  */
 
 import { state } from './state.js';
+import { settledAmount, deductionRegister, fyQuarter, tdsDueDate, findType } from './deductions.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.89';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category
@@ -33,9 +34,14 @@ export const REPORT_CATEGORIES = [
     reports: [
       _R('expense_register', 'Expense Register (All Expenses)'),
       _R('expense_analysis', 'Expense Analysis (by Head)'),
+      _R('account_statement', 'Account Statement — Bank & Cash'),
+      _R('party_ledger', 'Party Ledger — Clients, Vendors, Labour'),
       _R('cash_book', 'Cash Book'),
       _R('cash_flow', 'Cash Flow Statement'),
       _R('retention_recovery', 'Retention Recovery Register'),
+      _R('deduction_register', 'Payment Deductions Register (TDS, penalty, retention…)'),
+      _R('held_tracker', 'Retention & Security Deposit Held (from payments)'),
+      _R('penalty_register', 'Penalties Register (suffered & levied)'),
     ],
   },
   {
@@ -113,7 +119,9 @@ export const REPORT_CATEGORIES = [
       _R('gst_summary', 'GST Summary'),
       _R('gst_hsn', 'HSN Summary'),
       _R('gst_input_credit', 'Input Tax Credit (ITC) Register'),
-      _R('tds_deduction', 'TDS Deduction Report'),
+      _R('tds_deduction', 'TDS Payable (deducted by us)'),
+      _R('tds_receivable', 'TDS Receivable (deducted by clients)'),
+      _R('vat_return', 'VAT Return Summary (VAT 201)'),
     ],
   },
   {
@@ -582,6 +590,49 @@ export class ReportEngine {
     return { rows, summary: { totalInvoices: rows.length } };
   }
 
+  // ── VAT Return Summary (VAT 201 — UAE/GCC/UK, also works for GST) ──
+  // Output tax from sales, input tax from purchases, over the selected period.
+  computeVatReturn(params = {}) {
+    let outStd = 0, outVat = 0, outZero = 0;
+    // Sale invoices — per-line taxable / tax (works for VAT single-line and GST).
+    this._filterByParams(this._getDataSource('saleInvoices') || [], params)
+      .filter(inv => inv.status !== 'Cancelled')
+      .forEach(inv => {
+        (inv.items || []).forEach(it => {
+          const amt = parseFloat(it.amount) || 0;
+          const tax = parseFloat(it.taxAmount) || 0;
+          const taxable = amt - tax;
+          if (it.taxType === 'NONE' || !parseFloat(it.taxPct)) outZero += taxable;
+          else { outStd += taxable; outVat += tax; }
+        });
+      });
+    // Finance-module invoices (summary-level tax).
+    this._filterByParams(this._getDataSource('invoices') || [], params)
+      .filter(inv => inv.status !== 'Cancelled')
+      .forEach(inv => {
+        const tax = parseFloat(inv.taxAmount) || 0;
+        const sub = parseFloat(inv.subtotal) || ((parseFloat(inv.total) || 0) - tax);
+        if (tax > 0) { outStd += sub; outVat += tax; } else { outZero += sub; }
+      });
+    // Purchases — recoverable input tax (stored as extras.gst on each bill).
+    let inTaxable = 0, inVat = 0;
+    this._filterByParams(this._getDataSource('purchases') || [], params).forEach(b => {
+      const g = parseFloat(b.extras && b.extras.gst) || 0;
+      const tot = parseFloat(b.totalAmount) || 0;
+      inVat += g; inTaxable += Math.max(0, tot - g);
+    });
+    const net = outVat - inVat;
+    const rows = [
+      { box: '1. Standard-rated supplies (sales)', taxable: outStd, tax: outVat },
+      { box: '2. Zero-rated / exempt supplies', taxable: outZero, tax: 0 },
+      { box: '3. Total output tax due', taxable: outStd + outZero, tax: outVat },
+      { box: '4. Standard-rated expenses (purchases)', taxable: inTaxable, tax: inVat },
+      { box: '5. Recoverable input tax', taxable: inTaxable, tax: inVat },
+      { box: '6. NET TAX PAYABLE / (RECLAIMABLE)', taxable: null, tax: net },
+    ];
+    return { rows, summary: { outputVat: outVat, inputVat: inVat, net }, kpis: { 'Output tax': outVat, 'Input tax': inVat, 'Net payable': net } };
+  }
+
   // ── GSTR-3B ──
   computeGSTR3B(params = {}) {
     const gstr1 = this.computeGSTR1(params);
@@ -663,20 +714,77 @@ export class ReportEngine {
     return { rows };
   }
 
-  // ── TDS Deduction Register ──
-  computeTDSDeduction(params = {}) {
-    const payments = this._filterByParams([...(state.vendorPayments || []), ...(state.vendorPayments || [])], params);
-    const rows = payments.filter(p => parseFloat(p.tdsAmount) > 0 || parseFloat(p.tds) > 0).map(p => {
-      const vendor = (state.vendors || []).find(v => v.id === p.vendorId);
-      const gross = parseFloat(p.amount) || 0;
-      const tds = parseFloat(p.tdsAmount) || parseFloat(p.tds) || 0;
-      return {
-        date: p.date, vendorName: vendor?.name || p.partyName || '—', pan: vendor?.pan || '—',
-        section: p.tdsSection || '194C', grossAmount: gross, tdsRate: gross ? (tds / gross * 100) : 0,
-        tdsAmount: tds, netPayable: gross - tds, challanNo: p.challanNo || '—', depositDate: p.tdsDepositDate || '—',
-      };
+  // ── Payment deductions (TDS, GST-TDS, retention, penalty…) — see deductions.js ──
+  _dedRows(params = {}, opts = {}) {
+    const p = params || {};
+    return deductionRegister(state, {
+      from: p.dateRange?.start || '', to: p.dateRange?.end || '',
+      projectId: p.filters?.projectId || null, ...opts,
     });
+  }
+  _partyPan(r) {
+    const p = (state[r.src] || []).find(x => x.id === r.paymentId) || {};
+    const party = p.clientId ? (state.clients || []).find(c => c.id === p.clientId)
+      : p.vendorId ? (state.vendors || []).find(v => v.id === p.vendorId)
+      : p.labourId ? (state.labourMaster || []).find(l => l.id === p.labourId)
+      : p.gangId ? (state.labourContractors || []).find(g => g.id === p.gangId) : null;
+    return party?.pan || '—';
+  }
+
+  // TDS / GST-TDS / cess WE deducted from vendors, contractors, labour (payable to Govt.)
+  computeTDSDeduction(params = {}) {
+    const rows = this._dedRows(params, { direction: 'out' }).filter(r => r.nature === 'tax').map(r => ({
+      date: r.date, quarter: fyQuarter(r.date), vendorName: r.partyName || '—', pan: this._partyPan(r), tax: r.label,
+      section: r.section || '—', grossAmount: r.settled, tdsRate: r.rate || (r.settled ? r.amount / r.settled * 100 : 0),
+      tdsAmount: r.amount, netPayable: r.cash, dueDate: tdsDueDate(r.date),
+      challanNo: (state[r.src] || []).find(x => x.id === r.paymentId)?.deductions?.find(d => d.type === r.type && d.challanNo)?.challanNo || '—',
+      status: r.deposited ? 'Deposited' : (tdsDueDate(r.date) < new Date().toISOString().slice(0, 10) ? 'Overdue' : 'Pending'),
+    }));
     return { rows };
+  }
+
+  // TDS / GST-TDS deducted BY CLIENTS from our receipts (claim in ITR; match with 26AS / AIS)
+  computeTDSReceivable(params = {}) {
+    const rows = this._dedRows(params, { direction: 'in' }).filter(r => r.nature === 'tax').map(r => ({
+      date: r.date, quarter: fyQuarter(r.date), clientName: r.partyName || '—', pan: this._partyPan(r), tax: r.label,
+      section: r.section || '—', billRef: r.billRef || '—', grossAmount: r.settled, tdsRate: r.rate || 0,
+      tdsAmount: r.amount, cashReceived: r.cash, matched: r.matched26AS ? 'Matched' : 'Not checked',
+    }));
+    return { rows };
+  }
+
+  computeDeductionRegister(params = {}) {
+    const rows = this._dedRows(params).map(r => ({
+      date: r.date, direction: r.direction === 'in' ? 'Payment In' : 'Payment Out', partyType: r.partyType, partyName: r.partyName || '—',
+      billRef: r.billRef || '—', deduction: r.label, nature: r.nature, section: r.section || '', amount: r.amount,
+      cash: r.cash, settled: r.settled, register: r.register, remark: r.remark || '',
+    }));
+    return { rows };
+  }
+
+  computePenaltyRegister(params = {}) {
+    const rows = this._dedRows(params).filter(r => r.nature === 'penalty').map(r => ({
+      date: r.date, kind: r.direction === 'in' ? 'Suffered (client deducted)' : 'Levied (we deducted)',
+      partyName: r.partyName || '—', billRef: r.billRef || '—', deduction: r.label, amount: r.amount, remark: r.remark || '—',
+    }));
+    return { rows };
+  }
+
+  computeHeldTracker(params = {}) {
+    const rows = this._dedRows(params).filter(r => r.nature === 'held').map(r => ({
+      date: r.date, kind: r.direction === 'in' ? 'Held by client (receivable)' : 'Held by us (payable)',
+      partyName: r.partyName || '—', billRef: r.billRef || '—', deduction: r.label, amount: r.amount, remark: r.remark || '',
+    }));
+    (state.otherIncome || []).filter(o => o.settlesDeduction && this._inRange(o, params)).forEach(o => rows.push({
+      date: o.date, kind: 'Released by client', partyName: (state.clients || []).find(c => c.id === o.clientId)?.name || o.source || '—',
+      billRef: '—', deduction: findType(state, o.settlesDeduction).label, amount: -(parseFloat(o.amount) || 0), remark: o.ref || '',
+    }));
+    rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return { rows };
+  }
+  _inRange(r, params = {}) {
+    const d = r.date || '';
+    return (!params.dateRange?.start || d >= params.dateRange.start) && (!params.dateRange?.end || d <= params.dateRange.end);
   }
 
   // ── Measurement Book (MB) ──
@@ -895,7 +1003,7 @@ export class ReportEngine {
     const rows = clients.map(c => {
       const invoices = (state.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled');
       const totalInvoiced = invoices.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-      const totalReceived = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const totalReceived = (state.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
       const outstanding = totalInvoiced - totalReceived;
       const lastInvoice = invoices.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
       const overdueDays = lastInvoice ? Math.max(0, Math.floor((Date.now() - new Date(lastInvoice.date).getTime()) / 86400000) - 30) : 0;
@@ -940,7 +1048,7 @@ export class ReportEngine {
     const vendors = state.vendors || [];
     const rows = vendors.map(v => {
       const billed = (state.vendorMaterials || []).filter(m => m.vendorId === v.id).reduce((s, m) => s + (parseFloat(m.totalAmount) || 0), 0);
-      const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const paid = (state.vendorPayments || []).filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
       return { vendorName: v.name, totalBilled: billed, totalPaid: paid, advancePaid: 0, retentionHeld: 0, outstanding: billed - paid, overdueDays: 0 };
     }).filter(r => r.totalBilled > 0);
     return { rows };
@@ -1031,7 +1139,7 @@ export class ReportEngine {
     const rows = projects.map(p => {
       const sales = (state.saleInvoices || []).filter(i => i.projectId === p.id && i.status !== 'Cancelled');
       const totalBilled = sales.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-      const totalReceived = (state.paymentsIn || []).filter(pay => pay.projectId === p.id || sales.some(inv => inv.clientId === pay.clientId)).reduce((s, pay) => s + (parseFloat(pay.amount) || 0), 0);
+      const totalReceived = (state.paymentsIn || []).filter(pay => pay.projectId === p.id || sales.some(inv => inv.clientId === pay.clientId)).reduce((s, pay) => s + settledAmount(pay), 0);
       const materialCost = (state.vendorMaterials || []).filter(v => v.siteId === p.id).reduce((s, v) => s + (parseFloat(v.totalAmount) || 0), 0);
       const labourCost = (state.labourSalaries || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.netPay) || 0), 0);
       const equipmentCost = (state.equipmentLogs || []).filter(l => l.projectId === p.id).reduce((s, l) => s + (parseFloat(l.cost) || 0), 0);

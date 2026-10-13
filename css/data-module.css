@@ -1,0 +1,171 @@
+/* ═══════════════════════════════════════════════════════════
+ * True Site Sync — Data-module design system
+ * ═══════════════════════════════════════════════════════════
+ * The premium list + modal pattern, shared by every data module
+ * (Guarantees, Subcontractors, WPS, …). Namespaced `dm-` so it never
+ * collides with existing styles. Light theme — matches the app.
+ *   action bar · risk-first KPI strip · dense scannable table ·
+ *   status chips · hover row actions · teaching empty state.
+ * ═══════════════════════════════════════════════════════════ */
+.dm{
+  --dm-bg:#f6f7fb; --dm-surface:#fff; --dm-surface-2:#fafbfd;
+  --dm-line:#e7e9f0; --dm-line-strong:#d7dae6;
+  --dm-ink:#101626; --dm-ink-2:#51586b; --dm-ink-3:#8a90a2;
+  --dm-accent:#d6402c; --dm-accent-2:#ef8420; --dm-accent-soft:#fff2ea;
+  --dm-ok:#0c8a5a; --dm-ok-soft:#e8f6ef;
+  --dm-warn:#b4690e; --dm-warn-soft:#fdf3e2;
+  --dm-crit:#c6362d; --dm-crit-soft:#fdecea;
+  --dm-ring:rgba(214,64,44,.26);
+  --dm-shadow:0 1px 2px rgba(16,22,38,.04),0 2px 8px rgba(16,22,38,.05);
+  max-width:1120px;margin:0 auto;
+  font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+.dm *{box-sizing:border-box}
+.dm .tnum{font-variant-numeric:tabular-nums}
+
+/* ── Action bar ── */
+.dm-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.dm-bar .dm-lead{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dm-bar h1{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--dm-ink);margin:0}
+.dm-bar .dm-sub{font-size:12.5px;color:var(--dm-ink-2)}
+
+.dm-btn{border:none;border-radius:11px;padding:10px 17px;font-size:13.5px;font-weight:800;display:inline-flex;align-items:center;gap:7px;cursor:pointer;line-height:1}
+.dm-btn-primary{background:linear-gradient(135deg,var(--dm-accent-2),var(--dm-accent));color:#fff;box-shadow:0 6px 16px var(--dm-ring)}
+.dm-btn-primary:hover{filter:brightness(1.04)}
+.dm-btn-ghost{background:var(--dm-surface);border:1px solid var(--dm-line-strong);color:var(--dm-ink-2);font-weight:700}
+.dm-btn-ghost:hover{border-color:var(--dm-ink-3)}
+.dm-btn-sm{padding:7px 13px;font-size:12px;border-radius:9px}
+
+/* ── Metric strip ── */
+.dm-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.dm-kpi{background:var(--dm-surface);border:1px solid var(--dm-line);border-radius:14px;padding:14px 16px;box-shadow:var(--dm-shadow);position:relative;overflow:hidden}
+.dm-kpi .dm-cap{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dm-ink-3);display:flex;align-items:center;gap:6px}
+.dm-kpi .dm-val{font-size:25px;font-weight:800;letter-spacing:-.02em;margin-top:6px;color:var(--dm-ink)}
+.dm-kpi .dm-meta{font-size:11.5px;color:var(--dm-ink-2);margin-top:1px}
+.dm-kpi .dm-rail{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dm-accent)}
+.dm-kpi.attn{background:var(--dm-warn-soft);border-color:transparent}
+.dm-kpi.attn .dm-cap,.dm-kpi.attn .dm-val{color:var(--dm-warn)} .dm-kpi.attn .dm-rail{background:var(--dm-warn)}
+.dm-kpi.danger{background:var(--dm-crit-soft);border-color:transparent}
+.dm-kpi.danger .dm-cap,.dm-kpi.danger .dm-val{color:var(--dm-crit)} .dm-kpi.danger .dm-rail{background:var(--dm-crit)}
+
+/* ── Panel + table ── */
+.dm-panel{background:var(--dm-surface);border:1px solid var(--dm-line);border-radius:14px;box-shadow:var(--dm-shadow);overflow:hidden;margin-bottom:14px}
+.dm-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--dm-line)}
+.dm-panel-head h2{font-size:13.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--dm-ink);margin:0}
+.dm-panel-head .dm-tools{display:flex;gap:8px;align-items:center}
+.dm-search{display:flex;align-items:center;gap:7px;background:var(--dm-surface-2);border:1px solid var(--dm-line);border-radius:9px;padding:6px 10px;color:var(--dm-ink-3);font-size:12.5px}
+.dm-search input{border:none;background:none;outline:none;color:var(--dm-ink);font-family:inherit;font-size:12.5px;width:130px}
+.dm-tscroll{overflow-x:auto}
+.dm-table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+.dm-table thead th{position:sticky;top:0;background:var(--dm-surface-2);text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--dm-ink-3);padding:10px 16px;border-bottom:1px solid var(--dm-line);white-space:nowrap;z-index:1}
+.dm-table th.num,.dm-table td.num{text-align:right}
+.dm-table tbody tr{border-bottom:1px solid var(--dm-line)}
+.dm-table tbody tr:last-child{border-bottom:none}
+.dm-table tbody tr:hover{background:var(--dm-surface-2)}
+.dm-table tbody td{padding:0 16px;height:54px;vertical-align:middle;color:var(--dm-ink-2)}
+.dm-name{font-weight:800;color:var(--dm-ink);font-size:13px;line-height:1.2}
+.dm-ref{font-size:11px;color:var(--dm-ink-3);margin-top:2px}
+.dm-amt{font-weight:800;color:var(--dm-ink)}
+.dm-two{display:flex;flex-direction:column;gap:1px}
+
+/* ── Status chips (dot + word, never colour alone) ── */
+.dm-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 9px 4px 8px;border-radius:999px;white-space:nowrap}
+.dm-chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dm-chip.ok{background:var(--dm-ok-soft);color:var(--dm-ok)} .dm-chip.ok .dot{background:var(--dm-ok)}
+.dm-chip.warn{background:var(--dm-warn-soft);color:var(--dm-warn)} .dm-chip.warn .dot{background:var(--dm-warn)}
+.dm-chip.crit{background:var(--dm-crit-soft);color:var(--dm-crit)} .dm-chip.crit .dot{background:var(--dm-crit)}
+.dm-chip.mut{background:var(--dm-surface-2);color:var(--dm-ink-3);border:1px solid var(--dm-line)} .dm-chip.mut .dot{background:var(--dm-ink-3)}
+
+/* ── Row actions (revealed on hover, always on touch) ── */
+.dm-rowact{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:opacity .12s}
+.dm-table tbody tr:hover .dm-rowact{opacity:1}
+.dm-iact{border:1px solid var(--dm-line-strong);background:var(--dm-surface);border-radius:8px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;color:var(--dm-ink-2);font-size:13px;cursor:pointer;padding:0}
+.dm-iact:hover{border-color:var(--dm-accent);color:var(--dm-accent)}
+@media (hover:none){.dm-rowact{opacity:1}}
+
+/* ── Progress bar (used in package cards) ── */
+.dm-prog{height:6px;background:var(--dm-line);border-radius:3px;overflow:hidden;margin:10px 0}
+.dm-prog > i{display:block;height:100%;background:linear-gradient(90deg,var(--dm-accent-2),var(--dm-accent))}
+
+/* ── Empty state that teaches ── */
+.dm-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:52px 20px}
+.dm-empty .ico{width:54px;height:54px;border-radius:16px;background:var(--dm-accent-soft);color:var(--dm-accent);display:flex;align-items:center;justify-content:center;font-size:24px}
+.dm-empty h3{font-size:16px;font-weight:800;color:var(--dm-ink);margin:0}
+.dm-empty p{font-size:13px;color:var(--dm-ink-2);max-width:380px;margin:0}
+
+/* ── Modal grouped-field helpers (used inside openFormModal) ── */
+.dm-grp{display:flex;flex-direction:column;gap:11px;grid-column:1/-1}
+.dm-grp .dm-glabel{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dm-ink-3)}
+
+@media(max-width:640px){
+  .dm-kpis{grid-template-columns:1fr}
+  .dm-bar h1{font-size:18px}
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Attendance marking — mobile-first, big tap targets
+ * One card per worker, a 3-state segmented control (P · ½ · A),
+ * a live headcount, search, and a sticky save bar on phones.
+ * ═══════════════════════════════════════════════════════════ */
+.att{--att-ok:#0c8a5a;--att-ok-soft:#e8f6ef;--att-warn:#b4690e;--att-warn-soft:#fdf3e2;--att-crit:#c6362d;--att-crit-soft:#fdecea;--att-line:#e7e9f0;--att-ink:#101626;--att-ink-2:#51586b;--att-ink-3:#8a90a2;
+  max-width:860px;margin:0 auto;font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+.att *{box-sizing:border-box}
+
+.att-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.att-stat{background:#fff;border:1px solid var(--att-line);border-radius:12px;padding:9px 12px;display:flex;flex-direction:column;gap:1px}
+.att-stat b{font-size:21px;font-weight:800;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.att-stat small{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--att-ink-3)}
+.att-stat.ok b{color:var(--att-ok)} .att-stat.ok{background:var(--att-ok-soft);border-color:transparent}
+.att-stat.warn b{color:var(--att-warn)} .att-stat.warn{background:var(--att-warn-soft);border-color:transparent}
+
+.att-tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.att-search{flex:1;min-width:150px;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--att-line);border-radius:11px;padding:0 12px;color:var(--att-ink-3)}
+.att-search input{border:none;background:none;outline:none;width:100%;height:42px;font-family:inherit;font-size:14px;color:var(--att-ink)}
+.att-allp{height:44px;border:none;border-radius:11px;padding:0 16px;font-size:13.5px;font-weight:800;cursor:pointer;background:var(--att-ok-soft);color:var(--att-ok);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.att-allp:active{transform:scale(.97)}
+
+.att-list{display:flex;flex-direction:column;gap:8px}
+.att-card{background:#fff;border:1px solid var(--att-line);border-radius:14px;padding:11px 12px;transition:border-color .12s,background .12s}
+.att-card.is-P{border-color:#bfe6d4;background:#f5fbf8}
+.att-card.is-H{border-color:#f3dcad;background:#fdf9f0}
+.att-card.is-A{opacity:.82}
+.att-card.hide{display:none}
+.att-main{display:flex;align-items:center;gap:11px}
+.att-av{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:#eef0f6;color:var(--att-ink-2)}
+.att-card.is-P .att-av{background:var(--att-ok);color:#fff}
+.att-card.is-H .att-av{background:var(--att-warn);color:#fff}
+.att-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.att-id b{font-size:14px;font-weight:800;color:var(--att-ink);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att-id span{font-size:11.5px;color:var(--att-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.att-seg{display:flex;gap:3px;background:#f1f3f8;border-radius:11px;padding:3px;flex-shrink:0}
+.att-seg button{min-width:40px;height:40px;border:none;border-radius:8px;background:none;font-weight:800;font-size:15px;color:var(--att-ink-3);cursor:pointer;line-height:1;transition:all .1s;padding:0 6px}
+.att-seg button:active{transform:scale(.94)}
+.att-seg button[data-k="P"].on{background:var(--att-ok);color:#fff}
+.att-seg button[data-k="H"].on{background:var(--att-warn);color:#fff}
+.att-seg button[data-k="A"].on{background:var(--att-crit);color:#fff}
+
+.att-extra{display:none;margin-top:9px;padding-top:9px;border-top:1px dashed var(--att-line);align-items:center;gap:10px;flex-wrap:wrap}
+.att-card.show-x .att-extra{display:flex}
+.att-ot{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--att-ink-3)}
+.att-ot .step{width:32px;height:32px;border:1px solid var(--att-line);background:#fff;border-radius:8px;font-size:18px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.att-ot .step:active{transform:scale(.92)}
+.att-ot input{width:44px;height:32px;border:1px solid var(--att-line);border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:var(--att-ink);outline:none;font-family:inherit}
+.att-shift{height:32px;border:1px solid var(--att-line);background:#fff;border-radius:8px;padding:0 12px;font-size:12px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.att-shift.night{background:#1e293b;color:#fff;border-color:#1e293b}
+
+.att-save{position:fixed;left:0;right:0;bottom:0;z-index:8000;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid var(--att-line);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(16,22,38,.06)}
+.att-save .lbl{flex:1;min-width:0;font-size:12.5px;color:var(--att-ink-2);font-weight:600}
+.att-save .lbl b{color:var(--att-ink);font-weight:800}
+.att-save button{height:46px;border:none;border-radius:12px;padding:0 26px;font-size:15px;font-weight:800;color:#fff;background:linear-gradient(135deg,#f6a23b,#ef6a20);box-shadow:0 6px 16px rgba(239,106,32,.3);cursor:pointer}
+.att-save button:active{transform:scale(.98)}
+/* Lift the save bar above the mobile bottom nav (62px + safe area). */
+@media(max-width:768px){
+  .att{padding-bottom:150px}
+  .att-save{bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+}
+@media(min-width:769px){
+  .att{padding-bottom:16px}
+  .att-save{position:static;background:none;backdrop-filter:none;border-top:none;box-shadow:none;padding:16px 0 0;justify-content:flex-end}
+}
+@media(max-width:400px){ .att-seg button{min-width:36px} .att-sum{gap:6px} }

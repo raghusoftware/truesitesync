@@ -1,4 +1,7 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
+import { settledAmount, deductionTotal } from './deductions.js';
+import { computeAnalytics } from './analyticsCalc.js';
+import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
@@ -1148,44 +1151,15 @@ export function renderAnalyticsDashboard() {
   const cur = getCurrencySymbol();
   const fmt = (n) => cur + (n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const _site = _analyticsSite || '';
-  const _siteExp = (arr) => _site ? (arr || []).filter(e => e.siteId === _site) : (arr || []);
 
-  // ── Compute company-wide metrics ──
-  const projects = state.projects || [];
-  const activeProjects = projects.filter(p => (p.status || 'Active') === 'Active').length;
-
-  // Revenue: abstracts + sale invoices + invoices tax
-  let totalBilled = 0, totalReceived = 0;
-  (state.abstracts || []).forEach(a => totalBilled += (a.totalAmount || 0));
-  (state.saleInvoices || []).forEach(i => { if (i.status !== 'Cancelled') totalBilled += (i.grandTotal || i.total || 0); });
-  (state.paymentsIn || []).forEach(p => totalReceived += (parseFloat(p.amount) || 0));
-  const outstanding = totalBilled - totalReceived;
-
-  // Expenses (respect the site filter)
-  let totalExpenses = 0, totalPurchases = 0, totalLabour = 0;
-  _siteExp(state.expenses).forEach(e => totalExpenses += (parseFloat(e.amount) || 0));
-  (state.vendorMaterials || []).forEach(m => totalPurchases += (m.totalAmount || parseFloat(m.amount) || 0));
-  (state.labourPayments || []).forEach(l => totalLabour += (parseFloat(l.amount) || 0));
-  const netProfit = totalReceived - totalExpenses - totalPurchases - totalLabour;
-
-  // Counts
-  const clientCount = (state.clients || []).length;
-  const vendorCount = (state.vendors || []).length;
-  const labourCount = (state.labourMaster || []).length;
-  const sheetCount = (state.sheets || []).length;
-  const equipCount = (state.equipmentList || []).length;
-  const poCount = (state.purchaseOrders || []).length;
-
-  // Bank balances
-  let totalCash = 0;
-  (state.accounts || []).forEach(acc => {
-    let bal = 0;
-    (state.paymentsIn || []).filter(p => p.accountId === acc.id).forEach(p => bal += (parseFloat(p.amount) || 0));
-    (state.expenses || []).filter(e => e.accountId === acc.id).forEach(e => bal -= (parseFloat(e.amount) || 0));
-    (state.vendorPayments || []).filter(v => v.accountId === acc.id).forEach(v => bal -= (parseFloat(v.amount) || 0));
-    (state.labourPayments || []).filter(l => l.accountId === acc.id).forEach(l => bal -= (parseFloat(l.amount) || 0));
-    totalCash += bal;
-  });
+  // Every figure below follows the project / site filter (analyticsCalc.js).
+  const A = computeAnalytics(state, _site);
+  const projects = _site ? (state.projects || []).filter(p => p.id === _site) : (state.projects || []);
+  const { billed: totalBilled, received: totalReceived, outstanding, purchases: totalPurchases, labour: totalLabour,
+    expenses: totalExpenses, netProfit, cash: totalCash } = A;
+  const activeProjects = A.counts.activeProjects;
+  const clientCount = A.counts.clients, vendorCount = A.counts.vendors, labourCount = A.counts.labour;
+  const sheetCount = A.counts.sheets, equipCount = A.counts.equipment, poCount = A.counts.purchaseOrders;
 
   const hero = (label, value, color, sub) => `
     <div style="background:linear-gradient(135deg,${color},${color}dd);border-radius:16px;padding:20px;color:#fff;box-shadow:0 4px 16px ${color}40;">
@@ -1200,10 +1174,7 @@ export function renderAnalyticsDashboard() {
       <p style="font-size:22px;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">${value}</p>
     </div>`;
 
-  // Site-wise expense breakdown (all sites, independent of the active filter).
-  const _siteMap = {};
-  (state.expenses || []).forEach(e => { const k = e.siteName || (e.siteId ? '(removed site)' : 'General / Unallocated'); _siteMap[k] = (_siteMap[k] || 0) + (parseFloat(e.amount) || 0); });
-  const _siteRows = Object.entries(_siteMap).sort((a, b) => b[1] - a[1]);
+  const _siteRows = A.expenseRows;
   const _locLabel = l => l.projectName ? l.name + ' — ' + l.projectName : l.name;
   const _locOpts = getAllLocations().map(l => `<option value="${l.id}" ${_site === l.id ? 'selected' : ''}>${_locLabel(l)}</option>`).join('');
   const _siteName = _site ? (() => { const l = getAllLocations().find(x => x.id === _site); return l ? _locLabel(l) : 'Selected site'; })() : '';
@@ -1211,18 +1182,19 @@ export function renderAnalyticsDashboard() {
   c.innerHTML = `
     <!-- Site filter -->
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;">
-      <span style="font-size:12px;font-weight:700;color:#64748b;">📍 Site filter</span>
-      <select onchange="window._setAnalyticsSite(this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;">
-        <option value="">All sites</option>${_locOpts}
+      <span style="font-size:12px;font-weight:700;color:#64748b;">📍 Project / site</span>
+      <select onchange="window._setAnalyticsSite(this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;max-width:100%;">
+        <option value="">All projects</option>${_locOpts}
       </select>
-      ${_site ? `<span style="font-size:11px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:4px 9px;">Expenses filtered to: ${_siteName}</span>` : '<span style="font-size:11px;color:#94a3b8;">Expense figures below reflect the chosen site.</span>'}
+      ${_site ? `<span style="font-size:11px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:4px 9px;">Showing only: ${_siteName}</span>` : '<span style="font-size:11px;color:#94a3b8;">Pick a project to see its own billing, purchases, labour, expenses and profit.</span>'}
     </div>
+    ${_site && A.unallocated.count ? `<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;margin:-6px 0 14px;">⚠️ ${A.unallocated.count} entr${A.unallocated.count === 1 ? 'y' : 'ies'} (${fmt(A.unallocated.amount)}) are not linked to any project and are left out. Tag them with a project / site to include them.</div>` : ''}
 
     <!-- Financial Hero Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
-      ${hero('Total Billed', fmt(totalBilled), '#2563eb', 'Revenue across all projects')}
-      ${hero('Received', fmt(totalReceived), '#d6402c', 'Payments collected')}
-      ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection')}
+      ${hero('Total Billed', fmt(totalBilled), '#2563eb', _site ? 'Billed on this project' : 'Revenue across all projects')}
+      ${hero('Received', fmt(totalReceived), '#d6402c', _site ? 'Collected on this project' : 'Payments collected')}
+      ${hero('Outstanding', fmt(outstanding), '#ea580c', 'Pending collection (after TDS & deductions)')}
       ${hero('Net Profit', fmt(netProfit), netProfit >= 0 ? '#ef8420' : '#dc2626', 'Received − all costs')}
     </div>
 
@@ -1231,15 +1203,15 @@ export function renderAnalyticsDashboard() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
       ${stat('🛒', 'Purchases', fmt(totalPurchases), '#f59e0b')}
       ${stat('👷', 'Labour Paid', fmt(totalLabour), '#8b5cf6')}
-      ${stat('🧾', 'Expenses' + (_site ? ' · ' + _siteName : ''), fmt(totalExpenses), '#ef4444')}
-      ${stat('🏦', 'Cash & Bank', fmt(totalCash), '#ef8420')}
+      ${stat('🧾', 'Expenses', fmt(totalExpenses), '#ef4444')}
+      ${stat('🏦', _site ? 'Project cash (in − out)' : 'Cash & Bank', fmt(totalCash), '#ef8420')}
     </div>
 
     <!-- Expenses by Site -->
-    ${_siteRows.length ? `<h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📍 Expenses by Site</h3>
+    ${_siteRows.length ? `<h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">${_site ? '🧾 Expenses by Head' : '📍 Expenses by Site'}</h3>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;"><div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f8fafc;">
-        <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Site / Project</th>
+        <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">${_site ? 'Head' : 'Site / Project'}</th>
         <th style="text-align:right;padding:9px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;">Total Expense</th>
       </tr></thead><tbody>
       ${_siteRows.map(([nm, amt]) => `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:9px 14px;font-weight:600;color:#0f172a;">${nm}</td><td style="padding:9px 14px;text-align:right;font-weight:800;color:#ef4444;">${fmt(amt)}</td></tr>`).join('')}
@@ -1248,7 +1220,7 @@ export function renderAnalyticsDashboard() {
     <!-- Operational Stats -->
     <h3 style="font-size:13px;font-weight:700;color:#475569;margin:8px 0 12px;text-transform:uppercase;letter-spacing:.3px;">📊 Operations</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px;">
-      ${stat('🏗️', 'Projects', activeProjects + ' / ' + projects.length, '#2563eb')}
+      ${stat('🏗️', 'Projects', _site ? (activeProjects ? 'Active' : (projects[0]?.status || '—')) : activeProjects + ' / ' + projects.length, '#2563eb')}
       ${stat('📐', 'Measurements', sheetCount, '#0ea5e9')}
       ${stat('🏢', 'Clients', clientCount, '#7c3aed')}
       ${stat('🏭', 'Vendors', vendorCount, '#f59e0b')}
@@ -1269,19 +1241,15 @@ export function renderAnalyticsDashboard() {
             <th style="text-align:right;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Outstanding</th>
             <th style="text-align:center;padding:10px 14px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Status</th>
           </tr></thead><tbody>
-          ${projects.map(p => {
-            const clientIds = (state.clients || []).filter(cl => cl.projectId === p.id).map(cl => cl.id);
-            let pBilled = 0, pRecv = 0;
-            (state.abstracts || []).filter(a => a.projectId === p.id || clientIds.includes(a.clientId)).forEach(a => pBilled += (a.totalAmount || 0));
-            (state.paymentsIn || []).filter(pm => clientIds.includes(pm.clientId)).forEach(pm => pRecv += (parseFloat(pm.amount) || 0));
-            const pOut = pBilled - pRecv;
-            const stColor = (p.status || 'Active') === 'Active' ? '#d6402c' : '#94a3b8';
+          ${A.projectRows.map(p => {
+            const pBilled = p.billed, pRecv = p.received, pOut = p.outstanding;
+            const stColor = p.status === 'Active' ? '#d6402c' : '#94a3b8';
             return `<tr style="border-bottom:1px solid #f1f5f9;">
               <td style="padding:10px 14px;font-weight:600;color:#0f172a;">${p.name}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:#2563eb;">${fmt(pBilled)}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:#d6402c;">${fmt(pRecv)}</td>
               <td style="padding:10px 14px;text-align:right;font-weight:600;color:${pOut > 0 ? '#ea580c' : '#94a3b8'};">${fmt(pOut)}</td>
-              <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status || 'Active'}</span></td>
+              <td style="padding:10px 14px;text-align:center;"><span style="font-size:10px;font-weight:700;color:${stColor};background:${stColor}15;padding:3px 8px;border-radius:6px;">${p.status}</span></td>
             </tr>`;
           }).join('') || '<tr><td colspan="5" style="padding:30px;text-align:center;color:#94a3b8;">No projects yet</td></tr>'}
         </tbody></table>
@@ -1347,6 +1315,8 @@ export function switchView(viewId) {
     const allowed = window.enforceAccess(viewId);
     if (allowed === false) return;
   }
+  // Deductions section on the quick Payment-In / vendor-payment forms
+  if (viewId === 'accountingView' || viewId === 'vendorView') { try { window.ensureQuickDeductions?.(); } catch {} }
   // Close mobile sidebar on navigation
   const sidebar = document.getElementById('appSidebar');
   const overlay = document.getElementById('mobileOverlay');
@@ -1414,6 +1384,9 @@ export function switchView(viewId) {
   if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
   if (viewId === 'chatView') { if (typeof window.renderChat === 'function') window.renderChat(); }
   if (viewId === 'executionView') { if (typeof window.renderExecution === 'function') window.renderExecution(); }
+  if (viewId === 'wpsView') { if (typeof window.renderWPS === 'function') window.renderWPS(); }
+  if (viewId === 'guaranteesView') { if (typeof window.renderGuarantees === 'function') window.renderGuarantees(); }
+  if (viewId === 'subcontractorsView') { if (typeof window.renderSubcontractors === 'function') window.renderSubcontractors(); }
   if (viewId === 'assetsView') renderAssetsView();
   if (viewId === 'recipeView') { if (typeof window.renderRecipeView === 'function') window.renderRecipeView(); }
   if (viewId === 'vendorView') {
@@ -5140,40 +5113,108 @@ export function loadAttendanceSheet() {
 
   const container = document.getElementById('attSheetContainer');
   if (!container) return;
-  container.innerHTML = `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1e293b;color:#fff;flex-wrap:wrap;gap:8px;">
-        <h3 style="font-size:14px;font-weight:700;">${date} • ${site}</h3>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button onclick="_attMarkAll('P')" style="background:rgba(239,132,32,.2);color:#f6c9a8;border:1px solid rgba(239,132,32,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✓ All Present</button>
-          <button onclick="_attMarkAll('A')" style="background:rgba(239,68,68,.2);color:#fecaca;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✕ All Absent</button>
-          <button onclick="_attMarkAll('H')" style="background:rgba(245,158,11,.2);color:#fde68a;border:1px solid rgba(245,158,11,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">◐ Half</button>
-          <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">💾 Save</button>
-        </div>
-      </div>
-      <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
-        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
-        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Present</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">½ Day</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
-      </tr></thead><tbody class="divide-y">${labours.map(l => {
+
+  const esc = _fhEsc;
+  const initials = n => String(n || '?').trim().split(/\s+/).filter(Boolean).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+  const cards = labours.map(l => {
     const rec = existing[l.id] || {};
     const s = rec.status || 'A';
     const ot = rec.ot || 0;
     const shift = rec.shift || 'Day';
-    return `<tr class="hover:bg-slate-50">
-      <td class="px-3 py-2.5 font-bold text-slate-800">${l.name}</td>
-      <td class="px-3 py-2.5 text-slate-500 text-xs">${l.trade || '—'}</td>
-      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = present"><input type="checkbox" id="att_p_${l.id}" ${s === 'P' || s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-green-600 cursor-pointer"></label></td>
-      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = half day"><input type="checkbox" id="att_h_${l.id}" ${s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-orange-500 cursor-pointer"></label></td>
-      <td class="px-3 py-2.5 text-center"><input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0" class="w-16 p-1.5 border rounded text-sm text-center outline-none"></td>
-      <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1.5 border rounded text-sm outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
-    </tr>`;
-  }).join('')}</tbody></table></div>
+    const showX = (s === 'P' || s === 'H') ? ' show-x' : '';
+    const night = shift === 'Night';
+    return `<div class="att-card is-${s}${showX}" id="attc_${l.id}" data-status="${s}" data-name="${esc(String(l.name || '').toLowerCase())}">
+      <div class="att-main">
+        <div class="att-av">${esc(initials(l.name))}</div>
+        <div class="att-id"><b>${esc(l.name || 'Worker')}</b><span>${esc(l.trade || 'Labour')}</span></div>
+        <div class="att-seg" role="group" aria-label="Attendance for ${esc(l.name || '')}">
+          <button type="button" data-k="P" class="${s === 'P' ? 'on' : ''}" onclick="_attSet('${l.id}','P')" title="Present">P</button>
+          <button type="button" data-k="H" class="${s === 'H' ? 'on' : ''}" onclick="_attSet('${l.id}','H')" title="Half day">½</button>
+          <button type="button" data-k="A" class="${s === 'A' ? 'on' : ''}" onclick="_attSet('${l.id}','A')" title="Absent">A</button>
+        </div>
+      </div>
+      <div class="att-extra">
+        <div class="att-ot">OT
+          <button type="button" class="step" onclick="_attOT('${l.id}',-1)">−</button>
+          <input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0">
+          <button type="button" class="step" onclick="_attOT('${l.id}',1)">+</button>
+          hrs
+        </div>
+        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" onclick="_attShift('${l.id}')">${night ? '🌙 Night' : '☀ Day'}</button>
+        <input type="hidden" id="shift_${l.id}" value="${esc(shift)}">
+      </div>
     </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="att" id="attRoot">
+      <div class="att-sum">
+        <div class="att-stat ok"><b id="attCntP">0</b><small>Present</small></div>
+        <div class="att-stat warn"><b id="attCntH">0</b><small>Half day</small></div>
+        <div class="att-stat"><b id="attCntA">0</b><small>Absent</small></div>
+      </div>
+      <div class="att-tools">
+        <label class="att-search">🔍<input type="text" placeholder="Search ${labours.length} worker${labours.length === 1 ? '' : 's'}…" oninput="_attFilter(this.value)"></label>
+        <button type="button" class="att-allp" onclick="_attMarkAll('P')">✓ All present</button>
+      </div>
+      <div class="att-list" id="attList">${cards}</div>
+      <div class="att-save">
+        <div class="lbl"><b id="attSaveN">0</b> present of ${labours.length} · ${esc(date)}</div>
+        <button type="button" onclick="saveAttendance()">💾 Save</button>
+      </div>
+    </div>`;
+  _attUpdateCount();
 }
+
+/** Recompute the present/half/absent headcounts from the cards. */
+window._attUpdateCount = function () {
+  const cards = Array.from(document.querySelectorAll('#attList .att-card'));
+  let p = 0, h = 0, a = 0;
+  cards.forEach(c => { const s = c.dataset.status; if (s === 'P') p++; else if (s === 'H') h++; else a++; });
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('attCntP', p); set('attCntH', h); set('attCntA', a); set('attSaveN', p + h);
+};
+
+/** Set one worker's status and restyle the card + segmented control. */
+window._attSet = function (id, status) {
+  const card = document.getElementById('attc_' + id);
+  if (!card) return;
+  card.dataset.status = status;
+  card.classList.remove('is-P', 'is-H', 'is-A');
+  card.classList.add('is-' + status);
+  card.classList.toggle('show-x', status === 'P' || status === 'H');
+  card.querySelectorAll('.att-seg button').forEach(b => b.classList.toggle('on', b.dataset.k === status));
+  _attUpdateCount();
+};
+
+/** OT stepper (clamped 0–24, 1-hour steps). */
+window._attOT = function (id, delta) {
+  const inp = document.getElementById('ot_' + id);
+  if (!inp) return;
+  let v = (parseFloat(inp.value) || 0) + delta;
+  v = Math.max(0, Math.min(24, v));
+  inp.value = v;
+};
+
+/** Toggle a worker's shift between Day and Night. */
+window._attShift = function (id) {
+  const hidden = document.getElementById('shift_' + id);
+  const btn = document.getElementById('shiftbtn_' + id);
+  if (!hidden || !btn) return;
+  const night = hidden.value !== 'Night';
+  hidden.value = night ? 'Night' : 'Day';
+  btn.classList.toggle('night', night);
+  btn.textContent = night ? '🌙 Night' : '☀ Day';
+};
+
+/** Live search filter across worker cards. */
+window._attFilter = function (q) {
+  const term = String(q || '').trim().toLowerCase();
+  document.querySelectorAll('#attList .att-card').forEach(c => {
+    c.classList.toggle('hide', !!term && !(c.dataset.name || '').includes(term));
+  });
+};
 
 /** (legacy no-op) close handler kept for safety */
 window._closeAttendanceSheet = function() {
@@ -5181,15 +5222,14 @@ window._closeAttendanceSheet = function() {
   if (sidebar) sidebar.style.display = '';
 };
 
-/** Bulk mark all workers in the sheet */
+/** Bulk mark all workers in the sheet (respects the active search filter). */
 window._attMarkAll = function(status) {
-  _projectLabour().forEach(l => {
-    const p = document.getElementById('att_p_' + l.id);
-    const h = document.getElementById('att_h_' + l.id);
-    if (!p || !h) return;
-    if (status === 'P') { p.checked = true; h.checked = false; }
-    else if (status === 'H') { p.checked = true; h.checked = true; }
-    else { p.checked = false; h.checked = false; }
+  const cards = Array.from(document.querySelectorAll('#attList .att-card'))
+    .filter(c => !c.classList.contains('hide'));
+  if (!cards.length) return;
+  cards.forEach(c => {
+    const id = (c.id || '').replace(/^attc_/, '');
+    if (id) window._attSet(id, status);
   });
   showToast(`Marked all as ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : 'Half-Day'}`, 'info');
 };
@@ -5212,9 +5252,8 @@ export function saveAttendance() {
   const projLabourIds = new Set(labours.map(l => l.id));
   state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
   labours.forEach(l => {
-    const present = document.getElementById('att_p_' + l.id)?.checked;
-    const half = document.getElementById('att_h_' + l.id)?.checked;
-    const status = half ? 'H' : (present ? 'P' : 'A');
+    const card = document.getElementById('attc_' + l.id);
+    const status = (card && card.dataset.status) || 'A';
     const ot = parseFloat(document.getElementById('ot_' + l.id)?.value) || 0;
     const shift = document.getElementById('shift_' + l.id)?.value || 'Day';
     state.attendanceLogs.push({ id: 'att_' + Date.now() + '_' + l.id, date, siteId, labourId: l.id, status, ot, shift });
@@ -5455,6 +5494,8 @@ export function openLabourPaymentModal(labourId, editId) {
   accSelect.innerHTML = '<option value="">-- Select Payment Account --</option>';
   state.accounts.forEach(a => accSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
   if (existing) accSelect.value = existing.accountId || '';
+  const lpAmt = document.getElementById('lpAmount');
+  mountDeductions('lpded', lpAmt, { cashInputId: 'lpAmount', direction: 'out', getState: () => state, withBill: false }, existing);
   modal.classList.remove('hidden');
 }
 
@@ -5464,11 +5505,14 @@ export function saveLabourPayment() {
   const accountId = document.getElementById('lpAccount').value;
   const amount = parseFloat(document.getElementById('lpAmount').value) || 0;
   const ref = document.getElementById('lpRef').value;
-  if (amount <= 0 || !accountId) return showToast('Account and Valid Amount are required', 'error');
   const modal = document.getElementById('labourPaymentModal');
   const editId = modal?.dataset?.editId || '';
   const existing = editId ? (state.labourPayments || []).find(p => p.id === editId) : null;
   const rec = { id: existing ? existing.id : ('lpay_' + Date.now()), labourId, date, accountId, amount, ref };
+  if (existing) ['projectId', 'source', 'custodianId', 'contractorId'].forEach(k => { if (existing[k] !== undefined) rec[k] = existing[k]; });
+  const dr = applyDeductionsTo(rec, 'lpded', existing);
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (amount < 0 || (!(amount > 0) && !(deductionTotal(rec) > 0)) || !accountId) return showToast('Account and Valid Amount are required', 'error');
   if (existing) {
     rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
     window.stampUpdate(rec);
@@ -5511,7 +5555,7 @@ function _labourNetPayable(labourId) {
   const earned = _labourEarnedFromAttendance(labourId);
   // Use the larger of posted salary vs earned-from-attendance so workers always show
   const salary = Math.max(postedSalary, earned);
-  const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+  const paid = (state.labourPayments || []).filter(p => p.labourId === labourId).reduce((s, x) => s + settledAmount(x), 0);
   const advances = (state.labourAdvances || []).filter(a => a.labourId === labourId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   const deductions = (state.labourDeductions || []).filter(d => d.labourId === labourId && !d.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
   return { salary, paid, advances, deductions, net: salary - paid - advances - deductions };

@@ -6,12 +6,46 @@
     <title>True Site Sync - Construction Management Platform</title>
     <link rel="icon" type="image/png" href="assets/favicon-32.png">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-    <!-- Vendor libs (bundled locally for offline/desktop support) -->
-    <script src="js/vendor/tailwind.min.js"></script>
-    <script src="js/vendor/jspdf.min.js"></script>
-    <script src="js/vendor/jspdf-autotable.min.js"></script>
-    <script src="js/vendor/xlsx.min.js"></script>
-    <script src="js/vendor/supabase.min.js"></script>
+    <!-- Styles: Tailwind is precompiled (tools/tailwind.config.cjs) instead of compiling in the browser. -->
+    <link rel="stylesheet" href="css/tailwind.css?v=1.0.0">
+    <!-- Vendor libs (bundled locally for offline/desktop support). Supabase is needed to
+         start; deferred so it no longer blocks the first paint. -->
+    <script src="js/vendor/supabase.min.js" defer></script>
+    <!-- PDF / Excel libraries (~1.2 MB) are only needed for exports: they download in the
+         background at low priority. A tap on an export/print/share control that lands
+         before they arrive is held and replayed once they are ready. -->
+    <script>
+    (function () {
+      var libs = ['js/vendor/jspdf.min.js', 'js/vendor/jspdf-autotable.min.js', 'js/vendor/xlsx.min.js'];
+      var left = libs.length, waiters = [];
+      window.vendorLibsReady = false;
+      window.whenVendorLibs = function (cb) { if (window.vendorLibsReady) cb(); else waiters.push(cb); };
+      function done() {
+        if (--left) return;
+        window.vendorLibsReady = true;
+        try { window.installPdfMonochrome && window.installPdfMonochrome(); } catch (e) {}
+        waiters.splice(0).forEach(function (f) { try { f(); } catch (e) { console.error(e); } });
+      }
+      function load() {
+        libs.forEach(function (src) {
+          var s = document.createElement('script');
+          s.src = src; s.async = false; s.setAttribute('fetchpriority', 'low');
+          s.onload = s.onerror = done;
+          document.head.appendChild(s);
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load); else load();
+      var EXPORT_RE = /pdf|excel|xlsx|export|print|download|share|invoice|report|preview|csv/i;
+      document.addEventListener('click', function (e) {
+        if (window.vendorLibsReady || !e.isTrusted) return;
+        var el = e.target.closest && e.target.closest('[onclick],button,a');
+        if (!el || !EXPORT_RE.test((el.getAttribute('onclick') || '') + ' ' + (el.textContent || '').slice(0, 80))) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        document.documentElement.style.cursor = 'progress';
+        window.whenVendorLibs(function () { document.documentElement.style.cursor = ''; el.click(); });
+      }, true);
+    })();
+    </script>
     <!-- Razorpay SDK is loaded on demand at checkout (see _ensureRazorpay) — loading
          it here kept the browser tab spinning forever (persistent risk/telemetry session). -->
     <!-- Fonts (loaded async — app works without them) -->
@@ -19,11 +53,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.6.55">
+    <link rel="stylesheet" href="css/style.css?v=1.6.57">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
-    <script type="module" src="js/app.js?v=1.6.133"></script>
+    <link rel="stylesheet" href="css/data-module.css?v=1.0.1">
+    <script type="module" src="js/app.js?v=1.6.154"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -45,6 +80,16 @@
       @keyframes splashLoad { 0%{transform:translateX(-100%)} 50%{transform:translateX(250%)} 100%{transform:translateX(-100%)} }
     </style>
     <script>
+      // Lock number boxes against the mouse wheel. Browsers step a focused
+      // <input type="number"> when you scroll over it, so a stray scroll could
+      // silently change a measurement (Nos/L/B/H) or an amount. Dropping focus
+      // before the wheel is handled keeps the typed value and lets the page
+      // scroll normally instead.
+      document.addEventListener('wheel', function (e) {
+        var el = document.activeElement;
+        if (el && el.type === 'number' && el.tagName === 'INPUT') el.blur();
+      }, { capture: true, passive: true });
+
       // Update splash status as things load
       window._splashStatus = function(msg) {
         const el = document.getElementById('splashStatus');
@@ -150,6 +195,9 @@
           <button onclick="switchView('issuesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="issuesView"><span style="font-size:13px">&#128681;</span> Issues</button>
           <button onclick="switchView('chatView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="chatView"><span style="font-size:13px">&#128172;</span> Chat</button>
           <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> Labour</button>
+          <button onclick="switchView('wpsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="wpsView"><span style="font-size:13px">&#128179;</span> WPS Salary</button>
+          <button onclick="switchView('guaranteesView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="guaranteesView"><span style="font-size:13px">&#127974;</span> Guarantees</button>
+          <button onclick="switchView('subcontractorsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="subcontractorsView"><span style="font-size:13px">&#129309;</span> Subcontractors</button>
           <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> Equipment</button>
           <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> Inventory</button>
           <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> Petty Cash</button>
@@ -1944,6 +1992,18 @@
 </div>
 
         <!-- ═══════ LABOUR ATTENDANCE ═══════ -->
+<div id="wpsView" class="view-section hide">
+  <div class="px-4 py-4"><div id="wpsContent"></div></div>
+</div>
+
+<div id="guaranteesView" class="view-section hide">
+  <div class="px-4 py-4"><div id="guaranteesContent"></div></div>
+</div>
+
+<div id="subcontractorsView" class="view-section hide">
+  <div class="px-4 py-4"><div id="subcontractorsContent"></div></div>
+</div>
+
 <div id="labourView" class="view-section hide">
   <div class="flex justify-between items-end mb-4">
     <div><h2>Labour Management</h2><p class="text-slate-500 font-medium mt-1">Attendance, wages, muster cards & payments</p></div>
@@ -3224,6 +3284,7 @@
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Mode</label><select id="pinFormMode" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Cash">Cash</option><option value="Bank">Bank Transfer</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Reference / UTR No</label><input type="text" id="pinFormRef" placeholder="" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-green-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Invoice Ref</label><input type="text" id="pinFormInvRef" placeholder="INV-XXX" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-green-500"></div>
+                <div class="md:col-span-2" id="pinDedHost"></div>
               </div>
             </div>
             <div class="text-right"><button onclick="savePaymentInForm()" class="bg-green-600 text-white px-10 py-3.5 rounded-lg font-bold shadow-lg hover:bg-green-700 text-lg inline-flex items-center gap-2">Save Payment-In</button></div>

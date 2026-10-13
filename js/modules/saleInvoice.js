@@ -9,20 +9,13 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
+import { GST_STATE } from './constants.js?v=1.1.0';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
 
-// Indian GST state code (first 2 digits of a GSTIN) → state name.
-const GST_STATE = {
-  '01':'Jammu & Kashmir','02':'Himachal Pradesh','03':'Punjab','04':'Chandigarh','05':'Uttarakhand','06':'Haryana',
-  '07':'Delhi','08':'Rajasthan','09':'Uttar Pradesh','10':'Bihar','11':'Sikkim','12':'Arunachal Pradesh','13':'Nagaland',
-  '14':'Manipur','15':'Mizoram','16':'Tripura','17':'Meghalaya','18':'Assam','19':'West Bengal','20':'Jharkhand',
-  '21':'Odisha','22':'Chhattisgarh','23':'Madhya Pradesh','24':'Gujarat','25':'Daman & Diu','26':'Dadra & Nagar Haveli',
-  '27':'Maharashtra','28':'Andhra Pradesh (Old)','29':'Karnataka','30':'Goa','31':'Lakshadweep','32':'Kerala',
-  '33':'Tamil Nadu','34':'Puducherry','35':'Andaman & Nicobar','36':'Telangana','37':'Andhra Pradesh','38':'Ladakh'
-};
 const _gstStateCode = g => (String(g || '').trim().slice(0, 2).match(/^\d{2}$/) || [])[0] || '';
 const _gstStateName = g => { const c = _gstStateCode(g); return c ? (GST_STATE[c] || 'State ' + c) : ''; };
 
@@ -941,7 +934,7 @@ export function renderSaleInvoices() {
   let kTotal = 0, kReceived = 0;
   invoices.forEach(inv => {
     const c = state.clients.find(x => x.id === inv.clientId);
-    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
     const outstanding = inv.total - Math.min(received, inv.total);
     kTotal += inv.total; kReceived += Math.min(received, inv.total);
     const statusBadge = inv.status === 'Cancelled' ? '<span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded font-bold">Cancelled</span>' : '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Active</span>';

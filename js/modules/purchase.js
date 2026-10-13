@@ -8,6 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
@@ -41,7 +42,7 @@ export function renderPurchaseLedger() {
   let bills = state.vendorMaterials.filter(m => m.items);
   let vendorBalances = {};
   state.vendors.forEach(v => {
-    let totalPaid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + parseFloat(p.amount), 0);
+    let totalPaid = state.vendorPayments.filter(p => p.vendorId === v.id).reduce((s, p) => s + settledAmount(p), 0);
     vendorBalances[v.id] = totalPaid;
   });
   bills.sort((a, b) => new Date(a.date) - new Date(b.date));

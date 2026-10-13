@@ -116,6 +116,10 @@ nav.scrolled{background:rgba(5,10,8,.9);backdrop-filter:blur(20px);border-bottom
 .hero{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;padding:120px 24px 80px}
 .hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 8px;background:linear-gradient(135deg,rgba(239,132,32,.12),rgba(198,48,28,.09));border:1px solid rgba(198,48,28,.20);border-radius:100px;font-size:12px;font-weight:600;color:var(--warm);margin-bottom:24px}
+.hero-play{display:flex;width:fit-content;align-items:center;gap:10px;margin-top:18px;padding:9px 16px;border-radius:12px;background:rgba(101,163,13,.10);border:1px solid rgba(101,163,13,.35);color:#3f6212;font-size:13px;font-weight:600;text-decoration:none;transition:.15s}
+.hero-play:hover{background:rgba(101,163,13,.18);transform:translateY(-1px)}
+.hero-play .fa-google-play{font-size:16px;color:#65a30d}
+.hero-play .fa-arrow-right{font-size:11px;opacity:.7}
 .hero-badge .dot{width:8px;height:8px;background:linear-gradient(135deg,var(--orange),var(--warm));border-radius:50%;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .hero h1{font-size:clamp(36px,5.5vw,64px);font-weight:900;line-height:1.08;letter-spacing:-.03em;margin-bottom:20px}
@@ -309,6 +313,7 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
         <a href="app.html" class="btn-primary"><i class="fa-solid fa-arrow-right-to-bracket"></i> Start Your Free 6-Day Trial</a>
         <a href="#plan" class="btn-secondary"><i class="fa-solid fa-circle-play"></i> See How It Works</a>
       </div>
+      <a class="hero-play" href="https://play.google.com/store/apps/details?id=com.truesitesync.app" target="_blank" rel="noopener"><i class="fa-brands fa-google-play"></i> <span><b>Now available on Google Play</b> — get the Android app</span> <i class="fa-solid fa-arrow-right"></i></a>
       <p style="margin-top:16px;font-size:13px;color:var(--text-muted)"><i class="fa-solid fa-shield-halved" style="color:var(--emerald-bright)"></i> No credit card. Works offline. Set up in minutes.</p>
     </div>
     <div class="hero-visual">
@@ -490,9 +495,9 @@ nav.scrolled{background:rgba(255,255,255,.82);border-bottom:1px solid var(--bord
           <i class="fa-brands fa-windows"></i>
           <div style="text-align:left"><div style="font-size:16px">Windows</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Windows 10 / 11 — 64-bit</div></div>
         </a>
-        <a href="#" onclick="openDownloadGate('android');return false" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25)">
-          <i class="fa-brands fa-android"></i>
-          <div style="text-align:left"><div style="font-size:16px">Android</div><div style="font-size:11px;opacity:.7;font-weight:500;margin-top:2px">Download APK — Android 7.0+</div></div>
+        <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" target="_blank" rel="noopener" class="dl-btn" style="background:linear-gradient(135deg,#a3e635,#65a30d);color:#fff;box-shadow:0 4px 24px rgba(101,163,13,.25)">
+          <i class="fa-brands fa-google-play"></i>
+          <div style="text-align:left"><div style="font-size:11px;opacity:.85;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Get it on</div><div style="font-size:16px">Google Play</div><div style="font-size:11px;opacity:.75;font-weight:500;margin-top:2px">Now available — Android 7.0+</div></div>
         </a>
         <a href="#" class="dl-btn" style="background:rgba(255,255,255,.05);color:var(--text);border:1px solid rgba(255,255,255,.1)">
           <i class="fa-brands fa-apple"></i>
@@ -764,6 +769,6 @@ async function submitDownloadGate(e) {
 }
 </script>
 
-<script src="/js/site-nav.js?v=2" defer></script>
+<script src="/js/site-nav.js?v=4" defer></script>
 </body>
 </html>

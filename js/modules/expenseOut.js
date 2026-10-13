@@ -8,6 +8,8 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { mountDeductions, applyDeductionsTo, refreshBills, vendorBills } from './deductionsUI.js';
+import { deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol, getAllLocations } from './utils.js';
 import { _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, closeFullScreenForm } from './formHelpers.js';
 
@@ -29,6 +31,14 @@ export function openPaymentOutForm(editId) {
     setEl('poFormAmount', '');
     setEl('poFormRef', '');
   }
+  // Deductions (TDS / penalty / retention…) under the amount
+  const amtEl = document.getElementById('poFormAmount');
+  mountDeductions('poded', amtEl && (amtEl.closest('div') || amtEl), {
+    cashInputId: 'poFormAmount', direction: 'out', getState: () => state, gridSpan: true,
+    bills: () => vendorBills(state, document.getElementById('poFormVendor')?.value),
+  }, existing);
+  const vSel = document.getElementById('poFormVendor');
+  if (vSel && !vSel.dataset.dedBound) { vSel.dataset.dedBound = '1'; vSel.addEventListener('change', () => refreshBills('poded')); }
   _openFullScreenForm('paymentOutFormPanel');
 }
 
@@ -38,11 +48,14 @@ export function savePaymentOutForm() {
   const accountId = document.getElementById('poFormAccount').value;
   const amount = parseFloat(document.getElementById('poFormAmount').value) || 0;
   const ref = document.getElementById('poFormRef').value.trim();
-  if (!vendorId || !accountId || amount <= 0) return showToast('Vendor, Account, and valid Amount required!', 'error');
   const panelEl = document.getElementById('paymentOutFormPanel');
   const editId = panelEl?.dataset?.editId || '';
   const existing = editId ? (state.vendorPayments || []).find(p => p.id === editId) : null;
   const rec = { id: existing ? existing.id : ('vp_' + Date.now()), vendorId, date, accountId, amount, ref };
+  if (existing && existing.projectId !== undefined) rec.projectId = existing.projectId;
+  const dr = applyDeductionsTo(rec, 'poded', existing);
+  if (!dr.ok) return showToast(dr.error, 'error');
+  if (!vendorId || !accountId || amount < 0 || (!(amount > 0) && !(deductionTotal(rec) > 0))) return showToast('Vendor, Account, and valid Amount required!', 'error');
   if (existing) {
     rec.createdBy = existing.createdBy; rec.createdById = existing.createdById; rec.createdAt = existing.createdAt;
     window.stampUpdate(rec);

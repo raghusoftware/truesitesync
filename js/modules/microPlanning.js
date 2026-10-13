@@ -7,6 +7,7 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getTerm } from './utils.js';
+import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
 // ─────────────────────────────────────────────────────
 //  CONSTANTS & HELPERS
@@ -2089,7 +2090,9 @@ export function renderRABilling() {
       <td class="px-3 py-2 text-slate-500">${b.date}</td>
       <td class="px-3 py-2 text-slate-600 truncate">${_esc((b.locationLabels || []).join(', '))}</td>
       <td class="px-3 py-2 text-right font-bold">${cur}${Math.round(b.total || 0).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2 text-center">${(window.feat && window.feat('payApp'))
+      <td class="px-3 py-2 text-center">${(window.feat && window.feat('ipc'))
+        ? `<button onclick="window.exportIpcPdf('${b.id}')" class="text-violet-600 hover:bg-violet-50 px-2 py-1 rounded text-[11px] font-bold mr-1" title="Download FIDIC Interim Payment Certificate">IPC</button>`
+        : ''}${(window.feat && window.feat('payApp'))
         ? `<button onclick="window.exportPayApplicationPdf('${b.id}')" class="text-violet-600 hover:bg-violet-50 px-2 py-1 rounded text-[11px] font-bold mr-1" title="Download AIA G702/G703 pay application">Pay App</button>`
         : ''}${invoiced
         ? `<span class="text-[10px] font-bold text-green-600" title="Billed via ${_esc(abs.linkedInvoice || abs.linkedInvoiceId || 'invoice')}">✓ Invoiced</span>`
@@ -2100,34 +2103,49 @@ export function renderRABilling() {
   // ── Change Orders (variations) — adjusts the contract sum; used by the US pay application ──
   const cos = (state.changeOrders || []).filter(o => o.projectId === proj.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const coNet = cos.filter(o => o.status !== 'pending').reduce((s, o) => s + (Number(o.amount) || 0), 0);
-  const coRows = cos.map(o => `<tr class="border-b">
-      <td class="px-3 py-2 font-mono font-bold text-slate-600">${_esc(o.coNo || '')}</td>
-      <td class="px-3 py-2 text-slate-500">${o.date || ''}</td>
-      <td class="px-3 py-2 text-slate-700">${_esc(o.description || '')}</td>
-      <td class="px-3 py-2 text-right font-bold ${(Number(o.amount) || 0) < 0 ? 'text-red-600' : 'text-emerald-700'}">${(Number(o.amount) || 0) < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(Number(o.amount) || 0)).toLocaleString('en-IN')}</td>
-      <td class="px-3 py-2 text-center"><span class="text-[10px] font-bold ${o.status === 'pending' ? 'text-amber-600' : 'text-emerald-600'}">${o.status === 'pending' ? 'Pending' : 'Approved'}</span></td>
-      <td class="px-3 py-2 text-center"><button onclick="window._mpDeleteCO('${o.id}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-[11px] font-bold">Delete</button></td>
-    </tr>`).join('') || '<tr><td colspan="6" class="p-4 text-center text-slate-400 text-xs">No change orders yet.</td></tr>';
+  const coRows = cos.map(o => `<tr>
+      <td class="dm-ref" style="font-weight:800;color:var(--dm-ink-2);">${_esc(o.coNo || '')}</td>
+      <td style="color:var(--dm-ink-2);">${o.date || ''}</td>
+      <td style="color:var(--dm-ink);">${_esc(o.description || '')}</td>
+      <td class="num dm-amt tnum" style="color:${(Number(o.amount) || 0) < 0 ? 'var(--dm-crit)' : 'var(--dm-ok)'};">${(Number(o.amount) || 0) < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(Number(o.amount) || 0)).toLocaleString('en-IN')}</td>
+      <td style="text-align:center;"><span class="dm-chip ${o.status === 'pending' ? 'warn' : 'ok'}"><span class="dot"></span>${o.status === 'pending' ? 'Pending' : 'Approved'}</span></td>
+      <td class="num"><button class="dm-iact" title="Delete" onclick="window._mpDeleteCO('${o.id}')">🗑</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--dm-ink-3);font-size:12px;">No change orders yet.</td></tr>';
   const coCard = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="font-bold text-sm text-slate-800">🔧 Change Orders <span class="text-[11px] text-slate-400 font-normal">(variations to the contract)</span></h3>
-        <span class="text-xs font-bold ${coNet < 0 ? 'text-red-600' : 'text-emerald-700'}">Net: ${coNet < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(coNet)).toLocaleString('en-IN')}</span>
+    <div class="dm"><div class="dm-panel" style="margin-bottom:16px;">
+      <div class="dm-panel-head">
+        <h2>🔧 Change Orders <span style="color:var(--dm-ink-3);font-weight:700;">· net ${coNet < 0 ? '-' : '+'}${cur}${Math.abs(Math.round(coNet)).toLocaleString('en-IN')}</span></h2>
+        <button class="dm-btn dm-btn-ghost dm-btn-sm" onclick="window._mpOpenCO()">+ Add change order</button>
       </div>
-      <div class="flex flex-wrap gap-2 mb-3 items-end">
-        <input id="coDesc" type="text" placeholder="Description (e.g. extra RCC, rate revision)" class="flex-1 min-w-[180px] border rounded-lg px-3 py-2 text-sm">
-        <input id="coAmount" type="number" step="any" placeholder="Amount (${cur}) — minus to deduct" class="w-40 border rounded-lg px-3 py-2 text-sm text-right">
-        <select id="coStatus" class="border rounded-lg px-2 py-2 text-sm"><option value="approved">Approved</option><option value="pending">Pending</option></select>
-        <button onclick="window._mpAddCO()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900">+ Add</button>
-      </div>
-      <div class="overflow-x-auto border rounded-lg"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">CO No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th>
-        <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Description</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th>
-        <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Action</th>
-      </tr></thead><tbody>${coRows}</tbody></table></div>
-    </div>`;
+      <div class="dm-tscroll"><table class="dm-table" style="min-width:560px;">
+        <thead><tr><th>CO No</th><th>Date</th><th>Description</th><th class="num">Amount</th><th style="text-align:center;">Status</th><th class="num"></th></tr></thead>
+        <tbody>${coRows}</tbody></table></div>
+    </div></div>`;
+
+  // ── FIDIC contract terms + retention (GCC/UK — Interim Payment Certificates) ──
+  let fidicCard = '';
+  if (window.feat && window.feat('ipc')) {
+    const t = (window.getContractTerms && window.getContractTerms(proj.id)) || { retentionPct: 10, advancePaid: 0, advanceRecoveryPct: 0 };
+    const rs = (window.retentionSummary && window.retentionSummary(proj.id)) || { held: 0, released: 0, balance: 0 };
+    const m = n => cur + Math.round(Number(n) || 0).toLocaleString('en-IN');
+    fidicCard = `
+      <div class="dm"><div class="dm-panel" style="margin-bottom:16px;">
+        <div class="dm-panel-head">
+          <h2>📜 Contract terms <span style="color:var(--dm-ink-3);font-weight:700;">· retention ${t.retentionPct}%</span></h2>
+          <button class="dm-btn dm-btn-ghost dm-btn-sm" onclick="window._mpOpenTerms('${proj.id}')">Edit terms</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:18px;padding:12px 16px;font-size:12px;">
+          <span style="color:var(--dm-ink-2);">Advance paid <b class="dm-amt tnum">${m(t.advancePaid)}</b></span>
+          <span style="color:var(--dm-ink-2);">Retention held <b class="dm-amt tnum">${m(rs.held)}</b></span>
+          <span style="color:var(--dm-ink-2);">Released <b class="tnum" style="color:var(--dm-ok);">${m(rs.released)}</b></span>
+          <span style="color:var(--dm-ink-2);">Balance <b class="tnum" style="color:var(--dm-accent);">${m(rs.balance)}</b></span>
+          <button class="dm-btn dm-btn-ghost dm-btn-sm" style="margin-left:auto;" onclick="window._recordRetentionRelease('${proj.id}')">Record release</button>
+        </div>
+      </div></div>`;
+  }
 
   c.innerHTML = `
+    ${fidicCard}
     ${coCard}
     <div class="bg-white border rounded-xl p-4 mb-4">
       <h3 class="font-bold text-sm text-slate-800 mb-1">📑 Prepare ${getTerm('raBill')}</h3>
@@ -2150,6 +2168,16 @@ export function renderRABilling() {
 }
 window.renderRABilling = renderRABilling;
 
+/** Open the "add change order" modal. */
+window._mpOpenCO = function () {
+  const cur = getCurrencySymbol().trim();
+  const body =
+    fsField('Description', `<input id="coDesc" style="${FS_INPUT}" placeholder="e.g. extra RCC, rate revision">`, { req: true, span: true }) +
+    fsField(`Amount (${cur})`, `<input id="coAmount" type="number" step="any" style="${FS_INPUT}" placeholder="use a minus sign to deduct">`, { req: true }) +
+    fsField('Status', `<select id="coStatus" style="${FS_INPUT}"><option value="approved">Approved</option><option value="pending">Pending</option></select>`);
+  openFormModal('Add change order', body, { onSave: 'window._mpAddCO()', saveLabel: 'Add change order' });
+};
+
 /** Add a change order (variation) to the current project. */
 window._mpAddCO = function () {
   const proj = _currentProject(); if (!proj) return;
@@ -2166,8 +2194,20 @@ window._mpAddCO = function () {
     date: new Date().toISOString().split('T')[0], createdAt: Date.now(),
   });
   saveAllData();
+  closeFormModal();
   renderRABilling();
   showToast('Change order added', 'success');
+};
+
+/** Open the "contract terms" modal (FIDIC retention + advance). */
+window._mpOpenTerms = function (pid) {
+  const t = (window.getContractTerms && window.getContractTerms(pid)) || { retentionPct: 10, advancePaid: 0, advanceRecoveryPct: 0 };
+  const cur = getCurrencySymbol().trim();
+  const body =
+    fsField('Retention %', `<input id="ctRetPct" type="number" step="any" style="${FS_INPUT}" value="${t.retentionPct}">`) +
+    fsField(`Advance paid (${cur})`, `<input id="ctAdvPaid" type="number" step="any" style="${FS_INPUT}" value="${t.advancePaid}">`) +
+    fsField('Advance recovery % of work', `<input id="ctAdvRecPct" type="number" step="any" style="${FS_INPUT}" value="${t.advanceRecoveryPct}">`, { span: true });
+  openFormModal('Contract terms', body, { onSave: `window._saveContractTermsFromUI('${pid}')`, saveLabel: 'Save terms' });
 };
 
 /** Delete a change order. */
