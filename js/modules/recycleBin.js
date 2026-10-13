@@ -12,6 +12,15 @@
 import { state, saveAllData, saveKey, saveKeyReplace, recordPermanentDeletions } from './state.js';
 import { showToast } from './utils.js';
 
+/**
+ * Tombstones for permanently-deleted bin entries: the source record (so it can't
+ * come back to its module) AND the bin entry itself — module 'recycleBin', keyed
+ * by the record id, which is how the server merge identifies bin entries.
+ * Without the second one, any device still holding the old bin re-unions every
+ * entry back into the cloud bin on its next save ("emptied bin comes back").
+ */
+const _tombstonesFor = (entries) => entries.flatMap(e => [{ key: e.key, id: e.id }, { key: 'recycleBin', id: e.id }]);
+
 const _who = () => { try { const u = window.getCurrentUser?.(); return u?.name || u?.email || ''; } catch { return ''; } };
 const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -66,8 +75,13 @@ window.restoreFromBin = restoreFromBin;
 export async function permanentDelete(binId) {
   if (!confirm('Permanently delete this item? This cannot be undone.')) return;
   const entry = (state.recycleBin || []).find(e => e.binId === binId);
-  // Record a lasting tombstone FIRST so the record can't be resurrected later.
-  if (entry) await recordPermanentDeletions([{ key: entry.key, id: entry.id }]);
+  // Record lasting tombstones FIRST so neither the record nor its bin entry can be
+  // resurrected later. Offline the tombstones can't be saved — refuse rather than
+  // let the entry silently come back on the next sync.
+  if (entry && !(await recordPermanentDeletions(_tombstonesFor([entry])))) {
+    showToast('Could not reach the cloud — connect to the internet and try again', 'error');
+    return;
+  }
   state.recycleBin = (state.recycleBin || []).filter(e => e.binId !== binId);
   // Hard overwrite — a normal push would union the removed entry right back.
   saveKeyReplace('recycleBin');
@@ -83,7 +97,10 @@ export async function emptyRecycleBin() {
   // Record lasting tombstones for every item FIRST — otherwise emptying the bin
   // removes the only "deleted" marker and stale devices resurrect the records.
   const entries = (state.recycleBin || []).map(e => ({ key: e.key, id: e.id }));
-  await recordPermanentDeletions(entries);
+  if (!(await recordPermanentDeletions(_tombstonesFor(entries)))) {
+    showToast('Could not reach the cloud — connect to the internet and try again', 'error');
+    return;
+  }
   state.recycleBin = [];
   // Hard overwrite so the emptied bin actually sticks (the union merge can't shrink it).
   saveKeyReplace('recycleBin');
