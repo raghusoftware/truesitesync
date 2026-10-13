@@ -5113,40 +5113,108 @@ export function loadAttendanceSheet() {
 
   const container = document.getElementById('attSheetContainer');
   if (!container) return;
-  container.innerHTML = `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1e293b;color:#fff;flex-wrap:wrap;gap:8px;">
-        <h3 style="font-size:14px;font-weight:700;">${date} • ${site}</h3>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button onclick="_attMarkAll('P')" style="background:rgba(239,132,32,.2);color:#f6c9a8;border:1px solid rgba(239,132,32,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✓ All Present</button>
-          <button onclick="_attMarkAll('A')" style="background:rgba(239,68,68,.2);color:#fecaca;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✕ All Absent</button>
-          <button onclick="_attMarkAll('H')" style="background:rgba(245,158,11,.2);color:#fde68a;border:1px solid rgba(245,158,11,.4);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">◐ Half</button>
-          <button onclick="saveAttendance()" style="background:#f97316;color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">💾 Save</button>
-        </div>
-      </div>
-      <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-100"><tr>
-        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Labour Name</th>
-        <th class="px-3 py-2 text-left font-bold text-slate-600 uppercase text-xs">Trade</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Present</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">½ Day</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">OT Hrs</th>
-        <th class="px-3 py-2 text-center font-bold text-slate-600 uppercase text-xs">Shift</th>
-      </tr></thead><tbody class="divide-y">${labours.map(l => {
+
+  const esc = _fhEsc;
+  const initials = n => String(n || '?').trim().split(/\s+/).filter(Boolean).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+  const cards = labours.map(l => {
     const rec = existing[l.id] || {};
     const s = rec.status || 'A';
     const ot = rec.ot || 0;
     const shift = rec.shift || 'Day';
-    return `<tr class="hover:bg-slate-50">
-      <td class="px-3 py-2.5 font-bold text-slate-800">${l.name}</td>
-      <td class="px-3 py-2.5 text-slate-500 text-xs">${l.trade || '—'}</td>
-      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = present"><input type="checkbox" id="att_p_${l.id}" ${s === 'P' || s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-green-600 cursor-pointer"></label></td>
-      <td class="px-3 py-2.5 text-center"><label style="display:inline-flex;padding:6px;cursor:pointer;" title="Tick = half day"><input type="checkbox" id="att_h_${l.id}" ${s === 'H' ? 'checked' : ''} class="w-5 h-5 accent-orange-500 cursor-pointer"></label></td>
-      <td class="px-3 py-2.5 text-center"><input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0" class="w-16 p-1.5 border rounded text-sm text-center outline-none"></td>
-      <td class="px-3 py-2.5 text-center"><select id="shift_${l.id}" class="p-1.5 border rounded text-sm outline-none"><option ${shift === 'Day' ? 'selected' : ''}>Day</option><option ${shift === 'Night' ? 'selected' : ''}>Night</option></select></td>
-    </tr>`;
-  }).join('')}</tbody></table></div>
+    const showX = (s === 'P' || s === 'H') ? ' show-x' : '';
+    const night = shift === 'Night';
+    return `<div class="att-card is-${s}${showX}" id="attc_${l.id}" data-status="${s}" data-name="${esc(String(l.name || '').toLowerCase())}">
+      <div class="att-main">
+        <div class="att-av">${esc(initials(l.name))}</div>
+        <div class="att-id"><b>${esc(l.name || 'Worker')}</b><span>${esc(l.trade || 'Labour')}</span></div>
+        <div class="att-seg" role="group" aria-label="Attendance for ${esc(l.name || '')}">
+          <button type="button" data-k="P" class="${s === 'P' ? 'on' : ''}" onclick="_attSet('${l.id}','P')" title="Present">P</button>
+          <button type="button" data-k="H" class="${s === 'H' ? 'on' : ''}" onclick="_attSet('${l.id}','H')" title="Half day">½</button>
+          <button type="button" data-k="A" class="${s === 'A' ? 'on' : ''}" onclick="_attSet('${l.id}','A')" title="Absent">A</button>
+        </div>
+      </div>
+      <div class="att-extra">
+        <div class="att-ot">OT
+          <button type="button" class="step" onclick="_attOT('${l.id}',-1)">−</button>
+          <input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0">
+          <button type="button" class="step" onclick="_attOT('${l.id}',1)">+</button>
+          hrs
+        </div>
+        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" onclick="_attShift('${l.id}')">${night ? '🌙 Night' : '☀ Day'}</button>
+        <input type="hidden" id="shift_${l.id}" value="${esc(shift)}">
+      </div>
     </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="att" id="attRoot">
+      <div class="att-sum">
+        <div class="att-stat ok"><b id="attCntP">0</b><small>Present</small></div>
+        <div class="att-stat warn"><b id="attCntH">0</b><small>Half day</small></div>
+        <div class="att-stat"><b id="attCntA">0</b><small>Absent</small></div>
+      </div>
+      <div class="att-tools">
+        <label class="att-search">🔍<input type="text" placeholder="Search ${labours.length} worker${labours.length === 1 ? '' : 's'}…" oninput="_attFilter(this.value)"></label>
+        <button type="button" class="att-allp" onclick="_attMarkAll('P')">✓ All present</button>
+      </div>
+      <div class="att-list" id="attList">${cards}</div>
+      <div class="att-save">
+        <div class="lbl"><b id="attSaveN">0</b> present of ${labours.length} · ${esc(date)}</div>
+        <button type="button" onclick="saveAttendance()">💾 Save</button>
+      </div>
+    </div>`;
+  _attUpdateCount();
 }
+
+/** Recompute the present/half/absent headcounts from the cards. */
+window._attUpdateCount = function () {
+  const cards = Array.from(document.querySelectorAll('#attList .att-card'));
+  let p = 0, h = 0, a = 0;
+  cards.forEach(c => { const s = c.dataset.status; if (s === 'P') p++; else if (s === 'H') h++; else a++; });
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('attCntP', p); set('attCntH', h); set('attCntA', a); set('attSaveN', p + h);
+};
+
+/** Set one worker's status and restyle the card + segmented control. */
+window._attSet = function (id, status) {
+  const card = document.getElementById('attc_' + id);
+  if (!card) return;
+  card.dataset.status = status;
+  card.classList.remove('is-P', 'is-H', 'is-A');
+  card.classList.add('is-' + status);
+  card.classList.toggle('show-x', status === 'P' || status === 'H');
+  card.querySelectorAll('.att-seg button').forEach(b => b.classList.toggle('on', b.dataset.k === status));
+  _attUpdateCount();
+};
+
+/** OT stepper (clamped 0–24, 1-hour steps). */
+window._attOT = function (id, delta) {
+  const inp = document.getElementById('ot_' + id);
+  if (!inp) return;
+  let v = (parseFloat(inp.value) || 0) + delta;
+  v = Math.max(0, Math.min(24, v));
+  inp.value = v;
+};
+
+/** Toggle a worker's shift between Day and Night. */
+window._attShift = function (id) {
+  const hidden = document.getElementById('shift_' + id);
+  const btn = document.getElementById('shiftbtn_' + id);
+  if (!hidden || !btn) return;
+  const night = hidden.value !== 'Night';
+  hidden.value = night ? 'Night' : 'Day';
+  btn.classList.toggle('night', night);
+  btn.textContent = night ? '🌙 Night' : '☀ Day';
+};
+
+/** Live search filter across worker cards. */
+window._attFilter = function (q) {
+  const term = String(q || '').trim().toLowerCase();
+  document.querySelectorAll('#attList .att-card').forEach(c => {
+    c.classList.toggle('hide', !!term && !(c.dataset.name || '').includes(term));
+  });
+};
 
 /** (legacy no-op) close handler kept for safety */
 window._closeAttendanceSheet = function() {
@@ -5154,15 +5222,14 @@ window._closeAttendanceSheet = function() {
   if (sidebar) sidebar.style.display = '';
 };
 
-/** Bulk mark all workers in the sheet */
+/** Bulk mark all workers in the sheet (respects the active search filter). */
 window._attMarkAll = function(status) {
-  _projectLabour().forEach(l => {
-    const p = document.getElementById('att_p_' + l.id);
-    const h = document.getElementById('att_h_' + l.id);
-    if (!p || !h) return;
-    if (status === 'P') { p.checked = true; h.checked = false; }
-    else if (status === 'H') { p.checked = true; h.checked = true; }
-    else { p.checked = false; h.checked = false; }
+  const cards = Array.from(document.querySelectorAll('#attList .att-card'))
+    .filter(c => !c.classList.contains('hide'));
+  if (!cards.length) return;
+  cards.forEach(c => {
+    const id = (c.id || '').replace(/^attc_/, '');
+    if (id) window._attSet(id, status);
   });
   showToast(`Marked all as ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : 'Half-Day'}`, 'info');
 };
@@ -5185,9 +5252,8 @@ export function saveAttendance() {
   const projLabourIds = new Set(labours.map(l => l.id));
   state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
   labours.forEach(l => {
-    const present = document.getElementById('att_p_' + l.id)?.checked;
-    const half = document.getElementById('att_h_' + l.id)?.checked;
-    const status = half ? 'H' : (present ? 'P' : 'A');
+    const card = document.getElementById('attc_' + l.id);
+    const status = (card && card.dataset.status) || 'A';
     const ot = parseFloat(document.getElementById('ot_' + l.id)?.value) || 0;
     const shift = document.getElementById('shift_' + l.id)?.value || 'Day';
     state.attendanceLogs.push({ id: 'att_' + Date.now() + '_' + l.id, date, siteId, labourId: l.id, status, ot, shift });

@@ -25,6 +25,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      # Precompiled Tailwind: rebuild so classes added since the last local build are included.
+      - name: Build Tailwind CSS
+        run: npx --yes tailwindcss@3.4.4 -c tools/tailwind.config.cjs -i tools/tailwind.input.css -o css/tailwind.css --minify
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

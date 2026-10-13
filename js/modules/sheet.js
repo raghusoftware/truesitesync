@@ -699,12 +699,26 @@ function _buildRowHTML(hasBOQ, e) {
 
 export function addMoreEntries(count = 1) {
   const tbody = document.getElementById('entryTableBody');
+  if (!tbody) return 0;                 // never let a missing table spin a caller
+  const n = Math.max(0, count | 0);
   const hasBOQ = _currentSheetBoqItems.length > 0;
-  for (let i = 0; i < count; i++) {
+  let added = 0;
+  for (let i = 0; i < n; i++) {
     const tr = document.createElement('tr');
     tr.innerHTML = _buildRowHTML(hasBOQ);
     tbody.appendChild(tr);
+    added++;
   }
+  return added;
+}
+
+/** Top the measurement table up to at least `min` blank rows (bounded — never
+ *  loops waiting on a side-effect, so it can't freeze the app). */
+function _ensureMinRows(min = 5) {
+  const tbody = document.getElementById('entryTableBody');
+  if (!tbody) return;
+  const need = min - tbody.rows.length;
+  if (need > 0) addMoreEntries(need);
 }
 
 // ── Undo for the measurement entry table ──────────────────────
@@ -983,7 +997,7 @@ export function loadSheet(id) {
     tr.innerHTML = _buildRowHTML(hasBOQ, e);
     tbody.appendChild(tr);
   });
-  while (tbody.rows.length < 5) addMoreEntries(1);
+  _ensureMinRows(5);
   // Build the grouped view from the same entries (toggle-able), but open Classic.
   renderGroupedEntry(s.entries || []);
   setEntryMode('classic');
@@ -1555,7 +1569,7 @@ function _renderClassicEntries(entries) {
   tbody.innerHTML = '';
   const hasBOQ = _currentSheetBoqItems.length > 0;
   (entries || []).forEach(e => { const tr = document.createElement('tr'); tr.innerHTML = _buildRowHTML(hasBOQ, e); tbody.appendChild(tr); });
-  while (tbody.rows.length < 5) addMoreEntries(1);
+  _ensureMinRows(5);
 }
 
 // Measurement quantity decimal places (Settings → Print Config; default 2).

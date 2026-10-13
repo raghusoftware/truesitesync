@@ -85,33 +85,47 @@ export function drawCurSym(doc, x, y, sizePt, color, F, style = 'normal') {
 // from assets/fonts: URW Gothic (Century Gothic look) and TSS Doc Sans (a
 // Carlito subset — metric-compatible with Calibri). Loaded once, on demand.
 const _FONT_FILES = ['URWGothic-Book.ttf', 'URWGothic-Demi.ttf', 'TSSDocSans-Regular.ttf', 'TSSDocSans-Bold.ttf'];
-let _fontPromise = null;
+const _fontCache = {};   // file name → Promise<base64>
 function _toB64(buf) {
   const b = new Uint8Array(buf); let s = '';
   for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
   return btoa(s);
 }
-/** Fetch the template fonts (base64), cached. Resolves null when unavailable (falls back to Helvetica). */
-export function loadModernFonts() {
-  if (!_fontPromise) {
-    _fontPromise = (async () => {
-      try {
-        const base = new URL('../../assets/fonts/', import.meta.url);
-        const bufs = await Promise.all(_FONT_FILES.map(n => fetch(new URL(n, base)).then(r => {
+/**
+ * Fetch font files from assets/fonts as base64 (each cached once). Resolves to
+ * { file: base64 } or null when any is unavailable (callers fall back to Helvetica).
+ */
+export async function loadFontFiles(names) {
+  try {
+    const base = new URL('../../assets/fonts/', import.meta.url);
+    const data = await Promise.all(names.map(n => {
+      if (!_fontCache[n]) {
+        _fontCache[n] = fetch(new URL(n, base)).then(r => {
           if (!r.ok) throw new Error(n + ' ' + r.status);
           return r.arrayBuffer();
-        })));
-        const out = {};
-        _FONT_FILES.forEach((n, i) => { out[n] = _toB64(bufs[i]); });
-        return out;
-      } catch (e) {
-        console.warn('[Modern PDF] template fonts unavailable — using Helvetica', e);
-        _fontPromise = null; // retry on the next export
-        return null;
+        }).then(_toB64).catch(e => { delete _fontCache[n]; throw e; }); // retry next export
       }
-    })();
+      return _fontCache[n];
+    }));
+    const out = {};
+    names.forEach((n, i) => { out[n] = data[i]; });
+    return out;
+  } catch (e) {
+    console.warn('[PDF] template fonts unavailable — using Helvetica', e);
+    return null;
   }
-  return _fontPromise;
+}
+/** The Modern Design measurement / abstract fonts. */
+export function loadModernFonts() { return loadFontFiles(_FONT_FILES); }
+
+/**
+ * A jsPDF document from the ORIGINAL constructor, so the global monochrome mode
+ * (pdfMono.js) does not strip a template's colours.
+ */
+export function newColorDoc(orientation = 'portrait') {
+  const ns = window.jspdf;
+  const J = ns.__monoOrig || ns.jsPDF;
+  return new J(orientation, 'mm', 'a4');
 }
 
 /**
@@ -121,9 +135,7 @@ export function loadModernFonts() {
  * Returns { doc, F } where F.gothic / F.sans are the font families to use.
  */
 export function newModernDoc(fonts) {
-  const ns = window.jspdf;
-  const J = ns.__monoOrig || ns.jsPDF;
-  const doc = new J('portrait', 'mm', 'a4');
+  const doc = newColorDoc();
   const F = { gothic: 'helvetica', sans: 'helvetica', arial: 'helvetica', custom: false };
   if (fonts) {
     try {

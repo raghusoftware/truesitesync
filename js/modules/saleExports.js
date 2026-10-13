@@ -3,211 +3,28 @@
  * True Site Sync — Sale invoice & sales-ledger exporters
  * ═══════════════════════════════════════════════════════════
  * PDF / Excel / share helpers for sale (tax) invoices and the
- * sales ledger. Extracted from ui.js. Invoice theming lives in
- * pdfThemes.js; this module only renders / exports documents.
+ * sales ledger. Extracted from ui.js. Invoice designs live in
+ * invoiceTemplates.js; this module only renders / exports documents.
  * ═══════════════════════════════════════════════════════════
  */
 
 import { state } from './state.js';
 import { settledAmount } from './deductions.js';
-import { showToast, getCompanyHeaderForPDF, getPdfCurrency, pdfMoney, formatINR, mobileSavePDF, mobileDownloadBlob, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
-const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
+import { showToast, getCompanyHeaderForPDF, getPdfCurrency, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
-import { renderStyledInvoice, invoiceDesignKeys } from './invoiceTemplates.js?v=1.1.2';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.1';
 
 const _num2 = formatNumber2;
 
-/** Parse a #rrggbb hex into [r,g,b]; falls back when invalid. */
-function _rgb(hex, fallback) {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
-  if (!m) return fallback;
-  const n = parseInt(m[1], 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
 /**
- * "Simple" Tax Invoice theme — our company header + a clean GST invoice table.
- * Supports a configurable minimum number of table rows (blank filler rows) so
- * the items table always looks full/proper: Settings → Print → Tax Invoice
- * minimum rows (state.printSettings.invoiceMinRows).
+ * Tax Invoice PDF — one of the three client-supplied designs (Classic Grid /
+ * GST Detailed / GST Compact) chosen in Settings → Print → Tax Invoice Design.
+ * Legacy or unset choices resolve to the default design.
  */
 export function exportSaleInvoicePDF(id) {
   const inv = (state.saleInvoices || []).find(i => i.id === id);
   if (!inv) { showToast('Invoice not found', 'error'); return; }
-  // Route to a selectable GST invoice design (Settings → Print → Invoice Design).
-  // 'standard' (or unset) keeps the original built-in layout below.
-  const tpl = state.printSettings?.invoiceTemplate;
-  if (tpl && invoiceDesignKeys().includes(tpl)) { return renderStyledInvoice(inv, tpl); }
-  const c = state.clients.find(x => x.id === inv.clientId);
-  const clientName = c?.name || inv.clientName || 'Unknown';
-  const cp = state.companyProfile || {};
-
-  const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
-  const pw = doc.internal.pageSize.getWidth();
-  const ml = 14, mr = 14;
-  const cur = (getPdfCurrency() || 'Rs.').trim();
-  // Country tax model: India splits CGST/SGST; GCC/UK/US show a single VAT / sales-tax line.
-  const _tx = getTaxConfig();
-  const _isGst = _tx.mode === 'gst';
-  const _taxColLabel = _isGst ? 'GST' : _tx.singleLabel;
-  const _taxIdLabel = getTerm('taxId');
-  // User-selectable invoice accent colour (Settings → Print)
-  const accent = _rgb(state.printSettings?.invoiceColor, [30, 58, 138]);
-
-  // ── Company header (logo top-left + single-line details) ──
-  let y = _simpleHeader(doc, { ml, mr });
-
-  // Title bar
-  doc.setFillColor(accent[0], accent[1], accent[2]);
-  doc.rect(ml, y, pw - ml - mr, 8, 'F');
-  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-  doc.text('TAX INVOICE', pw / 2, y + 5.6, { align: 'center' });
-  y += 12; doc.setTextColor(0, 0, 0);
-
-  // ── Bill To (left) + Invoice details (right) ──
-  const colR = pw / 2 + 4;
-  let ly = y, ry = y;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-  doc.text('Bill To:', ml, ly); ly += 4.5;
-  doc.setFontSize(9.5); doc.text(clientName, ml, ly); ly += 4.5;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-  const addr = (c?.address || inv.clientAddress || '').toString();
-  if (addr) doc.splitTextToSize(addr, pw / 2 - ml - 6).forEach(line => { doc.text(line, ml, ly); ly += 4; });
-  if (c?.gst) { doc.text(_taxIdLabel + ': ' + c.gst, ml, ly); ly += 4; }
-  if (_isGst && inv.stateOfSupply) { doc.text('State: ' + inv.stateOfSupply, ml, ly); ly += 4; }
-
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-  doc.text('Invoice Details:', colR, ry); ry += 4.5;
-  doc.setFontSize(8.5);
-  const detail = (label, val) => {
-    if (val === undefined || val === null || val === '') return;
-    doc.setFont('helvetica', 'bold'); doc.text(label, colR, ry);
-    const lw = doc.getTextWidth(label);
-    doc.setFont('helvetica', 'normal'); doc.text(' ' + val, colR + lw, ry); ry += 4;
-  };
-  detail('No:', inv.invoiceNo || '');
-  detail('Date:', inv.date || '');
-  if (_isGst) detail('Place of Supply:', inv.stateOfSupply || '');
-  detail('PO No:', inv.poNo || '');
-  detail('PO Date:', inv.poDate || '');
-  y = Math.max(ly, ry) + 3;
-
-  // ── Items table (with minimum filler rows) ──
-  const items = inv.items || [];
-  const intStr = (n) => _num2(n).replace(/\.00$/, '');
-  const body = items.map((it, i) => [
-    i + 1, it.desc || '', it.hsn || '', intStr(it.qty || 0), it.unit || '',
-    _num2(it.rate || 0),
-    _num2(it.taxAmount || 0) + (it.taxPct ? ` (${it.taxPct}%)` : ''),
-    _num2(it.amount || 0),
-  ]);
-  const minRows = Math.max(0, parseInt(state.printSettings?.invoiceMinRows ?? 8) || 0);
-  while (body.length < minRows) body.push(['', '', '', '', '', '', '', '']);
-
-  const sumQty = items.reduce((s, it) => s + (parseFloat(it.qty) || 0), 0);
-  const sumTax = items.reduce((s, it) => s + (parseFloat(it.taxAmount) || 0), 0);
-  const sumGross = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
-  const sumTaxable = sumGross - sumTax;
-
-  doc.autoTable({
-    startY: y,
-    head: [['#', 'Item name', _isGst ? 'HSN/SAC' : 'Code', 'Quantity', 'Unit', `Price/Unit (${cur})`, `${_taxColLabel} (${cur})`, `Amount (${cur})`]],
-    body,
-    foot: [['', 'Total', '', intStr(sumQty), '', '', _num2(sumTax), _num2(sumGross)]],
-    theme: 'grid',
-    headStyles: { fillColor: accent, textColor: 255, fontSize: 8, halign: 'center', fontStyle: 'bold' },
-    footStyles: { fillColor: [241, 245, 249], textColor: 0, fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 7 },
-    columnStyles: {
-      0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 20, halign: 'center' },
-      3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 26, halign: 'right' },
-      6: { cellWidth: 26, halign: 'right' }, 7: { cellWidth: 28, halign: 'right' },
-    },
-    margin: { left: ml, right: mr },
-  });
-  y = doc.lastAutoTable.finalY + 4;
-
-  // ── Tax summary — left half ──
-  // India: HSN-wise CGST + SGST split. Elsewhere: rate-wise single VAT / sales tax.
-  let taxHead, taxBody;
-  if (_isGst) {
-    const groups = {};
-    items.forEach(it => {
-      const k = it.hsn || '-';
-      if (!groups[k]) groups[k] = { taxable: 0, tax: 0, rate: parseFloat(it.taxPct) || 0 };
-      groups[k].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
-      groups[k].tax += (parseFloat(it.taxAmount) || 0);
-    });
-    taxBody = Object.entries(groups).map(([hsn, g]) => {
-      const half = g.tax / 2, hr = g.rate / 2;
-      return [hsn, _num2(g.taxable), hr ? hr + '%' : '', _num2(half), hr ? hr + '%' : '', _num2(half), _num2(g.tax)];
-    });
-    taxBody.push(['TOTAL', _num2(sumTaxable), '', _num2(sumTax / 2), '', _num2(sumTax / 2), _num2(sumTax)]);
-    taxHead = [['HSN/SAC', `Taxable`, 'CGST%', `CGST`, 'SGST%', `SGST`, `Total Tax`]];
-  } else {
-    // Group by tax rate so each VAT band is shown separately (5%, 0% …).
-    const rGroups = {};
-    items.forEach(it => {
-      const r = parseFloat(it.taxPct) || 0;
-      if (!rGroups[r]) rGroups[r] = { taxable: 0, tax: 0 };
-      rGroups[r].taxable += (parseFloat(it.amount) || 0) - (parseFloat(it.taxAmount) || 0);
-      rGroups[r].tax += (parseFloat(it.taxAmount) || 0);
-    });
-    taxBody = Object.entries(rGroups)
-      .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
-      .map(([r, g]) => [`${_taxColLabel} ${r}%`, _num2(g.taxable), _num2(g.tax)]);
-    taxBody.push(['TOTAL', _num2(sumTaxable), _num2(sumTax)]);
-    taxHead = [[`${_taxColLabel} rate`, `Taxable (${cur})`, `${_taxColLabel} (${cur})`]];
-  }
-  doc.autoTable({
-    startY: y,
-    head: taxHead,
-    body: taxBody, theme: 'grid',
-    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 7, halign: 'center' },
-    styles: { fontSize: 7, cellPadding: 1.4, halign: 'right' },
-    columnStyles: { 0: { halign: 'center' } },
-    margin: { left: ml, right: pw / 2 + 2 },
-  });
-  const taxBottom = doc.lastAutoTable.finalY;
-
-  // ── Totals (right half) ──
-  let ty = y + 2; const totX = pw / 2 + 6, valX = pw - mr;
-  const totRow = (label, val, bold) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(bold ? 10 : 9);
-    doc.text(label, totX, ty); doc.text(val, valX, ty, { align: 'right' }); ty += bold ? 6 : 5;
-  };
-  totRow('Sub Total :', cur + ' ' + _num2(sumGross));
-  if (inv.tcsAmount) totRow('TCS :', cur + ' ' + _num2(inv.tcsAmount));
-  if (inv.roundAmt) totRow('Round Off :', (inv.roundAmt < 0 ? '- ' : '+ ') + cur + ' ' + _num2(Math.abs(inv.roundAmt)));
-  totRow('Total :', cur + ' ' + _num2(inv.total), true);
-  y = Math.max(taxBottom, ty) + 6;
-
-  // ── Payment mode, amount in words, received/balance, signature ──
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-  doc.text('Payment Mode: ', ml, y);
-  doc.setFont('helvetica', 'normal'); doc.text(inv.payType || 'Credit', ml + doc.getTextWidth('Payment Mode: '), y);
-  y += 6;
-  doc.setFont('helvetica', 'bold'); doc.text('Invoice Amount in Words:', ml, y); y += 4.5;
-  doc.setFont('helvetica', 'normal');
-  doc.splitTextToSize(amountToWordsCur(inv.total || 0), pw - ml - mr).forEach(line => { doc.text(line, ml, y); y += 4.2; });
-  y += 2;
-  const sigY = y;
-  // Received / Balance — only when enabled in invoice settings
-  if (state.printSettings?.invoiceShowReceived) {
-    const received = parseFloat(inv.received) || 0;
-    doc.text('Received : ' + cur + ' ' + _num2(received), ml, y);
-    doc.text('Balance : ' + cur + ' ' + _num2((inv.total || 0) - received), ml, y + 4.5);
-  }
-
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-  doc.text('For ' + (cp.CompanyName || 'Company') + ':', valX, sigY, { align: 'right' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text('Authorized Signatory', valX, sigY + 16, { align: 'right' });
-
-  if (inv.notes) { y += 22; doc.setFontSize(7.5); doc.setTextColor(90, 90, 90); doc.text('Notes: ' + inv.notes, ml, y); }
-
-  mobileSavePDF(doc, (inv.invoiceNo || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
-  showToast('Invoice PDF downloaded');
+  return renderStyledInvoice(inv, resolveInvoiceDesign(state.printSettings?.invoiceTemplate));
 }
 
 // ── Print Sale Invoice ──
@@ -217,14 +34,14 @@ export function printSaleInvoice(id) {
 
 // ── Preview an invoice DESIGN from Settings (no state change) ──
 // Uses the most recent real invoice if any, else a built-in sample, so a brand
-// new account can still preview each design. 'standard' uses the built-in export.
+// new account can still preview each design.
 function _sampleInvoice() {
   const c = (state.clients || [])[0] || {};
   return {
     id: '_preview', clientId: c.id, clientName: c.name || 'Sample Client Pvt Ltd',
     clientAddress: c.address || '12 Market Road, Pune, Maharashtra 411001',
-    invoiceNo: 'SAMPLE-001', date: new Date().toLocaleDateString('en-GB'),
-    stateOfSupply: 'Maharashtra', poNo: 'PO-1024', poDate: '', reverseCharge: 'No',
+    invoiceNo: 'SAMPLE-001', date: new Date().toISOString().slice(0, 10),
+    stateOfSupply: 'intra', poNo: 'PO-1024', poDate: '', reverseCharge: 'No',
     items: [
       { desc: 'RCC M25 grade concrete work (with shuttering)', hsn: '995415', qty: 10, unit: 'Cum', rate: 6500, taxType: 'CGST_SGST', taxPct: 18, taxAmount: 11700, amount: 76700 },
       { desc: 'TMT steel supply Fe500', hsn: '7214', qty: 2.5, unit: 'MT', rate: 62000, taxType: 'CGST_SGST', taxPct: 18, taxAmount: 27900, amount: 182900 },
@@ -234,18 +51,8 @@ function _sampleInvoice() {
 }
 window._previewInvoiceDesign = function (key) {
   const latest = (state.saleInvoices || [])[(state.saleInvoices || []).length - 1];
-  const inv = latest || _sampleInvoice();
-  if (key === 'standard') return exportSaleInvoicePDF(inv.id === '_preview' ? _injectTemp(inv) : inv.id);
-  renderStyledInvoice(inv, key);
+  renderStyledInvoice(latest || _sampleInvoice(), key);
 };
-// exportSaleInvoicePDF needs an invoice that exists in state; for the sample we
-// temporarily add it, export, then remove it (never saved/synced).
-function _injectTemp(inv) {
-  state.saleInvoices = state.saleInvoices || [];
-  state.saleInvoices.push(inv);
-  setTimeout(() => { const i = state.saleInvoices.indexOf(inv); if (i >= 0) state.saleInvoices.splice(i, 1); }, 0);
-  return inv.id;
-}
 
 // ── Share Sale Invoice (copy link / use Web Share API) ──
 export function shareSaleInvoice(id) {

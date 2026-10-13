@@ -46,6 +46,7 @@ window._saveContractTermsFromUI = function (pid) {
     advancePaid: _num(document.getElementById('ctAdvPaid')?.value),
     advanceRecoveryPct: _num(document.getElementById('ctAdvRecPct')?.value),
   });
+  try { window.closeFormModal && window.closeFormModal(); } catch {}
   showToast('Contract terms saved', 'success');
   try { window.renderRABilling && window.renderRABilling(); } catch {}
 };

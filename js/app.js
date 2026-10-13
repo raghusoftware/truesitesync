@@ -5,7 +5,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.68';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.6';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.7';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -19,7 +19,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.94';
+} from './controllers/reportController.js?v=1.6.98';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -62,10 +62,10 @@ import {
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
 } from './modules/ui.js?v=1.7.13';
-import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.72';
-import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.2';
+import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
+import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
-import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.24';
+import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.26';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.5';
 import { renderNotifications } from './modules/notifications.js?v=1.0.3';
 import { initPush } from './modules/push.js?v=1.0.0';
@@ -73,14 +73,15 @@ import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.118';
 import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
-import './modules/financeReports.js?v=1.3.40';
+import './modules/financeReports.js?v=1.3.41';
+import './modules/ledgerReports.js?v=1.0.1';
 import './modules/mobileShell.js?v=1.6.84';
-import './modules/onboarding.js?v=1.0.1';
+import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
-import './modules/wps.js?v=1.0.1';
-import './modules/ipc.js?v=1.0.0';
-import './modules/guarantees.js?v=1.0.1';
-import './modules/subcontractors.js?v=1.0.1';
+import './modules/wps.js?v=1.0.2';
+import './modules/ipc.js?v=1.0.1';
+import './modules/guarantees.js?v=1.0.2';
+import './modules/subcontractors.js?v=1.0.2';
 import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.55';
 import './modules/recycleBin.js?v=1.6.63';
@@ -88,9 +89,9 @@ import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.8';
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.5';
-import './modules/executionEngine.js?v=1.6.88';
-import './modules/scheduleBuilder.js?v=1.6.86';
-import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.53';
+import './modules/executionEngine.js?v=1.6.90';
+import './modules/scheduleBuilder.js?v=1.6.89';
+import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.54';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
@@ -104,9 +105,9 @@ import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.89';
 import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.4';
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.6.72';
-import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.2';
+import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.3';
 import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.56';
-import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.7.2';
+import { hideAutocomplete, handleSheetProjectChange, onMeasureItemInput, onMeasureDescInput, closeBoqDropdowns, showBOQQuickRef, onSheetBoqGroupChange, createNewSheet, confirmCloseSheet, handleSheetClientChange, addMoreEntries, saveEntries, loadSheet, renderSavedSheets, deleteSheet, renderMeasurementList, deleteMeasurementSheet, getCustomColumns, openCustomColumnsModal, closeCustomColumnsModal, addCustomColumn, removeCustomColumn, toggleBBSSection, addBBSRow, calcBBSRow, postBBSToSheet, toggleAttachmentsSection, addSheetAttachments, removeSheetAttachment } from './modules/sheet.js?v=1.7.4';
 import {
   initRBAC, getCurrentUser, isLoggedIn, loginUser, logoutUser,
   hasAccess, enforceAccess, hideRestrictedSidebar,
@@ -116,7 +117,7 @@ import {
   _ensureRbacUser,
   renderUsersRolesPanel, openUserForm, saveUser, deleteUser, closeUserForm,
   togglePermission, toggleGroupPermissions
-} from './modules/rbac.js?v=1.6.84';
+} from './modules/rbac.js?v=1.6.85';
 import {
   THEMES, getThemeList, getActiveThemeId, setActiveTheme, renderWithTheme,
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords
@@ -125,7 +126,7 @@ import {
   renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js?v=1.6.84';
+} from './modules/settings.js?v=1.6.87';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,
@@ -133,7 +134,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.37';
+} from './modules/microPlanning.js?v=1.4.38';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
@@ -424,12 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) { console.warn('[auth] user-switch guard:', e); }
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Syncing your data...');
-        // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
-        // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
-        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[auth] cloud load failed:', e); }
-        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
-        _bootApp();
-        if (window._hideSplash) window._hideSplash();
+        await _bootWithCloud(session.user.id);
         showToast(`Welcome, ${session.user.user_metadata?.display_name || session.user.email}!`, 'success');
       }
     });
@@ -450,10 +446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (session && !_appBooted) {
         _ensureRbacUser(session.user);
         if (window._splashStatus) window._splashStatus('Loading your projects...');
-        try { await Promise.race([loadFromCloud(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { console.warn('[boot] cloud load failed:', e); }
-        try { dedupNameLists(); } catch {}   // collapse any bloated units/itemCategories from cloud
-        _bootApp();
-        if (window._hideSplash) window._hideSplash();
+        await _bootWithCloud(session.user.id);
         return;
       }
     } catch (e) {
@@ -473,6 +466,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 window._bootApp = _bootApp;
+window.installPdfMonochrome = installPdfMonochrome; // re-run once the background PDF library arrives
+
+/**
+ * Boot after sign-in. When this device already holds THIS user's data (same uid as
+ * last session, cache present) the app opens instantly from it and the cloud pull
+ * runs in the background — loadFromCloud refreshes the current view when newer
+ * data lands, and pushes stay queued until that first pull completes. A first
+ * login / different user / empty cache still waits for the cloud (capped at 6 s).
+ */
+async function _bootWithCloud(uid) {
+  const cached = _hasCachedDataFor(uid);
+  const pull = loadFromCloud()
+    .catch(e => console.warn('[boot] cloud load failed:', e))
+    .finally(() => { try { dedupNameLists(); } catch {} }); // collapse bloated units/itemCategories from cloud
+  if (!cached) {
+    // Never let a slow/stuck cloud load freeze the splash — cap it, then boot.
+    // (loadFromCloud keeps running; realtime + periodic pull catch up after.)
+    await Promise.race([pull, new Promise(r => setTimeout(r, 6000))]);
+  } else {
+    try { dedupNameLists(); } catch {}
+  }
+  _bootApp();
+  if (window._hideSplash) window._hideSplash();
+}
+function _hasCachedDataFor(uid) {
+  try {
+    if (!uid || localStorage.getItem('tss_last_uid') !== uid) return false;
+    return ['projects', 'clients', 'sheets', 'saleInvoices', 'abstracts'].some(k => Array.isArray(state[k]) && state[k].length > 0);
+  } catch { return false; }
+}
 function _bootApp() {
   if (_appBooted) return; // prevent double-boot
   _appBooted = true;

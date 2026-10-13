@@ -102,6 +102,7 @@ export function getAccessModules() {
   return out;
 }
 window.getAccessModules = getAccessModules;
+window.hideRestrictedSidebar = () => hideRestrictedSidebar();
 
 const DEFAULT_ROLES = {
   Admin: { permissions: [...ALL_MODULE_IDS], isSystem: true },
@@ -693,9 +694,14 @@ export function loginUser(username, password) {
 //  ACCESS CHECK
 // ═══════════════════════════════════════════════
 
+/** Country gate (countryRules.js) — some modules exist only in some countries.
+ *  Read via window so a stale cached module can never break app start-up. */
+function _countryAllows(viewId) { return typeof window.countryAllows !== 'function' || window.countryAllows(viewId); }
+
 export function hasAccess(viewId) {
   const user = getCurrentUser();
   if (!user) return false;
+  if (!_countryAllows(viewId)) return false;
   if (isFullAccessRole(user.role)) return true;
   // Hub launchers are always viewable; the real modules behind each tile stay gated.
   if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView'].includes(viewId)) return true;
@@ -707,6 +713,10 @@ export function hasAccess(viewId) {
 export function enforceAccess(viewId) {
   if (!isLoggedIn()) { showLoginPage(); return false; }
   if (viewId === 'projectsHome') return true;
+  if (!_countryAllows(viewId)) {
+    showToast('This module is not used in your country — change the country in Settings to enable it', 'info');
+    return false;
+  }
   if (!hasAccess(viewId)) {
     showToast('Access denied — you do not have permission for this module', 'error');
     return false;
@@ -720,6 +730,7 @@ export function hideRestrictedSidebar() {
   document.querySelectorAll('[data-target]').forEach(btn => {
     const viewId = btn.dataset.target;
     if (viewId === 'projectsHome') return;
+    if (!_countryAllows(viewId)) { btn.style.display = 'none'; return; }
     if (isFullAccessRole(user.role)) { btn.style.display = ''; return; }
     const role = (state.rbacRoles || {})[user.role];
     const allowed = role && role.permissions && role.permissions.includes(viewId);

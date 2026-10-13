@@ -49,71 +49,63 @@ export function renderWPS() {
   const month = cfg._month || _defaultMonth();
   const workers = _workers();
 
+  const inp = 'border:1px solid var(--dm-line-strong);background:#fff;border-radius:8px;padding:7px 8px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;outline:none;';
+  const bad = 'border-color:var(--dm-crit);background:var(--dm-crit-soft);';
   const rows = workers.map(w => {
     const b = w.wps || {};
     const ibanOk = /^AE\d{21}$/.test(String(b.iban || '').replace(/\s/g, ''));
     const cardOk = /^\d{14}$/.test(String(b.cardNo || ''));
-    return `<tr data-id="${w.id}" data-src="${w._src}" style="border-bottom:1px solid #f1f5f9;">
-      <td style="padding:6px 8px;font-weight:700;color:#0f172a;white-space:nowrap;">${_esc(w.name || '—')}</td>
-      <td style="padding:6px 8px;"><input class="wps-card" value="${_esc(b.cardNo || '')}" placeholder="14-digit" maxlength="14" style="width:120px;border:1px solid ${b.cardNo && !cardOk ? '#f87171' : '#e2e8f0'};border-radius:6px;padding:5px 7px;font-size:12px;font-family:monospace;"></td>
-      <td style="padding:6px 8px;"><input class="wps-iban" value="${_esc(b.iban || '')}" placeholder="AE………" maxlength="23" style="width:200px;border:1px solid ${b.iban && !ibanOk ? '#f87171' : '#e2e8f0'};border-radius:6px;padding:5px 7px;font-size:12px;font-family:monospace;text-transform:uppercase;"></td>
-      <td style="padding:6px 8px;"><input class="wps-routing" value="${_esc(b.routing || '')}" placeholder="9-digit" maxlength="9" style="width:90px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:monospace;"></td>
-      <td style="padding:6px 8px;"><input class="wps-days" type="number" min="0" max="31" value="${b.days != null ? b.days : 30}" style="width:52px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 6px;font-size:12px;text-align:right;"></td>
-      <td style="padding:6px 8px;"><input class="wps-fixed" type="number" min="0" value="${b.fixed != null ? b.fixed : (w.wageMode === 'monthly' ? _num(w.rate) : '')}" style="width:90px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 6px;font-size:12px;text-align:right;"></td>
-      <td style="padding:6px 8px;"><input class="wps-variable" type="number" min="0" value="${b.variable != null ? b.variable : ''}" placeholder="0" style="width:80px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 6px;font-size:12px;text-align:right;"></td>
+    return `<tr data-id="${w.id}" data-src="${w._src}">
+      <td style="font-weight:800;color:var(--dm-ink);white-space:nowrap;">${_esc(w.name || '—')}<div class="dm-ref">${w._src === 'staffMaster' ? 'Staff' : 'Labour'}</div></td>
+      <td><input class="wps-card" value="${_esc(b.cardNo || '')}" placeholder="14-digit" maxlength="14" style="${inp}width:126px;${b.cardNo && !cardOk ? bad : ''}"></td>
+      <td><input class="wps-iban" value="${_esc(b.iban || '')}" placeholder="AE………" maxlength="23" style="${inp}width:212px;text-transform:uppercase;${b.iban && !ibanOk ? bad : ''}"></td>
+      <td><input class="wps-routing" value="${_esc(b.routing || '')}" placeholder="9-digit" maxlength="9" style="${inp}width:92px;"></td>
+      <td class="num"><input class="wps-days" type="number" min="0" max="31" value="${b.days != null ? b.days : 30}" style="${inp}width:56px;text-align:right;"></td>
+      <td class="num"><input class="wps-fixed" type="number" min="0" value="${b.fixed != null ? b.fixed : (w.wageMode === 'monthly' ? _num(w.rate) : '')}" style="${inp}width:98px;text-align:right;"></td>
+      <td class="num"><input class="wps-variable" type="number" min="0" value="${b.variable != null ? b.variable : ''}" placeholder="0" style="${inp}width:90px;text-align:right;"></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">No workers yet. Add people in Labour & Staff first.</td></tr>';
+  }).join('');
 
   const runs = (state.wpsRuns || []).slice(-6).reverse().map(r =>
-    `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;">
-      <span style="font-weight:700;color:#0f172a;">${r.month}</span>
-      <span style="color:#64748b;">${r.count} workers · AED ${_num(r.total).toLocaleString('en-AE')}</span>
-      <span style="color:#94a3b8;">${new Date(r.at).toLocaleDateString('en-GB')}</span>
-    </div>`).join('') || '<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px;">No files generated yet.</div>';
+    `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--dm-line);font-size:12.5px;">
+      <span style="font-weight:800;color:var(--dm-ink);">${r.month}</span>
+      <span style="color:var(--dm-ink-2);" class="tnum">${r.count} workers · AED ${_num(r.total).toLocaleString('en-AE')}</span>
+      <span style="color:var(--dm-ink-3);" class="tnum">${new Date(r.at).toLocaleDateString('en-GB')}</span>
+    </div>`).join('') || '<div style="padding:18px;text-align:center;color:var(--dm-ink-3);font-size:12.5px;">No files generated yet.</div>';
 
   c.innerHTML = `
-    <div style="max-width:1100px;margin:0 auto;">
-      <div style="background:linear-gradient(135deg,#fff3ea,#ffe9e2);border:1px solid #ffd9c7;border-radius:14px;padding:14px 16px;margin-bottom:16px;">
-        <div style="font-weight:800;color:#0f172a;font-size:15px;">💳 Wage Protection System (WPS)</div>
-        <p style="font-size:12px;color:#7a2e1a;margin:4px 0 0;">Generate a bank-ready <b>.SIF</b> salary file for your UAE payroll. Confirm the exact column layout with your bank or exchange house — formats vary slightly.</p>
+    <div class="dm">
+      <div class="dm-bar">
+        <div class="dm-lead"><h1>WPS Salary</h1><span class="dm-sub">Bank-ready <b>.SIF</b> for UAE payroll — confirm the exact layout with your bank</span></div>
+        <button class="dm-btn dm-btn-primary" onclick="window._wpsGenerate()">⬇ Generate .SIF</button>
       </div>
 
-      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--dm-surface);border:1px solid var(--dm-line);border-radius:14px;padding:11px 16px;margin-bottom:16px;box-shadow:var(--dm-shadow);">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <label style="font-size:12px;font-weight:700;color:#64748b;">Salary month</label>
-          <input id="wpsMonth" type="month" value="${month}" style="border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;">
+          <label style="font-size:12px;font-weight:700;color:var(--dm-ink-2);">Salary month</label>
+          <input id="wpsMonth" type="month" value="${month}" style="border:1px solid var(--dm-line-strong);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;">
           ${cfg.employerId && cfg.routingCode
-            ? `<span style="font-size:11px;font-weight:700;color:#059669;background:#ecfdf5;padding:4px 10px;border-radius:9999px;">✓ Employer configured</span>`
-            : `<span style="font-size:11px;font-weight:700;color:#b45309;background:#fffbeb;padding:4px 10px;border-radius:9999px;">⚠ Set employer details</span>`}
+            ? `<span class="dm-chip ok"><span class="dot"></span>Employer configured</span>`
+            : `<span class="dm-chip warn"><span class="dot"></span>Set employer details</span>`}
         </div>
-        <button onclick="window._wpsOpenSettings()" style="background:#f8fafc;border:1px solid #e2e8f0;color:#475569;border-radius:9px;padding:8px 15px;font-size:12px;font-weight:700;cursor:pointer;">⚙ Employer &amp; bank details</button>
+        <button class="dm-btn dm-btn-ghost dm-btn-sm" onclick="window._wpsOpenSettings()">⚙ Employer &amp; bank details</button>
       </div>
 
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #f1f5f9;">
-          <span style="font-weight:800;color:#0f172a;font-size:13px;">Workers & pay for ${month}</span>
-          <span style="display:flex;align-items:center;gap:10px;"><span style="font-size:11px;color:#94a3b8;">${workers.length} people</span>
-            <button onclick="window._wpsSave()" style="background:#f8fafc;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:6px 13px;font-size:11px;font-weight:700;cursor:pointer;">Save</button></span>
+      <div class="dm-panel">
+        <div class="dm-panel-head">
+          <h2>Workers &amp; pay · ${month}</h2>
+          <div class="dm-tools"><span style="font-size:11px;color:var(--dm-ink-3);">${workers.length} ${workers.length === 1 ? 'person' : 'people'}</span>
+            <button class="dm-btn dm-btn-ghost dm-btn-sm" onclick="window._wpsSave()">Save</button></div>
         </div>
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <thead style="background:#f8fafc;"><tr style="text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;font-weight:800;">
-              <th style="padding:8px;">Worker</th><th style="padding:8px;">Labour card</th><th style="padding:8px;">IBAN</th>
-              <th style="padding:8px;">Routing</th><th style="padding:8px;">Days</th><th style="padding:8px;">Fixed (AED)</th><th style="padding:8px;">Variable (AED)</th>
-            </tr></thead>
-            <tbody id="wpsRows">${rows}</tbody>
-          </table>
-        </div>
+        ${workers.length ? `<div class="dm-tscroll"><table class="dm-table">
+          <thead><tr><th>Worker</th><th>Labour card</th><th>IBAN</th><th>Routing</th><th class="num">Days</th><th class="num">Fixed</th><th class="num">Variable</th></tr></thead>
+          <tbody id="wpsRows">${rows}</tbody></table></div>`
+        : `<div class="dm-empty"><div class="ico">💳</div><h3>No workers yet</h3><p>Add your people in Labour &amp; Staff first — they'll appear here to receive their WPS salary.</p></div>`}
       </div>
 
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
-        <button onclick="window._wpsGenerate()" style="background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(214,64,44,.25);">⬇ Generate .SIF file</button>
-        <span style="font-size:11px;color:#94a3b8;">Saves worker details, validates, and downloads the salary file.</span>
-      </div>
-
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
-        <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#0f172a;font-size:12px;">Recent files</div>
-        ${runs}
+      <div class="dm-panel">
+        <div class="dm-panel-head"><h2>Recent files</h2></div>
+        <div>${runs}</div>
       </div>
     </div>`;
 }

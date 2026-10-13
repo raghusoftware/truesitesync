@@ -6,6 +6,7 @@
  * tasks from a palette onto each location's timeline instead of retyping them.
  * Set per-task duration / start / dependencies, Auto-Schedule sequential dates,
  * duplicate a whole location, highlight repeated tasks, and export a Gantt/table.
+ * Each task carries its own materials / labour / equipment (Planning row shape).
  *
  * Vanilla JS + native HTML5 drag-and-drop (same pattern as planning.js board).
  * Data: state.scheduleLocations (project-scoped, synced). Palette = project BOQ
@@ -14,7 +15,9 @@
  */
 import { state, saveAllData, saveLocalKey } from './state.js';
 import { showToast, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
-import { seedBaselineFromSchedule } from './executionEngine.js';
+// Same versioned URL as js/app.js imports, so this shares that one fresh module
+// instance (an unversioned URL can be served stale from the browser cache).
+import { seedBaselineFromSchedule, TRADES } from './executionEngine.js?v=1.6.89';
 
 /* ── standard task library (used when a project has no BOQ, and always available) ── */
 const STD_TASKS = [
@@ -144,12 +147,22 @@ function _psStepper(active) {
 function _sbActs() { return (state.execActivities || []).filter(a => a.projectId === pid()); }
 function _sbFinish(a) { const s = (a.schedule && a.schedule.plannedStart) || ''; if (!s) return ''; return fmtISO(addDays(s, Math.max(0, num(a.schedule && a.schedule.duration)))); }
 
+/** Scheduling has two tabs: the location-wise drag-and-drop board (default)
+ *  and the activity timeline of Planning activities. */
+let _sbMode = 'locations';   // 'locations' | 'timeline'
+window._sbSetMode = function (m) { _sbMode = m; renderScheduleBuilder(); };
+function _modeTabs() {
+  const tab = (key, label) => `<button onclick="window._sbSetMode('${key}')" style="padding:7px 14px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;border:1px solid ${_sbMode === key ? '#0ea5e9' : '#e2e8f0'};background:${_sbMode === key ? '#0ea5e9' : '#fff'};color:${_sbMode === key ? '#fff' : '#475569'};">${label}</button>`;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${tab('locations', '📍 Location Planner')}${tab('timeline', '📅 Activity Timeline')}</div>`;
+}
+
 export function renderScheduleBuilder() {
   ensure();
   const host = document.getElementById('scheduleBuilderContent');
   if (!host) return;
   const p = proj();
   if (!p) { host.innerHTML = `<div class="sb-empty"><div style="font-size:34px">🗓️</div><p class="font-bold text-slate-700">Select a project first</p></div>`; return; }
+  if (_sbMode === 'locations') return _renderLocations(host, p);
   const list = _sbActs();
   const projStart = p.startDate || '';
   const idate = 'padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;';
@@ -182,6 +195,7 @@ export function renderScheduleBuilder() {
     <div class="sb-wrap">
       <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
       ${_psStepper('sched')}
+      ${_modeTabs()}
       <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <div><h2 class="text-2xl font-extrabold text-slate-800">Scheduling</h2>
         <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · set each activity's start &amp; duration (or Auto-Schedule) — dates sync straight to Planning.</p></div>
@@ -253,6 +267,130 @@ window._sbGanttPDF = function () {
   mobileSavePDF(doc, `Schedule-${(proj()?.name || 'project').replace(/[^a-z0-9]+/gi, '-')}.pdf`);
 };
 
+/* ═══════════════════════════════════════════════════════════
+ *  LOCATION PLANNER — add a location (Block A, Basement …), drag BOQ items
+ *  (Excavation, PCC, RCC …) onto it, then fill only the materials, labour and
+ *  equipment each item needs. "Send to Baseline" turns it into Planning
+ *  activities with those resources already filled in.
+ * ═══════════════════════════════════════════════════════════ */
+function _renderLocations(host, p) {
+  const list = locs();
+  if (!list.find(l => l.id === _sbLocId)) _sbLocId = list.length ? list[0].id : null;
+  const loc = locById(_sbLocId);
+  host.innerHTML = `
+    <div class="sb-wrap">
+      <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
+      ${_psStepper('sched')}
+      ${_modeTabs()}
+      <div class="sb-head">
+        <div><h2 class="text-2xl font-extrabold text-slate-800">Location Planner</h2>
+        <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || '')} · add a location, drag BOQ items onto it (or tap to add), then fill the materials, labour &amp; equipment each one needs.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="sb-btn-primary" onclick="window._sbAddLocation()">+ Add Location</button>
+          ${list.length ? `<button class="sb-btn-ghost" onclick="window._sbExportPDF()">⬇ PDF</button>` : ''}
+          <button id="sbSaveBtn" class="sb-btn-save ${_sbDirty ? 'sb-dirty' : ''}" onclick="window._sbSaveAll()">${_sbDirty ? '💾 Save changes •' : '💾 Saved'}</button>
+        </div>
+      </div>
+      ${!list.length
+        ? `<div class="sb-empty" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;"><div style="font-size:34px">📍</div><p class="font-bold text-slate-700">No locations yet</p><p class="text-xs text-slate-400 mt-1">Start with a location such as "Block A – Foundation" or "Basement", then drag Excavation, PCC, RCC and other BOQ items onto it.</p><button class="sb-btn-primary mt-3" onclick="window._sbAddLocation()">+ Add your first location</button></div>`
+        : `<div class="sb-body">
+            <div class="sb-palette">${_paletteHtml()}</div>
+            <div class="sb-main">
+              <div class="sb-loctabs">${list.map(_locTab).join('')}</div>
+              ${_dropZone(loc)}
+            </div>
+          </div>`}
+    </div>`;
+}
+
+/* ── per-task resources: materials / labour / equipment ──
+ * Rows use the same shape as Planning activities (executionEngine.js) so
+ * "Send to Baseline" can copy them straight across. */
+const _sbOpen = new Set();   // task ids whose resource panel is expanded
+function _matNames() {
+  const out = new Map();
+  (state.rawMaterials || []).forEach(m => m.name && out.set(m.name.toLowerCase(), { name: m.name, unit: m.unit || '', rate: num(m.rate) || num(m.lastRate) }));
+  (state.itemsMaster || []).forEach(m => m.name && !out.has(m.name.toLowerCase()) && out.set(m.name.toLowerCase(), { name: m.name, unit: m.unit || '', rate: num(m.rate) || num(m.purchaseRate) }));
+  return [...out.values()];
+}
+function _resCounts(t) {
+  return { m: (t.material || []).length, l: (t.labour || []).reduce((s, r) => s + (num(r.workers) || 0), 0), lr: (t.labour || []).length, e: (t.equipment || []).length };
+}
+function _resPanel(loc, t) {
+  const L = q(loc.id), T = q(t.id);
+  const inp = 'class="sb-in" style="width:100%;text-align:left;"';
+  const numIn = (kind, i, field, v) => `<input type="number" min="0" class="sb-in" style="width:100%" value="${esc(v)}" oninput="window._sbResSet('${L}','${T}','${kind}',${i},'${field}',this.value)">`;
+  const del = (kind, i) => `<button class="sb-task-del" style="width:22px;height:22px;font-size:10px;" onclick="window._sbResDel('${L}','${T}','${kind}',${i})" title="Remove">✕</button>`;
+  const head = (cols) => `<div class="sb-res-row sb-res-head">${cols.map(c => `<span>${c}</span>`).join('')}</div>`;
+  const mats = (t.material || []).map((r, i) => `<div class="sb-res-row">
+      <input ${inp} list="sbMatList" placeholder="e.g. Cement" value="${esc(r.name)}" oninput="window._sbResSet('${L}','${T}','material',${i},'name',this.value)" onchange="window._sbMatPick('${L}','${T}',${i},this.value)">
+      ${numIn('material', i, 'qty', r.qty)}
+      <input class="sb-in" style="width:100%" placeholder="unit" value="${esc(r.unit)}" oninput="window._sbResSet('${L}','${T}','material',${i},'unit',this.value)">
+      ${del('material', i)}</div>`).join('');
+  const labs = (t.labour || []).map((r, i) => `<div class="sb-res-row">
+      <input ${inp} list="sbTradeList" placeholder="e.g. Mason" value="${esc(r.type)}" oninput="window._sbResSet('${L}','${T}','labour',${i},'type',this.value)">
+      ${numIn('labour', i, 'workers', r.workers)}
+      ${numIn('labour', i, 'hours', r.hours)}
+      ${del('labour', i)}</div>`).join('');
+  const eqs = (t.equipment || []).map((r, i) => `<div class="sb-res-row">
+      <input ${inp} list="sbEqList" placeholder="e.g. JCB" value="${esc(r.name)}" oninput="window._sbResSet('${L}','${T}','equipment',${i},'name',this.value)">
+      ${numIn('equipment', i, 'qty', r.qty)}
+      ${numIn('equipment', i, 'workingHours', r.workingHours)}
+      ${del('equipment', i)}</div>`).join('');
+  const block = (icon, title, kind, hdr, rows, addLabel) => `
+    <div class="sb-res-block">
+      <div class="sb-res-title">${icon} ${title}</div>
+      ${rows ? head(hdr) + rows : ''}
+      <button class="sb-res-add" onclick="window._sbResAdd('${L}','${T}','${kind}')">+ ${addLabel}</button>
+    </div>`;
+  return `<div class="sb-res">
+    ${block('📦', 'Materials', 'material', ['Material', 'Qty', 'Unit', ''], mats, 'Material')}
+    ${block('👷', 'Labour', 'labour', ['Trade', 'Workers', 'Hrs/day', ''], labs, 'Labour')}
+    ${block('🚜', 'Equipment', 'equipment', ['Equipment', 'Nos', 'Hours', ''], eqs, 'Equipment')}
+  </div>`;
+}
+function _resLists() {
+  return `<datalist id="sbMatList">${_matNames().map(m => `<option value="${esc(m.name)}">`).join('')}</datalist>
+    <datalist id="sbTradeList">${TRADES.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    <datalist id="sbEqList">${(state.equipmentList || []).map(e => `<option value="${esc(e.name)}">`).join('')}</datalist>`;
+}
+function _sbTask(locId, taskId) { const l = locById(locId); return l && (l.tasks || []).find(x => x.id === taskId); }
+window._sbToggleRes = function (taskId) { _sbOpen.has(taskId) ? _sbOpen.delete(taskId) : _sbOpen.add(taskId); renderScheduleBuilder(); };
+window._sbResAdd = function (locId, taskId, kind) {
+  const t = _sbTask(locId, taskId); if (!t) return;
+  const blank = {
+    material: { id: uid('m'), name: '', qty: '', unit: '', consumptionRate: '', wastagePct: 0, deliveryDate: '', rate: 0, cost: 0 },
+    labour: { id: uid('l'), type: '', workers: 1, hours: 8, otHours: 0, productivity: '', cost: 0 },
+    equipment: { id: uid('e'), name: '', qty: 1, workingHours: '', idleHours: '', fuel: '', cost: 0 },
+  }[kind];
+  if (!blank) return;
+  (t[kind] = t[kind] || []).push(blank);
+  _sbOpen.add(taskId); _sbTouch(); renderScheduleBuilder();
+};
+window._sbResSet = function (locId, taskId, kind, i, field, val) {
+  const t = _sbTask(locId, taskId); const r = t && (t[kind] || [])[i]; if (!r) return;
+  r[field] = ['qty', 'workers', 'hours', 'workingHours'].includes(field) ? (val === '' ? '' : num(val)) : val;
+  _sbTouch();   // no re-render — keeps the cursor in the box being typed
+};
+window._sbMatPick = function (locId, taskId, i, val) {
+  const t = _sbTask(locId, taskId); const r = t && (t.material || [])[i]; if (!r) return;
+  const m = _matNames().find(x => x.name.toLowerCase() === String(val).trim().toLowerCase());
+  if (m) { if (!r.unit) r.unit = m.unit; if (!num(r.rate)) r.rate = m.rate || 0; _sbTouch(); renderScheduleBuilder(); }
+};
+window._sbResDel = function (locId, taskId, kind, i) {
+  const t = _sbTask(locId, taskId); if (!t || !t[kind]) return;
+  t[kind].splice(i, 1); _sbTouch(); renderScheduleBuilder();
+};
+/** Tap a palette item to add it to the selected location (touch screens can't drag). */
+window._sbTapAdd = function (mtid) {
+  const t = _sbPalMap[mtid]; const loc = locById(_sbLocId);
+  if (!t) return;
+  if (!loc) return showToast('Add a location first', 'info');
+  loc.tasks = loc.tasks || [];
+  loc.tasks.push(_newTask(t)); _reorder(loc); _sbTouch(); renderScheduleBuilder();
+  showToast(`${t.name} added to ${loc.name}`, 'success');
+};
+
 /* ── palette ── */
 function _paletteHtml() {
   const items = palette().filter(t =>
@@ -265,13 +403,13 @@ function _paletteHtml() {
   const plannedCount = palette().filter(t => t.planned).length;
   return `
     <div class="sb-pal-head">Task Palette</div>
-    <p class="sb-mini" style="padding:0 2px 8px;color:#94a3b8;">${plannedCount ? `${plannedCount} planned activit${plannedCount === 1 ? 'y' : 'ies'} from Planning — drag onto a location.` : 'No planned activities yet — add them in Planning, or drag from BOQ / the library below.'}</p>
+    <p class="sb-mini" style="padding:0 2px 8px;color:#94a3b8;">${plannedCount ? `${plannedCount} planned activit${plannedCount === 1 ? 'y' : 'ies'} from Planning — drag onto a location.` : 'Drag BOQ items (or the standard tasks below) onto a location — or tap one to add it.'}</p>
     <input class="sb-search" placeholder="Search tasks…" value="${esc(_sbSearch)}" oninput="window._sbSearchInput(this.value)">
     <div class="sb-cats">${CATEGORIES.map(c => `<button class="sb-cat ${_sbCat === c ? 'active' : ''}" onclick="window._sbCatSet('${c}')">${c}</button>`).join('')}</div>
     <div class="sb-pal-list">
       ${items.length ? items.map(t => `
-        <div class="sb-chip" draggable="true" data-mtid="${esc(t.masterTaskId)}" ondragstart="window._sbPalDragStart(event, this.getAttribute('data-mtid'))" title="${t.planned ? 'Planned activity — drag onto a location' : 'Drag onto a location'}" ${t.planned ? 'style="border-left:3px solid #7c3aed;"' : ''}>
-          <span class="sb-chip-ic">${t.icon}</span><span class="sb-chip-nm">${esc(t.name)}${t.planned ? ` <span style="font-size:9px;color:#7c3aed;font-weight:700;">•${t.duration || '?'}d</span>` : ''}</span>
+        <div class="sb-chip" draggable="true" data-mtid="${esc(t.masterTaskId)}" ondragstart="window._sbPalDragStart(event, this.getAttribute('data-mtid'))" onclick="window._sbTapAdd(this.getAttribute('data-mtid'))" title="Drag onto a location, or tap to add" ${t.planned ? 'style="border-left:3px solid #7c3aed;"' : t.category === 'BOQ' ? 'style="border-left:3px solid #0ea5e9;"' : ''}>
+          <span class="sb-chip-ic">${t.icon}</span><span class="sb-chip-nm">${esc(t.name)}${t.planned ? ` <span style="font-size:9px;color:#7c3aed;font-weight:700;">•${t.duration || '?'}d</span>` : ''}${!t.planned && t.qty ? ` <span style="font-size:9px;color:#0ea5e9;font-weight:700;">${t.qty} ${esc(t.unit)}</span>` : ''}</span>
         </div>`).join('')
       : `<p class="sb-mini" style="padding:12px">No tasks in this category.</p>`}
     </div>`;
@@ -319,7 +457,7 @@ window._sbDuplicateLocation = function (id) {
   if (nm == null || !nm.trim()) return;
   ensure();
   const copy = { id: uid('loc'), projectId: pid(), name: nm.trim(), startDate: l.startDate || '',
-    tasks: (l.tasks || []).map((t, i) => ({ ...t, id: uid('t'), order: i + 1, startDate: '' })), createdAt: new Date().toISOString() };
+    tasks: (l.tasks || []).map((t, i) => ({ ...JSON.parse(JSON.stringify(t)), id: uid('t'), order: i + 1, startDate: '', deps: [] })), createdAt: new Date().toISOString() };
   state.scheduleLocations.push(copy); _sbLocId = copy.id; _sbTouch(); renderScheduleBuilder();
   showToast(`Location duplicated with ${copy.tasks.length} task(s)`, 'success');
 };
@@ -339,7 +477,8 @@ function _dropZone(loc) {
         ${(loc.tasks || []).length ? `<button class="sb-btn-ghost" onclick="window._sbSendToBaseline('${loc.id}')" title="Create draft baseline activities in Planning & Execution from this location">→ Send to Baseline</button>` : ''}
       </div>
     </div>
-    <div class="sb-zone" ondragover="window._sbAllow(event)" ondrop="window._sbDrop(event, null)">
+    ${_resLists()}
+    <div class="sb-zone" ondragover="window._sbAllow(event)" ondragleave="window._sbLeave(event)" ondrop="window._sbDrop(event, null)">
       ${!tasks.length
       ? `<div class="sb-zone-empty" ondragover="window._sbAllow(event)" ondrop="window._sbDrop(event, null)">⬇ Drag tasks here to build the sequence</div>`
       : tasks.map((t, i) => _taskCard(loc, t, i, dup)).join('') + `<div class="sb-zone-tail" ondragover="window._sbAllow(event)" ondrop="window._sbDrop(event, null)">Drop here to add at the end</div>`}
@@ -348,15 +487,18 @@ function _dropZone(loc) {
 function _taskCard(loc, t, i, dup) {
   const isDup = (dup[(t.name || '').toLowerCase()] || 0) > 1;
   const deps = loc.tasks.filter(x => x.id !== t.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const open = _sbOpen.has(t.id);
+  const c = _resCounts(t);
+  const badge = (n, label, col) => `<span class="sb-res-badge" style="color:${n ? col : '#cbd5e1'}">${label}</span>`;
   return `
-    <div class="sb-task" draggable="true"
-      ondragstart="window._sbTaskDragStart(event,'${t.id}')"
-      ondragover="window._sbAllow(event)" ondrop="window._sbDrop(event, ${i})">
+    <div class="sb-task-wrap" ondragover="window._sbAllow(event)" ondragleave="window._sbLeave(event)" ondrop="window._sbDrop(event, ${i})">
+    <div class="sb-task" draggable="true" ondragstart="window._sbTaskDragStart(event,'${t.id}')">
       <div class="sb-task-seq">${i + 1}</div>
       <div class="sb-task-ic">${t.icon || '🔧'}</div>
       <div class="sb-task-main">
         <div class="sb-task-nm">${esc(t.name)}${isDup ? '<span class="sb-dup" title="This task also appears in another location">repeated</span>' : ''}</div>
         <div class="sb-task-fields">
+          <label>Qty<input type="number" min="0" class="sb-in" style="width:64px" value="${esc(t.qty)}" oninput="window._sbTaskField('${loc.id}','${t.id}','qty',this.value)"><span style="text-transform:none">${esc(t.unit || '')}</span></label>
           <label>Dur<input type="number" min="0" class="sb-in" value="${esc(t.duration)}" oninput="window._sbTaskField('${loc.id}','${t.id}','duration',this.value)"><span>d</span></label>
           <label>Start<input type="date" class="sb-in sb-in-date" value="${esc(t.startDate || '')}" onchange="window._sbTaskField('${loc.id}','${t.id}','startDate',this.value)"></label>
           <label>After
@@ -367,8 +509,16 @@ function _taskCard(loc, t, i, dup) {
           </label>
           ${t.startDate && num(t.duration) ? `<span class="sb-end">→ ${fmtNice(fmtISO(addDays(t.startDate, num(t.duration))))}</span>` : ''}
         </div>
+        <button class="sb-res-toggle ${open ? 'open' : ''}" onclick="window._sbToggleRes('${t.id}')" title="Materials, labour and equipment this item needs">
+          ${open ? '▾' : '▸'} Resources
+          ${badge(c.m, `📦 ${c.m} material${c.m === 1 ? '' : 's'}`, '#16a34a')}
+          ${badge(c.lr, `👷 ${c.l} worker${c.l === 1 ? '' : 's'}`, '#d97706')}
+          ${badge(c.e, `🚜 ${c.e} equipment`, '#7c3aed')}
+        </button>
       </div>
       <button class="sb-task-del" onclick="window._sbRemoveTask('${loc.id}','${t.id}')" title="Remove">✕</button>
+    </div>
+    ${open ? _resPanel(loc, t) : ''}
     </div>`;
 }
 
@@ -376,14 +526,20 @@ function _taskCard(loc, t, i, dup) {
 window._sbPalDragStart = function (ev, mtid) { const t = _sbPalMap[mtid]; _sbDrag = t ? { type: 'new', task: t } : null; try { ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData('text/plain', mtid || 'new'); } catch {} };
 window._sbTaskDragStart = function (ev, taskId) { _sbDrag = { type: 'move', taskId }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', taskId); };
 window._sbAllow = function (ev) { ev.preventDefault(); ev.dataTransfer.dropEffect = _sbDrag && _sbDrag.type === 'new' ? 'copy' : 'move'; if (ev.currentTarget.classList) ev.currentTarget.classList.add('sb-over'); };
+window._sbLeave = function (ev) { if (ev.currentTarget.classList && !ev.currentTarget.contains(ev.relatedTarget)) ev.currentTarget.classList.remove('sb-over'); };
+/** A new location task from a palette item (BOQ qty/unit carried over). */
+function _newTask(t) {
+  return { id: uid('t'), masterTaskId: t.masterTaskId, name: t.name, icon: t.icon, category: t.category || catFor(t.name),
+    qty: t.qty || '', unit: t.unit || '', duration: (t.duration && t.duration > 0) ? t.duration : 1, startDate: '', deps: [],
+    planned: !!t.planned, plannedActId: t.planned ? t.masterTaskId : '', material: [], labour: [], equipment: [] };
+}
 window._sbDrop = function (ev, beforeIndex) {
   ev.preventDefault(); ev.stopPropagation();
   const loc = locById(_sbLocId); if (!loc || !_sbDrag) { _sbDrag = null; return; }
   loc.tasks = loc.tasks || [];
   if (_sbDrag.type === 'new') {
     const t = _sbDrag.task;
-    const nt = { id: uid('t'), masterTaskId: t.masterTaskId, name: t.name, icon: t.icon, category: t.category || catFor(t.name), duration: (t.duration && t.duration > 0) ? t.duration : 1, startDate: '', deps: [], planned: !!t.planned, plannedActId: t.planned ? t.masterTaskId : '' };
-    _insert(loc, nt, beforeIndex);
+    _insert(loc, _newTask(t), beforeIndex);
   } else if (_sbDrag.type === 'move') {
     const idx = loc.tasks.findIndex(x => x.id === _sbDrag.taskId);
     if (idx > -1) { const [moved] = loc.tasks.splice(idx, 1); _insert(loc, moved, beforeIndex, idx); }
@@ -401,7 +557,7 @@ function _reorder(loc) { (loc.tasks || []).forEach((t, i) => t.order = i + 1); }
 /* ── task customization ── */
 window._sbTaskField = function (locId, taskId, field, val) {
   const l = locById(locId); const t = l && (l.tasks || []).find(x => x.id === taskId); if (!t) return;
-  t[field] = field === 'duration' ? num(val) : val;
+  t[field] = (field === 'duration' || field === 'qty') ? num(val) : val;
   _sbTouch();
   // update just the end-date chip without a full re-render (keeps focus)
   if (field === 'startDate' || field === 'duration') renderScheduleBuilder();

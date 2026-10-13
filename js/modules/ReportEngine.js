@@ -11,7 +11,7 @@
 import { state } from './state.js';
 import { settledAmount, deductionRegister, fyQuarter, tdsDueDate, findType } from './deductions.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.91';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category
@@ -34,6 +34,8 @@ export const REPORT_CATEGORIES = [
     reports: [
       _R('expense_register', 'Expense Register (All Expenses)'),
       _R('expense_analysis', 'Expense Analysis (by Head)'),
+      _R('account_statement', 'Account Statement — Bank & Cash'),
+      _R('party_ledger', 'Party Ledger — Clients, Vendors, Labour'),
       _R('cash_book', 'Cash Book'),
       _R('cash_flow', 'Cash Flow Statement'),
       _R('retention_recovery', 'Retention Recovery Register'),

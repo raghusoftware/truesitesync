@@ -8,8 +8,8 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.92';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.91';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.93';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
 import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX, getPdfCurrency } from '../modules/utils.js';
@@ -27,6 +27,9 @@ let _currentParams = {};
 // Exclude that category from the Reports module so it shows operational reports only.
 const HIDDEN_CATEGORY_IDS = ['dashboard'];
 const VISIBLE_CATEGORIES = REPORT_CATEGORIES.filter(c => !HIDDEN_CATEGORY_IDS.includes(c.id));
+/** Reports of a category available in the active country (GSTR/TDS India-only,
+ *  VAT 201 GCC/UK/International — see COUNTRY_ONLY in countryRules.js). */
+const _reportsOf = c => c.reports.filter(r => typeof window.countryAllows !== 'function' || window.countryAllows(r.id));
 
 let _currentCategoryId = null;
 let _currentReportId = null;
@@ -49,7 +52,7 @@ export function renderReportsDashboard() {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
 
-  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + c.reports.length, 0);
+  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + _reportsOf(c).length, 0);
   const totalCats = VISIBLE_CATEGORIES.length;
 
   // Summary KPI bar
@@ -59,34 +62,24 @@ export function renderReportsDashboard() {
   const totalPurchase = (state.vendorMaterials || []).reduce((s, v) => s + (parseFloat(v.totalAmount) || 0), 0);
 
   let html = `
-    <div class="rpt-breadcrumb"><span class="rpt-bc-active">📊 Reports Dashboard</span></div>
-
-    <div class="rpt-kpi-strip">
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${totalReports}</div>
-        <div class="rpt-kpi-lbl">Total Reports</div>
+   <div class="dm">
+    <div class="dm-bar">
+      <div class="dm-lead">
+        <h1>Reports</h1>
+        <div class="dm-sub">${totalReports} reports across ${totalCats} categories · GST, VAT, labour, finance &amp; site</div>
       </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${totalCats}</div>
-        <div class="rpt-kpi-lbl">Categories</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${projectCount}</div>
-        <div class="rpt-kpi-lbl">Projects</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${formatINR(totalSales)}</div>
-        <div class="rpt-kpi-lbl">Total Sales</div>
-      </div>
-      <div class="rpt-kpi-card">
-        <div class="rpt-kpi-val">${formatINR(totalPurchase)}</div>
-        <div class="rpt-kpi-lbl">Total Purchase</div>
-      </div>
+      <label class="dm-search">🔍
+        <input type="text" id="reportSearchInput" placeholder="Search ${totalReports} reports…"
+               oninput="window._rptSearchReports(this.value)" style="width:200px;">
+      </label>
     </div>
 
-    <div class="rpt-search-bar">
-      <input type="text" id="reportSearchInput" placeholder="🔍 Search across ${totalReports} reports..."
-             class="rpt-search-input" oninput="window._rptSearchReports(this.value)">
+    <div class="dm-kpis" style="grid-template-columns:repeat(5,1fr);">
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total reports</div><div class="dm-val tnum">${totalReports}</div><div class="dm-meta">ready to run</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Categories</div><div class="dm-val tnum">${totalCats}</div><div class="dm-meta">report groups</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Projects</div><div class="dm-val tnum">${projectCount}</div><div class="dm-meta">in scope</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total sales</div><div class="dm-val tnum">${formatINR(totalSales)}</div><div class="dm-meta">${invoiceCount} invoice${invoiceCount === 1 ? '' : 's'}</div></div>
+      <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total purchase</div><div class="dm-val tnum">${formatINR(totalPurchase)}</div><div class="dm-meta">procured</div></div>
     </div>
 
     <div id="reportSearchResults" class="rpt-search-results hide"></div>
@@ -97,12 +90,12 @@ export function renderReportsDashboard() {
 
   VISIBLE_CATEGORIES.forEach(cat => {
     html += `
-      <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${cat.reports.length} reports)">
+      <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${_reportsOf(cat).length} reports)">
         <div class="rpt-app-icon-circle" style="background:linear-gradient(135deg, ${cat.color}22, ${cat.color}44); border-color: ${cat.color}55;">
           <span class="rpt-app-icon-emoji">${cat.icon}</span>
         </div>
         <div class="rpt-app-icon-name">${cat.name}</div>
-        <div class="rpt-app-icon-count">${cat.reports.length} reports</div>
+        <div class="rpt-app-icon-count">${_reportsOf(cat).length} reports</div>
       </div>`;
   });
 
@@ -110,6 +103,8 @@ export function renderReportsDashboard() {
 
   // Recent reports section
   html += `<div id="recentReportsSection"></div>`;
+
+  html += `</div>`;
 
   container.innerHTML = html;
 
@@ -164,7 +159,7 @@ export function openReportCategory(catId) {
       <div class="rpt-cat-header-icon" style="background:${cat.color}22; color:${cat.color};">${cat.icon}</div>
       <div>
         <h3 class="rpt-cat-header-title">${cat.name}</h3>
-        <p class="rpt-cat-header-count">${cat.reports.length} reports available</p>
+        <p class="rpt-cat-header-count">${_reportsOf(cat).length} reports available</p>
       </div>
     </div>
 
@@ -176,7 +171,7 @@ export function openReportCategory(catId) {
     <div class="rpt-report-list" id="catReportList">
   `;
 
-  cat.reports.forEach((r, i) => {
+  _reportsOf(cat).forEach((r, i) => {
     const typeIcon = { dashboard: '📊', table: '📋', kpi: '🎯', chart: '📈' }[r.type] || '📋';
     const typeBadge = { dashboard: 'bg-emerald-100 text-emerald-800', table: 'bg-blue-100 text-blue-800', kpi: 'bg-amber-100 text-amber-800', chart: 'bg-purple-100 text-purple-800' }[r.type] || 'bg-gray-100 text-gray-800';
     html += `
@@ -223,8 +218,8 @@ export function runReport(reportId, params = {}) {
 
   // Custom composite builders
   if (reportId === 'project_report') { _renderProjectReportPanel(); return; }
-  if (reportId === 'bank_statement') { _renderFinancePanel('bank'); return; }
-  if (reportId === 'parties_statement') { _renderFinancePanel('parties'); return; }
+  if (reportId === 'account_statement' || reportId === 'bank_statement') { window.renderLedgerReport?.('bank'); return; }
+  if (reportId === 'party_ledger' || reportId === 'parties_statement') { window.renderLedgerReport?.('party'); return; }
   if (reportId === 'cash_flow_forecast') { _renderFinancePanel('cashflow'); return; }
 
   // Execute query
@@ -669,7 +664,7 @@ export function searchReports(query) {
   const q = query.toLowerCase();
   const matches = [];
   VISIBLE_CATEGORIES.forEach(cat => {
-    cat.reports.forEach(r => {
+    _reportsOf(cat).forEach(r => {
       if (r.name.toLowerCase().includes(q) || r.id.includes(q) || cat.name.toLowerCase().includes(q)) {
         matches.push({ ...r, catName: cat.name, catIcon: cat.icon, catId: cat.id });
       }
@@ -1026,7 +1021,7 @@ function _renderProjectReportPanel() {
   const opts = projects.map(p => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${(p.name || 'Project').replace(/</g, '&lt;')}${p.code ? ' (' + p.code + ')' : ''}</option>`).join('');
   container.innerHTML = `
     <div style="max-width:640px;margin:0 auto;">
-      <button onclick="renderReportsDashboard()" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>
+      <button onclick="window._rptOpenCategory('project')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Project &amp; Profitability</button>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
         <h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">&#127970; Project Report (Master)</h2>
         <p style="font-size:13px;color:#64748b;margin-bottom:18px;">One consolidated report — project &amp; WO info, financial summary, schedule, execution (DPR / pours / milestones / quality / safety), labour, equipment, sales &amp; purchase transactions, issues and site photos.</p>
@@ -1044,7 +1039,7 @@ function _renderProjectReportPanel() {
 function _renderFinancePanel(kind) {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
-  const back = `<button onclick="renderReportsDashboard()" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Reports</button>`;
+  const back = `<button onclick="window._rptOpenCategory('finance')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Finance &amp; Cash</button>`;
   const box = (title, desc, body) => `<div style="max-width:640px;margin:0 auto;">${back}<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.04);"><h2 style="font-size:20px;font-weight:800;color:#1e3a8a;margin-bottom:4px;">${title}</h2><p style="font-size:13px;color:#64748b;margin-bottom:18px;">${desc}</p>${body}</div></div>`;
   const btns = (pdfFn, xlFn) => `<div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button onclick="${pdfFn}" style="flex:1;min-width:160px;padding:12px;background:#1e3a8a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">&#128424; Download PDF</button>
@@ -1084,7 +1079,7 @@ function _renderFinancePanel(kind) {
          </div>
          ${btns("window.exportPartiesStatementPDF(" + args + ")", "window.exportPartiesStatementExcel(" + args + ")")}`
       : '<p style="color:#94a3b8;">No parties yet.</p>';
-    container.innerHTML = box('&#129309; Parties Statement', 'Tally-style debit/credit ledger with opening balance and running balance for any client, vendor, labour or gang — filtered by date.', body);
+    container.innerHTML = box('&#129309; Parties Statement', 'Debit/credit ledger with opening balance and running balance for any client, vendor, labour or gang — filtered by date.', body);
   } else {
     container.innerHTML = box('&#128176; Cash Flow Forecast', 'Current cash &amp; bank position, expected inflows (receivables) and outflows (payables), with a 6-month projection.', btns('window.exportCashFlowForecastPDF()', 'window.exportCashFlowForecastExcel()'));
   }
