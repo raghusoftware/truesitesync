@@ -3436,8 +3436,10 @@ export function confirmAndSaveAbstract() {
   window.renderAbstractsList?.();
   window.renderSavedSheets?.();
   window.renderMeasurementList?.();
-  // Only offer "start new sheet" in the single open-sheet flow.
-  if (state.currentSheetId && ids.length === 1 && ids[0] === state.currentSheetId) {
+  // Only offer "start new sheet" in the single open-sheet flow — i.e. while the
+  // measurement sheet is actually on screen, not from the Abstracts list.
+  const _sheetOpen = !document.getElementById('entrySheet')?.classList.contains('hide');
+  if (_sheetOpen && state.currentSheetId && ids.length === 1 && ids[0] === state.currentSheetId) {
     setTimeout(() => { if (confirm("Start new sheet?")) window.createNewSheet?.(); }, 300);
   }
 }
