@@ -132,6 +132,7 @@
       last = m.index + m[0].length;
     }
     if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    if (!node.parentNode) return;   // text node was detached by a re-render meanwhile
     node.parentNode.replaceChild(frag, node);
   }
 
