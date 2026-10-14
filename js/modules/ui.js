@@ -930,6 +930,20 @@ export function deleteProject(projId) {
   showToast('Project deleted', 'error');
 }
 
+/** Readable page name for the breadcrumb when a view has no explicit label:
+ *  its sidebar button text, else the id humanised (salesLedgerView → Sales Ledger). */
+function _viewLabelFallback(viewId) {
+  const known = { salesHubView: 'Sales', purchaseHubView: 'Purchase', financeHubView: 'Finance', systemHubView: 'System',
+    salesLedgerView: 'Sales Ledger', analyticsView: 'Analytics', paymentsHubView: 'Payments' };
+  if (known[viewId]) return known[viewId];
+  try {
+    const btn = document.querySelector(`[data-target="${viewId}"]`);
+    const t = btn && btn.textContent.replace(/\s+/g, ' ').trim();
+    if (t) return t.replace(/^[^A-Za-z0-9]+/, '');
+  } catch (e) {}
+  return String(viewId || '').replace(/View$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+}
+
 /** Update breadcrumb based on current context */
 function _updateBreadcrumb(viewId) {
   // Mobile Filoo home has its own greeting + avatar, so hide the app header
@@ -954,7 +968,7 @@ function _updateBreadcrumb(viewId) {
       purchaseReturnView: 'Purchase Return', purchaseAssetsView: 'Fixed Assets',
       masterFinancialView: 'Payables/Receivables', accountingView: 'P&L',
       microPlanView: 'Micro Plan' };
-    const label = mod?.label || viewLabels[viewId] || viewId;
+    const label = mod?.label || viewLabels[viewId] || _viewLabelFallback(viewId);
     if (viewId !== 'projectDashboard') {
       html += '<span class="text-slate-300 mx-1">/</span>';
       html += `<span class="text-slate-700 font-bold">${label}</span>`;
@@ -963,9 +977,10 @@ function _updateBreadcrumb(viewId) {
     // just Home
   } else {
     const sysLabels = { reportsView: 'Reports', masterData: 'Master Data', settingsView: 'Settings', companyProfileView: 'Company Profile', dashboard: 'Enterprise Dashboard' };
-    if (sysLabels[viewId]) {
+    const sysLabel = sysLabels[viewId] || (viewId ? _viewLabelFallback(viewId) : '');
+    if (sysLabel) {
       html += '<span class="text-slate-300 mx-1">/</span>';
-      html += `<span class="text-slate-700 font-bold">${sysLabels[viewId]}</span>`;
+      html += `<span class="text-slate-700 font-bold">${sysLabel}</span>`;
     }
   }
   bc.innerHTML = html;
