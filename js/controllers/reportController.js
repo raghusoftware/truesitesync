@@ -26,10 +26,13 @@ let _currentParams = {};
 // Executive MIS / Dashboard reports now live in the dedicated Analytics page.
 // Exclude that category from the Reports module so it shows operational reports only.
 const HIDDEN_CATEGORY_IDS = ['dashboard'];
-const VISIBLE_CATEGORIES = REPORT_CATEGORIES.filter(c => !HIDDEN_CATEGORY_IDS.includes(c.id));
+/** Business type gate (businessMode.js) — read via window, allow-all fallback. */
+const _modeOk = id => typeof window.businessModeAllows !== 'function' || window.businessModeAllows(id);
+/** Categories shown for the active business type (Shop hides project / measurement…). */
+const _visibleCats = () => REPORT_CATEGORIES.filter(c => !HIDDEN_CATEGORY_IDS.includes(c.id) && _modeOk('cat:' + c.id));
 /** Reports of a category available in the active country (GSTR/TDS India-only,
- *  VAT 201 GCC/UK/International — see COUNTRY_ONLY in countryRules.js). */
-const _reportsOf = c => c.reports.filter(r => typeof window.countryAllows !== 'function' || window.countryAllows(r.id));
+ *  VAT 201 GCC/UK/International — see COUNTRY_ONLY in countryRules.js) and business type. */
+const _reportsOf = c => c.reports.filter(r => (typeof window.countryAllows !== 'function' || window.countryAllows(r.id)) && _modeOk(r.id));
 
 let _currentCategoryId = null;
 let _currentReportId = null;
@@ -52,8 +55,8 @@ export function renderReportsDashboard() {
   const container = document.getElementById('reportsDashContent');
   if (!container) return;
 
-  const totalReports = VISIBLE_CATEGORIES.reduce((s, c) => s + _reportsOf(c).length, 0);
-  const totalCats = VISIBLE_CATEGORIES.length;
+  const totalReports = _visibleCats().reduce((s, c) => s + _reportsOf(c).length, 0);
+  const totalCats = _visibleCats().length;
 
   // Summary KPI bar
   const projectCount = (state.projects || []).length;
@@ -88,7 +91,7 @@ export function renderReportsDashboard() {
     <div class="rpt-category-grid" id="reportCategoryGrid">
   `;
 
-  VISIBLE_CATEGORIES.forEach(cat => {
+  _visibleCats().forEach(cat => {
     html += `
       <div class="rpt-app-icon" onclick="window._rptOpenCategory('${cat.id}')" title="${cat.name} (${_reportsOf(cat).length} reports)">
         <div class="rpt-app-icon-circle" style="background:linear-gradient(135deg, ${cat.color}22, ${cat.color}44); border-color: ${cat.color}55;">
@@ -663,7 +666,7 @@ export function searchReports(query) {
 
   const q = query.toLowerCase();
   const matches = [];
-  VISIBLE_CATEGORIES.forEach(cat => {
+  _visibleCats().forEach(cat => {
     _reportsOf(cat).forEach(r => {
       if (r.name.toLowerCase().includes(q) || r.id.includes(q) || cat.name.toLowerCase().includes(q)) {
         matches.push({ ...r, catName: cat.name, catIcon: cat.icon, catId: cat.id });

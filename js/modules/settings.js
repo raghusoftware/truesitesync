@@ -31,6 +31,7 @@ export function openSettingsSection(tabId) {
   if (tabId === 'settOrg' && typeof window.renderOrgSettings === 'function') window.renderOrgSettings();
   if (tabId === 'settUnits') renderUnitsTab();
   if (tabId === 'settInventory') renderInventorySettingsTab();
+  if (tabId === 'settBusiness') window.renderBusinessTypeSettings?.();
 }
 
 // ─── INVENTORY / STORE SETTINGS ───
@@ -897,6 +898,7 @@ export function saveCurrencySettings() {
   const country = document.getElementById('cs_country')?.value || 'IN';
   const regionMap = { IN: 'IN', US: 'US', AE: 'GCC', SA: 'GCC', GB: 'UK', CA: 'CA', INTL: 'INTL' };
   state.currencySettings = {
+    ...(state.currencySettings || {}),   // keep businessMode and any other stored fields
     symbol: document.getElementById('cs_symbol')?.value || '₹',
     code: document.getElementById('cs_code')?.value || 'INR',
     decimals: parseInt(document.getElementById('cs_decimals')?.value) || 2,

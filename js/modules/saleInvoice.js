@@ -10,6 +10,7 @@
 
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
+import { toBaseQty } from './units.js';
 import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 import { GST_STATE } from './constants.js?v=1.1.0';
@@ -162,7 +163,18 @@ function _buildItemIndex(clientId) {
       idx.push({ name, hsn: item.hsn || '', unit: item.uom || item.unit || 'Nos', rate: item.rate || 0, qty: item.totalQty || item.qty || 0, source: 'abstract', sourceLabel: a.abstractNum || a.name || a.id, abstractNum: a.abstractNum || a.id, abstractId: a.id, group: 'pending' });
     });
   });
-  // 2. Previously used items from itemsMaster (sorted by usage)
+  // 2. Shop / Manufacturing: stock items first, so selling one reduces stock.
+  if (_shopLike()) {
+    const prodNames = new Set((state.itemsMaster || []).filter(m => m.category === 'Production Items' && Array.isArray(m.bom) && m.bom.length).map(m => m.name.toLowerCase().trim()));
+    const soh = _stockMap();
+    (state.rawMaterials || []).filter(m => (m.status || 'Active') !== 'Inactive').forEach(m => {
+      const key = (m.name || '').toLowerCase().trim();
+      if (!key || seen.has(key) || prodNames.has(key)) return;
+      seen.add(key);
+      idx.push({ name: m.name, hsn: m.hsn || '', unit: m.unit || 'Nos', rate: m.saleRate || m.salePrice || m.rate || 0, source: 'stock', group: 'stock', stockItemId: m.id, stock: Math.round((soh[m.id] || 0) * 1000) / 1000 });
+    });
+  }
+  // 3. Previously used items from itemsMaster (sorted by usage)
   const master = [...(state.itemsMaster || [])].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || new Date(b.lastUsed || 0) - new Date(a.lastUsed || 0));
   master.forEach(m => {
     const key = m.name.toLowerCase().trim();
@@ -180,6 +192,14 @@ function _buildItemIndex(clientId) {
     idx.push({ name: item.description || item.code, hsn: item.hsn || '', unit: item.uom || 'Nos', rate: item.rate || 0, source: 'client', group: 'used' });
   });
   return idx;
+}
+
+/** Shop / Manufacturing business types sell stock items straight from inventory. */
+function _shopLike() { return typeof window !== 'undefined' && typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction'; }
+function _stockMap() {
+  const m = {};
+  (state.inventoryTx || []).forEach(tx => { if (tx.rawMaterialId) m[tx.rawMaterialId] = (m[tx.rawMaterialId] || 0) + (tx.type === 'IN' ? 1 : -1) * (parseFloat(tx.qty) || 0); });
+  return m;
 }
 
 // ── Smart Item Autocomplete ──
@@ -218,7 +238,16 @@ function _showItemDropdown(inputEl) {
   }
   const pending = filtered.filter(i => i.group === 'pending');
   const used = filtered.filter(i => i.group === 'used');
+  const stock = filtered.filter(i => i.group === 'stock');
   let html = '';
+  if (stock.length) {
+    html += `<div class="si-ac-group"><div class="si-ac-group-label">In Stock</div>`;
+    stock.slice(0, 10).forEach((item, i) => {
+      const low = item.stock <= 0;
+      html += `<div class="si-ac-option" data-type="stock" data-idx="${i}"><div><span class="ac-name">${_hl(item.name, q)}</span><div class="ac-meta">Stock: ${item.stock} ${item.unit} &middot; ${getCurrencySymbol()}${parseFloat(item.rate || 0).toLocaleString('en-IN')} / ${item.unit}</div></div><span class="ac-badge" style="background:${low ? '#fee2e2' : '#dcfce7'};color:${low ? '#b91c1c' : '#15803d'};">${low ? 'OUT' : 'STOCK'}</span></div>`;
+    });
+    html += '</div>';
+  }
   if (pending.length) {
     html += `<div class="si-ac-group"><div class="si-ac-group-label">Pending Abstracts</div>`;
     pending.forEach((item, i) => {
@@ -245,6 +274,12 @@ function _showItemDropdown(inputEl) {
       dd.classList.remove('active');
     };
   });
+  dd.querySelectorAll('.si-ac-option[data-type="stock"]').forEach(opt => {
+    opt.onclick = () => {
+      _fillSIRowFromItem(row, stock[parseInt(opt.dataset.idx)]);
+      dd.classList.remove('active');
+    };
+  });
   dd.querySelectorAll('.si-ac-option[data-type="used"]').forEach(opt => {
     opt.onclick = () => {
       const ui = used[parseInt(opt.dataset.idx)];
@@ -252,6 +287,16 @@ function _showItemDropdown(inputEl) {
       dd.classList.remove('active');
     };
   });
+}
+
+/** Stock item behind an invoice line: picked from the list, or (Shop / Manufacturing)
+ *  typed with exactly the stock item's name. Construction never auto-links. */
+function _lineStockItem(row, desc) {
+  if (!_shopLike()) return undefined;
+  if (row.dataset.stockItemId) return row.dataset.stockItemId;
+  const key = String(desc || '').toLowerCase().trim();
+  const m = key && (state.rawMaterials || []).find(r => (r.name || '').toLowerCase().trim() === key);
+  return m ? m.id : undefined;
 }
 
 function _hl(text, q) {
@@ -271,7 +316,7 @@ function _fillSIRowFromItem(row, item) {
   const unitSel = row.querySelector('.si-item-unit');
   if (unitSel) unitSel.value = item.unit || 'Nos';
   const rateInput = row.querySelector('.si-item-rate');
-  if (rateInput) rateInput.value = item.rate || '';
+  if (rateInput) rateInput.value = item.rate ? _siRate(item.rate) : '';
   if (item.qty) {
     const qtyInput = row.querySelector('.si-item-qty');
     if (qtyInput) qtyInput.value = item.qty;
@@ -282,6 +327,9 @@ function _fillSIRowFromItem(row, item) {
   // Production item → remember its id so saving the invoice deducts its BOM from stock.
   if (item.isProduction && item.itemId) row.dataset.bomItemId = item.itemId;
   else delete row.dataset.bomItemId;
+  // Stock item (Shop / Manufacturing) → saving the invoice reduces its stock.
+  if (item.stockItemId) row.dataset.stockItemId = item.stockItemId;
+  else delete row.dataset.stockItemId;
   calcSIFormTotal();
 }
 
@@ -436,7 +484,7 @@ export function addSIPendingItem(idx) {
         const hsnInput = row.querySelector('.si-item-hsn'); if (hsnInput) hsnInput.value = r.hsn || '';
         if (qtyInput) qtyInput.value = r.qty;
         const unitSel = row.querySelector('.si-item-unit'); if (unitSel) unitSel.value = r.unit || 'LS';
-        const rateInput = row.querySelector('.si-item-rate'); if (rateInput) rateInput.value = r.rate;
+        const rateInput = row.querySelector('.si-item-rate'); if (rateInput) rateInput.value = _siRate(r.rate);
         if (r.abstractId) row.dataset.abstractId = r.abstractId;
         if (r.abstractNum) row.dataset.ref = r.abstractNum;
         filled = true;
@@ -452,6 +500,21 @@ export function addSIPendingItem(idx) {
   calcSIFormTotal();
   loadSIPendingItems();
   showToast('Abstract added to invoice');
+}
+
+/** Money for display: currency symbol + Indian grouping + always 2 decimals. */
+function _siMoney(v) {
+  const n = Number(v) || 0;
+  return getCurrencySymbol() + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Money rate for the Rate box: rounded to paise, so float noise from a
+ *  calculated rate (237940.59999999998) shows and saves as 237940.60. */
+function _siRate(v) {
+  if (v === '' || v == null) return '';
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
 }
 
 // ── Row HTML builder ──
@@ -476,15 +539,15 @@ function _siRowHTML(num, data = {}) {
     <td style="padding:5px 3px;"><input type="text" value="${data.hsn || ''}" class="si-item-hsn" style="width:100%;padding:6px 4px;${s}font-size:11px;text-align:center;font-family:monospace;" placeholder="HSN/SAC"></td>
     <td style="padding:5px 3px;"><input type="number" value="${data.qty || ''}" min="0" step="any" class="si-item-qty" style="width:100%;padding:6px 4px;${s}font-size:12px;text-align:center;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0"></td>
     <td style="padding:5px 3px;"><select class="si-item-unit" style="width:100%;padding:6px 2px;${s}font-size:11px;font-weight:600;">${unitOpts}</select></td>
-    <td style="padding:5px 3px;"><input type="number" value="${data.rate || ''}" min="0" step="any" class="si-item-rate" style="width:100%;padding:6px 6px;${s}font-size:12px;text-align:right;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0.00"></td>
+    <td style="padding:5px 3px;"><input type="number" value="${data.rate ? _siRate(data.rate) : ''}" min="0" step="any" class="si-item-rate" style="width:100%;padding:6px 6px;${s}font-size:12px;text-align:right;font-weight:600;" oninput="calcSIFormTotal()" placeholder="0.00"></td>
     <td style="padding:5px 2px;"><input type="number" value="${data.discPct || ''}" min="0" max="100" step="any" class="si-item-disc" style="width:100%;padding:6px 3px;${s}font-size:11px;text-align:center;" oninput="calcSIFormTotal()" placeholder="0"></td>
     <td style="padding:5px 3px;">
       <div style="display:flex;gap:2px;align-items:center;">
-        <select class="si-item-taxtype" style="padding:5px 2px;${s}font-size:9px;font-weight:600;flex:1;" onchange="calcSIFormTotal()">${taxTypeOpts}</select>
-        <select class="si-item-tax" style="padding:5px 2px;${s}font-size:10px;font-weight:700;width:48px;" onchange="calcSIFormTotal()">${taxRateOpts}</select>
+        <select class="si-item-taxtype" style="${s}font-weight:600;flex:1;" onchange="calcSIFormTotal()" title="Tax type">${taxTypeOpts}</select>
+        <select class="si-item-tax" style="${s}font-weight:700;" onchange="calcSIFormTotal()" title="Tax rate">${taxRateOpts}</select>
       </div>
     </td>
-    <td style="padding:5px 4px;text-align:right;font-weight:700;color:#1e293b;font-size:12px;white-space:nowrap;" class="si-row-amt">${getCurrencySymbol()}0</td>
+    <td style="padding:5px 4px;text-align:right;font-weight:700;color:#1e293b;font-size:12px;white-space:nowrap;" class="si-row-amt"><div class="si-amt-total">${getCurrencySymbol()}0.00</div><div class="si-amt-tax"></div></td>
     <td style="padding:5px 2px;text-align:center;"><button onclick="this.closest('tr').remove();_renumberSIRows();calcSIFormTotal()" style="width:20px;height:20px;border-radius:50%;background:#fef2f2;color:#f87171;border:none;cursor:pointer;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;" title="Delete">&#10005;</button></td>`;
 }
 
@@ -663,11 +726,22 @@ export function calcSIFormTotal() {
     totalLineTax += lineTax;
     if (qty > 0 || rate > 0) rowCount++;
     const amtCell = r.querySelector('.si-row-amt');
-    if (amtCell) amtCell.textContent = lineTotal > 0 ? getCurrencySymbol() + lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : getCurrencySymbol() + '0';
+    if (amtCell) {
+      // Line total + the tax inside it, so tax is visible on every line; a
+      // filled line with no tax is flagged so a missed rate is easy to spot.
+      const tEl = amtCell.querySelector('.si-amt-total'), xEl = amtCell.querySelector('.si-amt-tax');
+      if (tEl) tEl.textContent = _siMoney(lineTotal);
+      const taxLabel = taxType === 'CGST_SGST' ? 'GST' : getTaxConfig().singleLabel;
+      const noTax = taxable > 0 && !(lineTax > 0);
+      if (xEl) xEl.textContent = !(taxable > 0) ? '' : noTax ? (taxType === 'NONE' ? 'No tax' : '0% tax') : `incl. ${_siMoney(lineTax)} ${taxLabel} @${taxPct}%`;
+      amtCell.classList.toggle('si-amt-notax', noTax);
+      const rateSel = r.querySelector('.si-item-tax');
+      if (rateSel) rateSel.classList.toggle('si-tax-zero', noTax && taxType !== 'NONE');
+    }
   });
   const taxableAmount = grossTotal - totalDiscount;
   const setT = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const fmt = (v) => getCurrencySymbol() + v.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const fmt = _siMoney;
   setT('siTotalRows', rowCount);
   setT('siTotalQty', totalQty);
   setT('siFormSubtotal', fmt(taxableAmount + totalLineTax));
@@ -721,7 +795,7 @@ export function saveSaleInvoiceForm() {
     const lineDisc = lineGross * discPct / 100;
     const taxable = lineGross - lineDisc;
     const lineTax = (taxType !== 'NONE' && taxPct > 0) ? taxable * taxPct / 100 : 0;
-    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax, ref: r.dataset.ref || '', bomItemId: r.dataset.bomItemId || undefined });
+    items.push({ desc, hsn, qty, unit, rate, discPct, discount: lineDisc, taxPct, taxType, taxAmount: lineTax, amount: taxable + lineTax, ref: r.dataset.ref || '', bomItemId: r.dataset.bomItemId || undefined, stockItemId: _lineStockItem(r, desc) });
     grossTotal += lineGross; totalDiscount += lineDisc; totalLineTax += lineTax;
     if (r.dataset.abstractId) linkedAbstracts.add(r.dataset.abstractId);
   });
@@ -862,6 +936,19 @@ export function saveSaleInvoiceForm() {
       });
     });
     if (moved) showToast('Inventory updated for production items', 'info');
+    // Shop / Manufacturing: plain stock items sold on this invoice go OUT of stock.
+    if (_shopLike()) {
+      const neg = [];
+      items.forEach(line => {
+        if (!line.stockItemId) return;
+        const mat = (state.rawMaterials || []).find(r => r.id === line.stockItemId);
+        const qty = parseFloat(line.qty) || 0; if (!mat || qty <= 0) return;
+        const baseQty = toBaseQty(mat, qty, line.unit);
+        state.inventoryTx.push({ id: 'tx_sale_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), date: outDate, siteId, type: 'OUT', rawMaterialId: mat.id, qty: baseQty, rate: mat.rate || 0, ref: `Sold on Inv ${rec.invoiceNo}`, saleInvoiceId: invoiceId, projectId: rec.projectId || '' });
+        if (onHand(mat.id) < 0) neg.push(mat.name);
+      });
+      if (neg.length) showToast(`Stock is now below zero for: ${neg.join(', ')} — record the purchase to correct it`, 'warning');
+    }
   }
   // ── Business logic: upsert items master & track usage ──
   if (!state.itemsMaster) state.itemsMaster = [];

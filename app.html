@@ -53,12 +53,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
-    <link rel="stylesheet" href="css/style.css?v=1.6.57">
+    <link rel="stylesheet" href="css/style.css?v=1.6.59">
     <link rel="stylesheet" href="css/ledger.css?v=1.6.31">
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.1">
-    <script type="module" src="js/app.js?v=1.6.154"></script>
+    <script type="module" src="js/app.js?v=1.6.161"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -166,7 +166,7 @@
         <img src="assets/logo.png" alt="True Site Sync" style="width:36px;height:36px;object-fit:contain;background:#fff;border-radius:10px;flex-shrink:0;">
         <div>
           <h1 class="text-base font-extrabold tracking-tight" style="line-height:1.15;">True Site Sync</h1>
-          <p class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Construction Management</p>
+          <p id="sidebarTagline" class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Construction Management</p>
         </div>
       </div>
       <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto" id="sidebarNav">
@@ -180,6 +180,20 @@
         <button onclick="switchView('reportsView')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm" data-target="reportsView">
           <span style="font-size:15px">&#128202;</span> Reports
         </button>
+
+        <!-- ── Business (Shop / Manufacturing types only — see bizHome.js) ── -->
+        <div id="bizNav" style="display:none">
+          <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">Business</p>
+          <button onclick="switchView('bizHomeView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="bizHomeView"><span style="font-size:13px">&#127968;</span> <span class="lbl">Home</span></button>
+          <button onclick="switchView('creditBookView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="creditBookView"><span style="font-size:13px">&#128210;</span> <span class="lbl">Udhaar Book</span></button>
+          <button onclick="switchView('itemsMasterView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="itemsMasterView"><span style="font-size:13px">&#127991;</span> <span class="lbl">Items</span></button>
+          <button onclick="switchView('inventoryView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="inventoryView"><span style="font-size:13px">&#128230;</span> <span class="lbl">Stock</span></button>
+          <button onclick="switchView('itemsMasterView'); window.setItemCategoryFilter && window.setItemCategoryFilter('Production Items')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs biz-mfg-only" data-target="itemsMasterView"><span style="font-size:13px">&#129516;</span> <span class="lbl">Production (BOM)</span></button>
+          <button onclick="switchView('labourView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="labourView"><span style="font-size:13px">&#128119;</span> <span class="lbl">Staff</span></button>
+          <button onclick="switchView('pettyCashView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="pettyCashView"><span style="font-size:13px">&#128176;</span> <span class="lbl">Petty Cash</span></button>
+          <button onclick="switchView('assetsView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="assetsView"><span style="font-size:13px">&#128295;</span> <span class="lbl">Tools</span></button>
+          <button onclick="switchView('equipmentView')" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" data-target="equipmentView"><span style="font-size:13px">&#128666;</span> <span class="lbl">Machines</span></button>
+        </div>
 
         <!-- ── Project Context Nav (hidden until project opened) ── -->
         <div id="projectContextNav" class="hidden mt-3">
@@ -275,6 +289,8 @@
     <div id="hubBackBar" style="display:none;margin-bottom:14px;"></div>
 
     <!-- ═══════ PROJECTS HOME (Landing) ═══════ -->
+    <div id="bizHomeView" class="view-section hide" style="padding:20px 16px 90px"></div>
+    <div id="creditBookView" class="view-section hide" style="padding:20px 16px 90px"></div>
     <div id="projectsHome" class="view-section">
       <div id="filooHome"></div>
       <button id="projHomeBack" onclick="backToClients()" class="hidden mb-3 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition"><span style="font-size:16px;">&larr;</span> All Clients</button>
@@ -699,7 +715,7 @@
         <!-- ═══════ REPORTS ═══════ -->
         <div id="reportsView" class="view-section hide">
             <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Reports & Analytics</h2>
-            <p class="text-slate-500 font-medium text-sm mb-6">Dynamic reporting engine with 186+ reports across all departments</p>
+            <p class="text-slate-500 font-medium text-sm mb-6">Ready-made reports across GST, finance, labour, inventory, measurement and site</p>
             <div id="reportsDashContent"></div>
         </div>
 
@@ -1293,6 +1309,11 @@
             </div>
             <button id="settingsBack" onclick="backToSettingsHome()" class="hidden mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition"><span style="font-size:16px;">&larr;</span> All Settings</button>
             <div id="settingsHomeGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-5">
+              <div onclick="openSettingsSection('settBusiness')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
+                <div style="width:44px;height:44px;background:#ef842012;border:2px solid #ef842025;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#127978;</div>
+                <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Business Type</h4>
+                <p class="text-[10px] text-slate-400 mt-0.5">Construction, Shop or Manufacturing</p>
+              </div>
               <div onclick="openSettingsSection('settCompany')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
                 <div style="width:44px;height:44px;background:#3b82f612;border:2px solid #3b82f625;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;">&#127970;</div>
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Company</h4>
@@ -1333,6 +1354,15 @@
                 <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">Backup</h4>
                 <p class="text-[10px] text-slate-400 mt-0.5">Export / import all data</p>
               </div>
+            </div>
+            <!-- Business type (Construction / Shop / Manufacturing) -->
+            <div id="settBusiness" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">&#127978;</span>
+                <div><h3 class="text-base font-bold text-slate-800">Business Type</h3>
+                <p class="text-[10px] text-slate-400">Show only the modules your kind of business needs</p></div>
+              </div>
+              <div id="settBusinessContent"></div>
             </div>
             <!-- Company Profile (merged into settings) -->
             <div id="settCompany" class="sett-tab-panel bg-white rounded-xl shadow-sm border p-5 hide">
@@ -2997,6 +3027,14 @@
         #siFormTableBody input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
         #siFormTableBody input[type="number"]{-moz-appearance:textfield}
         #siFormTableBody select{padding-right:18px;cursor:pointer}
+        /* Tax cell: beat the global input padding (style.css, !important) so the type and rate always show in full */
+        #siFormTableBody select.si-item-taxtype{min-width:118px;padding:8px 26px 8px 10px!important}
+        #siFormTableBody select.si-item-tax{width:88px;min-width:88px;flex:0 0 88px;padding:8px 24px 8px 10px!important;text-align:left}
+        #siFormTableBody select.si-item-tax.si-tax-zero{background:#fff7ed!important;color:#c2410c;box-shadow:inset 0 0 0 1px #fdba74}
+        #siFormTableBody .si-row-amt{line-height:1.25}
+        #siFormTableBody .si-amt-total{font-size:13px;font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums}
+        #siFormTableBody .si-amt-tax{font-size:10.5px;font-weight:600;color:#64748b;margin-top:2px;font-variant-numeric:tabular-nums}
+        #siFormTableBody .si-amt-notax .si-amt-tax{color:#c2410c}
         .si-field{width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;outline:none;transition:border .15s}
         .si-field:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
         .si-lbl{display:block;font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
@@ -3144,8 +3182,8 @@
                       <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:78px;">Unit</th>
                       <th style="padding:8px 4px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:110px;">Rate</th>
                       <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:56px;">Disc%</th>
-                      <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:130px;">Tax</th>
-                      <th style="padding:8px 6px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#334155;width:110px;">Amount</th>
+                      <th style="padding:8px 4px;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;width:210px;">Tax</th>
+                      <th style="padding:8px 6px;text-align:right;font-size:9px;font-weight:800;text-transform:uppercase;color:#334155;width:150px;">Amount</th>
                       <th style="padding:8px 2px;width:28px;"></th>
                     </tr>
                   </thead>
@@ -3432,6 +3470,6 @@
 
     </div><!-- /appContainer -->
 
-    <script src="js/icon-set.js?v=1" defer></script>
+    <script src="js/icon-set.js?v=2" defer></script>
 </body>
 </html>
