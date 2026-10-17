@@ -5157,12 +5157,14 @@ export function loadAttendanceSheet() {
         <div class="att-tn"><b>${esc(l.name || 'Worker')}</b><span>${esc(l.trade || 'Labour')}</span></div>
       </div>
       <div class="att-foot" onclick="event.stopPropagation()">
-        <div class="att-ot">OT
+        <div class="att-ot">
+          <span class="att-ot-l">OT</span>
           <button type="button" class="step" onclick="_attOT('${l.id}',-1)">−</button>
-          <input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0">
+          <input type="number" inputmode="decimal" min="0" max="24" step="0.5" id="ot_${l.id}" value="${ot ? ot : ''}" placeholder="0">
           <button type="button" class="step" onclick="_attOT('${l.id}',1)">+</button>
+          <span class="att-ot-u">hrs</span>
         </div>
-        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" title="${night ? 'Night shift' : 'Day shift'} — tap to switch" onclick="_attShift('${l.id}')">${night ? '🌙' : '☀'}</button>
+        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" onclick="_attShift('${l.id}')">${night ? '🌙 Night' : '☀ Day'}</button>
         <input type="hidden" id="shift_${l.id}" value="${esc(shift)}">
       </div>
     </div>`;
@@ -5236,8 +5238,7 @@ window._attShift = function (id) {
   const night = hidden.value !== 'Night';
   hidden.value = night ? 'Night' : 'Day';
   btn.classList.toggle('night', night);
-  btn.textContent = night ? '🌙' : '☀';
-  btn.title = (night ? 'Night shift' : 'Day shift') + ' — tap to switch';
+  btn.textContent = night ? '🌙 Night' : '☀ Day';
 };
 
 /** Live search filter across worker tiles. */

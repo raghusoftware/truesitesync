@@ -153,14 +153,19 @@
 .att-tile.is-H .att-badge{background:var(--att-warn);color:#fff}
 .att-tile.is-A .att-badge{background:#eef0f6;color:var(--att-ink-3)}
 
-/* Footer (OT + shift) — single compact row, shows only when present / half-day */
-.att-foot{display:none;align-items:center;gap:5px;flex-wrap:nowrap;margin-top:auto;padding-top:8px;border-top:1px dashed var(--att-line)}
+/* Footer (OT + shift) — shows only when present / half-day.
+   OT is its own clearly-readable box; shift sits on the next line. */
+.att-foot{display:none;flex-direction:column;gap:7px;margin-top:auto;padding-top:9px;border-top:1px dashed var(--att-line)}
 .att-tile.is-P .att-foot,.att-tile.is-H .att-foot{display:flex}
-.att-ot{display:flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--att-ink-3);flex:1;min-width:0}
-.att-ot .step{width:24px;height:28px;flex-shrink:0;border:1px solid var(--att-line);background:#fff;border-radius:7px;font-size:16px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.att-ot{display:flex;align-items:center;gap:5px}
+.att-ot-l{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--att-ink-3);flex-shrink:0}
+.att-ot .step{width:30px;height:34px;flex-shrink:0;border:1px solid var(--att-line-strong,#cfd3e0);background:#fff;border-radius:8px;font-size:19px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1}
 .att-ot .step:active{transform:scale(.9)}
-.att-ot input{width:30px;height:28px;flex-shrink:0;border:1px solid var(--att-line);border-radius:7px;text-align:center;font-size:13px;font-weight:800;color:var(--att-ink);outline:none;font-family:inherit;padding:0;line-height:28px}
-.att-shift{height:28px;flex-shrink:0;border:1px solid var(--att-line);background:#fff;border-radius:7px;width:34px;font-size:15px;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.att-ot input{flex:1;min-width:0;width:100%;height:34px;border:1.5px solid #cfd3e0;border-radius:8px;text-align:center;font-size:17px;font-weight:800;color:#101626;background:#fff;outline:none;font-family:inherit;padding:0}
+.att-ot input::placeholder{color:#b3b8c6;font-weight:700}
+.att-ot input:focus{border-color:var(--att-ok);box-shadow:0 0 0 3px rgba(12,138,90,.14)}
+.att-ot-u{font-size:11px;font-weight:800;color:var(--att-ink-3);flex-shrink:0}
+.att-shift{align-self:flex-start;height:30px;border:1px solid var(--att-line);background:#fff;border-radius:8px;padding:0 12px;font-size:12px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .att-shift.night{background:#1e293b;color:#fff;border-color:#1e293b}
 
 .att-save{position:fixed;left:0;right:0;bottom:0;z-index:8000;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid var(--att-line);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(16,22,38,.06)}
