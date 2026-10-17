@@ -124,34 +124,43 @@
 .att-allp{height:44px;border:none;border-radius:11px;padding:0 16px;font-size:13.5px;font-weight:800;cursor:pointer;background:var(--att-ok-soft);color:var(--att-ok);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
 .att-allp:active{transform:scale(.97)}
 
-.att-list{display:flex;flex-direction:column;gap:8px}
-.att-card{background:#fff;border:1px solid var(--att-line);border-radius:14px;padding:11px 12px;transition:border-color .12s,background .12s}
-.att-card.is-P{border-color:#bfe6d4;background:#f5fbf8}
-.att-card.is-H{border-color:#f3dcad;background:#fdf9f0}
-.att-card.is-A{opacity:.82}
-.att-card.hide{display:none}
-.att-main{display:flex;align-items:center;gap:11px}
-.att-av{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:#eef0f6;color:var(--att-ink-2)}
-.att-card.is-P .att-av{background:var(--att-ok);color:#fff}
-.att-card.is-H .att-av{background:var(--att-warn);color:#fff}
-.att-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.att-id b{font-size:14px;font-weight:800;color:var(--att-ink);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.att-id span{font-size:11.5px;color:var(--att-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Marking hint */
+.att-hint{font-size:11.5px;color:var(--att-ink-3);font-weight:600;margin:-4px 2px 10px}
+.att-hint b{color:var(--att-ok)} .att-hint i{color:var(--att-warn);font-style:normal} .att-hint s{color:var(--att-ink-3);text-decoration:none}
 
-.att-seg{display:flex;gap:3px;background:#f1f3f8;border-radius:11px;padding:3px;flex-shrink:0}
-.att-seg button{min-width:40px;height:40px;border:none;border-radius:8px;background:none;font-weight:800;font-size:15px;color:var(--att-ink-3);cursor:pointer;line-height:1;transition:all .1s;padding:0 6px}
-.att-seg button:active{transform:scale(.94)}
-.att-seg button[data-k="P"].on{background:var(--att-ok);color:#fff}
-.att-seg button[data-k="H"].on{background:var(--att-warn);color:#fff}
-.att-seg button[data-k="A"].on{background:var(--att-crit);color:#fff}
+/* Tap-to-mark grid of worker boxes — fits many on screen, tap cycles status */
+.att-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:520px){.att-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:760px){.att-grid{grid-template-columns:repeat(4,1fr)}}
 
-.att-extra{display:none;margin-top:9px;padding-top:9px;border-top:1px dashed var(--att-line);align-items:center;gap:10px;flex-wrap:wrap}
-.att-card.show-x .att-extra{display:flex}
-.att-ot{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--att-ink-3)}
-.att-ot .step{width:32px;height:32px;border:1px solid var(--att-line);background:#fff;border-radius:8px;font-size:18px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1}
-.att-ot .step:active{transform:scale(.92)}
-.att-ot input{width:44px;height:32px;border:1px solid var(--att-line);border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:var(--att-ink);outline:none;font-family:inherit}
-.att-shift{height:32px;border:1px solid var(--att-line);background:#fff;border-radius:8px;padding:0 12px;font-size:12px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.att-tile{position:relative;background:#fff;border:1.5px solid var(--att-line);border-radius:14px;padding:11px 12px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:border-color .12s,background .12s,transform .06s;min-height:62px;display:flex;flex-direction:column;gap:8px}
+.att-tile:active{transform:scale(.975)}
+.att-tile.hide{display:none}
+.att-tile.is-P{border-color:#8fd3b4;background:#eef9f3}
+.att-tile.is-H{border-color:#eccb86;background:#fdf6e9}
+.att-tile.is-A{background:#fff}
+.att-tv{display:flex;align-items:center;gap:9px;min-width:0;padding-right:28px}
+.att-av{width:34px;height:34px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:#eef0f6;color:var(--att-ink-2)}
+.att-tile.is-P .att-av{background:var(--att-ok);color:#fff}
+.att-tile.is-H .att-av{background:var(--att-warn);color:#fff}
+.att-tn{min-width:0;display:flex;flex-direction:column;gap:1px}
+.att-tn b{font-size:13.5px;font-weight:800;color:var(--att-ink);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att-tn span{font-size:11px;color:var(--att-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Status badge (top-right) — word + colour */
+.att-badge{position:absolute;top:10px;right:10px;min-width:26px;height:26px;padding:0 7px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:#eef0f6;color:var(--att-ink-3);border:1.5px solid #fff;box-shadow:0 1px 2px rgba(16,22,38,.08)}
+.att-tile.is-P .att-badge{background:var(--att-ok);color:#fff}
+.att-tile.is-H .att-badge{background:var(--att-warn);color:#fff}
+.att-tile.is-A .att-badge{background:#eef0f6;color:var(--att-ink-3)}
+
+/* Footer (OT + shift) — single compact row, shows only when present / half-day */
+.att-foot{display:none;align-items:center;gap:5px;flex-wrap:nowrap;margin-top:auto;padding-top:8px;border-top:1px dashed var(--att-line)}
+.att-tile.is-P .att-foot,.att-tile.is-H .att-foot{display:flex}
+.att-ot{display:flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--att-ink-3);flex:1;min-width:0}
+.att-ot .step{width:24px;height:28px;flex-shrink:0;border:1px solid var(--att-line);background:#fff;border-radius:7px;font-size:16px;font-weight:800;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.att-ot .step:active{transform:scale(.9)}
+.att-ot input{width:30px;height:28px;flex-shrink:0;border:1px solid var(--att-line);border-radius:7px;text-align:center;font-size:13px;font-weight:800;color:var(--att-ink);outline:none;font-family:inherit;padding:0;line-height:28px}
+.att-shift{height:28px;flex-shrink:0;border:1px solid var(--att-line);background:#fff;border-radius:7px;width:34px;font-size:15px;color:var(--att-ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
 .att-shift.night{background:#1e293b;color:#fff;border-color:#1e293b}
 
 .att-save{position:fixed;left:0;right:0;bottom:0;z-index:8000;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid var(--att-line);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(16,22,38,.06)}
@@ -168,4 +177,4 @@
   .att{padding-bottom:16px}
   .att-save{position:static;background:none;backdrop-filter:none;border-top:none;box-shadow:none;padding:16px 0 0;justify-content:flex-end}
 }
-@media(max-width:400px){ .att-seg button{min-width:36px} .att-sum{gap:6px} }
+@media(max-width:360px){ .att-grid{gap:6px} .att-tile{padding:10px;min-height:86px} .att-sum{gap:6px} }

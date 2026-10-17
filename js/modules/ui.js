@@ -5140,31 +5140,29 @@ export function loadAttendanceSheet() {
   const esc = _fhEsc;
   const initials = n => String(n || '?').trim().split(/\s+/).filter(Boolean).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
 
-  const cards = labours.map(l => {
+  const badge = s => (s === 'P' ? 'P' : s === 'H' ? '½' : 'A');
+
+  const tiles = labours.map(l => {
     const rec = existing[l.id] || {};
     const s = rec.status || 'A';
     const ot = rec.ot || 0;
     const shift = rec.shift || 'Day';
-    const showX = (s === 'P' || s === 'H') ? ' show-x' : '';
     const night = shift === 'Night';
-    return `<div class="att-card is-${s}${showX}" id="attc_${l.id}" data-status="${s}" data-name="${esc(String(l.name || '').toLowerCase())}">
-      <div class="att-main">
+    return `<div class="att-tile is-${s}" id="attc_${l.id}" data-status="${s}" data-name="${esc(String(l.name || '').toLowerCase())}"
+         role="button" tabindex="0" aria-label="${esc(l.name || 'Worker')} — tap to mark attendance"
+         onclick="_attCycle('${l.id}')" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();_attCycle('${l.id}');}">
+      <span class="att-badge" id="attb_${l.id}">${badge(s)}</span>
+      <div class="att-tv">
         <div class="att-av">${esc(initials(l.name))}</div>
-        <div class="att-id"><b>${esc(l.name || 'Worker')}</b><span>${esc(l.trade || 'Labour')}</span></div>
-        <div class="att-seg" role="group" aria-label="Attendance for ${esc(l.name || '')}">
-          <button type="button" data-k="P" class="${s === 'P' ? 'on' : ''}" onclick="_attSet('${l.id}','P')" title="Present">P</button>
-          <button type="button" data-k="H" class="${s === 'H' ? 'on' : ''}" onclick="_attSet('${l.id}','H')" title="Half day">½</button>
-          <button type="button" data-k="A" class="${s === 'A' ? 'on' : ''}" onclick="_attSet('${l.id}','A')" title="Absent">A</button>
-        </div>
+        <div class="att-tn"><b>${esc(l.name || 'Worker')}</b><span>${esc(l.trade || 'Labour')}</span></div>
       </div>
-      <div class="att-extra">
+      <div class="att-foot" onclick="event.stopPropagation()">
         <div class="att-ot">OT
           <button type="button" class="step" onclick="_attOT('${l.id}',-1)">−</button>
           <input type="text" inputmode="decimal" id="ot_${l.id}" value="${ot}" placeholder="0">
           <button type="button" class="step" onclick="_attOT('${l.id}',1)">+</button>
-          hrs
         </div>
-        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" onclick="_attShift('${l.id}')">${night ? '🌙 Night' : '☀ Day'}</button>
+        <button type="button" class="att-shift ${night ? 'night' : ''}" id="shiftbtn_${l.id}" title="${night ? 'Night shift' : 'Day shift'} — tap to switch" onclick="_attShift('${l.id}')">${night ? '🌙' : '☀'}</button>
         <input type="hidden" id="shift_${l.id}" value="${esc(shift)}">
       </div>
     </div>`;
@@ -5181,7 +5179,8 @@ export function loadAttendanceSheet() {
         <label class="att-search">🔍<input type="text" placeholder="Search ${labours.length} worker${labours.length === 1 ? '' : 's'}…" oninput="_attFilter(this.value)"></label>
         <button type="button" class="att-allp" onclick="_attMarkAll('P')">✓ All present</button>
       </div>
-      <div class="att-list" id="attList">${cards}</div>
+      <div class="att-hint">Tap a worker to mark <b>Present</b> → <i>Half-day</i> → <s>Absent</s>. Tap again to change.</div>
+      <div class="att-grid" id="attList">${tiles}</div>
       <div class="att-save">
         <div class="lbl"><b id="attSaveN">0</b> present of ${labours.length} · ${esc(date)}</div>
         <button type="button" onclick="saveAttendance()">💾 Save</button>
@@ -5190,25 +5189,34 @@ export function loadAttendanceSheet() {
   _attUpdateCount();
 }
 
-/** Recompute the present/half/absent headcounts from the cards. */
+/** Recompute the present/half/absent headcounts from the tiles. */
 window._attUpdateCount = function () {
-  const cards = Array.from(document.querySelectorAll('#attList .att-card'));
+  const tiles = Array.from(document.querySelectorAll('#attList .att-tile'));
   let p = 0, h = 0, a = 0;
-  cards.forEach(c => { const s = c.dataset.status; if (s === 'P') p++; else if (s === 'H') h++; else a++; });
+  tiles.forEach(c => { const s = c.dataset.status; if (s === 'P') p++; else if (s === 'H') h++; else a++; });
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('attCntP', p); set('attCntH', h); set('attCntA', a); set('attSaveN', p + h);
 };
 
-/** Set one worker's status and restyle the card + segmented control. */
+/** Set one worker's status and restyle the tile + badge. */
 window._attSet = function (id, status) {
-  const card = document.getElementById('attc_' + id);
-  if (!card) return;
-  card.dataset.status = status;
-  card.classList.remove('is-P', 'is-H', 'is-A');
-  card.classList.add('is-' + status);
-  card.classList.toggle('show-x', status === 'P' || status === 'H');
-  card.querySelectorAll('.att-seg button').forEach(b => b.classList.toggle('on', b.dataset.k === status));
+  const tile = document.getElementById('attc_' + id);
+  if (!tile) return;
+  tile.dataset.status = status;
+  tile.classList.remove('is-P', 'is-H', 'is-A');
+  tile.classList.add('is-' + status);
+  const b = document.getElementById('attb_' + id);
+  if (b) b.textContent = status === 'P' ? 'P' : status === 'H' ? '½' : 'A';
   _attUpdateCount();
+};
+
+/** Tap a worker tile to cycle Absent → Present → Half-day → Absent. */
+window._attCycle = function (id) {
+  const tile = document.getElementById('attc_' + id);
+  if (!tile) return;
+  const cur = tile.dataset.status || 'A';
+  const next = cur === 'A' ? 'P' : cur === 'P' ? 'H' : 'A';
+  window._attSet(id, next);
 };
 
 /** OT stepper (clamped 0–24, 1-hour steps). */
@@ -5228,13 +5236,14 @@ window._attShift = function (id) {
   const night = hidden.value !== 'Night';
   hidden.value = night ? 'Night' : 'Day';
   btn.classList.toggle('night', night);
-  btn.textContent = night ? '🌙 Night' : '☀ Day';
+  btn.textContent = night ? '🌙' : '☀';
+  btn.title = (night ? 'Night shift' : 'Day shift') + ' — tap to switch';
 };
 
-/** Live search filter across worker cards. */
+/** Live search filter across worker tiles. */
 window._attFilter = function (q) {
   const term = String(q || '').trim().toLowerCase();
-  document.querySelectorAll('#attList .att-card').forEach(c => {
+  document.querySelectorAll('#attList .att-tile').forEach(c => {
     c.classList.toggle('hide', !!term && !(c.dataset.name || '').includes(term));
   });
 };
@@ -5247,10 +5256,10 @@ window._closeAttendanceSheet = function() {
 
 /** Bulk mark all workers in the sheet (respects the active search filter). */
 window._attMarkAll = function(status) {
-  const cards = Array.from(document.querySelectorAll('#attList .att-card'))
+  const tiles = Array.from(document.querySelectorAll('#attList .att-tile'))
     .filter(c => !c.classList.contains('hide'));
-  if (!cards.length) return;
-  cards.forEach(c => {
+  if (!tiles.length) return;
+  tiles.forEach(c => {
     const id = (c.id || '').replace(/^attc_/, '');
     if (id) window._attSet(id, status);
   });
