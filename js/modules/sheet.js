@@ -17,6 +17,7 @@ import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js'
 
 let _allSheetBoqItems = [];     // all BOQ items across all groups (unfiltered)
 let _currentSheetBoqItems = []; // filtered BOQ items for current selection
+const _BOQ_DD_MAX = 40;         // max BOQ suggestions rendered per keystroke (keeps typing snappy on 300+ item projects)
 
 /** Build an initials prefix from a client/project name — "Nexcel Chemical" → "NC" */
 function _sheetPrefixFromName(name) {
@@ -273,8 +274,11 @@ export function onMeasureItemInput(input) {
 
   const dd = document.createElement('div');
   dd.className = 'boq-dropdown';
-  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
-  matches.forEach(item => {
+  // Cap how many suggestions we render — building hundreds of DOM nodes on every
+  // keystroke (projects can have 300+ BOQ items) makes typing feel frozen.
+  const shown = matches.slice(0, _BOQ_DD_MAX);
+  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}${matches.length > shown.length ? ' · keep typing to narrow' : ''}</div>`;
+  shown.forEach(item => {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
@@ -353,8 +357,11 @@ export function onMeasureDescInput(input) {
 
   const dd = document.createElement('div');
   dd.className = 'boq-dropdown';
-  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
-  matches.forEach(item => {
+  // Cap how many suggestions we render — building hundreds of DOM nodes on every
+  // keystroke (projects can have 300+ BOQ items) makes typing feel frozen.
+  const shown = matches.slice(0, _BOQ_DD_MAX);
+  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}${matches.length > shown.length ? ' · keep typing to narrow' : ''}</div>`;
+  shown.forEach(item => {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
@@ -1648,9 +1655,10 @@ window._gItemInput = function (input) {
   const dd = document.createElement('div');
   dd.className = 'boq-dropdown';
   if (!matches.length) { dd.innerHTML = '<div class="boq-dd-empty">No matching BOQ items</div>'; _positionDropdown(dd, input); return; }
-  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+  const shown = matches.slice(0, _BOQ_DD_MAX);
+  dd.innerHTML = `<div class="boq-dd-header">BOQ Items — ${matches.length} match${matches.length > 1 ? 'es' : ''}${matches.length > shown.length ? ' · keep typing to narrow' : ''}</div>`;
   const card = input.closest('.g-item');
-  matches.forEach(item => {
+  shown.forEach(item => {
     const refKey = item._boqRef || String(item._idx);
     const used = usedQty[refKey] || usedQty[item._idx] || 0;
     const bal = (item.qty || 0) - used;
