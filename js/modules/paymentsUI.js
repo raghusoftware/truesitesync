@@ -91,13 +91,13 @@ export function renderPaymentsHub() {
       #paymentsHubView *{box-sizing:border-box}
       .pmt-balstrip{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 6px;margin-bottom:14px;scrollbar-width:none}
       .pmt-balstrip::-webkit-scrollbar{display:none}
-      .pmt-bal{flex:0 0 auto;width:152px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;box-shadow:var(--sh-soft)}
+      .pmt-bal{flex:0 0 auto;width:auto;min-width:150px;max-width:230px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;box-shadow:var(--sh-soft);overflow:hidden}
       .pmt-bal.primary{background:linear-gradient(150deg,#6D28D9,#4F46E5);border:none;color:#fff;box-shadow:0 12px 26px -12px rgba(91,33,182,.7)}
       .pmt-bal-ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--purple-tint);margin-bottom:9px}
       .pmt-bal.primary .pmt-bal-ic{background:rgba(255,255,255,.18)}
       .pmt-bal-nm{font-size:12px;font-weight:700;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .pmt-bal.primary .pmt-bal-nm{color:rgba(255,255,255,.85)}
-      .pmt-bal-amt{font-size:19px;font-weight:800;letter-spacing:-.02em;margin-top:3px;font-variant-numeric:tabular-nums}
+      .pmt-bal-amt{font-size:18px;font-weight:800;letter-spacing:-.03em;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
       .pmt-bal-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:6px}
       .pmt-bal.primary .pmt-bal-tag{color:rgba(255,255,255,.72)}
       .pmt-petty-badge{color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px}

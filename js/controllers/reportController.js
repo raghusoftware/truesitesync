@@ -77,7 +77,7 @@ export function renderReportsDashboard() {
       </label>
     </div>
 
-    <div class="dm-kpis" style="grid-template-columns:repeat(5,1fr);">
+    <div class="dm-kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
       <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Total reports</div><div class="dm-val tnum">${totalReports}</div><div class="dm-meta">ready to run</div></div>
       <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Categories</div><div class="dm-val tnum">${totalCats}</div><div class="dm-meta">report groups</div></div>
       <div class="dm-kpi"><span class="dm-rail"></span><div class="dm-cap">Projects</div><div class="dm-val tnum">${projectCount}</div><div class="dm-meta">in scope</div></div>
