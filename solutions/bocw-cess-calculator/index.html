@@ -117,7 +117,7 @@
   </div>
 
 </main>
-<footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a></div></footer>
+<footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;function c(){const cost=Math.max(0,num('cCost')-num('cLand')),r=num('cRate')/100,bill=num('cBill');const d=document.getElementById('cDone').value;let due='';if(d){const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+60);due=x.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});}document.getElementById('cOut').innerHTML='Cess base (excl. land): '+inr(cost)+'<br>Total cess: <b>'+inr(cost*r)+'</b><br>Deduction on this RA bill: <b>'+inr(bill*r)+'</b>'+(due?'<br>Final assessment due by about: <b>'+due+'</b> (completion + 60 days)':'');}['cCost','cLand','cRate','cBill','cDone'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
 <script src="/js/site-nav.js?v=4" defer></script>
