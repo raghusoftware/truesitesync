@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.truesitesync.app",
+      "sha256_cert_fingerprints": [
+        "13:99:D1:13:42:8D:61:AA:E5:F1:F1:DB:12:1C:2F:2E:23:42:A8:27:78:3B:3A:1F:0E:88:A3:F2:48:69:C8:87"
+      ]
+    }
+  }
+]
