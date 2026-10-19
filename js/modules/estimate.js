@@ -10,6 +10,13 @@
 
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
+import { estimateTotals } from './estimateCalc.js';
+
+/** Fill the discount inputs (blank for a new estimate). */
+function _setDiscountInputs(type, value) {
+  const t = document.getElementById('estDiscountType'); if (t) t.value = type === 'amt' ? 'amt' : 'pct';
+  const v = document.getElementById('estDiscount'); if (v) v.value = value ? value : '';
+}
 
 /** Open/close the estimate editor as a full-screen overlay (matches the other
  *  full-screen forms). Escape closes it. */
@@ -49,8 +56,10 @@ export function createNewEstimate() {
   document.getElementById('estTerms').value = '';
   document.getElementById('estNotes').value = '';
   document.getElementById('estTableBody').innerHTML = '';
+  _setDiscountInputs('pct', 0);
   const t = document.getElementById('estEditorTitle'); if (t) t.textContent = 'Draft Estimate';
   addEstimateRow();
+  if (window.calcEstimateTotal) window.calcEstimateTotal();
   document.getElementById('estimateEditor').classList.remove('hide');
   _estFullscreen(true);
 }
@@ -68,6 +77,7 @@ export function openEstimate(id) {
   document.getElementById('estNum').value = e.estNum || '';
   document.getElementById('estTerms').value = e.terms || '';
   document.getElementById('estNotes').value = e.notes || '';
+  _setDiscountInputs(e.discountType, e.discountValue);
   const tbody = document.getElementById('estTableBody');
   tbody.innerHTML = '';
   (e.items || []).forEach((it, idx) => {
@@ -106,10 +116,12 @@ export function saveEstimate() {
     if (desc && qty > 0) estItems.push({ code, desc, qty, unit: tr.querySelector('.est-unit').value, rate, amount: qty * rate });
   });
   if (estItems.length === 0) return showToast('Add items', 'error');
-  let total = 0; estItems.forEach(i => total += i.amount);
+  const discountType = document.getElementById('estDiscountType')?.value === 'amt' ? 'amt' : 'pct';
+  const discountValue = parseFloat(document.getElementById('estDiscount')?.value) || 0;
+  const { subTotal, discountAmount, total } = estimateTotals(estItems, discountType, discountValue);
   // Preserve downstream links (Sale Order / Project / already-ordered materials) across edits.
   const prev = state.currentEstimateId ? state.estimates.find(e => e.id === state.currentEstimateId) : null;
-  const data = { id: state.currentEstimateId || 'est_' + Date.now(), estNum: document.getElementById('estNum').value, clientId: cId, date: document.getElementById('estDate').value, items: estItems, total, terms: document.getElementById('estTerms').value, notes: document.getElementById('estNotes').value,
+  const data = { id: state.currentEstimateId || 'est_' + Date.now(), estNum: document.getElementById('estNum').value, clientId: cId, date: document.getElementById('estDate').value, items: estItems, subTotal, discountType, discountValue, discountAmount, total, terms: document.getElementById('estTerms').value, notes: document.getElementById('estNotes').value,
     saleOrderId: prev?.saleOrderId || null, projectId: prev?.projectId || null, orderedMaterials: prev?.orderedMaterials || [], recipeMap: prev?.recipeMap || {},
     // Link back to the measurement it was converted from (source of truth for the
     // sheet's "Converted to Estimate" status). Preserved across edits.

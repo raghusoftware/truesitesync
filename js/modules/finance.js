@@ -3,6 +3,7 @@ import { settledAmount, deductionNote, deductionTotal } from './deductions.js';
 import { mountDeductions, applyDeductionsTo, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, getTerm } from './utils.js';
 import { computeGst } from './gstCalc.js';
+import { estimateTotals } from './estimateCalc.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 
 export function calcPurchaseTotal() {
@@ -54,9 +55,16 @@ export function calcEstimateRow(input) {
 }
 
 export function calcEstimateTotal() {
-  let t = 0;
-  document.querySelectorAll('.est-amount').forEach(inp => t += parseFloat(inp.value) || 0);
-  document.getElementById('estTotalVal').textContent = getCurrencySymbol() + t.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const items = [...document.querySelectorAll('#estTableBody tr')].map(tr => ({
+    qty: tr.querySelector('.est-qty')?.value, rate: tr.querySelector('.est-rate')?.value
+  }));
+  const { subTotal, discountAmount, total } = estimateTotals(items,
+    document.getElementById('estDiscountType')?.value, document.getElementById('estDiscount')?.value);
+  const money = (n) => getCurrencySymbol() + n.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('estSubTotalVal', money(subTotal));
+  set('estDiscountVal', '− ' + money(discountAmount));
+  set('estTotalVal', money(total));
 }
 
 export function calculateLiveBill() {

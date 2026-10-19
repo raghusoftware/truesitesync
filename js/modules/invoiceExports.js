@@ -113,6 +113,14 @@ export function exportEstimatePDF(id) {
   (e.items || []).forEach((i, idx) => rows.push([idx + 1, i.desc, i.qty, i.unit, _num2(i.rate), _num2(i.amount)]));
   doc.autoTable({ startY: y + 40, head: [['#', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [16, 185, 129], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 70 }, 2: { halign: 'right', cellWidth: 18 }, 3: { cellWidth: 15 }, 4: { halign: 'right', cellWidth: 30 }, 5: { halign: 'right', cellWidth: 30 } } });
   let tY = doc.lastAutoTable.finalY + 10;
+  if (e.discountAmount > 0) {
+    const sub = e.subTotal ?? (e.total + e.discountAmount);
+    const pct = e.discountType === 'pct' ? ` (${e.discountValue}%)` : '';
+    doc.setFontSize(10); doc.setFont("helvetica", "normal");
+    doc.text(`Subtotal: ${sym} ${_num2(sub)}`, 14, tY);
+    doc.text(`Less Discount${pct}: ${sym} ${_num2(e.discountAmount)}`, 14, tY + 6);
+    tY += 14;
+  }
   doc.setFontSize(12); doc.setFont("helvetica", "bold");
   doc.text(`Total Estimate Value: ${sym} ${_num2(e.total)}`, 14, tY);
   if (e.terms) { tY += 15; doc.setFontSize(10); doc.text("Terms & Conditions:", 14, tY); doc.setFont("helvetica", "normal"); doc.text(e.terms, 14, tY + 6, { maxWidth: 180 }); }

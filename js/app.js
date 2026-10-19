@@ -14,7 +14,7 @@ import {
   renderAccounts, openAccountModal, saveAccount, renderReports,
   renderMasterClientList, renderMasterVendorList, exportMasterList,
   exportVendorLedgerPDF, exportClientStatementPDF
-} from './modules/finance.js?v=1.6.46';
+} from './modules/finance.js?v=1.6.47';
 import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
@@ -61,10 +61,10 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.18';
+} from './modules/ui.js?v=1.7.19';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
-import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.25';
+import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.26';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.26';
 import { renderPettyCash } from './modules/pettyCash.js?v=1.0.6';
 import { renderNotifications } from './modules/notifications.js?v=1.0.3';
@@ -88,7 +88,7 @@ import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.55';
 import './modules/recycleBin.js?v=1.6.64';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js';
-import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.8';
+import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.9';
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.5';
 import './modules/executionEngine.js?v=1.6.90';
