@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bar Bending Schedule (BBS) Calculator &amp; Steel Weight Chart</title>
+<meta name="description" content="Free bar bending schedule (BBS) calculator: steel weight by diameter with D²/162, a cutting length helper, development length table and BBS format.">
+<meta name="keywords" content="bar bending schedule calculator, BBS calculator, steel weight calculator, D2/162, rebar weight chart, cutting length formula, BBS format, development length IS 456, sariya ka weight kaise nikale">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://truesitesync.com/solutions/bar-bending-schedule-calculator/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Bar Bending Schedule (BBS) Calculator and Steel Weight Chart | True Site Sync">
+<meta property="og:description" content="Free bar bending schedule (BBS) calculator: steel weight by diameter with D²/162, a cutting length helper, development length table and BBS format.">
+<meta property="og:url" content="https://truesitesync.com/solutions/bar-bending-schedule-calculator/">
+<meta property="og:image" content="https://truesitesync.com/assets/logo-full.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="/solutions/seo.css">
+<style>.formula{background:#0e1a13;color:#f5f5f4;border-radius:14px;padding:16px 18px;font:500 14px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto;margin:14px 0}.tbl{overflow-x:auto}.note{font-size:13px;color:#64748b}.calc{background:#fff;border:1px solid #e7e5e4;border-radius:16px;padding:18px;margin:16px 0}.calc .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.calc label{display:block;font-size:12px;font-weight:700;color:#57534e;margin-bottom:4px}.calc input,.calc select{width:100%;padding:10px 12px;border:1px solid #d6d3d1;border-radius:10px;font:500 15px Inter,sans-serif;background:#fff;color:#1c1917}.calc .out{margin-top:14px;background:#fafaf9;border-radius:12px;padding:14px 16px;font-size:15px;line-height:1.8}.calc .out b{font-size:18px}.calc table{width:100%;border-collapse:collapse;font-size:14px}.calc td,.calc th{padding:6px 4px;text-align:left;border-bottom:1px solid #f0efee}.calc td input{padding:7px 8px;font-size:14px}#eTbl{min-width:600px}#eTbl td input{min-width:72px}#eTbl td:first-child input{min-width:140px}#eTbl td.v{white-space:nowrap}@media(prefers-color-scheme:dark){.calc{background:transparent}}#bTbl{min-width:520px}#bTbl td select,#bTbl td input{min-width:70px}.calc button{margin-top:10px;padding:9px 14px;border-radius:10px;border:1px solid #d6d3d1;background:#fff;font:600 14px Inter,sans-serif;cursor:pointer}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "Article", "headline": "Bar Bending Schedule (BBS) Calculator: steel weight, cutting length and format", "description": "Free bar bending schedule (BBS) calculator: steel weight by diameter with D²/162, a cutting length helper, development length table and BBS format.", "inLanguage": "en-IN", "mainEntityOfPage": "https://truesitesync.com/solutions/bar-bending-schedule-calculator/", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "author": {"@type": "Organization", "name": "True Site Sync", "url": "https://truesitesync.com/"}, "publisher": {"@type": "Organization", "name": "True Site Sync", "logo": {"@type": "ImageObject", "url": "https://truesitesync.com/assets/logo-full.png"}}, "about": {"@type": "SoftwareApplication", "name": "True Site Sync", "applicationCategory": "BusinessApplication", "operatingSystem": "Web, Windows, Android", "url": "https://truesitesync.com/", "offers": {"@type": "AggregateOffer", "priceCurrency": "INR", "lowPrice": "2400", "highPrice": "50000", "offerCount": "5", "url": "https://truesitesync.com/pricing.html"}}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the formula for steel weight per metre?", "acceptedAnswer": {"@type": "Answer", "text": "Weight per metre in kg = D² ÷ 162, where D is the bar diameter in mm. It comes from steel density of 7,850 kg/m³. For billing, use the IS 1786 nominal mass, for example 0.888 kg/m for 12 mm."}}, {"@type": "Question", "name": "How do you calculate a bar bending schedule?", "acceptedAnswer": {"@type": "Answer", "text": "For each bar mark, multiply the number of bars by the cutting length to get total length, then multiply by the weight per metre for that diameter. Add the weights by diameter for the order and reconciliation totals."}}, {"@type": "Question", "name": "What is the cutting length formula for a stirrup?", "acceptedAnswer": {"@type": "Answer", "text": "Cutting length = total of straight legs + hook allowances − bend deductions. Common site practice deducts 2d per 90° bend and 3d per 135° bend and adds about 9d per hook, but follow your drawings and specification."}}, {"@type": "Question", "name": "Is development length always 47d?", "acceptedAnswer": {"@type": "Answer", "text": "No. Using the IS 456 formula, it is about 47φ for Fe415 in M20, 56.6φ for Fe500 in M20 and 48.5φ for Fe500 in M25."}}, {"@type": "Question", "name": "What is the weight of a 12 mm bar per metre?", "acceptedAnswer": {"@type": "Answer", "text": "0.888 kg per metre (IS 1786 nominal mass). A 12 m length of 12 mm bar weighs about 10.66 kg."}}, {"@type": "Question", "name": "Why reconcile BBS weight with steel issued?", "acceptedAnswer": {"@type": "Answer", "text": "The BBS is the theoretical steel. Comparing it diameter by diameter with steel issued shows wastage or theft. CPWD-pattern contracts typically allow about ±2% per diameter on issued steel."}}, {"@type": "Question", "name": "Sariya ka weight kaise nikale?", "acceptedAnswer": {"@type": "Answer", "text": "Diameter ka square ÷ 162 = kg prati meter. Jaise 12 mm sariya: 144 ÷ 162 ≈ 0.888 kg/m. Isko total length (nos × cutting length) se guna karein."}}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://truesitesync.com/"}, {"@type": "ListItem", "position": 2, "name": "Solutions", "item": "https://truesitesync.com/solutions/"}, {"@type": "ListItem", "position": 3, "name": "BBS Calculator", "item": "https://truesitesync.com/solutions/bar-bending-schedule-calculator/"}]}
+</script>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="True Site Sync"><span>True Site Sync</span></a>
+  <div class="nav-links"><a href="/solutions/">Solutions</a><a href="/#pricing">Pricing</a><a href="/app.html">Login</a><a href="/app.html" class="nav-cta">Open Web App</a></div>
+</div></nav>
+
+<header class="seo-hero"><div class="wrap">
+  <div class="seo-eyebrow">🧮 Free calculator</div>
+  <h1>Bar Bending Schedule (BBS) Calculator: <span class="hl">steel weight, cutting length and format</span></h1>
+  <p class="lead">Enter each bar mark's diameter, number of bars and cutting length to get the steel weight by diameter. Below the calculator: the D²/162 formula, the IS 1786 weight chart, a cutting length helper, and what's code versus site practice.</p>
+  <div class="btn-row"><a href="#calc" class="btn btn-pri">Open the calculator</a><a href="/app.html" class="btn btn-sec">Start free 6-day trial</a></div>
+  <div class="lead-meta"><span>✓ Weight by diameter</span><span>✓ Code vs site practice, clearly marked</span><span>✓ Links to steel reconciliation</span></div>
+  <p class="lead-meta" style="margin-top:10px"><span>By the True Site Sync team · Last updated 13 October 2026</span></p>
+</div></header>
+
+<main class="wrap">
+
+  <section class="block" style="border-top:none" id="calc">
+    <h2>BBS calculator</h2>
+    <div class="calc">
+      <div class="tbl"><table id="bTbl">
+        <thead><tr><th>Bar mark</th><th>Dia</th><th>No. of bars</th><th>Cutting length (m)</th><th>Weight</th></tr></thead>
+        <tbody><tr><td><input aria-label="Bar mark" value="B1 bottom"></td><td><select aria-label="Diameter"><option value="6">6 mm</option><option value="8">8 mm</option><option value="10">10 mm</option><option value="12" selected>12 mm</option><option value="16">16 mm</option><option value="20">20 mm</option><option value="25">25 mm</option><option value="28">28 mm</option><option value="32">32 mm</option><option value="36">36 mm</option><option value="40">40 mm</option></select></td><td><input aria-label="Number of bars" type="number" min="0" value="40"></td><td><input aria-label="Cutting length (m)" type="number" min="0" step="0.01" value="6.2"></td><td class="v"></td></tr><tr><td><input aria-label="Bar mark" value="B2 top"></td><td><select aria-label="Diameter"><option value="6">6 mm</option><option value="8">8 mm</option><option value="10" selected>10 mm</option><option value="12">12 mm</option><option value="16">16 mm</option><option value="20">20 mm</option><option value="25">25 mm</option><option value="28">28 mm</option><option value="32">32 mm</option><option value="36">36 mm</option><option value="40">40 mm</option></select></td><td><input aria-label="Number of bars" type="number" min="0" value="60"></td><td><input aria-label="Cutting length (m)" type="number" min="0" step="0.01" value="4.5"></td><td class="v"></td></tr><tr><td><input aria-label="Bar mark" value="S1 stirrup"></td><td><select aria-label="Diameter"><option value="6">6 mm</option><option value="8" selected>8 mm</option><option value="10">10 mm</option><option value="12">12 mm</option><option value="16">16 mm</option><option value="20">20 mm</option><option value="25">25 mm</option><option value="28">28 mm</option><option value="32">32 mm</option><option value="36">36 mm</option><option value="40">40 mm</option></select></td><td><input aria-label="Number of bars" type="number" min="0" value="120"></td><td><input aria-label="Cutting length (m)" type="number" min="0" step="0.01" value="1.1"></td><td class="v"></td></tr></tbody>
+      </table></div>
+      <button type="button" id="bAdd">+ Add bar mark</button>
+      <div class="out" id="bOut" aria-live="polite"></div>
+    </div>
+    <p class="note">Uses IS 1786 nominal mass per metre for standard diameters. Example: B1 12 mm × 40 × 6.2 m = 248 m × 0.888 = 220.2 kg; B2 10 mm × 60 × 4.5 m = 166.6 kg; S1 8 mm × 120 × 1.1 m = 52.1 kg. Total 439.0 kg.</p>
+  </section>
+
+  <section class="block">
+    <h2>What is a bar bending schedule?</h2>
+    <div class="callout"><p>A bar bending schedule (BBS) lists every reinforcement bar in a member: bar mark, diameter, shape, number of bars, cutting length and weight. Site teams use it to cut and bend steel, and the total weight by diameter is what you order, issue and reconcile. Steel weight per metre is D²/162 kg, where D is the bar diameter in mm.</p></div>
+  </section>
+
+  <section class="block">
+    <h2>Steel weight formula: why D²/162</h2>
+    <div class="formula">Weight per metre (kg/m) = D² ÷ 162<br><br>Derivation: area = πD²/4 mm² → × 1 m length × 7,850 kg/m³<br>= D² × π × 7,850 ÷ 4,000,000 = D² ÷ 162.2</div>
+    <p>Steel density is 7,850 kg/m³, so the exact constant is 162.2. D²/162 reads about 0.1–0.2% higher than the IS 1786 nominal masses, which is close enough for site use but not for billing. For bills and reconciliation, use the nominal masses below.</p>
+    <div class="tbl"><table class="compare">
+      <thead><tr><th>Diameter</th><th>IS 1786 nominal mass (kg/m)</th><th>D²/162</th></tr></thead>
+      <tbody><tr><td>6 mm</td><td>0.222</td><td>0.222</td></tr><tr><td>8 mm</td><td>0.395</td><td>0.395</td></tr><tr><td>10 mm</td><td>0.617</td><td>0.617</td></tr><tr><td>12 mm</td><td>0.888</td><td>0.889</td></tr><tr><td>16 mm</td><td>1.58</td><td>1.580</td></tr><tr><td>20 mm</td><td>2.47</td><td>2.469</td></tr><tr><td>25 mm</td><td>3.85</td><td>3.858</td></tr><tr><td>28 mm</td><td>4.83</td><td>4.840</td></tr><tr><td>32 mm</td><td>6.31</td><td>6.321</td></tr><tr><td>36 mm</td><td>7.99</td><td>8.000</td></tr><tr><td>40 mm</td><td>9.86</td><td>9.877</td></tr></tbody>
+    </table></div>
+    <p class="note">Nominal masses as commonly reproduced from IS 1786 (see <a href="https://infralens.in/knowledge/rebar-weight-chart-is-1786" rel="noopener" target="_blank">rebar weight chart</a>). Check your supplier's test certificate for the actual mass.</p>
+  </section>
+
+  <section class="block">
+    <h2>Cutting length helper</h2>
+    <p>Cutting length = total of straight segments + hook allowances − bend deductions. Bend deductions are <strong>site practice, not code</strong>, so the defaults below are editable.</p>
+    <div class="calc">
+      <div class="grid">
+        <div><label for="kDia">Bar diameter (mm)</label><input id="kDia" type="number" min="1" value="8"></div>
+        <div><label for="kLen">Total of straight segments (mm)</label><input id="kLen" type="number" min="0" value="1300"></div>
+        <div><label for="k45">No. of 45° bends</label><input id="k45" type="number" min="0" value="0"></div>
+        <div><label for="k90">No. of 90° bends</label><input id="k90" type="number" min="0" value="3"></div>
+        <div><label for="k135">No. of 135° bends</label><input id="k135" type="number" min="0" value="2"></div>
+        <div><label for="kHook">No. of hooks</label><input id="kHook" type="number" min="0" value="2"></div>
+        <div><label for="d45">Deduction per 45° (× d)</label><input id="d45" type="number" step="0.5" value="1"></div>
+        <div><label for="d90">Deduction per 90° (× d)</label><input id="d90" type="number" step="0.5" value="2"></div>
+        <div><label for="d135">Deduction per 135° (× d)</label><input id="d135" type="number" step="0.5" value="3"></div>
+        <div><label for="dHook">Hook allowance (× d)</label><input id="dHook" type="number" step="0.5" value="9"></div>
+      </div>
+      <div class="out" id="kOut" aria-live="polite"></div>
+    </div>
+    <p class="note">Default example: an 8 mm stirrup with 1,300 mm of straight legs, three 90° bends, two 135° bends and two hooks. Sources disagree on 135° and 180° deductions and on stirrup hooks; seismic detailing (IS 13920) has its own hook rules. Use your structural drawings and project specification.</p>
+  </section>
+
+  <section class="block">
+    <h2>Code values vs site practice</h2>
+    <div class="tbl"><table class="compare">
+      <thead><tr><th>Item</th><th>Value</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Weight per metre</td><td>IS 1786 nominal mass; D²/162 as a quick check</td><td>Code (IS 1786) / formula</td></tr>
+        <tr><td>Development length</td><td>L<sub>d</sub> = φ × 0.87 f<sub>y</sub> ÷ (4 τ<sub>bd</sub>), with τ<sub>bd</sub> raised 60% for deformed bars</td><td>Code (IS 456, cl. 26.2.1)</td></tr>
+        <tr><td>Anchorage value of bends and hooks</td><td>4φ per 45° bend (max 16φ); 16φ for a standard U-hook</td><td>Code (IS 456, anchorage)</td></tr>
+        <tr><td>Bend deductions for cutting length</td><td>45° = 1d, 90° = 2d, 135° = 3d</td><td>Site practice</td></tr>
+        <tr><td>Hook allowance</td><td>9d (or 75 mm minimum, often)</td><td>Site practice</td></tr>
+        <tr><td>Lap length "50d"</td><td>Common site rule; follow the drawing and IS 456 lap rules</td><td>Site practice</td></tr>
+      </tbody>
+    </table></div>
+    <p>Many blogs mix up IS 456 anchorage values with cutting-length deductions. They are different things: anchorage is how much bond a bend provides; deductions correct for the bar stretching around a bend.</p>
+  </section>
+
+  <section class="block">
+    <h2>Development length: "47d" isn't right for every grade</h2>
+    <p>Using L<sub>d</sub> = φ × 0.87 f<sub>y</sub> ÷ (4 τ<sub>bd</sub>), with design bond stress for deformed bars of 1.92 N/mm² (M20) and 2.24 N/mm² (M25):</p>
+    <div class="tbl"><table class="compare">
+      <thead><tr><th>Steel / concrete</th><th>Development length (tension)</th></tr></thead>
+      <tbody>
+        <tr><td>Fe415 / M20</td><td>47.0 φ</td></tr>
+        <tr><td>Fe500 / M20</td><td>56.6 φ</td></tr>
+        <tr><td>Fe500 / M25</td><td>48.5 φ</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Worked from the IS 456 formula. The widely quoted "47d" only holds for Fe415 in M20. Check against IS 456 and your design.</p>
+  </section>
+
+  <section class="block">
+    <h2>BBS format</h2>
+    <div class="tbl"><table class="compare">
+      <thead><tr><th>Member</th><th>Bar mark</th><th>Shape</th><th>Dia (mm)</th><th>No. of bars</th><th>Spacing</th><th>Cutting length (m)</th><th>Total length (m)</th><th>Unit wt (kg/m)</th><th>Total wt (kg)</th></tr></thead>
+      <tbody><tr><td>Slab S1</td><td>B1</td><td>Straight</td><td>12</td><td>40</td><td>150</td><td>6.20</td><td>248.0</td><td>0.888</td><td>220.2</td></tr></tbody>
+    </table></div>
+    <p>Shape codes follow IS 2502. Group the totals by diameter at the bottom; that's the figure for ordering and reconciliation.</p>
+  </section>
+
+  <section class="block">
+    <h2>From BBS to steel reconciliation</h2>
+    <p>The BBS gives the theoretical steel for each diameter. Compare it with the steel actually issued, diameter by diameter. In CPWD-pattern contracts, Schedule F typically allows about ±2% per diameter on department-issued steel, with recovery beyond that at the tender's rates. See the <a href="/solutions/material-reconciliation-statement/">material reconciliation statement</a>.</p>
+    <p>In True Site Sync, BBS entries sit with the measurement sheets, the BBS report totals weight by diameter, and the steel reconciliation report compares that theoretical weight with steel issued. See <a href="/solutions/measurement-book-software/">measurement book software</a>.</p>
+  </section>
+
+  <section class="block faq">
+    <h2>Frequently asked questions</h2>
+    <details open><summary>What is the formula for steel weight per metre?</summary><p>Weight per metre in kg = D² ÷ 162, where D is the bar diameter in mm. It comes from steel density of 7,850 kg/m³. For billing, use the IS 1786 nominal mass, for example 0.888 kg/m for 12 mm.</p></details>
+    <details><summary>How do you calculate a bar bending schedule?</summary><p>For each bar mark, multiply the number of bars by the cutting length to get total length, then multiply by the weight per metre for that diameter. Add the weights by diameter for the order and reconciliation totals.</p></details>
+    <details><summary>What is the cutting length formula for a stirrup?</summary><p>Cutting length = total of straight legs + hook allowances − bend deductions. Common site practice deducts 2d per 90° bend and 3d per 135° bend and adds about 9d per hook, but follow your drawings and specification.</p></details>
+    <details><summary>Is development length always 47d?</summary><p>No. Using the IS 456 formula, it is about 47φ for Fe415 in M20, 56.6φ for Fe500 in M20 and 48.5φ for Fe500 in M25.</p></details>
+    <details><summary>What is the weight of a 12 mm bar per metre?</summary><p>0.888 kg per metre (IS 1786 nominal mass). A 12 m length of 12 mm bar weighs about 10.66 kg.</p></details>
+    <details><summary>Why reconcile BBS weight with steel issued?</summary><p>The BBS is the theoretical steel. Comparing it diameter by diameter with steel issued shows wastage or theft. CPWD-pattern contracts typically allow about ±2% per diameter on issued steel.</p></details>
+    <details><summary>Sariya ka weight kaise nikale?</summary><p>Diameter ka square ÷ 162 = kg prati meter. Jaise 12 mm sariya: 144 ÷ 162 ≈ 0.888 kg/m. Isko total length (nos × cutting length) se guna karein.</p></details>
+  </section>
+
+  <div class="cta">
+    <h2>BBS, measurement and steel reconciliation in one place</h2>
+    <p>Enter BBS with your measurements and see theoretical steel against steel issued, diameter by diameter.</p>
+    <a href="/app.html" class="btn btn-pri">Start free 6-day trial</a><p style="margin-top:12px">Or <a href="/demo/">book a demo</a>.</p>
+    <div class="related"><a href="/solutions/concrete-calculator/">Concrete calculator</a><a href="/solutions/material-reconciliation-statement/">Material reconciliation</a><a href="/solutions/measurement-book-software/">Measurement book</a><a href="/solutions/construction-unit-converter/">Unit converter</a><a href="/solutions/">All solutions</a></div>
+  </div>
+
+</main>
+<footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+<script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;const UW={6:0.222,8:0.395,10:0.617,12:0.888,16:1.58,20:2.47,25:3.85,28:4.83,32:6.31,36:7.99,40:9.86};const kg=n=>n.toLocaleString('en-IN',{maximumFractionDigits:1})+' kg';
+function c(){const by={};let tot=0;document.querySelectorAll('#bTbl tbody tr').forEach(tr=>{const d=+tr.querySelector('select').value;const i=tr.querySelectorAll('input');const n=parseFloat(i[1].value)||0,l=parseFloat(i[2].value)||0;const w=n*l*(UW[d]||d*d/162);tot+=w;by[d]=(by[d]||0)+w;tr.querySelector('.v').textContent=kg(w);});
+document.getElementById('bOut').innerHTML=Object.keys(by).sort((a,b)=>a-b).map(d=>d+' mm: '+kg(by[d])).join(' · ')+'<br>Total steel: <b>'+kg(tot)+'</b> ('+(tot/1000).toFixed(3)+' t)';}
+function k(){const d=num('kDia');const L=num('kLen')-d*(num('k45')*num('d45')+num('k90')*num('d90')+num('k135')*num('d135'))+d*num('kHook')*num('dHook');document.getElementById('kOut').innerHTML='Cutting length: <b>'+Math.round(L)+' mm</b> ('+(L/1000).toFixed(3)+' m)';}
+document.getElementById('bAdd').addEventListener('click',()=>{const tb=document.querySelector('#bTbl tbody');const tr=tb.rows[tb.rows.length-1].cloneNode(true);tr.querySelectorAll('input')[0].value='New';tb.appendChild(tr);c();});
+document.getElementById('bTbl').addEventListener('input',c);document.getElementById('bTbl').addEventListener('change',c);
+['kDia','kLen','k45','k90','k135','kHook','d45','d90','d135','dHook'].forEach(i=>document.getElementById(i).addEventListener('input',k));c();k();})();</script>
+<script src="/js/site-nav.js?v=4" defer></script>
+</body>
+</html>
