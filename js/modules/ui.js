@@ -4,6 +4,7 @@ import { computeAnalytics } from './analyticsCalc.js';
 import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, setDateFields, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, mobileSaveXLSX, getTerm, formatINR } from './utils.js';
 import { lookupBoqItem } from './abstractCalc.js';
+import { projectBoqRate } from './estimateCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
@@ -3288,16 +3289,25 @@ window._saveAudit=function(){
 /** Preferred PDF orientation for measurement/abstract docs (default portrait) */
 // Measurement-sheet exporters (+ _measOrientation/_pageCenterX) moved to ./measurementExports.js
 
+const _attr = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 export function convertSheetToEstimate() {
   if (!state.currentSheetId) return showToast('Save the sheet first to convert!', 'error');
   const s = state.sheets.find(x => x.id === state.currentSheetId);
   const cItems = state.items[s.clientId] || {};
+  // Rates come from the BOQ / PO of the project the sheet was measured in;
+  // the client's item master is only a fallback for items not in that BOQ.
+  const client = (state.clients || []).find(c => c.id === s.clientId);
+  const proj = (state.projects || []).find(p => p.id === (s.projectId || client?.projectId));
   const grouped = {};
   s.entries.forEach(e => {
     const key = e.code || e.description;
     if (key && e.qty > 0) {
       if (grouped[key]) grouped[key].qty += e.qty;
-      else grouped[key] = { desc: e.description, qty: e.qty, unit: e.uom, rate: cItems[e.code] ? parseFloat(cItems[e.code].rate) : 0 };
+      else {
+        const rate = projectBoqRate(proj, e) ?? (cItems[e.code] ? parseFloat(cItems[e.code].rate) || 0 : 0);
+        grouped[key] = { code: e.code || '', desc: e.description, qty: e.qty, unit: e.uom, rate };
+      }
     }
   });
   window.createNewEstimate();
@@ -3311,7 +3321,7 @@ export function convertSheetToEstimate() {
   for (let k in grouped) {
     const i = grouped[k];
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="p-2 border text-center text-xs font-bold text-slate-400">${iCount++}</td><td class="p-2 border"><input type="text" class="table-input desc-input" value="${i.desc}" oninput="handleDescInput(this)"><input type="hidden" class="est-code" value="${i.code || ''}"><div class="autocomplete-list hide"></div></td><td class="p-2 border"><input type="number" class="table-input est-qty font-bold" value="${i.qty}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-unit" value="${i.unit || ''}"></td><td class="p-2 border"><input type="number" class="table-input est-rate" value="${i.rate}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-amount font-bold text-emerald-700" value="${(i.qty * i.rate).toFixed(2)}" readonly></td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcEstimateTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+    tr.innerHTML = `<td class="p-2 border text-center text-xs font-bold text-slate-400">${iCount++}</td><td class="p-2 border"><input type="text" class="table-input desc-input" value="${_attr(i.desc)}" oninput="handleDescInput(this)"><input type="hidden" class="est-code" value="${_attr(i.code)}"><div class="autocomplete-list hide"></div></td><td class="p-2 border"><input type="number" class="table-input est-qty font-bold" value="${i.qty}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-unit" value="${_attr(i.unit)}"></td><td class="p-2 border"><input type="number" class="table-input est-rate" value="${i.rate}" oninput="calcEstimateRow(this)"></td><td class="p-2 border"><input type="text" class="table-input est-amount font-bold text-emerald-700" value="${(i.qty * i.rate).toFixed(2)}" readonly></td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcEstimateTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
     tbody.appendChild(tr);
   }
   calcEstimateTotal();
