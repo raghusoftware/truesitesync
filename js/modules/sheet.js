@@ -1199,24 +1199,24 @@ export function toggleBBSSection() {
   if (isHidden && !document.getElementById('bbsTableBody').rows.length) addBBSRow(3);
 }
 
-export function addBBSRow(count = 1) {
-  const tbody = document.getElementById('bbsTableBody');
-  const sn = tbody.rows.length;
-  for (let i = 0; i < count; i++) {
-    const tr = document.createElement('tr');
-    const n = sn + i + 1;
-    tr.innerHTML = `<td class="p-1 border text-center text-xs text-slate-400 font-bold bbs-sn">${n}</td>
-      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder=""></td>
+// One blank BBS row's HTML (optionally pre-filled with data for copy/restore).
+function _bbsRowHTML(n, d) {
+  d = d || {};
+  const v = x => (x === undefined || x === null) ? '' : String(x).replace(/"/g, '&quot;');
+  const diaOpts = ['8','10','12','16','20','25','28','32']
+    .map(o => `<option value="${o}" ${String(d.dia) === o ? 'selected' : ''}>${o}</option>`).join('');
+  return `<td class="p-1 border text-center text-xs text-slate-400 font-bold bbs-sn">${n}</td>
+      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder="" value="${v(d.mark)}"></td>
       <td class="p-1 border"><select class="table-input bbs-dia" onchange="calcBBSRow(this)" style="padding:0.35rem;min-width:50px;text-align:center;font-weight:700;">
-        <option value="">--</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option><option value="20">20</option><option value="25">25</option><option value="28">28</option><option value="32">32</option></select></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-nobar text-center" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-no text-center" oninput="calcBBSRow(this)"></td>
+        <option value="">--</option>${diaOpts}</select></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-nobar text-center" value="${v(d.nobar)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-no text-center" value="${v(d.no)}" oninput="calcBBSRow(this)"></td>
       <td class="p-1 border bg-slate-50"><input type="text" class="table-input bbs-totbar text-center font-bold" readonly></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-a text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-b text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-c text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-d text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-hook text-center" step="0.01" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-a text-center" step="0.01" value="${v(d.a)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-b text-center" step="0.01" value="${v(d.b)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-c text-center" step="0.01" value="${v(d.c)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-d text-center" step="0.01" value="${v(d.d)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-hook text-center" step="0.01" value="${v(d.hook)}" oninput="calcBBSRow(this)"></td>
       <td class="p-1 border bg-purple-50"><input type="text" class="table-input bbs-cutlen text-center font-bold text-purple-700" readonly></td>
       <td class="p-1 border bg-purple-50"><input type="text" class="table-input bbs-totlen text-center font-bold text-purple-700" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d8 text-center text-xs" readonly></td>
@@ -1224,10 +1224,51 @@ export function addBBSRow(count = 1) {
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d12 text-center text-xs" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d16 text-center text-xs" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d20 text-center text-xs" readonly></td>
-      <td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); _renumberBBS(); _calcBBSTotals();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+      <td class="p-1 border text-center" style="white-space:nowrap"><button onclick="window._bbsCopyRow(this)" title="Copy this bar below" class="text-indigo-400 hover:bg-indigo-50 p-1 rounded font-bold">⧉</button><button onclick="this.closest('tr').remove(); window._renumberBBS(); window._calcBBSTotals();" title="Delete bar" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+}
+
+export function addBBSRow(count = 1) {
+  const tbody = document.getElementById('bbsTableBody');
+  const sn = tbody.rows.length;
+  for (let i = 0; i < count; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = _bbsRowHTML(sn + i + 1, {});
     tbody.appendChild(tr);
   }
 }
+
+// Read one BBS row's values.
+function _bbsReadRow(tr) {
+  return {
+    mark: tr.querySelector('.bbs-mark')?.value || '',
+    dia: tr.querySelector('.bbs-dia')?.value || '',
+    nobar: tr.querySelector('.bbs-nobar')?.value || '',
+    no: tr.querySelector('.bbs-no')?.value || '',
+    a: tr.querySelector('.bbs-a')?.value || '',
+    b: tr.querySelector('.bbs-b')?.value || '',
+    c: tr.querySelector('.bbs-c')?.value || '',
+    d: tr.querySelector('.bbs-d')?.value || '',
+    hook: tr.querySelector('.bbs-hook')?.value || '',
+  };
+}
+
+/** Copy a BBS bar row right below itself, carrying its values. */
+window._bbsCopyRow = function (btn) {
+  const tr = btn.closest('tr');
+  if (!tr) return;
+  const data = _bbsReadRow(tr);
+  const row = document.createElement('tr');
+  row.innerHTML = _bbsRowHTML('', data);
+  tr.after(row);
+  _renumberBBS();
+  // Recompute the new row's derived columns + the schedule totals.
+  const diaSel = row.querySelector('.bbs-dia');
+  if (diaSel) calcBBSRow(diaSel);
+  _calcBBSTotals();
+  row.querySelector('.bbs-mark')?.focus();
+};
+window._renumberBBS = _renumberBBS;
+window._calcBBSTotals = _calcBBSTotals;
 
 function _renumberBBS() {
   document.querySelectorAll('#bbsTableBody tr').forEach((tr, i) => {
@@ -1413,7 +1454,7 @@ function _loadBBSData(sheetId) {
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d12 text-center text-xs" value="${dia == 12 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d16 text-center text-xs" value="${dia == 16 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d20 text-center text-xs" value="${dia == 20 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
-        <td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); _renumberBBS(); _calcBBSTotals();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+        <td class="p-1 border text-center" style="white-space:nowrap"><button onclick="window._bbsCopyRow(this)" title="Copy this bar below" class="text-indigo-400 hover:bg-indigo-50 p-1 rounded font-bold">⧉</button><button onclick="this.closest('tr').remove(); window._renumberBBS(); window._calcBBSTotals();" title="Delete bar" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
       tbody.appendChild(tr);
     });
     _calcBBSTotals();

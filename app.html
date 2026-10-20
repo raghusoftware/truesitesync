@@ -58,7 +58,7 @@
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
-    <script type="module" src="js/app.js?v=1.6.176"></script>
+    <script type="module" src="js/app.js?v=1.6.177"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1091,7 +1091,7 @@
                 <div class="flex justify-between items-center mb-2">
                   <h3 class="text-sm font-bold text-white uppercase tracking-wider ml-2">Detail of Steel (BBS)</h3>
                   <div class="flex gap-2">
-                    <button onclick="addBBSRow()" class="text-xs bg-white text-purple-900 px-3 py-1.5 rounded shadow-sm hover:bg-gray-100 font-bold">+ Add Bar</button>
+                    <button onclick="addBBSRow(6)" class="text-xs bg-white text-purple-900 px-3 py-1.5 rounded shadow-sm hover:bg-gray-100 font-bold">+ Add 6 Bars</button>
                     <button onclick="toggleBBSSection()" class="text-xs text-white hover:text-purple-200 font-bold px-2">Hide</button>
                   </div>
                 </div>
@@ -1146,6 +1146,9 @@
                       <td colspan="5" class="p-1.5 border text-center font-extrabold text-green-700 text-sm bg-green-50" id="bbsTotalWeightMT">0.00</td><td class="p-1.5 border"></td></tr>
                   </tfoot>
                 </table>
+              </div>
+              <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-center">
+                <button onclick="addBBSRow(6)" class="text-sm bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-purple-700 font-bold">+ Add 6 Bars</button>
               </div>
             </div>
 
