@@ -1627,7 +1627,7 @@ function _gLineHTML(d) {
     <td><input type="number" class="g-b msg-in msg-num-in" placeholder="—" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
     <td><input type="number" class="g-h msg-in msg-num-in" placeholder="—" value="${d.h || ''}" oninput="calcGroupedLine(this)" onkeydown="window._gLineKey(event,this)"></td>
     <td><input type="number" step="any" class="g-qty msg-qty" value="${_fmtMeasQty(d.qty)}" oninput="window._gQtyEdit(this)" title="Auto from L×B×H — or type directly for kg / MT / nos / bags"></td>
-    <td class="msg-line-actions"><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="msg-linebtn dup">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="msg-linebtn del">🗑</button></td>
+    <td class="msg-line-actions"><button onclick="window._gCopyLinePrompt(this)" title="Copy this line to another item" class="msg-linebtn send">⤷</button><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="msg-linebtn dup">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="msg-linebtn del">🗑</button></td>
   </tr>`;
 }
 
@@ -1920,6 +1920,81 @@ window._gCopyLinesInto = function (srcCard, targetCard) {
     last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     last?.querySelector('.g-code')?.focus();
     showToast(`New item created with ${lines.length} copied line${lines.length > 1 ? 's' : ''} — now add its code/description`, 'success');
+  }
+};
+
+// Read ONE measurement line's data (dims + label).
+function _gReadLine(tr) {
+  return {
+    remarks: tr.querySelector('.g-label')?.value || '',
+    nos: tr.querySelector('.g-nos')?.value || '',
+    l: tr.querySelector('.g-l')?.value || '',
+    b: tr.querySelector('.g-b')?.value || '',
+    h: tr.querySelector('.g-h')?.value || '',
+    qty: tr.querySelector('.g-qty')?.value || '',
+  };
+}
+
+/** Open a menu to copy THIS single line into another item (or a new item). */
+window._gCopyLinePrompt = function (btn) {
+  const tr = btn.closest('tr');
+  const src = btn.closest('.g-item');
+  if (!tr || !src) return;
+  const d = _gReadLine(tr);
+  if (!(d.remarks || d.nos || d.l || d.b || d.h || d.qty)) { showToast('This line is empty — nothing to copy', 'warning'); return; }
+  closeBoqDropdowns();
+  setTimeout(() => {
+    const items = Array.from(document.querySelectorAll('#groupedEntryContainer .g-item'));
+    const dd = document.createElement('div');
+    dd.className = 'boq-dropdown g-copymenu';
+    const lbl = (d.remarks || '').trim();
+    dd.innerHTML = `<div class="boq-dd-header">Copy line${lbl ? ' “' + _gEsc(lbl) + '”' : ''} to…</div>`;
+    items.forEach(it => {
+      if (it === src) return;
+      const no = (it.querySelector('.g-num')?.textContent || '').trim();
+      const code = it.querySelector('.g-code')?.value || '';
+      const desc = it.querySelector('.g-desc')?.value || '';
+      const row = document.createElement('div');
+      row.className = 'boq-dd-item';
+      row.innerHTML = `<span class="dd-code">#${_gEsc(no)}</span> <span class="dd-desc">${_gEsc((code ? code + ' — ' : '') + (desc || '(untitled item)'))}</span>`;
+      row.onclick = () => window._gCopyLineInto(tr, it);
+      dd.appendChild(row);
+    });
+    const newRow = document.createElement('div');
+    newRow.className = 'boq-dd-item';
+    newRow.style.borderTop = '1px solid #e2e8f0';
+    newRow.innerHTML = `<span class="dd-code" style="color:#6366f1;">＋ New item</span> <span class="dd-desc">copy this line into a fresh blank item</span>`;
+    newRow.onclick = () => window._gCopyLineInto(tr, null);
+    dd.appendChild(newRow);
+    _positionDropdown(dd, btn);
+  }, 0);
+};
+
+/** Append one line into the target item (or a new blank item). */
+window._gCopyLineInto = function (lineTr, targetCard) {
+  closeBoqDropdowns();
+  const d = _gReadLine(lineTr);
+  if (!(d.remarks || d.nos || d.l || d.b || d.h || d.qty)) { showToast('Nothing to copy', 'warning'); return; }
+  if (targetCard) {
+    const tb = targetCard.querySelector('.g-lines');
+    if (!tb) return;
+    // Drop a single empty starter line so the copied row isn't left beside a blank.
+    tb.querySelectorAll('.g-line').forEach(tr => {
+      const empty = ['.g-label', '.g-nos', '.g-l', '.g-b', '.g-h'].every(s => !(tr.querySelector(s)?.value || '').trim());
+      if (empty) tr.remove();
+    });
+    tb.insertAdjacentHTML('beforeend', _gLineHTML(d));
+    _groupedItemTotal(targetCard);
+    const no = (targetCard.querySelector('.g-num')?.textContent || '').trim();
+    showToast(`Copied line to item #${no}`, 'success');
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    addGroupedItem({ lines: [d] });
+    const container = document.getElementById('groupedEntryContainer');
+    const last = container?.querySelector('.g-items .g-item:last-child');
+    last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    last?.querySelector('.g-code')?.focus();
+    showToast('New item created with the copied line — now add its code/description', 'success');
   }
 };
 
