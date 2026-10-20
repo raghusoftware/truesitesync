@@ -1703,7 +1703,7 @@ export function addGroupedItem(data) {
       </div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <div class="msg-head-actions">
-        <button onclick="window._gCopyLinesPrompt(this)" class="msg-iconbtn msg-copybtn" title="Copy these measurement lines into another item (e.g. same shape for Shuttering)">⤷ Copy to…</button>
+        <button onclick="window._gCopyLinesPrompt(this)" class="msg-iconbtn" title="Copy all these measurement lines into another item (e.g. same shape for Shuttering)">⤷</button>
         <button onclick="duplicateGroupedItem(this)" class="msg-iconbtn" title="Duplicate this whole item">⧉</button>
         <button onclick="removeGroupedItem(this)" class="msg-iconbtn danger" title="Remove item">🗑</button>
       </div>
