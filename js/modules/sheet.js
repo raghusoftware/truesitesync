@@ -1783,7 +1783,12 @@ export function applyToAllLines(btn) {
     const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = _fmtMeasQty(q);
   });
   _groupedItemTotal(card);
-  if (ticked.length) showToast(`Applied to ${ticked.length} selected line${ticked.length > 1 ? 's' : ''}`, 'success');
+  if (ticked.length) {
+    // Done filling — clear the selection so the ticks reset.
+    ticked.forEach(tr => { const cb = tr.querySelector('.g-sel'); if (cb) cb.checked = false; });
+    _gUpdateSelUI(card);
+    showToast(`Applied to ${ticked.length} selected line${ticked.length > 1 ? 's' : ''}`, 'success');
+  }
 }
 
 /** Clear one specific column (nos/l/b/h) across every line of the item */
