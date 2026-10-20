@@ -2484,6 +2484,9 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
 }
 .msg-iconbtn:hover{ background:#f1f5f9; color:#475569; }
 .msg-iconbtn.danger:hover{ background:#fef2f2; color:#ef4444; border-color:#fecaca; }
+.msg-iconbtn.msg-copybtn{ width:auto; padding:0 11px; gap:5px; font-size:12px; font-weight:800; color:#4f46e5; border-color:#c7d2fe; background:#eef2ff; white-space:nowrap; }
+.msg-iconbtn.msg-copybtn:hover{ background:#e0e7ff; color:#4338ca; border-color:#a5b4fc; }
+.g-copymenu .boq-dd-item{ cursor:pointer; }
 
 /* ── measurement table ── */
 .msg-tablewrap{ overflow-x:auto; }

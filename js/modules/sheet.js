@@ -1703,6 +1703,7 @@ export function addGroupedItem(data) {
       </div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <div class="msg-head-actions">
+        <button onclick="window._gCopyLinesPrompt(this)" class="msg-iconbtn msg-copybtn" title="Copy these measurement lines into another item (e.g. same shape for Shuttering)">⤷ Copy to…</button>
         <button onclick="duplicateGroupedItem(this)" class="msg-iconbtn" title="Duplicate this whole item">⧉</button>
         <button onclick="removeGroupedItem(this)" class="msg-iconbtn danger" title="Remove item">🗑</button>
       </div>
@@ -1839,6 +1840,88 @@ export function duplicateGroupedItem(btn) {
   if (newCard && card.nextSibling) list.insertBefore(newCard, card.nextSibling);
   _renumberGroupedItems();
 }
+
+// Read a grouped item's measurement lines (dims + label), for copying elsewhere.
+function _gReadLines(card) {
+  return Array.from(card.querySelectorAll('.g-line')).map(tr => ({
+    remarks: tr.querySelector('.g-label')?.value || '',
+    nos: tr.querySelector('.g-nos')?.value || '',
+    l: tr.querySelector('.g-l')?.value || '',
+    b: tr.querySelector('.g-b')?.value || '',
+    h: tr.querySelector('.g-h')?.value || '',
+    qty: tr.querySelector('.g-qty')?.value || '',
+  }));
+}
+const _gEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Open a small menu to copy THIS item's measurement lines into another item,
+ *  or into a brand-new item (e.g. reuse the same shape for Shuttering / PCC). */
+window._gCopyLinesPrompt = function (btn) {
+  const src = btn.closest('.g-item');
+  if (!src) return;
+  const lines = _gReadLines(src).filter(d => d.remarks || d.nos || d.l || d.b || d.h || d.qty);
+  if (!lines.length) { showToast('This item has no measurement lines to copy yet', 'warning'); return; }
+  closeBoqDropdowns();
+
+  // Build on the next tick so the global click-away handler (which closes any
+  // .boq-dropdown on document click) fires for THIS click first, not our menu.
+  setTimeout(() => {
+    const items = Array.from(document.querySelectorAll('#groupedEntryContainer .g-item'));
+    const dd = document.createElement('div');
+    dd.className = 'boq-dropdown g-copymenu';
+    dd.innerHTML = `<div class="boq-dd-header">Copy ${lines.length} line${lines.length > 1 ? 's' : ''} to…</div>`;
+
+    items.forEach(it => {
+      if (it === src) return;
+      const no = (it.querySelector('.g-num')?.textContent || '').trim();
+      const code = it.querySelector('.g-code')?.value || '';
+      const desc = it.querySelector('.g-desc')?.value || '';
+      const row = document.createElement('div');
+      row.className = 'boq-dd-item';
+      row.innerHTML = `<span class="dd-code">#${_gEsc(no)}</span> <span class="dd-desc">${_gEsc((code ? code + ' — ' : '') + (desc || '(untitled item)'))}</span>`;
+      row.onclick = () => window._gCopyLinesInto(src, it);
+      dd.appendChild(row);
+    });
+
+    const newRow = document.createElement('div');
+    newRow.className = 'boq-dd-item';
+    newRow.style.borderTop = '1px solid #e2e8f0';
+    newRow.innerHTML = `<span class="dd-code" style="color:#6366f1;">＋ New item</span> <span class="dd-desc">copy these lines into a fresh blank item (e.g. Shuttering)</span>`;
+    newRow.onclick = () => window._gCopyLinesInto(src, null);
+    dd.appendChild(newRow);
+
+    _positionDropdown(dd, btn);
+  }, 0);
+};
+
+/** Append the source item's lines into the target item (or a new blank item). */
+window._gCopyLinesInto = function (srcCard, targetCard) {
+  closeBoqDropdowns();
+  const lines = _gReadLines(srcCard).filter(d => d.remarks || d.nos || d.l || d.b || d.h || d.qty);
+  if (!lines.length) { showToast('Nothing to copy', 'warning'); return; }
+
+  if (targetCard) {
+    const tb = targetCard.querySelector('.g-lines');
+    if (!tb) return;
+    // Drop fully-empty starter lines so copied rows don't leave a stray blank.
+    tb.querySelectorAll('.g-line').forEach(tr => {
+      const empty = ['.g-label', '.g-nos', '.g-l', '.g-b', '.g-h'].every(s => !(tr.querySelector(s)?.value || '').trim());
+      if (empty) tr.remove();
+    });
+    lines.forEach(d => tb.insertAdjacentHTML('beforeend', _gLineHTML(d)));
+    _groupedItemTotal(targetCard);
+    const no = (targetCard.querySelector('.g-num')?.textContent || '').trim();
+    showToast(`Copied ${lines.length} line${lines.length > 1 ? 's' : ''} to item #${no}`, 'success');
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    addGroupedItem({ lines });   // new item with just the copied dimensions
+    const container = document.getElementById('groupedEntryContainer');
+    const last = container?.querySelector('.g-items .g-item:last-child');
+    last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    last?.querySelector('.g-code')?.focus();
+    showToast(`New item created with ${lines.length} copied line${lines.length > 1 ? 's' : ''} — now add its code/description`, 'success');
+  }
+};
 
 function _renumberGroupedItems() {
   document.querySelectorAll('#groupedEntryContainer .g-item .g-num').forEach((el, i) => { el.textContent = i + 1; });
