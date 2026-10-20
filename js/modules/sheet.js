@@ -1771,7 +1771,11 @@ export function applyToAllLines(btn) {
   const b = card.querySelector('.g-fill-b')?.value ?? '';
   const h = card.querySelector('.g-fill-h')?.value ?? '';
   if (nos === '' && l === '' && b === '' && h === '') { showToast('Enter a value to apply first', 'warning'); return; }
-  card.querySelectorAll('.g-line').forEach(tr => {
+  // If any lines are ticked, fill ONLY those; otherwise fill every line.
+  const allRows = Array.from(card.querySelectorAll('.g-line'));
+  const ticked = allRows.filter(tr => tr.querySelector('.g-sel')?.checked);
+  const rows = ticked.length ? ticked : allRows;
+  rows.forEach(tr => {
     if (nos !== '') tr.querySelector('.g-nos').value = nos;
     if (l !== '') tr.querySelector('.g-l').value = l;
     if (b !== '') tr.querySelector('.g-b').value = b;
@@ -1779,6 +1783,7 @@ export function applyToAllLines(btn) {
     const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = _fmtMeasQty(q);
   });
   _groupedItemTotal(card);
+  if (ticked.length) showToast(`Applied to ${ticked.length} selected line${ticked.length > 1 ? 's' : ''}`, 'success');
 }
 
 /** Clear one specific column (nos/l/b/h) across every line of the item */
@@ -1879,6 +1884,7 @@ const _gLineHasData = d => !!(d.remarks || d.nos || d.l || d.b || d.h || d.qty);
 
 // Insert a set of lines into a target item, or into a new blank item.
 function _gInsertLines(targetCard, lines, srcCard) {
+  closeBoqDropdowns();   // close the copy menu after a target is picked
   if (!lines.length) { showToast('Nothing to copy', 'warning'); return; }
   if (targetCard) {
     const tb = targetCard.querySelector('.g-lines');
@@ -1985,6 +1991,8 @@ function _gUpdateSelUI(card) {
   if (btn) { btn.classList.toggle('hide', n === 0); const c = btn.querySelector('.g-selcount'); if (c) c.textContent = n; }
   const all = card.querySelector('.g-selall');
   if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+  const fillLbl = card.querySelector('.msg-fill-lbl');
+  if (fillLbl) fillLbl.textContent = n > 0 ? `Fill ${n} selected` : 'Fill all';
   card.querySelectorAll('.g-line').forEach(tr => tr.classList.toggle('g-line-sel', !!tr.querySelector('.g-sel')?.checked));
 }
 
