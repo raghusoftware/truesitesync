@@ -12,14 +12,22 @@ const _taxIdLabel = () => getTerm('taxId');
 
 // ─── Helpers ───
 function getCp() { return state.companyProfile || {}; }
-function _sym() { return (state.currencySettings || {}).symbol || '₹'; }
+// jsPDF's standard fonts use WinAnsi encoding and can't draw ₹ and some other
+// currency glyphs (they come out as garbage like "¹"). Fall back to a short
+// text code so amounts always read cleanly in the PDF.
+function _pdfSafeSym(sym) {
+  const map = { '₹': 'Rs', '₨': 'Rs', 'د.إ': 'AED', 'ﺩ.ﺇ': 'AED', '﷼': 'SAR', 'ر.ق': 'QAR', 'ر.ع.': 'OMR', 'د.ك': 'KWD', '.د.ب': 'BHD', '₦': 'NGN', '₵': 'GHS' };
+  return map[sym] || sym;
+}
+function _sym() { return _pdfSafeSym((state.currencySettings || {}).symbol || '₹'); }
 function _curName() { const c = (state.currencySettings || {}).code || 'INR'; const map = {INR:'Rupees',USD:'Dollars',EUR:'Euros',GBP:'Pounds',AED:'Dirhams',SAR:'Riyals',QAR:'Riyals',OMR:'Rials',KWD:'Dinars',BHD:'Dinars'}; return map[c] || c; }
 function fmtINR(n, decimals) {
   const cs = state.currencySettings || {};
-  const sym = cs.symbol || '₹';
+  const sym = _pdfSafeSym(cs.symbol || '₹');
   const locale = cs.locale || 'en-IN';
   const dec = decimals ?? cs.decimals ?? 2;
-  return sym + (n || 0).toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const sep = sym.length > 1 ? ' ' : '';   // "Rs 1,234.00" but "$1,234.00"
+  return sym + sep + (n || 0).toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 function numWords(n) {
   if (!n) return 'Zero';
@@ -615,13 +623,15 @@ const INVOICE_THEMES = {
       const tax = data.taxAmount || data.gstAmount || 0;
       const total = data.totalAmount || data.total || 0;
       doc.text('Subtotal:', pw-m.right-50, fy); doc.text(fmtINR(subtotal), pw-m.right, fy, {align:'right'}); fy+=5;
-      if (!_isGstMode()) {
-        if (tax) { doc.text(_singleTaxLabel() + ':', pw-m.right-50, fy); doc.text(fmtINR(tax), pw-m.right, fy, {align:'right'}); fy+=5; }
-      } else if (data.gstType === 'intra') {
-        doc.text('CGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
-        doc.text('SGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
-      } else {
-        doc.text('IGST:', pw-m.right-50, fy); doc.text(fmtINR(tax), pw-m.right, fy, {align:'right'}); fy+=5;
+      if (tax > 0) {   // only show a tax line when there is actual tax (estimates / zero-tax bills skip it)
+        if (!_isGstMode()) {
+          doc.text(_singleTaxLabel() + ':', pw-m.right-50, fy); doc.text(fmtINR(tax), pw-m.right, fy, {align:'right'}); fy+=5;
+        } else if (data.gstType === 'intra') {
+          doc.text('CGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
+          doc.text('SGST:', pw-m.right-50, fy); doc.text(fmtINR(tax/2), pw-m.right, fy, {align:'right'}); fy+=4;
+        } else {
+          doc.text('IGST:', pw-m.right-50, fy); doc.text(fmtINR(tax), pw-m.right, fy, {align:'right'}); fy+=5;
+        }
       }
       doc.setFontSize(10);
       doc.text('Grand Total:', pw-m.right-50, fy+2); doc.text(fmtINR(total), pw-m.right, fy+2, {align:'right'}); fy+=8;

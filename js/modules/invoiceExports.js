@@ -17,7 +17,7 @@ import { splitTaxForDisplay } from './gstCalc.js';
 const _isGstMode = () => getTaxConfig().mode === 'gst';
 /** Label for the single (non-split) tax line, e.g. VAT / GST/HST / Sales Tax. */
 const _singleTaxLabel = () => getTaxConfig().singleLabel;
-import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js?v=1.0.1';
+import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js?v=1.0.2';
 
 const _num2 = formatNumber2;
 
@@ -109,8 +109,11 @@ export function exportEstimatePDF(id) {
   const themeId = getActiveThemeId('invoice');
   if (themeId && THEMES.invoice && THEMES.invoice[themeId]) {
     const doc = new window.jspdf.jsPDF();
+    // Round qty to a clean 3 decimals (estimate quantities can carry
+    // floating-point noise like 233.4999999997).
+    const _q = n => Math.round((Number(n) || 0) * 1000) / 1000;
     const items = (e.items || []).map((i, idx) => ({
-      sn: idx + 1, code: '', hsn: '', desc: i.desc, qty: i.qty, uom: i.unit, unit: i.unit, rate: i.rate, amount: i.amount,
+      sn: idx + 1, code: '', hsn: '', desc: i.desc, qty: _q(i.qty), uom: i.unit, unit: i.unit, rate: i.rate, amount: i.amount,
     }));
     const sub = e.subTotal ?? (e.total + (e.discountAmount || 0));
     const data = {
