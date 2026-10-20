@@ -304,16 +304,25 @@ function _positionDropdown(dd, input) {
   container.appendChild(dd);
 
   const rect = input.getBoundingClientRect();
+  const GAP = 8;
+  const ddW = dd.offsetWidth || 260;
+  const vw = document.documentElement.clientWidth;
+  // Keep the dropdown inside the viewport: if anchoring at the button's left
+  // would push its right edge off-screen, shift left so it fits (right-align).
+  let vpLeft = rect.left;
+  if (vpLeft + ddW > vw - GAP) vpLeft = Math.max(GAP, vw - GAP - ddW);
   if (sheet) {
     // Inside fullscreen sheet — use viewport-relative positioning with fixed
     dd.style.position = 'fixed';
     dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
+    dd.style.left = vpLeft + 'px';
+    dd.style.maxWidth = (vw - 2 * GAP) + 'px';
     dd.style.zIndex = '100000';
   } else {
     dd.style.position = 'absolute';
     dd.style.top = (rect.bottom + window.scrollY + 2) + 'px';
-    dd.style.left = (rect.left + window.scrollX) + 'px';
+    dd.style.left = (vpLeft + window.scrollX) + 'px';
+    dd.style.maxWidth = (vw - 2 * GAP) + 'px';
   }
 }
 
