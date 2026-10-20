@@ -2535,6 +2535,17 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
   background:#f2f2ff; border:1px solid #e8e8fc; border-radius:10px; padding:8px 14px; cursor:pointer; transition:.18s;
 }
 .msg-addline:hover{ background:var(--msg-acc); color:#fff; box-shadow:0 8px 16px -5px rgba(79,70,229,.5); transform:translateY(-1px); }
+.msg-copysel{
+  display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:800; color:#fff;
+  background:var(--msg-acc,#4f46e5); border:none; border-radius:10px; padding:8px 14px; cursor:pointer; transition:.18s;
+  box-shadow:0 6px 14px -6px rgba(79,70,229,.6);
+}
+.msg-copysel:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+.msg-copysel.hide{ display:none; }
+.g-sel, .g-selall{ width:16px; height:16px; accent-color:var(--msg-acc,#4f46e5); cursor:pointer; vertical-align:middle; }
+.msg-line-actions .g-sel{ margin-right:3px; }
+.msg-th-sel{ text-align:center; }
+.g-line.g-line-sel td{ background:#eef2ff; }
 .msg-fill{ display:flex; align-items:center; gap:5px; font-size:11px; color:#94a3b8; padding-left:12px; border-left:1px solid var(--msg-line); }
 .msg-fill-lbl{ font-weight:600; }
 .msg-fill input{ width:46px; height:30px; border:1px solid var(--msg-line); border-radius:8px; text-align:center; font-size:12px; outline:none; background:#fff; transition:.15s; }
