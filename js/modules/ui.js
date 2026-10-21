@@ -2308,7 +2308,7 @@ function _renderGRN() {
       <div class="p-5">
         ${_sec('Receipt Details')}
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label><input id="grnDate" type="date" value="${_grnDateVal}" onchange="_grnDateChanged()" class="${_fld}"></div>
+          <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label>${_dateFieldHTML('grnDate', _grnDateVal, '_grnDateChanged', _fld)}</div>
           <div><label class="${_lbl}">Store / Site <span class="text-rose-400">*</span></label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
           <div><label class="${_lbl}">Source Type <span class="text-rose-400">*</span></label><select id="grnSource" onchange="_grnSourceChanged()" class="${_fld} bg-white"><option value="Supplier">Supplier</option><option value="Rent">Rent</option><option value="STN">STN (Stock Transfer)</option></select></div>
           <div><label class="${_lbl}"><span id="grnSupLabel">Supplier</span> <span id="grnSupStar" class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select —</option>${supplierOpts}</select></div>
@@ -2396,7 +2396,7 @@ function _grnAddItemRow(data) {
   tr.className = 'grn-item-row'; tr.style.borderTop = '1px solid #f1f5f9';
   tr.innerHTML =
     `<td class="px-2 py-1 text-center text-slate-400 grn-rn"></td>`
-    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="syncUnitPicker('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
+    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="_grnMatPick('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
     + `<td class="px-2 py-1"><input class="grn-cat ${inp}" placeholder="Steel / Cement…"></td>`
     + `<td class="px-2 py-1"><input type="number" class="grn-qty ${inp}" style="min-width:70px" placeholder="0"></td>`
     + `<td class="px-2 py-1"><select id="grnUnit_${i}" class="grn-unit ${inp} font-bold" style="min-width:70px"></select></td>`
@@ -2417,6 +2417,108 @@ function _grnAddItemRow(data) {
   return tr;
 }
 window._grnAddItemRow = _grnAddItemRow;
+
+/** The last rate (and unit) a material was received at, from GRN history — so
+ *  re-selecting e.g. "Sand" pre-fills the rate the storekeeper used last time. */
+function _grnLastRateFor(matId) {
+  if (!matId) return null;
+  const recs = (state.grnRecords || []).filter(g => g.matId === matId);
+  if (!recs.length) return null;
+  recs.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.receivedAt || '').localeCompare(a.receivedAt || ''));
+  const g = recs[0];
+  const entered = (g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty) || 0;
+  const rate = (entered > 0 && g.amount) ? (Number(g.amount) / entered) : (Number(g.rate) || 0);
+  if (!(rate > 0)) return null;
+  return { rate: Math.round(rate * 100) / 100, unit: g.entryUnit || '' };
+}
+
+/** Material chosen in a GRN item row: refresh its unit picker, then pre-fill the
+ *  last-used rate (and unit) for that material if the rate box is still empty. */
+window._grnMatPick = function (matSelId, unitSelId) {
+  syncUnitPicker(matSelId, unitSelId);
+  const matSel = document.getElementById(matSelId); if (!matSel) return;
+  const tr = matSel.closest('tr'); if (!tr) return;
+  const last = _grnLastRateFor(matSel.value);
+  if (!last) return;
+  const unitSel = document.getElementById(unitSelId);
+  if (unitSel && last.unit) { const opt = Array.from(unitSel.options).find(o => o.value === last.unit); if (opt) unitSel.value = last.unit; }
+  const rateEl = tr.querySelector('.grn-rate');
+  if (rateEl && !rateEl.value) rateEl.value = last.rate;
+};
+
+// ─── Styled date picker (replaces the browser's default calendar) ───
+// A GRN date field is a hidden <input> holding yyyy-mm-dd (so all read/write
+// code is unchanged) paired with a readonly display showing dd-mm-yyyy. The
+// calendar popup below is fully themed to match the app.
+const _DP_MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** yyyy-mm-dd → dd-mm-yyyy for display (blank/invalid → ''). */
+function _fmtDMY(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const [y, m, d] = iso.split('-'); return `${d}-${m}-${y}`;
+}
+/** Markup for a themed date field: hidden canonical value + readonly display. */
+function _dateFieldHTML(id, value, cb, cls) {
+  return `<div class="tss-dp" style="position:relative;">
+    <input id="${id}" type="hidden" value="${value || ''}">
+    <input id="${id}Disp" type="text" readonly placeholder="Select date" value="${_fmtDMY(value)}" onclick="_dpOpen('${id}','${cb || ''}')" class="${cls} cursor-pointer pr-9">
+    <span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:#94a3b8;">📅</span>
+  </div>`;
+}
+/** Set a date field's value programmatically (updates hidden + display). */
+window._dpSet = function (id, iso) {
+  const h = document.getElementById(id); const disp = document.getElementById(id + 'Disp');
+  if (h) h.value = iso || '';
+  if (disp) disp.value = _fmtDMY(iso);
+};
+function _dpGrid(vy, vm, sel) {
+  const first = new Date(vy, vm - 1, 1);
+  const startDow = (first.getDay() + 6) % 7;            // Monday-first
+  const daysIn = new Date(vy, vm, 0).getDate();
+  const today = new Date(); const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += `<span class="tss-dp-d tss-dp-empty"></span>`;
+  for (let d = 1; d <= daysIn; d++) {
+    const val = `${vy}-${String(vm).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const cl = ['tss-dp-d']; if (val === sel) cl.push('sel'); if (val === todayIso) cl.push('today');
+    cells += `<button type="button" data-dp="day" data-val="${val}" class="${cl.join(' ')}">${d}</button>`;
+  }
+  return `<div class="tss-dp-hd"><button type="button" data-dp="prev" class="tss-dp-nav">‹</button><div class="tss-dp-title">${_DP_MON[vm - 1]} ${vy}</div><button type="button" data-dp="next" class="tss-dp-nav">›</button></div>
+    <div class="tss-dp-dow">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => `<span>${x}</span>`).join('')}</div>
+    <div class="tss-dp-grid">${cells}</div>
+    <div class="tss-dp-ft"><button type="button" data-dp="clear" class="tss-dp-link">Clear</button><button type="button" data-dp="today" class="tss-dp-link">Today</button></div>`;
+}
+/** Open the themed calendar anchored to a date field's display input. */
+window._dpOpen = function (id, cb) {
+  document.getElementById('tssDpPop')?.remove();
+  const hidden = document.getElementById(id); const disp = document.getElementById(id + 'Disp');
+  if (!hidden || !disp) return;
+  let cur = /^\d{4}-\d{2}-\d{2}$/.test(hidden.value) ? hidden.value : new Date().toISOString().slice(0, 10);
+  let [vy, vm] = cur.split('-').map(Number);
+  const pop = document.createElement('div'); pop.id = 'tssDpPop'; pop.className = 'tss-dp-pop';
+  const render = () => { pop.innerHTML = _dpGrid(vy, vm, hidden.value); };
+  const close = () => { pop.remove(); document.removeEventListener('mousedown', onDoc, true); window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true); };
+  const pick = (val) => { window._dpSet(id, val); if (cb && typeof window[cb] === 'function') { try { window[cb](); } catch (e) {} } close(); };
+  const onDoc = (e) => { if (!pop.contains(e.target) && e.target !== disp) close(); };
+  pop.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-dp]'); if (!t) return;
+    const a = t.getAttribute('data-dp');
+    if (a === 'prev') { if (--vm < 1) { vm = 12; vy--; } render(); }
+    else if (a === 'next') { if (++vm > 12) { vm = 1; vy++; } render(); }
+    else if (a === 'today') { pick(new Date().toISOString().slice(0, 10)); }
+    else if (a === 'clear') { pick(''); }
+    else if (a === 'day') { pick(t.getAttribute('data-val')); }
+  });
+  render();
+  pop.style.position = 'fixed'; pop.style.visibility = 'hidden'; document.body.appendChild(pop);
+  const r = disp.getBoundingClientRect();
+  let left = r.left, top = r.bottom + 6;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  if (left + pw > window.innerWidth - 10) left = Math.max(10, window.innerWidth - 10 - pw);
+  if (top + ph > window.innerHeight - 10) top = Math.max(10, r.top - ph - 6);   // flip above if no room
+  pop.style.left = left + 'px'; pop.style.top = top + 'px'; pop.style.visibility = 'visible';
+  setTimeout(() => { document.addEventListener('mousedown', onDoc, true); window.addEventListener('resize', close); window.addEventListener('scroll', close, true); }, 0);
+};
+
 function _grnRenumberRows() { document.querySelectorAll('#grnItemsBody .grn-item-row .grn-rn').forEach((c, idx) => c.textContent = idx + 1); }
 window._grnRenumberRows = _grnRenumberRows;
 
@@ -3051,7 +3153,7 @@ window._grnEdit = function (id) {
 
   // Header + the single editable item row are rebuilt by _renderGRN() from the
   // editing record; here we only set the header inputs it doesn't default.
-  const _gd = document.getElementById('grnDate'); if (_gd) _gd.value = g.date || '';
+  window._dpSet('grnDate', g.date || '');
   document.getElementById('grnSite').value = g.siteId || '';
   document.getElementById('grnSupplier').value = g.supplierId || '';
   const src = document.getElementById('grnSource'); if (src) src.value = g.sourceType || 'Supplier';
