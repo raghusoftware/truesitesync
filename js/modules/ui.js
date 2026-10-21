@@ -2482,7 +2482,13 @@ function _dpGrid(vy, vm, sel) {
     const cl = ['tss-dp-d']; if (val === sel) cl.push('sel'); if (val === todayIso) cl.push('today');
     cells += `<button type="button" data-dp="day" data-val="${val}" class="${cl.join(' ')}">${d}</button>`;
   }
-  return `<div class="tss-dp-hd"><button type="button" data-dp="prev" class="tss-dp-nav">‹</button><div class="tss-dp-title">${_DP_MON[vm - 1]} ${vy}</div><button type="button" data-dp="next" class="tss-dp-nav">›</button></div>
+  const nowY = new Date().getFullYear();
+  const y0 = Math.min(nowY - 12, vy), y1 = Math.max(nowY + 4, vy);
+  let years = ''; for (let y = y1; y >= y0; y--) years += `<option value="${y}" ${y === vy ? 'selected' : ''}>${y}</option>`;
+  const months = _DP_MON.map((nm, i) => `<option value="${i + 1}" ${i + 1 === vm ? 'selected' : ''}>${nm}</option>`).join('');
+  return `<div class="tss-dp-hd"><button type="button" data-dp="prev" class="tss-dp-nav">‹</button>
+      <div class="tss-dp-sel"><select data-dp="month" class="tss-dp-pick">${months}</select><select data-dp="year" class="tss-dp-pick">${years}</select></div>
+      <button type="button" data-dp="next" class="tss-dp-nav">›</button></div>
     <div class="tss-dp-dow">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => `<span>${x}</span>`).join('')}</div>
     <div class="tss-dp-grid">${cells}</div>
     <div class="tss-dp-ft"><button type="button" data-dp="clear" class="tss-dp-link">Clear</button><button type="button" data-dp="today" class="tss-dp-link">Today</button></div>`;
@@ -2500,13 +2506,20 @@ window._dpOpen = function (id, cb) {
   const pick = (val) => { window._dpSet(id, val); if (cb && typeof window[cb] === 'function') { try { window[cb](); } catch (e) {} } close(); };
   const onDoc = (e) => { if (!pop.contains(e.target) && e.target !== disp) close(); };
   pop.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-dp]'); if (!t) return;
+    const t = e.target.closest('[data-dp]'); if (!t || t.tagName === 'SELECT') return;
     const a = t.getAttribute('data-dp');
     if (a === 'prev') { if (--vm < 1) { vm = 12; vy--; } render(); }
     else if (a === 'next') { if (++vm > 12) { vm = 1; vy++; } render(); }
     else if (a === 'today') { pick(new Date().toISOString().slice(0, 10)); }
     else if (a === 'clear') { pick(''); }
     else if (a === 'day') { pick(t.getAttribute('data-val')); }
+  });
+  // Jump straight to a month / year from the header dropdowns.
+  pop.addEventListener('change', (e) => {
+    const t = e.target.closest('[data-dp]'); if (!t) return;
+    const a = t.getAttribute('data-dp');
+    if (a === 'month') { vm = parseInt(t.value, 10) || vm; render(); }
+    else if (a === 'year') { vy = parseInt(t.value, 10) || vy; render(); }
   });
   render();
   pop.style.position = 'fixed'; pop.style.visibility = 'hidden'; document.body.appendChild(pop);

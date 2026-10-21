@@ -2690,3 +2690,6 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
 .tss-dp-ft{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;}
 .tss-dp-link{border:none;background:none;color:#4f46e5;font-weight:700;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:7px;}
 .tss-dp-link:hover{background:#eef2ff;}
+.tss-dp-sel{display:flex;gap:6px;align-items:center;}
+.tss-dp-pick{border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;font-size:13px;font-weight:700;color:#1e293b;background:#fff;cursor:pointer;outline:none;}
+.tss-dp-pick:focus{border-color:#a5b4fc;box-shadow:0 0 0 2px #e0e7ff;}
