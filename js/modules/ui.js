@@ -2433,17 +2433,29 @@ function _grnLastRateFor(matId) {
 }
 
 /** Material chosen in a GRN item row: refresh its unit picker, then pre-fill the
- *  last-used rate (and unit) for that material if the rate box is still empty. */
+ *  rate (and unit) for that material if the rate box is still empty — first from
+ *  another row already filled in THIS form, else from saved GRN history. */
 window._grnMatPick = function (matSelId, unitSelId) {
   syncUnitPicker(matSelId, unitSelId);
-  const matSel = document.getElementById(matSelId); if (!matSel) return;
+  const matSel = document.getElementById(matSelId); if (!matSel || !matSel.value) return;
   const tr = matSel.closest('tr'); if (!tr) return;
-  const last = _grnLastRateFor(matSel.value);
-  if (!last) return;
-  const unitSel = document.getElementById(unitSelId);
-  if (unitSel && last.unit) { const opt = Array.from(unitSel.options).find(o => o.value === last.unit); if (opt) unitSel.value = last.unit; }
   const rateEl = tr.querySelector('.grn-rate');
-  if (rateEl && !rateEl.value) rateEl.value = last.rate;
+  if (rateEl && rateEl.value) return;   // never overwrite a rate already typed
+
+  let rate = null, unit = '';
+  // 1) another row in this same receipt with the same material + a rate.
+  document.querySelectorAll('#grnItemsBody .grn-item-row').forEach(row => {
+    if (row === tr || rate != null) return;
+    const ms = row.querySelector('.grn-mat'); const rt = row.querySelector('.grn-rate');
+    if (ms && ms.value === matSel.value && rt && rt.value) { rate = parseFloat(rt.value); unit = row.querySelector('.grn-unit')?.value || ''; }
+  });
+  // 2) otherwise the last rate this material was received at.
+  if (rate == null) { const last = _grnLastRateFor(matSel.value); if (last) { rate = last.rate; unit = last.unit; } }
+  if (rate == null || isNaN(rate)) return;
+
+  const unitSel = document.getElementById(unitSelId);
+  if (unitSel && unit) { const opt = Array.from(unitSel.options).find(o => o.value === unit); if (opt) unitSel.value = unit; }
+  if (rateEl) rateEl.value = rate;
 };
 
 // ─── Styled date picker (replaces the browser's default calendar) ───
@@ -3231,13 +3243,29 @@ window._saveGRN = function() {
   }
   if (!items.length) { showToast('Add at least one material with quantity > 0', 'error'); return; }
 
-  // Duplicate-challan guard (once for the whole receipt; new receipts only).
-  if (challanNo && !editing) {
-    const dup = (state.grnRecords || []).find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase());
-    if (dup) {
-      const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this party';
-      const msg = `⚠ Duplicate challan\n\nChallan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo} (dated ${_grnFmtDate(dup.date) || '—'}).\n\nAdd this receipt anyway?`;
-      if (!confirm(msg)) { showToast('Duplicate GRN not added', 'info'); return; }
+  // ── Double-entry guard — BLOCK (not just warn) a repeat receipt ──
+  // A duplicate is either the same challan from the same supplier, or the same
+  // supplier + material + quantity on the same date. Excludes the record being
+  // edited so re-saving an edit never flags itself.
+  {
+    const selfId = editing ? editing.id : null;
+    const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId && g.id !== selfId);
+    // 1) same challan + same supplier
+    if (challanNo) {
+      const dupCh = existing.find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase());
+      if (dupCh) {
+        showToast(`Double entry blocked — challan "${challanNo}" from this supplier is already recorded as ${dupCh.grnNo} (${_grnFmtDate(dupCh.date) || '—'}).`, 'error');
+        return;
+      }
+    }
+    // 2) same supplier + material + quantity + date
+    for (const it of items) {
+      const dup = existing.find(g => g.supplierId === supplierId && g.matId === it.matId && (g.date || '') === date && Math.abs((Number(g.qty) || 0) - (Number(it.qty) || 0)) < 1e-6);
+      if (dup) {
+        const mName = state.rawMaterials.find(r => r.id === it.matId)?.name || 'this material';
+        showToast(`Double entry blocked — ${mName} of the same quantity on ${_grnFmtDate(date) || 'this date'} already exists (${dup.grnNo}). Change the challan, qty or date if it's a separate delivery.`, 'error');
+        return;
+      }
     }
   }
 
