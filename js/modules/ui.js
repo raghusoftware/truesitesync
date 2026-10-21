@@ -2557,7 +2557,7 @@ window._grnViewPhoto = function (id) {
 
 // ─── Full GRN Register (dedicated Inventory tile — filters + pagination) ───
 // Own filter/pagination state, kept separate from the entry-form mini-register.
-let _grnRegFilters = { supplier: '', material: '', from: '', to: '', bill: '' };
+let _grnRegFilters = { supplier: '', material: '', site: '', from: '', to: '', bill: '' };
 let _grnRegPage = 1;
 let _grnRegSize = 20;
 let _grnRegSel = new Set();   // ids of GRNs ticked for bulk delete
@@ -2579,6 +2579,7 @@ function _grnRegFiltered() {
   let list = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
   if (f.supplier) list = list.filter(g => g.supplierId === f.supplier);
   if (f.material) list = list.filter(g => g.matId === f.material);
+  if (f.site) list = list.filter(g => g.siteId === f.site);
   if (f.from) list = list.filter(g => (g.date || '') >= f.from);
   if (f.to) list = list.filter(g => (g.date || '') <= f.to);
   if (f.bill === 'billed') list = list.filter(g => _grnIsBilled(g));
@@ -2603,7 +2604,7 @@ function _renderGrnRegister() {
   const pageQty = rows.reduce((s, g) => s + (Number(g.qty) || 0), 0);
   const totalQty = all.reduce((s, g) => s + (Number(g.qty) || 0), 0);
   const totalAmt = all.reduce((s, g) => s + (Number(g.amount) || 0), 0);
-  const active = _grnRegFilters.supplier || _grnRegFilters.material || _grnRegFilters.from || _grnRegFilters.to || _grnRegFilters.bill;
+  const active = _grnRegFilters.supplier || _grnRegFilters.material || _grnRegFilters.site || _grnRegFilters.from || _grnRegFilters.to || _grnRegFilters.bill;
   const sizeOpt = (n, lbl) => `<option value="${n}" ${_grnRegSize === n ? 'selected' : ''}>${lbl}</option>`;
 
   c.innerHTML = `
@@ -2625,6 +2626,7 @@ function _renderGrnRegister() {
       <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
         <select id="grnRegFltSupplier" onchange="_grnRegSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnRegFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
         <select id="grnRegFltMaterial" onchange="_grnRegSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnRegFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
+        <select id="grnRegFltSite" onchange="_grnRegSetFilter('site',this.value)" title="Store / Site" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Sites</option>${_invSiteOptions(_grnRegFilters.site)}</select>
         <input id="grnRegFltFrom" type="date" value="${_grnRegFilters.from}" onchange="_grnRegSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
@@ -2703,7 +2705,7 @@ function _renderGrnRegister() {
 
 window._grnRegSetFilter = function (key, val) { _grnRegFilters[key] = val || ''; _grnRegPage = 1; _renderGrnRegister(); };
 window._grnRegClearFilter = function () {
-  _grnRegFilters = { supplier: '', material: '', from: '', to: '', bill: '' };
+  _grnRegFilters = { supplier: '', material: '', site: '', from: '', to: '', bill: '' };
   _grnRegPage = 1;
   _renderGrnRegister();
 };
