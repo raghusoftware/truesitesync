@@ -2320,6 +2320,13 @@ function _renderGRN() {
         </div>
 
         ${_sec('Materials Received')}
+        <div class="mb-3 flex flex-wrap items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <span class="text-xs font-bold text-emerald-800">⚡ Bulk import GRNs from Excel</span>
+          <input type="file" id="grnBulkFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_grnBulkImport(this)">
+          <button type="button" onclick="document.getElementById('grnBulkFile').click()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬆ Upload Excel</button>
+          <button type="button" onclick="_grnBulkSample()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-100">⬇ Sample file</button>
+          <span class="text-[10px] text-emerald-600 w-full sm:w-auto">Each row = one GRN. Imported GRNs appear in the register below.</span>
+        </div>
         <div class="overflow-x-auto border border-slate-200 rounded-xl">
           <table class="w-full text-xs">
             <thead class="bg-slate-50"><tr>
@@ -3331,6 +3338,132 @@ window._grnApproveQc = function (id) {
   try { _renderGrnList(); } catch {}
   try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
   showToast(`QC approved — ${g.grnNo || 'GRN'}`, 'success');
+};
+
+// ─── Bulk GRN import from Excel ───
+/** Flexible date parse: Date object, yyyy-mm-dd, dd-mm-yyyy, dd/mm/yyyy, or
+ *  anything Date() understands → yyyy-mm-dd ('' if unparseable). */
+function _parseImportDate(v) {
+  if (v == null || v === '') return '';
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (v instanceof Date && !isNaN(v)) return iso(v);
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/); if (m) { let [, d, mo, y] = m; if (y.length === 2) y = '20' + y; return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`; }
+  const dt = new Date(s); return isNaN(dt) ? '' : iso(dt);
+}
+
+/** Download a ready-to-fill sample workbook for bulk GRN import. */
+window._grnBulkSample = function () {
+  const XLSX = window.XLSX; if (!XLSX) return showToast('Excel library not loaded', 'error');
+  const headers = ['Date', 'Site', 'Supplier', 'Source Type', 'Material', 'Category', 'Qty', 'Unit', 'Expected Qty', 'Rate', 'Challan No', 'Vehicle No', 'Driver', 'Mode'];
+  const today = new Date().toISOString().slice(0, 10);
+  const ex1 = [today, '', 'Aai Krupa', 'Supplier', 'Aggregate 20mm', 'Aggregate', 100, 'Tonne', 100, 900, 'CH-001', 'GJ-01-AB-1234', 'Ramesh', 'Transport'];
+  const ex2 = [today, '', 'Praxair India', 'Supplier', 'Cement', 'Cement', 200, 'Bag', 200, 350, 'CH-002', '', '', 'Transport'];
+  const note = ['← Date (dd-mm-yyyy or yyyy-mm-dd). Site optional (defaults to this project store). Material & Qty required. Unknown material/supplier names are created automatically.'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ex1, ex2, [], note]);
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(11, h.length + 2) }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'GRN Import');
+  mobileSaveXLSX(wb, 'GRN_Bulk_Upload_Sample.xlsx');
+  showToast('Sample downloaded', 'success');
+};
+
+/** Turn parsed sheet rows into GRN records (+ stock txns). Returns a summary. */
+function _grnImportRows(rows) {
+  const errors = []; let added = 0, skipped = 0, matCreated = 0, venCreated = 0;
+  const pick = (m, keys) => { for (const k of keys) { const v = m[k]; if (v !== undefined && v !== null && String(v).trim() !== '') return v; } return ''; };
+  const locs = getAllLocations();
+  const defaultSite = locs.find(l => l.id === state.currentProjectId) || locs[0] || null;
+  const qcRequired = !!(state.printSettings && state.printSettings.grnQcApproval);
+  rows.forEach((raw, i) => {
+    const m = {}; Object.keys(raw).forEach(k => { m[String(k).trim().toLowerCase()] = raw[k]; });
+    const rowRef = `Row ${i + 2}`;
+    const dateStr = _parseImportDate(pick(m, ['date', 'receipt date', 'grn date']));
+    const matName = String(pick(m, ['material', 'item', 'material name'])).trim();
+    const qty = parseFloat(pick(m, ['qty', 'quantity', 'received qty'])) || 0;
+    if (!matName && !dateStr && !qty) return;   // wholly blank row
+    if (!dateStr) { errors.push(`${rowRef}: missing/invalid date`); skipped++; return; }
+    if (!matName) { errors.push(`${rowRef}: missing material`); skipped++; return; }
+    if (!(qty > 0)) { errors.push(`${rowRef}: qty must be > 0`); skipped++; return; }
+    const unit = String(pick(m, ['unit', 'uom'])).trim();
+    const rate = parseFloat(pick(m, ['rate', 'unit rate', 'price'])) || 0;
+    const category = String(pick(m, ['category', 'cat'])).trim();
+    const challanNo = String(pick(m, ['challan no', 'challan', 'invoice no', 'invoice'])).trim();
+    const vehicleNo = String(pick(m, ['vehicle no', 'vehicle'])).trim();
+    const driver = String(pick(m, ['driver', 'driver contact'])).trim();
+    const sourceType = String(pick(m, ['source type', 'source'])).trim() || 'Supplier';
+    const modeOfReceipt = String(pick(m, ['mode', 'mode of receipt'])).trim() || 'Transport';
+    const expRaw = parseFloat(pick(m, ['expected qty', 'exp.', 'exp', 'expected'])) || 0;
+
+    // resolve / auto-create material
+    let mat = (state.rawMaterials || []).find(r => String(r.name || '').trim().toLowerCase() === matName.toLowerCase());
+    if (!mat) {
+      mat = { id: 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: matName, unit: unit || 'Nos', type: 'Material', category: category || 'General', projectId: state.currentProjectId, rate: 0, minStock: 0 };
+      if (window.stampCreate) mat = window.stampCreate(mat);
+      (state.rawMaterials = state.rawMaterials || []).push(mat); matCreated++;
+    }
+    // resolve / auto-create supplier
+    const supName = String(pick(m, ['supplier', 'vendor', 'party'])).trim();
+    let supplierId = '';
+    if (supName) {
+      let v = (state.vendors || []).find(x => String(x.name || '').trim().toLowerCase() === supName.toLowerCase());
+      if (!v) { v = { id: 'vend_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: supName, projectId: state.currentProjectId }; if (window.stampCreate) v = window.stampCreate(v); (state.vendors = state.vendors || []).push(v); venCreated++; }
+      supplierId = v.id;
+    }
+    if (sourceType === 'Supplier' && !supplierId) { errors.push(`${rowRef}: supplier required for a Supplier receipt`); skipped++; return; }
+    // resolve site
+    const siteName = String(pick(m, ['site', 'store', 'store / site', 'store/site'])).trim();
+    const site = (siteName && locs.find(l => String(l.name || '').trim().toLowerCase() === siteName.toLowerCase())) || defaultSite;
+    if (!site) { errors.push(`${rowRef}: no store/site — create one first`); skipped++; return; }
+    const siteId = site.id;
+
+    // conversions
+    const entryUnit = unit || mat.unit || '';
+    const qtyBase = toBaseQty(mat, qty, entryUnit);
+    const expectedQty = expRaw ? toBaseQty(mat, expRaw, entryUnit) : 0;
+    const baseRate = qtyBase > 0 ? (qty * rate) / qtyBase : rate;
+    const amount = Math.round(qty * rate * 100) / 100;
+
+    // double-entry guard (incl. earlier rows pushed in this same import)
+    const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+    const dup = (challanNo && existing.find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase()))
+      || existing.find(g => g.supplierId === supplierId && g.matId === mat.id && (g.date || '') === dateStr && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6);
+    if (dup) { errors.push(`${rowRef}: duplicate of ${dup.grnNo} — skipped`); skipped++; return; }
+
+    const grnNo = _grnNextNumber(dateStr);
+    const stamp = Date.now() + '_' + i;
+    const grnId = 'grn_' + stamp;
+    state.grnRecords.push({ id: grnId, grnNo, receiptId: 'rcpt_imp_' + stamp, line: 1, date: dateStr, receivedAt: new Date().toISOString(), siteId, matId: mat.id, category, qty: qtyBase, expectedQty, rate: baseRate, amount, enteredQty: qty, entryUnit, challanNo, supplierId, poId: '', poNo: '', sourceType, modeOfReceipt, vehicleNo, driver, projectId: state.currentProjectId, challanPhoto: null, condPhoto: null, billed: false, qcStatus: qcRequired ? 'Pending Inspection' : 'Accepted', importedAt: new Date().toISOString() });
+    state.inventoryTx.push({ id: 'tx_grn_' + stamp, grnId, date: dateStr, siteId, rawMaterialId: mat.id, type: 'IN', qty: qtyBase, rate: baseRate, ref: `${grnNo} ${challanNo || ''}`.trim() });
+    added++;
+  });
+  if (matCreated) errors.unshift(`${matCreated} new material(s) created from the sheet.`);
+  if (venCreated) errors.unshift(`${venCreated} new supplier(s) created from the sheet.`);
+  return { added, skipped, errors };
+}
+
+/** Read an uploaded workbook and import its rows as GRNs. */
+window._grnBulkImport = function (input) {
+  const file = input && input.files && input.files[0]; if (!file) return;
+  const XLSX = window.XLSX; if (!XLSX) { showToast('Excel library not loaded', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+      if (!rows.length) { showToast('No rows found in the file', 'warning'); input.value = ''; return; }
+      const res = _grnImportRows(rows);
+      input.value = '';
+      saveAllData(); _renderGRN(); renderLiveInventory();
+      try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
+      let msg = `${res.added} GRN${res.added !== 1 ? 's' : ''} imported`;
+      if (res.skipped) msg += ` · ${res.skipped} skipped`;
+      showToast(msg, res.added ? 'success' : 'warning');
+      if (res.errors.length) alert('Import summary:\n\n' + res.errors.slice(0, 20).join('\n') + (res.errors.length > 20 ? `\n…and ${res.errors.length - 20} more` : ''));
+    } catch (err) { console.error(err); showToast('Could not read the Excel file', 'error'); input.value = ''; }
+  };
+  reader.readAsArrayBuffer(file);
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───
