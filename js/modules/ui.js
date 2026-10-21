@@ -2587,6 +2587,22 @@ function _grnDispQty(g, m) {
     return `${_grnQtyFmt(g.enteredQty)} ${eu}`;
   return `${_grnQtyFmt(g.qty)} ${base}`;
 }
+/** The unit a GRN's qty is shown in (entry unit when it differs from base). */
+function _grnDispUnit(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  return (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '') ? eu : base;
+}
+/** Rate PER the displayed unit — amount ÷ shown qty, so a Tonne line reads the
+ *  per-Tonne rate. Falls back to the stored base rate for older records. */
+function _grnDispRate(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  const shownQty = (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty);
+  const amount = Number(g.amount) || 0;
+  if (shownQty > 0 && amount) return amount / shownQty;
+  return Number(g.rate) || 0;
+}
 
 /** Current-project GRNs after applying the register filters, newest first. */
 function _grnRegFiltered() {
@@ -2675,6 +2691,7 @@ function _renderGrnRegister() {
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Material</th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Challan</th>
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Qty</th>
+          <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Rate</th>
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Amount</th>
           <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">QC</th>
           <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">Bill</th>
@@ -2690,12 +2707,13 @@ function _renderGrnRegister() {
           <td class="px-3 py-2.5 font-bold text-slate-700">${m?.name||g.category||'—'}</td>
           <td class="px-3 py-2.5 text-slate-500">${g.challanNo||'—'}</td>
           <td class="px-3 py-2.5 text-right font-bold">${_grnDispQty(g,m)}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
+          <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+_grnDispRate(g,m).toLocaleString('en-IN',{maximumFractionDigits:2})+`<span class="text-[9px] text-slate-400">/${_grnDispUnit(g,m)}</span>`:'—'}</td>
           <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+Number(g.amount).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'}</td>
           <td class="px-3 py-2.5 text-center">${qc}</td>
           <td class="px-3 py-2.5 text-center">${bill}</td>
           <td class="px-3 py-2.5 text-center">${g.challanPhoto||g.condPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-indigo-500 hover:underline font-semibold">view</button>`:'—'}</td>
           <td class="px-3 py-2.5 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnRegEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnRegDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td>
-        </tr>`;}).join('')||`<tr><td colspan="12" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
+        </tr>`;}).join('')||`<tr><td colspan="13" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
         </tbody>
       </table></div>
 
