@@ -217,9 +217,14 @@ export function deletePurchaseBill(id) {
   const bill = (state.vendorMaterials || []).find(m => m.id === id);
   state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
   // Remove auto-GRNs this bill created, and un-bill any manual GRNs it claimed
-  // so they reappear as "pending" in the purchase form.
+  // so they reappear as "pending" in the purchase form. A GRN can be claimed by
+  // billedByBillId OR by a bill line item carrying its grnId (older bills set
+  // only the latter) — clear the flag for both, or it stays stuck on "Billed".
+  const claimedGrnIds = new Set((bill?.items || []).map(it => it && it.grnId).filter(Boolean));
   state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== id);
-  state.grnRecords.forEach(g => { if (g.billedByBillId === id) { g.billed = false; delete g.billedByBillId; } });
+  state.grnRecords.forEach(g => {
+    if (g.billedByBillId === id || claimedGrnIds.has(g.id)) { g.billed = false; delete g.billedByBillId; }
+  });
   window.recycleDelete?.('vendorMaterials', id, 'Purchase Bill', bill?.billNo || bill?.invoiceNo || id);
   renderPurchaseLedger();
   if (!document.getElementById('vendorView').classList.contains('hide')) renderVendorLedger();

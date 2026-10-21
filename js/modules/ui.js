@@ -2487,7 +2487,7 @@ function _renderGrnList() {
   wrap.innerHTML = `
     <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
     <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
     </tbody></table></div>`;
 }
 
@@ -2515,7 +2515,7 @@ function _grnPrintRows(rows, f) {
   const body = rows.map((g, i) => {
     const m = state.rawMaterials.find(r => r.id === g.matId);
     const sup = state.vendors.find(v => v.id === g.supplierId);
-    return `<tr><td>${i + 1}</td><td>${esc(g.grnNo || '—')}</td><td>${esc(_grnFmtDate(g.date))}</td><td>${esc(sup?.name || '—')}</td><td>${esc(m?.name || g.category || '—')}</td><td class="r">${esc(g.qty)} ${esc(m?.unit || '')}</td><td>${esc(g.challanNo || '')}</td><td>${g.billed ? 'Billed' : 'Unbilled'}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${esc(g.grnNo || '—')}</td><td>${esc(_grnFmtDate(g.date))}</td><td>${esc(sup?.name || '—')}</td><td>${esc(m?.name || g.category || '—')}</td><td class="r">${esc(g.qty)} ${esc(m?.unit || '')}</td><td>${esc(g.challanNo || '')}</td><td>${_grnIsBilled(g) ? 'Billed' : 'Unbilled'}</td></tr>`;
   }).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>GRN Material List</title>
     <style>
@@ -2557,9 +2557,21 @@ window._grnViewPhoto = function (id) {
 
 // ─── Full GRN Register (dedicated Inventory tile — filters + pagination) ───
 // Own filter/pagination state, kept separate from the entry-form mini-register.
-let _grnRegFilters = { supplier: '', material: '', from: '', to: '' };
+let _grnRegFilters = { supplier: '', material: '', from: '', to: '', bill: '' };
 let _grnRegPage = 1;
 let _grnRegSize = 20;
+let _grnRegSel = new Set();   // ids of GRNs ticked for bulk delete
+
+/** A GRN's billed status DERIVED from whether a live purchase bill still
+ *  references it — so deleting the bill (or legacy stuck flags) can't leave a
+ *  GRN falsely "Billed". */
+function _grnIsBilled(g) {
+  if (!g) return false;
+  const bills = state.vendorMaterials || [];
+  if (g.refBillId) return bills.some(b => b.id === g.refBillId);             // auto-GRN from a bill
+  if (g.billedByBillId && bills.some(b => b.id === g.billedByBillId)) return true;
+  return bills.some(b => (b.items || []).some(it => it.grnId === g.id));      // claimed by a live bill line
+}
 
 /** Current-project GRNs after applying the register filters, newest first. */
 function _grnRegFiltered() {
@@ -2569,6 +2581,8 @@ function _grnRegFiltered() {
   if (f.material) list = list.filter(g => g.matId === f.material);
   if (f.from) list = list.filter(g => (g.date || '') >= f.from);
   if (f.to) list = list.filter(g => (g.date || '') <= f.to);
+  if (f.bill === 'billed') list = list.filter(g => _grnIsBilled(g));
+  else if (f.bill === 'unbilled') list = list.filter(g => !_grnIsBilled(g));
   return list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.receivedAt || '').localeCompare(a.receivedAt || ''));
 }
 
@@ -2589,7 +2603,7 @@ function _renderGrnRegister() {
   const pageQty = rows.reduce((s, g) => s + (Number(g.qty) || 0), 0);
   const totalQty = all.reduce((s, g) => s + (Number(g.qty) || 0), 0);
   const totalAmt = all.reduce((s, g) => s + (Number(g.amount) || 0), 0);
-  const active = _grnRegFilters.supplier || _grnRegFilters.material || _grnRegFilters.from || _grnRegFilters.to;
+  const active = _grnRegFilters.supplier || _grnRegFilters.material || _grnRegFilters.from || _grnRegFilters.to || _grnRegFilters.bill;
   const sizeOpt = (n, lbl) => `<option value="${n}" ${_grnRegSize === n ? 'selected' : ''}>${lbl}</option>`;
 
   c.innerHTML = `
@@ -2613,8 +2627,16 @@ function _renderGrnRegister() {
         <select id="grnRegFltMaterial" onchange="_grnRegSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnRegFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
         <input id="grnRegFltFrom" type="date" value="${_grnRegFilters.from}" onchange="_grnRegSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+        <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
         <button onclick="_grnRegClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
         <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition ml-auto">🖨️ Print</button>
+      </div>
+
+      <!-- Bulk-select action bar (shown when GRNs are ticked) -->
+      <div id="grnRegSelBar" class="hide px-5 py-2.5 border-b border-rose-100 bg-rose-50 flex items-center gap-3">
+        <span class="text-xs font-bold text-rose-700"><b id="grnRegSelCount">0</b> selected</span>
+        <button onclick="_grnRegDeleteSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">🗑 Delete selected</button>
+        <button onclick="_grnRegClearSel()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear selection</button>
       </div>
 
       <!-- Summary strip -->
@@ -2628,6 +2650,7 @@ function _renderGrnRegister() {
       <!-- Table -->
       <div class="overflow-x-auto"><table class="w-full text-xs">
         <thead class="bg-slate-50"><tr>
+          <th class="px-3 py-2.5 text-center w-8"><input type="checkbox" id="grnRegSelAll" onchange="_grnRegSelAll(this.checked)" title="Select all unbilled on this page" class="align-middle cursor-pointer"></th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">GRN No</th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Date</th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Supplier</th>
@@ -2641,7 +2664,8 @@ function _renderGrnRegister() {
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Action</th>
         </tr></thead>
         <tbody>
-        ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const bill=g.billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
+        ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600 font-bold">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr class="hover:bg-indigo-50/40" style="border-bottom:1px solid #f1f5f9;">
+          <td class="px-3 py-2.5 text-center">${billed?'<span class="text-slate-300" title="Billed GRNs cannot be deleted — unbill it first">—</span>':`<input type="checkbox" class="grn-sel align-middle cursor-pointer" data-id="${g.id}" ${_grnRegSel.has(g.id)?'checked':''} onchange="_grnRegToggleSel('${g.id}',this.checked)">`}</td>
           <td class="px-3 py-2.5 font-mono text-indigo-700 font-bold">${g.grnNo||'—'}</td>
           <td class="px-3 py-2.5 text-slate-600">${_grnFmtDate(g.date)}</td>
           <td class="px-3 py-2.5">${sup?.name||'—'}</td>
@@ -2652,8 +2676,8 @@ function _renderGrnRegister() {
           <td class="px-3 py-2.5 text-center">${qc}</td>
           <td class="px-3 py-2.5 text-center">${bill}</td>
           <td class="px-3 py-2.5 text-center">${g.challanPhoto||g.condPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-indigo-500 hover:underline font-semibold">view</button>`:'—'}</td>
-          <td class="px-3 py-2.5 text-right"><div class="flex gap-1 justify-end">${g.billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnRegEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${g.billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnRegDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td>
-        </tr>`;}).join('')||`<tr><td colspan="11" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
+          <td class="px-3 py-2.5 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnRegEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnRegDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td>
+        </tr>`;}).join('')||`<tr><td colspan="12" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
         </tbody>
       </table></div>
 
@@ -2674,11 +2698,12 @@ function _renderGrnRegister() {
         </div>
       </div>
     </div>`;
+  _grnRegUpdateSelBar();   // re-sync the bulk-select bar after every repaint
 }
 
 window._grnRegSetFilter = function (key, val) { _grnRegFilters[key] = val || ''; _grnRegPage = 1; _renderGrnRegister(); };
 window._grnRegClearFilter = function () {
-  _grnRegFilters = { supplier: '', material: '', from: '', to: '' };
+  _grnRegFilters = { supplier: '', material: '', from: '', to: '', bill: '' };
   _grnRegPage = 1;
   _renderGrnRegister();
 };
@@ -2689,6 +2714,51 @@ window._grnRegPrint = function () { _grnPrintRows(_grnRegFiltered(), _grnRegFilt
 window._grnRegEdit = function (id) { _openInvSection('grn'); _grnEdit(id); };
 /** Delete from the register — reuse the shared delete, then repaint the register. */
 window._grnRegDelete = function (id) { _grnDelete(id); _renderGrnRegister(); };
+
+// ─── Bulk select / delete in the register ───
+/** Tick / untick one GRN, keep the action bar + select-all in sync. */
+window._grnRegToggleSel = function (id, on) {
+  if (on) _grnRegSel.add(id); else _grnRegSel.delete(id);
+  _grnRegUpdateSelBar();
+};
+/** Select-all ticks every UNBILLED GRN on the current page. */
+window._grnRegSelAll = function (on) {
+  document.querySelectorAll('.grn-sel').forEach(cb => {
+    cb.checked = on;
+    if (on) _grnRegSel.add(cb.dataset.id); else _grnRegSel.delete(cb.dataset.id);
+  });
+  _grnRegUpdateSelBar();
+};
+/** Clear the whole selection and repaint. */
+window._grnRegClearSel = function () { _grnRegSel.clear(); _renderGrnRegister(); };
+/** Refresh the "N selected" bar + the header select-all checkbox state. */
+function _grnRegUpdateSelBar() {
+  const bar = document.getElementById('grnRegSelBar');
+  const cnt = document.getElementById('grnRegSelCount');
+  if (cnt) cnt.textContent = _grnRegSel.size;
+  if (bar) bar.classList.toggle('hide', _grnRegSel.size === 0);
+  const boxes = Array.from(document.querySelectorAll('.grn-sel'));
+  const all = document.getElementById('grnRegSelAll');
+  if (all) {
+    const checked = boxes.filter(b => b.checked).length;
+    all.checked = boxes.length > 0 && checked === boxes.length;
+    all.indeterminate = checked > 0 && checked < boxes.length;
+  }
+}
+/** Delete every ticked GRN at once (billed ones are never selectable). */
+window._grnRegDeleteSelected = function () {
+  const ids = Array.from(_grnRegSel);
+  if (!ids.length) return;
+  const victims = ids.map(id => (state.grnRecords || []).find(x => x.id === id)).filter(Boolean)
+    .filter(g => !_grnIsBilled(g));   // safety: never delete a billed GRN
+  if (!victims.length) { _grnRegSel.clear(); _renderGrnRegister(); return; }
+  if (!confirm(`Delete ${victims.length} selected GRN${victims.length > 1 ? 's' : ''}?\n\nThis also reverses the stock each one added to inventory. You can restore them from the Recycle Bin.`)) return;
+  let n = 0;
+  victims.forEach(g => { if (_grnDeleteCore(g.id)) n++; });
+  _grnRegSel.clear();
+  _renderGRN(); renderLiveInventory(); _renderGrnRegister();
+  showToast(`${n} GRN${n > 1 ? 's' : ''} deleted`, 'warning');
+};
 /**
  * The stock transaction and QC check a GRN spawned. New records carry grnId;
  * older ones predate it, so fall back to matching the GRN number in the ref.
@@ -2703,20 +2773,31 @@ function _grnLinkedQc(g) {
     (state.qualityChecks || []).find(q => typeof q.result === 'string' && g.grnNo && q.result.includes(g.grnNo));
 }
 
-/** Delete a GRN — reverses the stock it added + any pending QC check (soft-delete). */
-window._grnDelete = function (id) {
+/**
+ * Soft-delete one GRN plus the stock txn + pending QC it spawned. No prompt,
+ * no repaint — the caller handles those (so bulk-delete asks once and repaints
+ * once). Returns true if the GRN was actually removed.
+ */
+function _grnDeleteCore(id) {
   const g = (state.grnRecords || []).find(x => x.id === id);
-  if (!g) return;
-  if (g.billed) { showToast("This GRN is billed — unbill it first, then delete.", 'error'); return; }
-  if (!confirm(`Delete GRN ${g.grnNo || ''}?\n\nThis also removes the stock it added to inventory. You can restore it from the Recycle Bin.`)) return;
+  if (!g || _grnIsBilled(g)) return false;
   if (_grnEditingId === id) { try { window._grnCancelEdit && window._grnCancelEdit(); } catch {} }
   const tx = _grnLinkedTx(g);
   if (tx) window.recycleDelete && window.recycleDelete('inventoryTx', tx.id, 'Stock (GRN)');
   const qc = _grnLinkedQc(g);
   if (qc) window.recycleDelete && window.recycleDelete('qualityChecks', qc.id, 'QC check');
   window.recycleDelete && window.recycleDelete('grnRecords', id, 'GRN'); // saveAllData() runs inside
-  _renderGRN(); renderLiveInventory();
-  showToast(`GRN ${g.grnNo || ''} deleted`, 'warning');
+  return true;
+}
+
+/** Delete a single GRN — reverses the stock it added + any pending QC check (soft-delete). */
+window._grnDelete = function (id) {
+  const g = (state.grnRecords || []).find(x => x.id === id);
+  if (!g) return;
+  if (_grnIsBilled(g)) { showToast("This GRN is billed — delete the purchase bill first, then delete the GRN.", 'error'); return; }
+  if (!confirm(`Delete GRN ${g.grnNo || ''}?\n\nThis also removes the stock it added to inventory. You can restore it from the Recycle Bin.`)) return;
+  _grnRegSel.delete(id);
+  if (_grnDeleteCore(id)) { _renderGRN(); renderLiveInventory(); showToast(`GRN ${g.grnNo || ''} deleted`, 'warning'); }
 };
 
 /** Load an existing GRN back into the form for editing. */
@@ -2725,7 +2806,7 @@ window._grnEdit = function (id) {
   if (!g) return;
   // A billed GRN has already been turned into a purchase bill — changing its qty
   // or rate would silently desync the accounts.
-  if (g.billed) return showToast('This GRN is already billed — unbill it before editing', 'error');
+  if (_grnIsBilled(g)) return showToast('This GRN is already billed — delete the purchase bill before editing', 'error');
 
   _grnEditingId = id;
   _renderGRN();  // repaint so the header/button reflect edit mode
@@ -2767,7 +2848,7 @@ window._grnDateChanged = function () {
 window._saveGRN = function() {
   const editing = _grnEditingId ? (state.grnRecords || []).find(x => x.id === _grnEditingId) : null;
   if (_grnEditingId && !editing) { _grnEditingId = null; return showToast('That GRN no longer exists', 'error'); }
-  if (editing && editing.billed) return showToast('This GRN is already billed — unbill it before editing', 'error');
+  if (editing && _grnIsBilled(editing)) return showToast('This GRN is already billed — delete the purchase bill before editing', 'error');
 
   // ── Shared receipt header ──
   const siteId = document.getElementById('grnSite').value;
