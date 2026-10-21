@@ -2487,7 +2487,7 @@ function _renderGrnList() {
   wrap.innerHTML = `
     <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
     <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${_grnDispQty(g,m)}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
     </tbody></table></div>`;
 }
 
@@ -2571,6 +2571,21 @@ function _grnIsBilled(g) {
   if (g.refBillId) return bills.some(b => b.id === g.refBillId);             // auto-GRN from a bill
   if (g.billedByBillId && bills.some(b => b.id === g.billedByBillId)) return true;
   return bills.some(b => (b.items || []).some(it => it.grnId === g.id));      // claimed by a live bill line
+}
+
+/** Format a number with Indian grouping and up to 3 decimals (trims trailing zeros). */
+function _grnQtyFmt(n) {
+  return (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
+}
+/** Quantity + unit for a GRN, SHOWN in the unit it was received/converted to
+ *  (entryUnit) when that differs from the material's base unit — so a line
+ *  converted to Tonne reads "33.310 Tonne", not the base "33310 Kg". */
+function _grnDispQty(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  if (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '')
+    return `${_grnQtyFmt(g.enteredQty)} ${eu}`;
+  return `${_grnQtyFmt(g.qty)} ${base}`;
 }
 
 /** Current-project GRNs after applying the register filters, newest first. */
@@ -2674,7 +2689,7 @@ function _renderGrnRegister() {
           <td class="px-3 py-2.5">${sup?.name||'—'}</td>
           <td class="px-3 py-2.5 font-bold text-slate-700">${m?.name||g.category||'—'}</td>
           <td class="px-3 py-2.5 text-slate-500">${g.challanNo||'—'}</td>
-          <td class="px-3 py-2.5 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
+          <td class="px-3 py-2.5 text-right font-bold">${_grnDispQty(g,m)}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
           <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+Number(g.amount).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'}</td>
           <td class="px-3 py-2.5 text-center">${qc}</td>
           <td class="px-3 py-2.5 text-center">${bill}</td>
@@ -2820,21 +2835,26 @@ window._grnRegApplyBulkEdit = function () {
   if (!newUnit && !hasRate) { showToast('Set a new unit or a rate first', 'info'); return; }
 
   const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const r3 = n => Math.round((Number(n) || 0) * 1000) / 1000;
   let changed = 0, unitChanged = 0;
   victims.forEach(g => {
     const m = (state.rawMaterials || []).find(r => r.id === g.matId);
     const supports = u => !!m && (m.unit === u || (m.altUnits || []).some(a => a.unit === u));
-    // Keep the same number the storekeeper typed; only its unit meaning changes.
-    const entered = (g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty) || 0;
+    // A unit change is a TRUE conversion — the physical quantity in stock stays
+    // the same, it's just re-expressed in the new unit. 33310 Kg → 33.310 Tonne.
+    const baseQty = Number(g.qty) || 0;                       // base-unit stock — preserved
+    const curBaseRate = (Number(g.rate) || 0) || (baseQty > 0 ? (Number(g.amount) || 0) / baseQty : 0);
     const unit = (newUnit && supports(newUnit)) ? newUnit : (g.entryUnit || (m ? m.unit : ''));
     if (newUnit && supports(newUnit) && unit !== g.entryUnit) unitChanged++;
-    const qtyBase = toBaseQty(m, entered, unit);
-    const curEntryRate = entered > 0 ? (Number(g.amount) || 0) / entered : (Number(g.rate) || 0);
-    const entryRate = hasRate ? newRate : curEntryRate;
-    const amount = r2(entered * entryRate);
-    const baseRate = qtyBase > 0 ? r2(amount / qtyBase) : entryRate;
-    Object.assign(g, { entryUnit: unit, enteredQty: entered, qty: qtyBase, rate: baseRate, amount });
-    const tx = _grnLinkedTx(g); if (tx) Object.assign(tx, { qty: qtyBase, rate: baseRate });
+    // factor = base units in ONE of this entry unit (1 for the base unit).
+    const factor = (m && unit === m.unit) ? 1 : (((m && m.altUnits) || []).find(a => a.unit === unit)?.factor || 1);
+    const entered = factor > 0 ? r3(baseQty / factor) : baseQty;   // qty shown in the new unit
+    // Rate is per entry unit. Blank → keep the same per-base-unit rate (amount unchanged).
+    const entryRate = hasRate ? newRate : r2(curBaseRate * factor);
+    const baseRate = factor > 0 ? (entryRate / factor) : entryRate;
+    const amount = r2(baseQty * baseRate);
+    Object.assign(g, { entryUnit: unit, enteredQty: entered, qty: baseQty, rate: baseRate, amount });
+    const tx = _grnLinkedTx(g); if (tx) Object.assign(tx, { qty: baseQty, rate: baseRate });
     changed++;
   });
   saveAllData();
