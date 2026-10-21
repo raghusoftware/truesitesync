@@ -2662,7 +2662,11 @@ function _renderGrnRegister() {
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
         <button onclick="_grnRegClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
-        <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition ml-auto">🖨️ Print</button>
+        <div class="flex items-center gap-2 ml-auto">
+          <button onclick="_grnRegExportXLSX()" class="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">⬇ Excel</button>
+          <button onclick="_grnRegExportPDF()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">⬇ PDF</button>
+          <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">🖨️ Print</button>
+        </div>
       </div>
 
       <!-- Bulk-select action bar (shown when GRNs are ticked) -->
@@ -2746,6 +2750,96 @@ window._grnRegClearFilter = function () {
 window._grnRegSetSize = function (v) { _grnRegSize = parseInt(v, 10) || 0; _grnRegPage = 1; _renderGrnRegister(); };
 window._grnRegGo = function (p) { _grnRegPage = p; _renderGrnRegister(); };
 window._grnRegPrint = function () { _grnPrintRows(_grnRegFiltered(), _grnRegFilters); };
+
+/** Build the GRN register rows as a plain array-of-cells for export, mirroring
+ *  the on-screen columns (qty + rate shown in each line's unit). */
+function _grnRegExportData() {
+  const rows = _grnRegFiltered();
+  const cur = getCurrencySymbol().trim();
+  const out = rows.map((g, i) => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    const sup = (state.vendors || []).find(v => v.id === g.supplierId);
+    const base = m?.unit || '';
+    const unit = _grnDispUnit(g, m);
+    const qnum = (unit !== base && g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : (Number(g.qty) || 0);
+    const rate = _grnDispRate(g, m);
+    return {
+      sn: i + 1, grnNo: g.grnNo || '', date: _grnFmtDate(g.date) || '',
+      supplier: sup?.name || '', material: m?.name || g.category || '',
+      site: _invSiteName(g.siteId) || '', challan: g.challanNo || '',
+      qty: Math.round(qnum * 1000) / 1000, unit,
+      rate: Math.round(rate * 100) / 100, amount: Math.round((Number(g.amount) || 0) * 100) / 100,
+      qc: g.qcStatus === 'Pending Inspection' ? 'Pending' : 'OK',
+      bill: _grnIsBilled(g) ? 'Billed' : 'Unbilled',
+    };
+  });
+  return { rows: out, cur, totalQtyBase: rows.reduce((s, g) => s + (Number(g.qty) || 0), 0), totalAmt: rows.reduce((s, g) => s + (Number(g.amount) || 0), 0) };
+}
+
+/** Download the filtered GRN register as an Excel workbook. */
+window._grnRegExportXLSX = function () {
+  const XLSX = window.XLSX; if (!XLSX) return showToast('Excel library not loaded', 'error');
+  const { rows, cur, totalAmt } = _grnRegExportData();
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const aoa = [];
+  aoa.push(['GRN REGISTER' + (proj ? ' — ' + proj.name : '')]);
+  aoa.push([_grnRegFilterCaption()]);
+  aoa.push([]);
+  aoa.push(['#', 'GRN No', 'Date', 'Supplier', 'Material', 'Site', 'Challan', 'Qty', 'Unit', `Rate (${cur})`, `Amount (${cur})`, 'QC', 'Bill']);
+  rows.forEach(r => aoa.push([r.sn, r.grnNo, r.date, r.supplier, r.material, r.site, r.challan, r.qty, r.unit, r.rate, r.amount, r.qc, r.bill]));
+  aoa.push(['', '', '', '', '', '', '', '', '', 'TOTAL', Math.round(totalAmt * 100) / 100, '', '']);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 9 }, { wch: 10 }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 12 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'GRN Register');
+  mobileSaveXLSX(wb, `GRN_Register_${_grnRegFilters.to || 'all'}.xlsx`);
+  showToast('Excel exported', 'success');
+};
+
+/** Download the filtered GRN register as a PDF. */
+window._grnRegExportPDF = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded', 'error');
+  const { rows, totalAmt } = _grnRegExportData();
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const scur = getPdfCurrency();
+  const doc = new window.jspdf.jsPDF('landscape');
+  let y = getCompanyHeaderForPDF(doc);
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('GRN REGISTER', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(_grnRegFilterCaption(), pw / 2, y + 10, { align: 'center' });
+  const n2 = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const n3 = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
+  const body = rows.map(r => [r.sn, r.grnNo, r.date, r.supplier, r.material, r.challan, `${n3(r.qty)} ${r.unit}`, scur + n2(r.rate), scur + n2(r.amount), r.bill]);
+  body.push([{ content: 'TOTAL', colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }, { content: scur + n2(totalAmt), styles: { fontStyle: 'bold', halign: 'right' } }, '']);
+  doc.autoTable({
+    startY: y + 14,
+    head: [['#', 'GRN No', 'Date', 'Supplier', 'Material', 'Challan', 'Qty', 'Rate', 'Amount', 'Bill']],
+    body, theme: 'grid',
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 8.5, halign: 'center' },
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 10, halign: 'right' }, 1: { cellWidth: 40 }, 2: { cellWidth: 20 }, 3: { cellWidth: 34 }, 4: { cellWidth: 'auto' }, 5: { cellWidth: 20 }, 6: { halign: 'right', cellWidth: 28 }, 7: { halign: 'right', cellWidth: 24 }, 8: { halign: 'right', cellWidth: 28 }, 9: { halign: 'center', cellWidth: 18 } },
+    margin: { left: 10, right: 10 }
+  });
+  mobileSavePDF(doc, `GRN_Register_${_grnRegFilters.to || 'all'}.pdf`);
+  showToast('PDF exported', 'success');
+};
+
+/** One-line caption describing the active register filters (for exports). */
+function _grnRegFilterCaption() {
+  const f = _grnRegFilters;
+  const parts = [];
+  parts.push('Supplier: ' + (f.supplier ? (state.vendors.find(v => v.id === f.supplier)?.name || '—') : 'All'));
+  parts.push('Material: ' + (f.material ? (state.rawMaterials.find(r => r.id === f.material)?.name || '—') : 'All'));
+  if (f.site) parts.push('Site: ' + (_invSiteName(f.site) || '—'));
+  parts.push('Period: ' + ((f.from || f.to) ? `${f.from || '…'} to ${f.to || '…'}` : 'All'));
+  if (f.bill) parts.push('Bill: ' + (f.bill === 'billed' ? 'Billed' : 'Unbilled'));
+  return parts.join('  |  ');
+}
+
 /** Edit from the register — jump to the GRN entry form in edit mode. */
 window._grnRegEdit = function (id) { _openInvSection('grn'); _grnEdit(id); };
 /** Delete from the register — reuse the shared delete, then repaint the register. */
