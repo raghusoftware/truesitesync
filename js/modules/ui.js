@@ -2637,6 +2637,7 @@ function _renderGrnRegister() {
       <!-- Bulk-select action bar (shown when GRNs are ticked) -->
       <div id="grnRegSelBar" class="hide px-5 py-2.5 border-b border-rose-100 bg-rose-50 flex items-center gap-3">
         <span class="text-xs font-bold text-rose-700"><b id="grnRegSelCount">0</b> selected</span>
+        <button onclick="_grnRegEditRateSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition">✏️ Edit rate</button>
         <button onclick="_grnRegDeleteSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">🗑 Delete selected</button>
         <button onclick="_grnRegClearSel()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear selection</button>
       </div>
@@ -2747,6 +2748,30 @@ function _grnRegUpdateSelBar() {
     all.indeterminate = checked > 0 && checked < boxes.length;
   }
 }
+/** Bulk-edit the unit rate of every ticked GRN at once. Amount = rate × qty,
+ *  and the linked stock transaction's rate is kept in sync. Billed GRNs are
+ *  never selectable, so a rate change can't desync a posted bill. */
+window._grnRegEditRateSelected = function () {
+  const victims = Array.from(_grnRegSel)
+    .map(id => (state.grnRecords || []).find(x => x.id === id)).filter(Boolean)
+    .filter(g => !_grnIsBilled(g));
+  if (!victims.length) return;
+  const cur = getCurrencySymbol();
+  const raw = prompt(`Set a new unit rate (${cur}) for ${victims.length} selected GRN${victims.length > 1 ? 's' : ''}.\n\nEach line's amount becomes: new rate × its quantity.`, '');
+  if (raw == null) return;                                   // cancelled
+  const rate = parseFloat(raw);
+  if (!(rate >= 0) || isNaN(rate)) { showToast('Enter a valid rate', 'error'); return; }
+  victims.forEach(g => {
+    g.rate = rate;
+    g.amount = Math.round(rate * (Number(g.qty) || 0) * 100) / 100;
+    const tx = _grnLinkedTx(g); if (tx) tx.rate = rate;
+  });
+  saveAllData();
+  _grnRegSel.clear();
+  _renderGRN(); renderLiveInventory(); _renderGrnRegister();
+  showToast(`Rate updated on ${victims.length} GRN${victims.length > 1 ? 's' : ''}`, 'success');
+};
+
 /** Delete every ticked GRN at once (billed ones are never selectable). */
 window._grnRegDeleteSelected = function () {
   const ids = Array.from(_grnRegSel);
