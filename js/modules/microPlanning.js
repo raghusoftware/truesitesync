@@ -6,6 +6,7 @@
  * - Supports daily and weekly planning modes
  */
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getTerm } from './utils.js';
 import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
@@ -2216,7 +2217,7 @@ window._mpDeleteCO = function (id) {
   if (!o) return;
   if (!confirm(`Delete ${o.coNo || 'this change order'}?`)) return;
   if (window.recycleDelete) window.recycleDelete('changeOrders', id, 'Change Order');
-  else state.changeOrders = (state.changeOrders || []).filter(x => x.id !== id);
+  else keepOnly('changeOrders', x => x.id !== id);
   saveAllData();
   renderRABilling();
   showToast('Change order deleted', 'info');
@@ -2234,7 +2235,7 @@ window._mpDeleteRA = function(id) {
   }
   if (!confirm(`Delete ${b.raNo} (${getCurrencySymbol()}${Math.round(b.total || 0).toLocaleString('en-IN')})?\n\nIts quantities go back to unbilled and can be billed again in a later RA.`)) return;
   window.recycleDelete && window.recycleDelete('raBills', id, 'RA Bill');
-  if (b.abstractId) state.abstracts = (state.abstracts || []).filter(a => a.id !== b.abstractId);
+  if (b.abstractId) keepOnly('abstracts', a => a.id !== b.abstractId);
   saveAllData();
   if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
   if (typeof window.renderPartiesList === 'function') { try { window.renderPartiesList(); } catch {} }

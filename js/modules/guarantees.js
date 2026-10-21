@@ -11,6 +11,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
 
@@ -204,7 +205,7 @@ window._gteDelete = function (id) {
   if (!g) return;
   if (!confirm('Delete this guarantee record?')) return;
   if (window.recycleDelete) window.recycleDelete('guarantees', id, 'Guarantee');
-  else state.guarantees = (state.guarantees || []).filter(x => x.id !== id);
+  else keepOnly('guarantees', x => x.id !== id);
   saveAllData(); renderGuarantees();
   showToast('Guarantee deleted', 'info');
 };

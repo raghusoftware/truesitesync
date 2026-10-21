@@ -1,4 +1,5 @@
 import { state, saveAllData, saveLabourData, saveEquipmentData } from './state.js';
+import { keepOnly } from './state.js';
 import { settledAmount, deductionNote, deductionTotal } from './deductions.js';
 import { mountDeductions, applyDeductionsTo, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 import { showToast, getAllLocations, populateDropdowns, refreshPurchaseDropdowns, formatINR, formatINR2, getCompanyHeaderForPDF, getCurrencySymbol, getPdfCurrency, pdfMoney, mobileSavePDF, getTerm } from './utils.js';
@@ -299,9 +300,9 @@ export function deleteVendorRecord(id, type) {
   if (!confirm("Are you sure you want to delete this record?")) return;
   if (type === 'bill' || type === 'mat') {
     window.recycleDelete && window.recycleDelete('vendorMaterials', id, 'Purchase Bill');
-    state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
+    keepOnly('inventoryTx', tx => tx.refBillId !== id);
   } else {
-    state.vendorPayments = state.vendorPayments.filter(p => p.id !== id);
+    keepOnly('vendorPayments', p => p.id !== id);
   }
   saveAllData();
   renderVendorLedger();

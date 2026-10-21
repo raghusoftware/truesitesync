@@ -13,6 +13,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol, getPdfCurrency, getCompanyHeaderForPDF, mobileSavePDF, amountToWordsCur, getTaxConfig } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
 import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
@@ -149,8 +150,8 @@ window._scOpenCertify = function (scId) {
 window._scDelete = function (id) {
   const sc = (state.subcontracts || []).find(x => x.id === id); if (!sc) return;
   if (!confirm(`Delete package "${sc.name}" and its certificates?`)) return;
-  state.subcontracts = (state.subcontracts || []).filter(x => x.id !== id);
-  state.subPayments = (state.subPayments || []).filter(p => p.subcontractId !== id);
+  keepOnly('subcontracts', x => x.id !== id);
+  keepOnly('subPayments', p => p.subcontractId !== id);
   saveAllData(); renderSubcontractors();
   showToast('Package deleted', 'info');
 };

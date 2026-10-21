@@ -1,4 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
+import { keepOnly } from './state.js';
 import { settledAmount, deductionTotal } from './deductions.js';
 import { computeAnalytics } from './analyticsCalc.js';
 import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
@@ -2919,7 +2920,7 @@ window._saveGRN = function() {
     else state.inventoryTx.push({ id: 'tx_grn_' + Date.now(), grnId: editing.id, date, siteId, rawMaterialId: it.matId, type: 'IN', qty: it.qty, rate: baseRate, ref: `${grnNo} ${challanNo || ''}${entryNote}`.trim() });
     const qc = _grnLinkedQc(editing);
     if (qc && testable) Object.assign(qc, { grnId: editing.id, element: mat?.name || it.category, grade: it.category, result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` });
-    else if (qc && !testable) state.qualityChecks = state.qualityChecks.filter(q => q !== qc);
+    else if (qc && !testable) keepOnly('qualityChecks', q => q !== qc);
     else if (!qc && testable) { if (!state.qualityChecks) state.qualityChecks = []; state.qualityChecks.push({ id: 'qc_grn_' + Date.now(), grnId: editing.id, projectId: state.currentProjectId, createdAt: Date.now(), date, element: mat?.name || it.category, type: 'Material Inspection', grade: it.category, status: 'Pending', result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` }); }
     _grnEditingId = null; _grnChallanPhoto = null; _grnCondPhoto = null;
     saveAllData(); _renderGRN(); renderLiveInventory();
@@ -3950,7 +3951,7 @@ export function deleteAbstract(id) {
     // RA bill too — otherwise it lingers in RA Billing and the cumulative math
     // keeps treating its quantities as billed.
     const raId = abs._raBillId || (state.raBills || []).find(b => b.abstractId === id)?.id;
-    if (raId) state.raBills = (state.raBills || []).filter(b => b.id !== raId);
+    if (raId) keepOnly('raBills', b => b.id !== raId);
     window.recycleDelete && window.recycleDelete('abstracts', id, 'Abstract');
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.(); window.renderMeasurementList?.();
     if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
@@ -4769,7 +4770,7 @@ window._deleteContractor = function(id) {
   const c = (state.labourContractors || []).find(x => x.id === id);
   if (!c) return;
   if (!confirm(`Delete contractor "${c.name}"? Workers stay but become direct (no contractor).`)) return;
-  state.labourContractors = state.labourContractors.filter(x => x.id !== id);
+  keepOnly('labourContractors', x => x.id !== id);
   (state.labourMaster || []).forEach(l => { if (l.contractorId === id) l.contractorId = ''; });
   saveAllData();
   renderContractorsList();
@@ -4942,7 +4943,7 @@ window._prAddRate = function() {
   showToast('Rate added', 'success');
 };
 window._prDeleteRate = function(id) {
-  state.workItemRates = state.workItemRates.filter(r => r.id !== id);
+  keepOnly('workItemRates', r => r.id !== id);
   saveAllData(); _prRenderRates();
 };
 
@@ -5029,7 +5030,7 @@ window._prApprove = function(id) {
 };
 window._prRejectMeasure = function(id) {
   if (!confirm('Reject and delete this measurement?')) return;
-  state.workMeasurements = state.workMeasurements.filter(x => x.id !== id);
+  keepOnly('workMeasurements', x => x.id !== id);
   saveAllData(); _prRenderApprovals();
 };
 
@@ -5376,7 +5377,7 @@ export function saveAttendance() {
   const siteId = state.currentProjectId || 'site';
   const labours = _projectLabour();
   const projLabourIds = new Set(labours.map(l => l.id));
-  state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
+  keepOnly('attendanceLogs', a => !(a.date === date && projLabourIds.has(a.labourId)));
   labours.forEach(l => {
     const card = document.getElementById('attc_' + l.id);
     const status = (card && card.dataset.status) || 'A';

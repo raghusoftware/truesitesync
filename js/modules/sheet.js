@@ -11,6 +11,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js';
@@ -798,7 +799,7 @@ export function rebuildSheetConsumption(sheet) {
   const sheetId = sheet.id, cId = sheet.clientId || '', projId = sheet.projectId || '';
   const sNum = sheet.sheetNum || '', date = sheet.date || new Date().toISOString().split('T')[0];
   if (!Array.isArray(state.inventoryTx)) state.inventoryTx = [];
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== sheetId);
+  keepOnly('inventoryTx', tx => tx.refSheetId !== sheetId);
 
   const grouped = {};
   (sheet.entries || []).forEach(e => { const q = parseFloat(e.qty) || 0; if (e.code && q > 0) grouped[e.code] = (grouped[e.code] || 0) + q; });
@@ -1154,7 +1155,7 @@ export function deleteMeasurementSheet(id) {
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first (Micro-Planning → RA Billing).`, 'error'); return; }
   if (!confirm(`Move sheet ${s.sheetNum} to the Recycle Bin?`)) return;
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
+  keepOnly('inventoryTx', tx => tx.refSheetId !== id);
   window.recycleDelete?.('sheets', id, 'Measurement Sheet', s.sheetNum);
   renderMeasurementList();
   showToast('Sheet moved to Recycle Bin');
@@ -1179,7 +1180,7 @@ export function deleteSheet(id) {
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first.`, 'error'); return; }
   if (confirm('Move sheet to the Recycle Bin? Associated material consumption will be reversed.')) {
-    state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
+    keepOnly('inventoryTx', tx => tx.refSheetId !== id);
     window.recycleDelete?.('sheets', id, 'Measurement Sheet', s?.sheetNum || id);
     renderSavedSheets();
     showToast('Moved to Recycle Bin');
