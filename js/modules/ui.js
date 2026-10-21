@@ -1692,7 +1692,7 @@ export function updatePurRowNums() {
 // ==========================================
 // INVENTORY
 // ==========================================
-import { unitMasterOptions, materialUnitOptions, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows, syncUnitPicker, pickedQtyToBase, pickedUnit } from './units.js';
+import { unitMasterOptions, materialUnitOptions, materialUnits, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows, syncUnitPicker, pickedQtyToBase, pickedUnit } from './units.js';
 
 // Build one "1 <alt> = <factor> <base>" row inside the material modal.
 export function addAltUnitRow(unit = '', factor = '') {
@@ -2748,28 +2748,103 @@ function _grnRegUpdateSelBar() {
     all.indeterminate = checked > 0 && checked < boxes.length;
   }
 }
-/** Bulk-edit the unit rate of every ticked GRN at once. Amount = rate × qty,
- *  and the linked stock transaction's rate is kept in sync. Billed GRNs are
- *  never selectable, so a rate change can't desync a posted bill. */
-window._grnRegEditRateSelected = function () {
-  const victims = Array.from(_grnRegSel)
+/** The selected, still-unbillable GRNs (billed ones can never be in the set). */
+function _grnRegSelVictims() {
+  return Array.from(_grnRegSel)
     .map(id => (state.grnRecords || []).find(x => x.id === id)).filter(Boolean)
     .filter(g => !_grnIsBilled(g));
+}
+
+/** Open the bulk-edit box for the ticked GRNs: change the unit (UOM) and/or
+ *  the rate across all of them at once. Billed GRNs are never selectable, so
+ *  this can't desync a posted bill. */
+window._grnRegEditRateSelected = function () {
+  const victims = _grnRegSelVictims();
   if (!victims.length) return;
-  const cur = getCurrencySymbol();
-  const raw = prompt(`Set a new unit rate (${cur}) for ${victims.length} selected GRN${victims.length > 1 ? 's' : ''}.\n\nEach line's amount becomes: new rate × its quantity.`, '');
-  if (raw == null) return;                                   // cancelled
-  const rate = parseFloat(raw);
-  if (!(rate >= 0) || isNaN(rate)) { showToast('Enter a valid rate', 'error'); return; }
+  const cur = getCurrencySymbol().trim();
+  // Union of entry units available to the selected GRNs' materials (base + alts),
+  // so "kg → Tonne / M3 …" only offers conversions the materials actually support.
+  const unitSet = new Map();   // unit → label
   victims.forEach(g => {
-    g.rate = rate;
-    g.amount = Math.round(rate * (Number(g.qty) || 0) * 100) / 100;
-    const tx = _grnLinkedTx(g); if (tx) tx.rate = rate;
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    materialUnits(m).forEach(u => { if (u.unit && !unitSet.has(u.unit)) unitSet.set(u.unit, u.unit); });
+    if (g.entryUnit && !unitSet.has(g.entryUnit)) unitSet.set(g.entryUnit, g.entryUnit);
+  });
+  const unitOpts = Array.from(unitSet.keys()).map(u => `<option value="${u}">${u}</option>`).join('');
+  const matNames = Array.from(new Set(victims.map(g => (state.rawMaterials || []).find(r => r.id === g.matId)?.name).filter(Boolean)));
+  document.getElementById('grnBulkEditModal')?.remove();
+  const html = `
+  <div id="grnBulkEditModal" style="position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div style="padding:18px 20px;background:linear-gradient(135deg,#fffbeb,#fef3c7);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;">✏️</div>
+        <div>
+          <h4 style="margin:0;font-weight:800;color:#1e293b;font-size:15px;">Edit ${victims.length} selected GRN${victims.length > 1 ? 's' : ''}</h4>
+          <p style="margin:2px 0 0;font-size:11px;color:#92400e;">${matNames.length ? matNames.slice(0, 3).join(', ') + (matNames.length > 3 ? ` +${matNames.length - 3} more` : '') : ''}</p>
+        </div>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Unit of measure (UOM)</label>
+          <select id="grnBulkUnit" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;outline:none;">
+            <option value="">— Keep each GRN's current unit —</option>
+            ${unitOpts}
+          </select>
+          <p style="margin:6px 0 0;font-size:10.5px;color:#94a3b8;">Changing it re-expresses each line in the new unit (e.g. Kg → Tonne). Only GRNs whose material supports the unit are changed.</p>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Rate <span style="font-weight:500;text-transform:none;">(per unit, ${cur})</span></label>
+          <input id="grnBulkRate" type="number" step="any" min="0" placeholder="Leave blank to keep current" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;">
+          <p style="margin:6px 0 0;font-size:10.5px;color:#94a3b8;">Each line's amount becomes: rate × its quantity (in the unit above).</p>
+        </div>
+      </div>
+      <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('grnBulkEditModal').remove()" style="padding:9px 16px;font-size:13px;font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;">Cancel</button>
+        <button onclick="_grnRegApplyBulkEdit()" style="padding:9px 18px;font-size:13px;font-weight:700;color:#fff;background:#d97706;border:none;border-radius:10px;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,.35);">Apply changes</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+/** Apply the bulk-edit box: set the chosen unit and/or rate on every ticked
+ *  GRN, recompute base qty + amount, and keep the linked stock txn in sync. */
+window._grnRegApplyBulkEdit = function () {
+  const victims = _grnRegSelVictims();
+  if (!victims.length) { document.getElementById('grnBulkEditModal')?.remove(); return; }
+  const newUnit = document.getElementById('grnBulkUnit')?.value || '';
+  const rateRaw = (document.getElementById('grnBulkRate')?.value ?? '').trim();
+  const hasRate = rateRaw !== '';
+  const newRate = parseFloat(rateRaw);
+  if (hasRate && (isNaN(newRate) || newRate < 0)) { showToast('Enter a valid rate', 'error'); return; }
+  if (!newUnit && !hasRate) { showToast('Set a new unit or a rate first', 'info'); return; }
+
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  let changed = 0, unitChanged = 0;
+  victims.forEach(g => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    const supports = u => !!m && (m.unit === u || (m.altUnits || []).some(a => a.unit === u));
+    // Keep the same number the storekeeper typed; only its unit meaning changes.
+    const entered = (g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty) || 0;
+    const unit = (newUnit && supports(newUnit)) ? newUnit : (g.entryUnit || (m ? m.unit : ''));
+    if (newUnit && supports(newUnit) && unit !== g.entryUnit) unitChanged++;
+    const qtyBase = toBaseQty(m, entered, unit);
+    const curEntryRate = entered > 0 ? (Number(g.amount) || 0) / entered : (Number(g.rate) || 0);
+    const entryRate = hasRate ? newRate : curEntryRate;
+    const amount = r2(entered * entryRate);
+    const baseRate = qtyBase > 0 ? r2(amount / qtyBase) : entryRate;
+    Object.assign(g, { entryUnit: unit, enteredQty: entered, qty: qtyBase, rate: baseRate, amount });
+    const tx = _grnLinkedTx(g); if (tx) Object.assign(tx, { qty: qtyBase, rate: baseRate });
+    changed++;
   });
   saveAllData();
+  document.getElementById('grnBulkEditModal')?.remove();
   _grnRegSel.clear();
   _renderGRN(); renderLiveInventory(); _renderGrnRegister();
-  showToast(`Rate updated on ${victims.length} GRN${victims.length > 1 ? 's' : ''}`, 'success');
+  const bits = [];
+  if (hasRate) bits.push('rate');
+  if (unitChanged) bits.push(`unit on ${unitChanged}`);
+  showToast(`Updated ${bits.join(' & ') || 'values'} across ${changed} GRN${changed > 1 ? 's' : ''}`, 'success');
 };
 
 /** Delete every ticked GRN at once (billed ones are never selectable). */
