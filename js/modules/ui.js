@@ -3389,81 +3389,101 @@ window._grnBulkSample = function () {
   showToast('Sample downloaded', 'success');
 };
 
-/** Turn parsed sheet rows into GRN records (+ stock txns). Returns a summary. */
-function _grnImportRows(rows) {
-  const errors = []; let added = 0, skipped = 0, matCreated = 0, venCreated = 0;
+// Rows parsed from the uploaded sheet, awaiting review/edit before import.
+let _grnImportDraft = [];
+const _grnEqName = (a, b) => { a = String(a == null ? '' : a).trim().toLowerCase(); b = String(b == null ? '' : b).trim().toLowerCase(); return !!a && a === b; };
+
+/** Normalise raw sheet rows into editable draft objects (no records created). */
+function _grnNormalizeRows(rows) {
   const pick = (m, keys) => { for (const k of keys) { const v = m[k]; if (v !== undefined && v !== null && String(v).trim() !== '') return v; } return ''; };
+  const out = [];
+  rows.forEach(raw => {
+    const m = {}; Object.keys(raw).forEach(k => { m[String(k).trim().toLowerCase()] = raw[k]; });
+    const material = String(pick(m, ['material', 'item', 'material name'])).trim();
+    const date = _parseImportDate(pick(m, ['date', 'receipt date', 'grn date']));
+    const qtyN = parseFloat(pick(m, ['qty', 'quantity', 'received qty']));
+    if (!material && !date && !(qtyN > 0)) return;   // wholly blank row
+    const num = v => { const n = parseFloat(v); return isNaN(n) ? '' : n; };
+    out.push({
+      date, site: String(pick(m, ['site', 'store', 'store / site', 'store/site'])).trim(),
+      supplier: String(pick(m, ['supplier', 'vendor', 'party'])).trim(),
+      sourceType: String(pick(m, ['source type', 'source'])).trim() || 'Supplier',
+      material, category: String(pick(m, ['category', 'cat'])).trim(),
+      qty: num(pick(m, ['qty', 'quantity', 'received qty'])), unit: String(pick(m, ['unit', 'uom'])).trim(),
+      expected: num(pick(m, ['expected qty', 'exp.', 'exp', 'expected'])), rate: num(pick(m, ['rate', 'unit rate', 'price'])),
+      challan: String(pick(m, ['challan no', 'challan', 'invoice no', 'invoice'])).trim(),
+      vehicle: String(pick(m, ['vehicle no', 'vehicle'])).trim(), driver: String(pick(m, ['driver', 'driver contact'])).trim(),
+      mode: String(pick(m, ['mode', 'mode of receipt'])).trim() || 'Transport',
+    });
+  });
+  return out;
+}
+
+/** Live status of a draft row: {ok, html}. ok=true means it will be imported. */
+function _grnDraftStatus(idx) {
+  const d = _grnImportDraft[idx];
+  const bad = t => ({ ok: false, html: `<span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">${t}</span>` });
+  const dup = t => ({ ok: false, html: `<span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${t}</span>` });
+  if (!d.date) return bad('Need date');
+  if (!d.material) return bad('Need material');
+  if (!(Number(d.qty) > 0)) return bad('Need qty');
+  if ((d.sourceType || 'Supplier') === 'Supplier' && !d.supplier) return bad('Need supplier');
+  const mat = (state.rawMaterials || []).find(r => _grnEqName(r.name, d.material));
+  const sup = d.supplier ? (state.vendors || []).find(v => _grnEqName(v.name, d.supplier)) : null;
+  const supId = sup ? sup.id : '';
+  const qtyBase = mat ? toBaseQty(mat, Number(d.qty), d.unit || mat.unit || '') : Number(d.qty);
+  const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+  const de = (d.challan && supId && existing.find(g => g.supplierId === supId && _grnEqName(g.challanNo, d.challan)))
+    || (mat && existing.find(g => g.supplierId === supId && g.matId === mat.id && (g.date || '') === d.date && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6));
+  if (de) return dup(`Duplicate (${de.grnNo})`);
+  for (let j = 0; j < idx; j++) {
+    const e = _grnImportDraft[j]; if (!e || !_grnEqName(e.supplier, d.supplier)) continue;
+    if (d.challan && _grnEqName(e.challan, d.challan)) return dup('Duplicate in file');
+    if (_grnEqName(e.material, d.material) && e.date === d.date && Number(e.qty) === Number(d.qty)) return dup('Duplicate in file');
+  }
+  const tags = []; if (!mat) tags.push('new material'); if (d.supplier && !sup) tags.push('new supplier');
+  return { ok: true, html: `<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Ready${tags.length ? ' · ' + tags.join(', ') : ''}</span>` };
+}
+
+/** Commit the reviewed draft to GRN records (+ stock txns). Returns a summary. */
+function _grnCommitDraft(draft) {
+  const errors = []; let added = 0, skipped = 0, matCreated = 0, venCreated = 0;
   const locs = getAllLocations();
   const defaultSite = locs.find(l => l.id === state.currentProjectId) || locs[0] || null;
   const qcRequired = !!(state.printSettings && state.printSettings.grnQcApproval);
-  rows.forEach((raw, i) => {
-    const m = {}; Object.keys(raw).forEach(k => { m[String(k).trim().toLowerCase()] = raw[k]; });
-    const rowRef = `Row ${i + 2}`;
-    const dateStr = _parseImportDate(pick(m, ['date', 'receipt date', 'grn date']));
-    const matName = String(pick(m, ['material', 'item', 'material name'])).trim();
-    const qty = parseFloat(pick(m, ['qty', 'quantity', 'received qty'])) || 0;
-    if (!matName && !dateStr && !qty) return;   // wholly blank row
-    if (!dateStr) { errors.push(`${rowRef}: missing/invalid date`); skipped++; return; }
-    if (!matName) { errors.push(`${rowRef}: missing material`); skipped++; return; }
-    if (!(qty > 0)) { errors.push(`${rowRef}: qty must be > 0`); skipped++; return; }
-    const unit = String(pick(m, ['unit', 'uom'])).trim();
-    const rate = parseFloat(pick(m, ['rate', 'unit rate', 'price'])) || 0;
-    const category = String(pick(m, ['category', 'cat'])).trim();
-    const challanNo = String(pick(m, ['challan no', 'challan', 'invoice no', 'invoice'])).trim();
-    const vehicleNo = String(pick(m, ['vehicle no', 'vehicle'])).trim();
-    const driver = String(pick(m, ['driver', 'driver contact'])).trim();
-    const sourceType = String(pick(m, ['source type', 'source'])).trim() || 'Supplier';
-    const modeOfReceipt = String(pick(m, ['mode', 'mode of receipt'])).trim() || 'Transport';
-    const expRaw = parseFloat(pick(m, ['expected qty', 'exp.', 'exp', 'expected'])) || 0;
-
-    // resolve / auto-create material
-    let mat = (state.rawMaterials || []).find(r => String(r.name || '').trim().toLowerCase() === matName.toLowerCase());
-    if (!mat) {
-      mat = { id: 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: matName, unit: unit || 'Nos', type: 'Material', category: category || 'General', projectId: state.currentProjectId, rate: 0, minStock: 0 };
-      if (window.stampCreate) mat = window.stampCreate(mat);
-      (state.rawMaterials = state.rawMaterials || []).push(mat); matCreated++;
-    }
-    // resolve / auto-create supplier
-    const supName = String(pick(m, ['supplier', 'vendor', 'party'])).trim();
+  draft.forEach((d, i) => {
+    const ref = `Row ${i + 1}`;
+    if (!d.date || !d.material || !(Number(d.qty) > 0)) { skipped++; errors.push(`${ref}: incomplete — skipped`); return; }
+    const qty = Number(d.qty), rate = Number(d.rate) || 0;
+    let mat = (state.rawMaterials || []).find(r => _grnEqName(r.name, d.material));
+    if (!mat) { mat = { id: 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: d.material, unit: d.unit || 'Nos', type: 'Material', category: d.category || 'General', projectId: state.currentProjectId, rate: 0, minStock: 0 }; if (window.stampCreate) mat = window.stampCreate(mat); (state.rawMaterials = state.rawMaterials || []).push(mat); matCreated++; }
     let supplierId = '';
-    if (supName) {
-      let v = (state.vendors || []).find(x => String(x.name || '').trim().toLowerCase() === supName.toLowerCase());
-      if (!v) { v = { id: 'vend_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: supName, projectId: state.currentProjectId }; if (window.stampCreate) v = window.stampCreate(v); (state.vendors = state.vendors || []).push(v); venCreated++; }
-      supplierId = v.id;
-    }
-    if (sourceType === 'Supplier' && !supplierId) { errors.push(`${rowRef}: supplier required for a Supplier receipt`); skipped++; return; }
-    // resolve site
-    const siteName = String(pick(m, ['site', 'store', 'store / site', 'store/site'])).trim();
-    const site = (siteName && locs.find(l => String(l.name || '').trim().toLowerCase() === siteName.toLowerCase())) || defaultSite;
-    if (!site) { errors.push(`${rowRef}: no store/site — create one first`); skipped++; return; }
-    const siteId = site.id;
-
-    // conversions
-    const entryUnit = unit || mat.unit || '';
+    if (d.supplier) { let v = (state.vendors || []).find(x => _grnEqName(x.name, d.supplier)); if (!v) { v = { id: 'vend_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: d.supplier, projectId: state.currentProjectId }; if (window.stampCreate) v = window.stampCreate(v); (state.vendors = state.vendors || []).push(v); venCreated++; } supplierId = v.id; }
+    if ((d.sourceType || 'Supplier') === 'Supplier' && !supplierId) { skipped++; errors.push(`${ref}: supplier required — skipped`); return; }
+    const site = (d.site && locs.find(l => _grnEqName(l.name, d.site))) || defaultSite;
+    if (!site) { skipped++; errors.push(`${ref}: no store/site — skipped`); return; }
+    const siteId = site.id, entryUnit = d.unit || mat.unit || '';
     const qtyBase = toBaseQty(mat, qty, entryUnit);
-    const expectedQty = expRaw ? toBaseQty(mat, expRaw, entryUnit) : 0;
+    const expectedQty = d.expected ? toBaseQty(mat, Number(d.expected), entryUnit) : 0;
     const baseRate = qtyBase > 0 ? (qty * rate) / qtyBase : rate;
     const amount = Math.round(qty * rate * 100) / 100;
-
-    // double-entry guard (incl. earlier rows pushed in this same import)
+    const challanNo = (d.challan || '').trim();
     const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
-    const dup = (challanNo && existing.find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase()))
-      || existing.find(g => g.supplierId === supplierId && g.matId === mat.id && (g.date || '') === dateStr && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6);
-    if (dup) { errors.push(`${rowRef}: duplicate of ${dup.grnNo} — skipped`); skipped++; return; }
-
-    const grnNo = _grnNextNumber(dateStr);
-    const stamp = Date.now() + '_' + i;
-    const grnId = 'grn_' + stamp;
-    state.grnRecords.push({ id: grnId, grnNo, receiptId: 'rcpt_imp_' + stamp, line: 1, date: dateStr, receivedAt: new Date().toISOString(), siteId, matId: mat.id, category, qty: qtyBase, expectedQty, rate: baseRate, amount, enteredQty: qty, entryUnit, challanNo, supplierId, poId: '', poNo: '', sourceType, modeOfReceipt, vehicleNo, driver, projectId: state.currentProjectId, challanPhoto: null, condPhoto: null, billed: false, qcStatus: qcRequired ? 'Pending Inspection' : 'Accepted', importedAt: new Date().toISOString() });
-    state.inventoryTx.push({ id: 'tx_grn_' + stamp, grnId, date: dateStr, siteId, rawMaterialId: mat.id, type: 'IN', qty: qtyBase, rate: baseRate, ref: `${grnNo} ${challanNo || ''}`.trim() });
+    const dup = (challanNo && existing.find(g => g.supplierId === supplierId && _grnEqName(g.challanNo, challanNo)))
+      || existing.find(g => g.supplierId === supplierId && g.matId === mat.id && (g.date || '') === d.date && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6);
+    if (dup) { skipped++; errors.push(`${ref}: duplicate of ${dup.grnNo} — skipped`); return; }
+    const grnNo = _grnNextNumber(d.date);
+    const stamp = Date.now() + '_' + i, grnId = 'grn_' + stamp;
+    state.grnRecords.push({ id: grnId, grnNo, receiptId: 'rcpt_imp_' + stamp, line: 1, date: d.date, receivedAt: new Date().toISOString(), siteId, matId: mat.id, category: d.category || '', qty: qtyBase, expectedQty, rate: baseRate, amount, enteredQty: qty, entryUnit, challanNo, supplierId, poId: '', poNo: '', sourceType: d.sourceType || 'Supplier', modeOfReceipt: d.mode || 'Transport', vehicleNo: d.vehicle || '', driver: d.driver || '', projectId: state.currentProjectId, challanPhoto: null, condPhoto: null, billed: false, qcStatus: qcRequired ? 'Pending Inspection' : 'Accepted', importedAt: new Date().toISOString() });
+    state.inventoryTx.push({ id: 'tx_grn_' + stamp, grnId, date: d.date, siteId, rawMaterialId: mat.id, type: 'IN', qty: qtyBase, rate: baseRate, ref: `${grnNo} ${challanNo || ''}`.trim() });
     added++;
   });
-  if (matCreated) errors.unshift(`${matCreated} new material(s) created from the sheet.`);
-  if (venCreated) errors.unshift(`${venCreated} new supplier(s) created from the sheet.`);
+  if (matCreated) errors.unshift(`${matCreated} new material(s) created.`);
+  if (venCreated) errors.unshift(`${venCreated} new supplier(s) created.`);
   return { added, skipped, errors };
 }
 
-/** Read an uploaded workbook and import its rows as GRNs. */
+/** Read an uploaded workbook → show the editable review before importing. */
 window._grnBulkImport = function (input) {
   const file = input && input.files && input.files[0]; if (!file) return;
   const XLSX = window.XLSX; if (!XLSX) { showToast('Excel library not loaded', 'error'); input.value = ''; return; }
@@ -3473,18 +3493,94 @@ window._grnBulkImport = function (input) {
       const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-      if (!rows.length) { showToast('No rows found in the file', 'warning'); input.value = ''; return; }
-      const res = _grnImportRows(rows);
       input.value = '';
-      saveAllData(); _renderGRN(); renderLiveInventory();
-      try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
-      let msg = `${res.added} GRN${res.added !== 1 ? 's' : ''} imported`;
-      if (res.skipped) msg += ` · ${res.skipped} skipped`;
-      showToast(msg, res.added ? 'success' : 'warning');
-      if (res.errors.length) alert('Import summary:\n\n' + res.errors.slice(0, 20).join('\n') + (res.errors.length > 20 ? `\n…and ${res.errors.length - 20} more` : ''));
+      const draft = _grnNormalizeRows(rows);
+      if (!draft.length) { showToast('No rows found in the file', 'warning'); return; }
+      _grnImportDraft = draft;
+      _grnShowImportPreview();
     } catch (err) { console.error(err); showToast('Could not read the Excel file', 'error'); input.value = ''; }
   };
   reader.readAsArrayBuffer(file);
+};
+
+/** One editable cell. */
+function _grnImpCell(idx, field, val, type, width) {
+  const v = val == null ? '' : String(val).replace(/"/g, '&quot;');
+  return `<input ${type === 'num' ? 'type="number" step="any"' : (type === 'date' ? 'type="date"' : 'type="text"')} value="${v}" onchange="_grnDraftEdit(${idx},'${field}',this.value)" style="width:${width}px" class="px-1.5 py-1 border border-slate-200 rounded text-[11px] bg-white outline-none focus:border-indigo-400">`;
+}
+/** Render the review table body from the current draft. */
+function _grnRenderImportRows() {
+  const tb = document.getElementById('grnImpBody'); if (!tb) return;
+  tb.innerHTML = _grnImportDraft.map((d, i) => `<tr style="border-bottom:1px solid #f1f5f9;">
+    <td class="px-2 py-1 text-center text-slate-400 text-[11px]">${i + 1}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'date', d.date, 'date', 120)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'supplier', d.supplier, 'text', 130)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'site', d.site, 'text', 110)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'material', d.material, 'text', 150)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'category', d.category, 'text', 90)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'qty', d.qty, 'num', 70)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'unit', d.unit, 'text', 60)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'rate', d.rate, 'num', 70)}</td>
+    <td class="px-1 py-1">${_grnImpCell(i, 'challan', d.challan, 'text', 90)}</td>
+    <td class="px-2 py-1 whitespace-nowrap" id="impSt_${i}">${_grnDraftStatus(i).html}</td>
+    <td class="px-2 py-1 text-center"><button type="button" onclick="_grnDraftRemove(${i})" class="text-rose-400 hover:bg-rose-50 px-1.5 py-0.5 rounded font-bold">✕</button></td>
+  </tr>`).join('') || `<tr><td colspan="12" class="p-6 text-center text-slate-400">No rows to import.</td></tr>`;
+  _grnRefreshImportFoot();
+}
+function _grnRefreshImportFoot() {
+  let ready = 0, issues = 0;
+  _grnImportDraft.forEach((d, i) => { (_grnDraftStatus(i).ok ? ready++ : issues++); });
+  const f = document.getElementById('grnImpFoot'); if (f) f.innerHTML = `<b class="text-emerald-700">${ready}</b> ready to import · <b class="text-amber-600">${issues}</b> with issues/duplicates (will be skipped)`;
+  const btn = document.getElementById('grnImpConfirm'); if (btn) { btn.disabled = !ready; btn.textContent = ready ? `Upload ${ready} GRN${ready > 1 ? 's' : ''}` : 'Nothing to upload'; btn.style.opacity = ready ? '1' : '.5'; }
+}
+window._grnDraftEdit = function (idx, field, val) { if (!_grnImportDraft[idx]) return; _grnImportDraft[idx][field] = (field === 'qty' || field === 'rate' || field === 'expected') ? (val === '' ? '' : parseFloat(val)) : val; _grnImportDraft.forEach((d, i) => { const el = document.getElementById('impSt_' + i); if (el) el.innerHTML = _grnDraftStatus(i).html; }); _grnRefreshImportFoot(); };
+window._grnDraftRemove = function (idx) { _grnImportDraft.splice(idx, 1); _grnRenderImportRows(); };
+
+/** The review modal: shows what arrived, editable, before committing. */
+function _grnShowImportPreview() {
+  document.getElementById('grnImportModal')?.remove();
+  const html = `
+  <div id="grnImportModal" style="position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:18px;max-width:1040px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
+        <div style="flex:1;">
+          <h4 style="margin:0;font-weight:800;color:#065f46;font-size:15px;">Review GRNs to import</h4>
+          <p style="margin:2px 0 0;font-size:11px;color:#047857;">Check and edit the rows below, then upload. Duplicates and incomplete rows are skipped.</p>
+        </div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:10px 16px;">
+        <table class="w-full" style="border-collapse:collapse;">
+          <thead><tr style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+            ${['#', 'Date', 'Supplier', 'Site', 'Material', 'Category', 'Qty', 'Unit', 'Rate', 'Challan', 'Status', ''].map(h => `<th class="px-2 py-2 text-left font-bold uppercase text-slate-500 text-[10px]">${h}</th>`).join('')}
+          </tr></thead>
+          <tbody id="grnImpBody"></tbody>
+        </table>
+      </div>
+      <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span id="grnImpFoot" style="font-size:12px;color:#475569;"></span>
+        <div style="margin-left:auto;display:flex;gap:10px;">
+          <button type="button" onclick="document.getElementById('grnImportModal').remove()" style="padding:9px 16px;font-size:13px;font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;">Cancel</button>
+          <button type="button" id="grnImpConfirm" onclick="_grnConfirmImport()" style="padding:9px 18px;font-size:13px;font-weight:700;color:#fff;background:#059669;border:none;border-radius:10px;cursor:pointer;box-shadow:0 2px 6px rgba(5,150,105,.35);">Upload</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  _grnRenderImportRows();
+}
+
+/** Commit the reviewed rows. */
+window._grnConfirmImport = function () {
+  const res = _grnCommitDraft(_grnImportDraft);
+  _grnImportDraft = [];
+  document.getElementById('grnImportModal')?.remove();
+  saveAllData(); _renderGRN(); renderLiveInventory();
+  try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
+  let msg = `${res.added} GRN${res.added !== 1 ? 's' : ''} imported`;
+  if (res.skipped) msg += ` · ${res.skipped} skipped`;
+  showToast(msg, res.added ? 'success' : 'warning');
+  if (res.errors.length) setTimeout(() => alert('Import summary:\n\n' + res.errors.slice(0, 20).join('\n') + (res.errors.length > 20 ? `\n…and ${res.errors.length - 20} more` : '')), 60);
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───
