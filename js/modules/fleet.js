@@ -1,4 +1,5 @@
 import { state, saveAllData, saveEquipmentData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getAllLocations, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getPdfCurrency } from './utils.js';
 
 // ==========================================
@@ -983,7 +984,7 @@ window.exportEquipmentFullPdf = function () {
 export function deleteEquipment(id) {
   if (!confirm('Remove this equipment?')) return;
   window.recycleDelete && window.recycleDelete('equipmentList', id, 'Equipment');
-  state.equipmentLogs = state.equipmentLogs.filter(l => l.assetId !== id);
+  keepOnly('equipmentLogs', l => l.assetId !== id);
   saveEquipmentData();
   renderEquipmentView();
 }

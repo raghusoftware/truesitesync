@@ -11,6 +11,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { uploadExecMedia, openExecMedia, removeExecMedia } from './execMedia.js';
@@ -304,16 +305,25 @@ function _positionDropdown(dd, input) {
   container.appendChild(dd);
 
   const rect = input.getBoundingClientRect();
+  const GAP = 8;
+  const ddW = dd.offsetWidth || 260;
+  const vw = document.documentElement.clientWidth;
+  // Keep the dropdown inside the viewport: if anchoring at the button's left
+  // would push its right edge off-screen, shift left so it fits (right-align).
+  let vpLeft = rect.left;
+  if (vpLeft + ddW > vw - GAP) vpLeft = Math.max(GAP, vw - GAP - ddW);
   if (sheet) {
     // Inside fullscreen sheet — use viewport-relative positioning with fixed
     dd.style.position = 'fixed';
     dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
+    dd.style.left = vpLeft + 'px';
+    dd.style.maxWidth = (vw - 2 * GAP) + 'px';
     dd.style.zIndex = '100000';
   } else {
     dd.style.position = 'absolute';
     dd.style.top = (rect.bottom + window.scrollY + 2) + 'px';
-    dd.style.left = (rect.left + window.scrollX) + 'px';
+    dd.style.left = (vpLeft + window.scrollX) + 'px';
+    dd.style.maxWidth = (vw - 2 * GAP) + 'px';
   }
 }
 
@@ -789,7 +799,7 @@ export function rebuildSheetConsumption(sheet) {
   const sheetId = sheet.id, cId = sheet.clientId || '', projId = sheet.projectId || '';
   const sNum = sheet.sheetNum || '', date = sheet.date || new Date().toISOString().split('T')[0];
   if (!Array.isArray(state.inventoryTx)) state.inventoryTx = [];
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== sheetId);
+  keepOnly('inventoryTx', tx => tx.refSheetId !== sheetId);
 
   const grouped = {};
   (sheet.entries || []).forEach(e => { const q = parseFloat(e.qty) || 0; if (e.code && q > 0) grouped[e.code] = (grouped[e.code] || 0) + q; });
@@ -1145,7 +1155,7 @@ export function deleteMeasurementSheet(id) {
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first (Micro-Planning → RA Billing).`, 'error'); return; }
   if (!confirm(`Move sheet ${s.sheetNum} to the Recycle Bin?`)) return;
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
+  keepOnly('inventoryTx', tx => tx.refSheetId !== id);
   window.recycleDelete?.('sheets', id, 'Measurement Sheet', s.sheetNum);
   renderMeasurementList();
   showToast('Sheet moved to Recycle Bin');
@@ -1170,7 +1180,7 @@ export function deleteSheet(id) {
   const ra = _sheetBilledInRA(s);
   if (ra) { showToast(`Cannot delete — this measurement is billed in ${ra.raNo}. Delete that RA bill first.`, 'error'); return; }
   if (confirm('Move sheet to the Recycle Bin? Associated material consumption will be reversed.')) {
-    state.inventoryTx = state.inventoryTx.filter(tx => tx.refSheetId !== id);
+    keepOnly('inventoryTx', tx => tx.refSheetId !== id);
     window.recycleDelete?.('sheets', id, 'Measurement Sheet', s?.sheetNum || id);
     renderSavedSheets();
     showToast('Moved to Recycle Bin');
@@ -1190,24 +1200,24 @@ export function toggleBBSSection() {
   if (isHidden && !document.getElementById('bbsTableBody').rows.length) addBBSRow(3);
 }
 
-export function addBBSRow(count = 1) {
-  const tbody = document.getElementById('bbsTableBody');
-  const sn = tbody.rows.length;
-  for (let i = 0; i < count; i++) {
-    const tr = document.createElement('tr');
-    const n = sn + i + 1;
-    tr.innerHTML = `<td class="p-1 border text-center text-xs text-slate-400 font-bold bbs-sn">${n}</td>
-      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder=""></td>
+// One blank BBS row's HTML (optionally pre-filled with data for copy/restore).
+function _bbsRowHTML(n, d) {
+  d = d || {};
+  const v = x => (x === undefined || x === null) ? '' : String(x).replace(/"/g, '&quot;');
+  const diaOpts = ['8','10','12','16','20','25','28','32']
+    .map(o => `<option value="${o}" ${String(d.dia) === o ? 'selected' : ''}>${o}</option>`).join('');
+  return `<td class="p-1 border text-center text-xs text-slate-400 font-bold bbs-sn">${n}</td>
+      <td class="p-1 border"><input type="text" class="table-input bbs-mark" placeholder="" value="${v(d.mark)}"></td>
       <td class="p-1 border"><select class="table-input bbs-dia" onchange="calcBBSRow(this)" style="padding:0.35rem;min-width:50px;text-align:center;font-weight:700;">
-        <option value="">--</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option><option value="20">20</option><option value="25">25</option><option value="28">28</option><option value="32">32</option></select></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-nobar text-center" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-no text-center" oninput="calcBBSRow(this)"></td>
+        <option value="">--</option>${diaOpts}</select></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-nobar text-center" value="${v(d.nobar)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-no text-center" value="${v(d.no)}" oninput="calcBBSRow(this)"></td>
       <td class="p-1 border bg-slate-50"><input type="text" class="table-input bbs-totbar text-center font-bold" readonly></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-a text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-b text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-c text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-d text-center" step="0.01" oninput="calcBBSRow(this)"></td>
-      <td class="p-1 border"><input type="number" class="table-input bbs-hook text-center" step="0.01" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-a text-center" step="0.01" value="${v(d.a)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-b text-center" step="0.01" value="${v(d.b)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-c text-center" step="0.01" value="${v(d.c)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-d text-center" step="0.01" value="${v(d.d)}" oninput="calcBBSRow(this)"></td>
+      <td class="p-1 border"><input type="number" class="table-input bbs-hook text-center" step="0.01" value="${v(d.hook)}" oninput="calcBBSRow(this)"></td>
       <td class="p-1 border bg-purple-50"><input type="text" class="table-input bbs-cutlen text-center font-bold text-purple-700" readonly></td>
       <td class="p-1 border bg-purple-50"><input type="text" class="table-input bbs-totlen text-center font-bold text-purple-700" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d8 text-center text-xs" readonly></td>
@@ -1215,10 +1225,51 @@ export function addBBSRow(count = 1) {
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d12 text-center text-xs" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d16 text-center text-xs" readonly></td>
       <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d20 text-center text-xs" readonly></td>
-      <td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); _renumberBBS(); _calcBBSTotals();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+      <td class="p-1 border text-center" style="white-space:nowrap"><button onclick="window._bbsCopyRow(this)" title="Copy this bar below" class="text-indigo-400 hover:bg-indigo-50 p-1 rounded font-bold">⧉</button><button onclick="this.closest('tr').remove(); window._renumberBBS(); window._calcBBSTotals();" title="Delete bar" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+}
+
+export function addBBSRow(count = 1) {
+  const tbody = document.getElementById('bbsTableBody');
+  const sn = tbody.rows.length;
+  for (let i = 0; i < count; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = _bbsRowHTML(sn + i + 1, {});
     tbody.appendChild(tr);
   }
 }
+
+// Read one BBS row's values.
+function _bbsReadRow(tr) {
+  return {
+    mark: tr.querySelector('.bbs-mark')?.value || '',
+    dia: tr.querySelector('.bbs-dia')?.value || '',
+    nobar: tr.querySelector('.bbs-nobar')?.value || '',
+    no: tr.querySelector('.bbs-no')?.value || '',
+    a: tr.querySelector('.bbs-a')?.value || '',
+    b: tr.querySelector('.bbs-b')?.value || '',
+    c: tr.querySelector('.bbs-c')?.value || '',
+    d: tr.querySelector('.bbs-d')?.value || '',
+    hook: tr.querySelector('.bbs-hook')?.value || '',
+  };
+}
+
+/** Copy a BBS bar row right below itself, carrying its values. */
+window._bbsCopyRow = function (btn) {
+  const tr = btn.closest('tr');
+  if (!tr) return;
+  const data = _bbsReadRow(tr);
+  const row = document.createElement('tr');
+  row.innerHTML = _bbsRowHTML('', data);
+  tr.after(row);
+  _renumberBBS();
+  // Recompute the new row's derived columns + the schedule totals.
+  const diaSel = row.querySelector('.bbs-dia');
+  if (diaSel) calcBBSRow(diaSel);
+  _calcBBSTotals();
+  row.querySelector('.bbs-mark')?.focus();
+};
+window._renumberBBS = _renumberBBS;
+window._calcBBSTotals = _calcBBSTotals;
 
 function _renumberBBS() {
   document.querySelectorAll('#bbsTableBody tr').forEach((tr, i) => {
@@ -1404,7 +1455,7 @@ function _loadBBSData(sheetId) {
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d12 text-center text-xs" value="${dia == 12 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d16 text-center text-xs" value="${dia == 16 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
         <td class="p-1 border bg-yellow-50"><input type="text" class="table-input bbs-d20 text-center text-xs" value="${dia == 20 && totalLen ? totalLen.toFixed(2) : ''}" readonly></td>
-        <td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); _renumberBBS(); _calcBBSTotals();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+        <td class="p-1 border text-center" style="white-space:nowrap"><button onclick="window._bbsCopyRow(this)" title="Copy this bar below" class="text-indigo-400 hover:bg-indigo-50 p-1 rounded font-bold">⧉</button><button onclick="this.closest('tr').remove(); window._renumberBBS(); window._calcBBSTotals();" title="Delete bar" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
       tbody.appendChild(tr);
     });
     _calcBBSTotals();
@@ -1627,7 +1678,7 @@ function _gLineHTML(d) {
     <td><input type="number" class="g-b msg-in msg-num-in" placeholder="—" value="${d.b || ''}" oninput="calcGroupedLine(this)"></td>
     <td><input type="number" class="g-h msg-in msg-num-in" placeholder="—" value="${d.h || ''}" oninput="calcGroupedLine(this)" onkeydown="window._gLineKey(event,this)"></td>
     <td><input type="number" step="any" class="g-qty msg-qty" value="${_fmtMeasQty(d.qty)}" oninput="window._gQtyEdit(this)" title="Auto from L×B×H — or type directly for kg / MT / nos / bags"></td>
-    <td class="msg-line-actions"><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="msg-linebtn dup">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="msg-linebtn del">🗑</button></td>
+    <td class="msg-line-actions"><input type="checkbox" class="g-sel" title="Select line (to copy several at once)" onchange="window._gSelChanged(this)"><button onclick="window._gCopyLinePrompt(this)" title="Copy this line (or all ticked lines) to another item" class="msg-linebtn send">⤷</button><button onclick="duplicateGroupedLine(this)" title="Copy line below" class="msg-linebtn dup">⧉</button><button onclick="removeGroupedLine(this)" title="Delete line" class="msg-linebtn del">🗑</button></td>
   </tr>`;
 }
 
@@ -1703,6 +1754,7 @@ export function addGroupedItem(data) {
       </div>
       <input type="hidden" class="g-boq" value="${data.boqIndex ?? ''}">
       <div class="msg-head-actions">
+        <button onclick="window._gCopyLinesPrompt(this)" class="msg-iconbtn" title="Copy all these measurement lines into another item (e.g. same shape for Shuttering)">⤷</button>
         <button onclick="duplicateGroupedItem(this)" class="msg-iconbtn" title="Duplicate this whole item">⧉</button>
         <button onclick="removeGroupedItem(this)" class="msg-iconbtn danger" title="Remove item">🗑</button>
       </div>
@@ -1714,11 +1766,12 @@ export function addGroupedItem(data) {
       <th>Breadth${colClr('b', 'Breadth')}</th>
       <th>Height${colClr('h', 'Height')}</th>
       <th class="msg-th-qty">Quantity</th>
-      <th></th>
+      <th class="msg-th-sel"><input type="checkbox" class="g-selall" title="Select all lines" onchange="window._gSelAll(this)"></th>
     </tr></thead><tbody class="g-lines"></tbody></table></div>
     <div class="msg-foot">
       <div class="msg-foot-left">
         <button onclick="addGroupedLine(this)" class="msg-addline">+ Add line</button>
+        <button onclick="window._gCopySelectedPrompt(this)" class="msg-copysel hide">⤷ Copy <span class="g-selcount">0</span> selected</button>
         <div class="msg-fill">
           <span class="msg-fill-lbl">Fill all</span>
           <input type="number" class="g-fill-nos" placeholder="Nos">
@@ -1760,7 +1813,11 @@ export function applyToAllLines(btn) {
   const b = card.querySelector('.g-fill-b')?.value ?? '';
   const h = card.querySelector('.g-fill-h')?.value ?? '';
   if (nos === '' && l === '' && b === '' && h === '') { showToast('Enter a value to apply first', 'warning'); return; }
-  card.querySelectorAll('.g-line').forEach(tr => {
+  // If any lines are ticked, fill ONLY those; otherwise fill every line.
+  const allRows = Array.from(card.querySelectorAll('.g-line'));
+  const ticked = allRows.filter(tr => tr.querySelector('.g-sel')?.checked);
+  const rows = ticked.length ? ticked : allRows;
+  rows.forEach(tr => {
     if (nos !== '') tr.querySelector('.g-nos').value = nos;
     if (l !== '') tr.querySelector('.g-l').value = l;
     if (b !== '') tr.querySelector('.g-b').value = b;
@@ -1768,6 +1825,12 @@ export function applyToAllLines(btn) {
     const q = _gLineQty(tr); const qe = tr.querySelector('.g-qty'); if (qe) qe.value = _fmtMeasQty(q);
   });
   _groupedItemTotal(card);
+  if (ticked.length) {
+    // Done filling — clear the selection so the ticks reset.
+    ticked.forEach(tr => { const cb = tr.querySelector('.g-sel'); if (cb) cb.checked = false; });
+    _gUpdateSelUI(card);
+    showToast(`Applied to ${ticked.length} selected line${ticked.length > 1 ? 's' : ''}`, 'success');
+  }
 }
 
 /** Clear one specific column (nos/l/b/h) across every line of the item */
@@ -1838,6 +1901,146 @@ export function duplicateGroupedItem(btn) {
   const newCard = list?.lastElementChild;
   if (newCard && card.nextSibling) list.insertBefore(newCard, card.nextSibling);
   _renumberGroupedItems();
+}
+
+// Read a grouped item's measurement lines (dims + label), for copying elsewhere.
+function _gReadLines(card) {
+  return Array.from(card.querySelectorAll('.g-line')).map(tr => ({
+    remarks: tr.querySelector('.g-label')?.value || '',
+    nos: tr.querySelector('.g-nos')?.value || '',
+    l: tr.querySelector('.g-l')?.value || '',
+    b: tr.querySelector('.g-b')?.value || '',
+    h: tr.querySelector('.g-h')?.value || '',
+    qty: tr.querySelector('.g-qty')?.value || '',
+  }));
+}
+const _gEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Read ONE measurement line's data (dims + label).
+function _gReadLine(tr) {
+  return {
+    remarks: tr.querySelector('.g-label')?.value || '',
+    nos: tr.querySelector('.g-nos')?.value || '',
+    l: tr.querySelector('.g-l')?.value || '',
+    b: tr.querySelector('.g-b')?.value || '',
+    h: tr.querySelector('.g-h')?.value || '',
+    qty: tr.querySelector('.g-qty')?.value || '',
+  };
+}
+const _gLineHasData = d => !!(d.remarks || d.nos || d.l || d.b || d.h || d.qty);
+
+// Insert a set of lines into a target item, or into a new blank item.
+function _gInsertLines(targetCard, lines, srcCard) {
+  closeBoqDropdowns();   // close the copy menu after a target is picked
+  if (!lines.length) { showToast('Nothing to copy', 'warning'); return; }
+  if (targetCard) {
+    const tb = targetCard.querySelector('.g-lines');
+    if (!tb) return;
+    // Drop fully-empty starter lines so copied rows don't leave a stray blank.
+    tb.querySelectorAll('.g-line').forEach(tr => {
+      const empty = ['.g-label', '.g-nos', '.g-l', '.g-b', '.g-h'].every(s => !(tr.querySelector(s)?.value || '').trim());
+      if (empty) tr.remove();
+    });
+    lines.forEach(d => tb.insertAdjacentHTML('beforeend', _gLineHTML(d)));
+    _groupedItemTotal(targetCard);
+    const no = (targetCard.querySelector('.g-num')?.textContent || '').trim();
+    showToast(`Copied ${lines.length} line${lines.length > 1 ? 's' : ''} to item #${no}`, 'success');
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    addGroupedItem({ lines });   // new item with just the copied dimensions
+    const container = document.getElementById('groupedEntryContainer');
+    const last = container?.querySelector('.g-items .g-item:last-child');
+    last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    last?.querySelector('.g-code')?.focus();
+    showToast(`New item created with ${lines.length} copied line${lines.length > 1 ? 's' : ''} — now add its code/description`, 'success');
+  }
+  // Clear the source selection after a copy.
+  if (srcCard) { srcCard.querySelectorAll('.g-sel:checked').forEach(c => { c.checked = false; }); _gUpdateSelUI(srcCard); }
+}
+
+// Build the "copy to…" menu (other items + New item). Deferred one tick so the
+// global click-away that closes .boq-dropdown fires for THIS click first.
+function _gShowCopyMenu(src, btn, lines, header) {
+  if (!lines.length) { showToast('Nothing to copy', 'warning'); return; }
+  closeBoqDropdowns();
+  setTimeout(() => {
+    const items = Array.from(document.querySelectorAll('#groupedEntryContainer .g-item'));
+    const dd = document.createElement('div');
+    dd.className = 'boq-dropdown g-copymenu';
+    dd.innerHTML = `<div class="boq-dd-header">${header}</div>`;
+    items.forEach(it => {
+      if (it === src) return;
+      const no = (it.querySelector('.g-num')?.textContent || '').trim();
+      const code = it.querySelector('.g-code')?.value || '';
+      const desc = it.querySelector('.g-desc')?.value || '';
+      const row = document.createElement('div');
+      row.className = 'boq-dd-item';
+      row.innerHTML = `<span class="dd-code">#${_gEsc(no)}</span> <span class="dd-desc">${_gEsc((code ? code + ' — ' : '') + (desc || '(untitled item)'))}</span>`;
+      row.onclick = () => _gInsertLines(it, lines, src);
+      dd.appendChild(row);
+    });
+    const newRow = document.createElement('div');
+    newRow.className = 'boq-dd-item';
+    newRow.style.borderTop = '1px solid #e2e8f0';
+    newRow.innerHTML = `<span class="dd-code" style="color:#6366f1;">＋ New item</span> <span class="dd-desc">copy into a fresh blank item (e.g. Shuttering)</span>`;
+    newRow.onclick = () => _gInsertLines(null, lines, src);
+    dd.appendChild(newRow);
+    _positionDropdown(dd, btn);
+  }, 0);
+}
+
+/** Item header ⤷ — copy ALL of this item's lines. */
+window._gCopyLinesPrompt = function (btn) {
+  const src = btn.closest('.g-item'); if (!src) return;
+  const lines = _gReadLines(src).filter(_gLineHasData);
+  if (!lines.length) { showToast('This item has no measurement lines to copy yet', 'warning'); return; }
+  _gShowCopyMenu(src, btn, lines, `Copy ${lines.length} line${lines.length > 1 ? 's' : ''} to…`);
+};
+
+/** Per-line ⤷ — copy THIS single line (or, if lines are ticked, all ticked ones). */
+window._gCopyLinePrompt = function (btn) {
+  const tr = btn.closest('tr'); const src = btn.closest('.g-item');
+  if (!tr || !src) return;
+  const checked = Array.from(src.querySelectorAll('.g-line')).filter(r => r.querySelector('.g-sel')?.checked);
+  if (checked.length) {   // a multi-selection is active → copy all ticked lines
+    const lines = checked.map(_gReadLine).filter(_gLineHasData);
+    if (!lines.length) { showToast('Ticked lines are empty', 'warning'); return; }
+    _gShowCopyMenu(src, btn, lines, `Copy ${lines.length} selected line${lines.length > 1 ? 's' : ''} to…`);
+    return;
+  }
+  const d = _gReadLine(tr);
+  if (!_gLineHasData(d)) { showToast('This line is empty — nothing to copy', 'warning'); return; }
+  const lbl = (d.remarks || '').trim();
+  _gShowCopyMenu(src, btn, [d], `Copy line${lbl ? ' “' + _gEsc(lbl) + '”' : ''} to…`);
+};
+
+/** Footer "Copy N selected" — copy all ticked lines of the item. */
+window._gCopySelectedPrompt = function (btn) {
+  const src = btn.closest('.g-item'); if (!src) return;
+  const checked = Array.from(src.querySelectorAll('.g-line')).filter(r => r.querySelector('.g-sel')?.checked);
+  const lines = checked.map(_gReadLine).filter(_gLineHasData);
+  if (!lines.length) { showToast('Tick one or more lines first', 'warning'); return; }
+  _gShowCopyMenu(src, btn, lines, `Copy ${lines.length} selected line${lines.length > 1 ? 's' : ''} to…`);
+};
+
+/** Line checkbox / select-all handling + the "N selected" footer button. */
+window._gSelChanged = function (cb) { _gUpdateSelUI(cb.closest('.g-item')); };
+window._gSelAll = function (cb) {
+  const card = cb.closest('.g-item'); if (!card) return;
+  card.querySelectorAll('.g-line .g-sel').forEach(c => { c.checked = cb.checked; });
+  _gUpdateSelUI(card);
+};
+function _gUpdateSelUI(card) {
+  if (!card) return;
+  const boxes = Array.from(card.querySelectorAll('.g-line .g-sel'));
+  const n = boxes.filter(c => c.checked).length;
+  const btn = card.querySelector('.msg-copysel');
+  if (btn) { btn.classList.toggle('hide', n === 0); const c = btn.querySelector('.g-selcount'); if (c) c.textContent = n; }
+  const all = card.querySelector('.g-selall');
+  if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+  const fillLbl = card.querySelector('.msg-fill-lbl');
+  if (fillLbl) fillLbl.textContent = n > 0 ? `Fill ${n} selected` : 'Fill all';
+  card.querySelectorAll('.g-line').forEach(tr => tr.classList.toggle('g-line-sel', !!tr.querySelector('.g-sel')?.checked));
 }
 
 function _renumberGroupedItems() {

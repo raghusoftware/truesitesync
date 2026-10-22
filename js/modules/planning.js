@@ -8,6 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, formatINR, mobileSavePDF } from './utils.js';
 const _planHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : 14;
 
@@ -652,8 +653,8 @@ export function saveTask(taskId) {
   if (!state.taskMaterials) state.taskMaterials = [];
   if (!state.taskEquipment) state.taskEquipment = [];
   // Clear previous for this task (rebuild from form)
-  state.taskMaterials = state.taskMaterials.filter(m => m.taskId !== taskId);
-  state.taskEquipment = state.taskEquipment.filter(e => e.taskId !== taskId);
+  keepOnly('taskMaterials', m => m.taskId !== taskId);
+  keepOnly('taskEquipment', e => e.taskId !== taskId);
 
   // Recipe materials
   const recipeRef = data.recipeRef;
@@ -694,8 +695,8 @@ export function saveTask(taskId) {
 export function deleteTask(taskId) {
   if (!confirm('Delete this task and all its material/equipment links?')) return;
   window.recycleDelete && window.recycleDelete('planningTasks', taskId, 'Task');
-  state.taskMaterials = (state.taskMaterials || []).filter(m => m.taskId !== taskId);
-  state.taskEquipment = (state.taskEquipment || []).filter(e => e.taskId !== taskId);
+  keepOnly('taskMaterials', m => m.taskId !== taskId);
+  keepOnly('taskEquipment', e => e.taskId !== taskId);
   saveAllData();
   showToast('Task deleted', 'success');
   renderPlanningView();
@@ -994,7 +995,7 @@ export function saveMaterial(taskId) {
 }
 
 export function removeMaterial(materialLinkId, taskId) {
-  state.taskMaterials = (state.taskMaterials || []).filter(m => m.id !== materialLinkId);
+  keepOnly('taskMaterials', m => m.id !== materialLinkId);
   saveAllData();
   showToast('Material removed', 'success');
   renderPlanningView();
@@ -1091,7 +1092,7 @@ export function saveEquipment(taskId) {
 }
 
 export function removeEquipment(equipLinkId, taskId) {
-  state.taskEquipment = (state.taskEquipment || []).filter(e => e.id !== equipLinkId);
+  keepOnly('taskEquipment', e => e.id !== equipLinkId);
   saveAllData();
   showToast('Equipment removed', 'success');
   renderPlanningView();

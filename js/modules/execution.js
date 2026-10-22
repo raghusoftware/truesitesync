@@ -12,6 +12,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
@@ -1262,7 +1263,7 @@ window._staffSave = function (id) {
 };
 window._staffDelete = function (id) {
   if (!confirm('Delete this staff member? Their attendance history stays in records.')) return;
-  state.staffMaster = (state.staffMaster || []).filter(x => x.id !== id);
+  keepOnly('staffMaster', x => x.id !== id);
   saveAllData(); _exCloseModal(); showToast('Staff deleted'); renderExecution();
 };
 

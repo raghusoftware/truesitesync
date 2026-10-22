@@ -9,6 +9,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { settledAmount } from './deductions.js';
 import { toBaseQty } from './units.js';
 import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
@@ -910,7 +911,7 @@ export function saveSaleInvoiceForm() {
   // On edit we first reverse this invoice's previous movements, then recompute.
   // Cancelled invoices move nothing.
   if (!state.inventoryTx) state.inventoryTx = [];
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.saleInvoiceId !== invoiceId);
+  keepOnly('inventoryTx', tx => tx.saleInvoiceId !== invoiceId);
   if (rec.status !== 'Cancelled') {
     const outDate = rec.date || new Date().toISOString().slice(0, 10);
     const siteId = rec.projectId || (state.rawMaterials || []).find(r => r.projectId)?.projectId || '';
@@ -1051,7 +1052,7 @@ export function deleteSaleInvoice(id) {
   // "Invoiced" and can be re-billed or deleted. Match both the saved link list
   // and any abstract that points back at this invoice.
   // Reverse any BOM inventory consumption this invoice caused (materials back to stock).
-  if (Array.isArray(state.inventoryTx)) state.inventoryTx = state.inventoryTx.filter(tx => tx.saleInvoiceId !== id);
+  if (Array.isArray(state.inventoryTx)) keepOnly('inventoryTx', tx => tx.saleInvoiceId !== id);
   if (inv) {
     const ids = new Set(inv.linkedAbstractIds || []);
     (state.abstracts || []).forEach(a => {
