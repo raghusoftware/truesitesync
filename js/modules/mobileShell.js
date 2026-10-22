@@ -157,18 +157,18 @@ export function goBackView() {
 // business-level shortcuts, so the project items never sit dead on a screen
 // with no project.
 const PROJECT_NAV = [
-  { id: 'home',      label: 'Home',      icon: '🏠', action: () => navTo('projectsHome') },
-  { id: 'labour',    label: 'Labour',    icon: '👷', action: () => navTo('labourView') },
-  { id: 'add',       label: 'Menu',      icon: '+',  fab: true, action: () => openDrawer() },
-  { id: 'inventory', label: 'Inventory', icon: '📦', action: () => navTo('inventoryView') },
-  { id: 'equipment', label: 'Equipment', icon: '🚚', action: () => navTo('equipmentView') },
+  { id: 'home',      label: 'Home',      icon: '🏠', iconName: 'home',      action: () => navTo('projectsHome') },
+  { id: 'labour',    label: 'Labour',    icon: '👷', iconName: 'labour',    action: () => navTo('labourView') },
+  { id: 'add',       label: 'Menu',      icon: '+',  iconName: 'plus', fab: true, action: () => openDrawer() },
+  { id: 'inventory', label: 'Inventory', icon: '📦', iconName: 'inventory', action: () => navTo('inventoryView') },
+  { id: 'equipment', label: 'Equipment', icon: '🚚', iconName: 'equipment', action: () => navTo('equipmentView') },
 ];
 const GLOBAL_NAV = [
-  { id: 'home',     label: 'Home',     icon: '🏠', action: () => navTo('projectsHome') },
-  { id: 'sales',    label: 'Sales',    icon: '🧾', action: () => navTo('salesLedgerView') },
-  { id: 'add',      label: 'Menu',     icon: '+',  fab: true, action: () => openDrawer() },
-  { id: 'purchase', label: 'Purchase', icon: '🛒', action: () => navTo('purchaseBillsView') },
-  { id: 'payments', label: 'Payments', icon: '💸', action: () => navTo('paymentsHubView') },
+  { id: 'home',     label: 'Home',     icon: '🏠', iconName: 'home',     action: () => navTo('projectsHome') },
+  { id: 'sales',    label: 'Sales',    icon: '🧾', iconName: 'receipt',  action: () => navTo('salesLedgerView') },
+  { id: 'add',      label: 'Menu',     icon: '+',  iconName: 'plus', fab: true, action: () => openDrawer() },
+  { id: 'purchase', label: 'Purchase', icon: '🛒', iconName: 'cart',     action: () => navTo('purchaseBillsView') },
+  { id: 'payments', label: 'Payments', icon: '💸', iconName: 'wallet',   action: () => navTo('paymentsHubView') },
 ];
 
 // Views that live INSIDE a project → show the project bar.
@@ -201,13 +201,14 @@ function buildBottomNav() {
   const nav = existing || document.createElement('nav');
   nav.id = 'mobileBottomNav';
   nav.className = 'mobile-bottom-nav no-print';
+  const ic = (it, size) => (window.tssIcon ? window.tssIcon(it.iconName, { size }) : it.icon);
   nav.innerHTML = items.map(item =>
     item.fab
       ? `<button type="button" class="mbn-item mbn-fab" data-nav="${item.id}" aria-label="${item.label}">
-           <span class="mbn-fab-circle">${item.icon}</span>
+           <span class="mbn-fab-circle">${ic(item, 26)}</span>
          </button>`
       : `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
-           <span class="mbn-ico">${item.icon}</span><span>${item.label}</span>
+           <span class="mbn-ico">${ic(item, 22)}</span><span>${item.label}</span>
          </button>`).join('');
   if (!existing) document.body.appendChild(nav);
   nav.querySelectorAll('.mbn-item').forEach(btn => {

@@ -17,19 +17,19 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 // ══════════════════════════════════════════
 
 const MODULE_CARDS = [
-  { id: 'execEngineView', icon: '&#128203;', label: 'Planning', desc: 'Activities, quantities, resources, durations & cost', color: '#7c3aed', stateKey: 'execActivities' },
-  { id: 'scheduleBuilderView', icon: '&#128197;', label: 'Scheduling', desc: 'Sequence planned activities on a timeline', color: '#0ea5e9', stateKey: 'scheduleLocations' },
-  { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
-  { id: 'chatView', icon: '&#128172;', label: 'Chat', desc: 'Site messaging, media & voice', color: '#2563eb', stateKey: 'chat' },
-  { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
-  { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
-  { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
-  { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#ef8420', stateKey: 'rawMaterials' },
-  { id: 'recipeView', icon: '&#129514;', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
-  { id: 'assetsView', icon: '&#128295;', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
-  { id: 'measurementListView', icon: '&#128208;', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
-  { id: 'abstractsView', icon: '&#128209;', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
-  { id: 'documentsView', icon: '&#128193;', label: 'Documents', desc: 'Drawings & files, in folders', color: '#0284c7', stateKey: 'projectDocs' },
+  { id: 'execEngineView', icon: '&#128203;', iconName: 'planning', label: 'Planning', desc: 'Activities, quantities, resources, durations & cost', color: '#7c3aed', stateKey: 'execActivities' },
+  { id: 'scheduleBuilderView', icon: '&#128197;', iconName: 'calendar', label: 'Scheduling', desc: 'Sequence planned activities on a timeline', color: '#0ea5e9', stateKey: 'scheduleLocations' },
+  { id: 'issuesView', icon: '&#128681;', iconName: 'flag', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
+  { id: 'chatView', icon: '&#128172;', iconName: 'chat', label: 'Chat', desc: 'Site messaging, media & voice', color: '#2563eb', stateKey: 'chat' },
+  { id: 'executionView', icon: '&#127959;', iconName: 'execution', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
+  { id: 'labourView', icon: '&#128119;', iconName: 'labour', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
+  { id: 'equipmentView', icon: '&#128666;', iconName: 'equipment', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
+  { id: 'inventoryView', icon: '&#128230;', iconName: 'inventory', label: 'Inventory', desc: 'Stock & materials', color: '#ef8420', stateKey: 'rawMaterials' },
+  { id: 'recipeView', icon: '&#129514;', iconName: 'flask', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
+  { id: 'assetsView', icon: '&#128295;', iconName: 'wrench', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
+  { id: 'measurementListView', icon: '&#128208;', iconName: 'ruler', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
+  { id: 'abstractsView', icon: '&#128209;', iconName: 'document', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
+  { id: 'documentsView', icon: '&#128193;', iconName: 'folder', label: 'Documents', desc: 'Drawings & files, in folders', color: '#0284c7', stateKey: 'projectDocs' },
 ];
 
 // Re-render the active view (used by realtime sync). Skips while the user is
@@ -392,14 +392,14 @@ export function renderProjectDashboard() {
     const invCount = (state.saleInvoices || []).filter(i => i.projectId === pid).length;
     const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
     const kpis = [
-      { label: 'BOQ / PO', value: boqCount, icon: '📋', color: '#3b82f6' },
-      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#ef8420' },
-      { label: 'Invoices', value: invCount, icon: '🧾', color: '#8b5cf6' },
-      { label: 'Open Issues', value: openIssues, icon: '⚠️', color: openIssues ? '#ef4444' : '#94a3b8' },
+      { label: 'BOQ / PO', value: boqCount, iconName: 'clipboard' },
+      { label: 'Measurements', value: sheetCount, iconName: 'ruler' },
+      { label: 'Invoices', value: invCount, iconName: 'receipt' },
+      { label: 'Open Issues', value: openIssues, iconName: 'flag' },
     ];
     kpiEl.innerHTML = kpis.map(k => `
       <div class="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-        <div style="width:38px;height:38px;border-radius:11px;background:${k.color}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${k.icon}</div>
+        <div style="width:38px;height:38px;border-radius:11px;background:var(--brand-50);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${window.tssIcon ? window.tssIcon(k.iconName, { size: 19 }) : ''}</div>
         <div class="min-w-0">
           <div class="text-xl font-extrabold text-slate-800 leading-none">${k.value}</div>
           <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide truncate mt-1">${k.label}</div>
@@ -412,7 +412,7 @@ export function renderProjectDashboard() {
   grid.innerHTML = MODULE_CARDS.map(m => {
     return `<div onclick="switchView('${m.id}')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
       <div class="flex items-center gap-3">
-        <div style="width:44px;height:44px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;transition:all .2s;" class="group-hover:scale-110">${m.icon}</div>
+        <div style="width:44px;height:44px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;transition:all .2s;" class="group-hover:scale-110">${window.tssIcon ? window.tssIcon(m.iconName, { size: 22 }) : m.icon}</div>
         <div class="flex-1">
           <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">${m.label}</h4>
           <p class="text-[10px] text-slate-400">${m.desc}</p>
