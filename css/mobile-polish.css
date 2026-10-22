@@ -263,10 +263,13 @@ input, textarea, [contenteditable], td, .selectable {
      date add nothing (they live in the menu / the H1 below). Keep only
      sync + bell + a compact logout, on ONE line. */
   #breadcrumbBar { padding-left: 12px !important; padding-right: 12px !important; padding-bottom: 8px !important; }
-  #breadcrumbBar > .flex.items-center.gap-2 { min-width: 0; flex: 1 1 auto; overflow: hidden; }
-  #breadcrumbPath { min-width: 0; overflow: hidden; }
-  #breadcrumbPath, #breadcrumbPath * { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-  .header-right-items { gap: 6px !important; flex-wrap: nowrap !important; flex-shrink: 0; }
+  /* Keep ONLY "Home" in the breadcrumb on phones — the project name is already
+     the big H1 below, so this frees the row for sync + bell on a single line. */
+  #breadcrumbPath { display: flex !important; align-items: center; white-space: nowrap; flex-shrink: 0; }
+  #breadcrumbPath > *:not(:first-child) { display: none !important; }
+  .header-right-items { gap: 6px !important; flex-wrap: nowrap !important; flex-shrink: 0; margin-left: auto; }
+  /* Compact sync badge so the trio (sync · bell · logout) stays tidy. */
+  #headerSyncBadge { font-size: 9px !important; padding: 5px 8px !important; }
   .header-support,
   #headerProjBadge,
   #headerUserBadge,
