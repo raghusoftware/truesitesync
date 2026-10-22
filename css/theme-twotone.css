@@ -23,8 +23,8 @@
   --brand-cream:  #FDF1ED;
   --gold:       #DD3B1B;
   --gold-soft:  #F0542B;
-  /* Near-black ink for a crisper, more expensive read */
-  --ink-900:    #17120F;
+  /* Warm dark-grey ink (never pure black) for a crisp, expensive read */
+  --ink-900:    #322E2B;
 }
 
 /* ── Solid accent backgrounds → brand ───────────────────────────── */
@@ -132,19 +132,28 @@ input[type=checkbox],input[type=radio] { accent-color: var(--brand) !important; 
   color: var(--ink-900) !important; letter-spacing: -.02em !important;
 }
 
-/* ── Carbon-black cockpit side menu with a single red accent rail ───── */
+/* ── Premium WHITE side menu with a single red accent rail (no black) ── */
 #appSidebar {
-  background: #141417 !important;
-  background-image: linear-gradient(180deg, #17171B 0%, #101013 100%) !important;
-  border-right: 1px solid rgba(255,255,255,.05) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  border-right: 1px solid #F1ECE9 !important;
+  color: #44403C !important;
 }
+#appSidebar * { color: inherit; }
+#appSidebar .nav-btn { color: #52504B !important; font-weight: 600 !important; }
+#appSidebar .nav-btn:hover { background: #FBF4F1 !important; color: var(--brand-ink) !important; }
 #appSidebar .nav-btn.active {
-  background: rgba(221,59,27,.16) !important;
+  background: var(--brand-50) !important;
   border-left: 3px solid var(--brand) !important;
-  color: #fff !important;
+  color: var(--brand-ink) !important;
+  font-weight: 700 !important;
 }
 #appSidebar .nav-btn.active::after { background: var(--brand) !important; opacity: 1 !important; }
-#appSidebar .nav-btn:hover { background: rgba(255,255,255,.05) !important; }
+/* Section labels + logo lockup read as calm grey on white */
+#appSidebar p { color: #A8A29E !important; }
+#appSidebar h1 { color: var(--ink-900) !important; }
+/* The Support "Call" link follows the accent */
+#appSidebar a[href^="tel:"] { color: var(--brand) !important; }
 
 /* ── Dashboard KPI icon chips → brand tint (icons stay as glyphs) ── */
 #projDashKPIs > div > div:first-child { background: var(--brand-50) !important; }
