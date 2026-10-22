@@ -284,7 +284,7 @@ export function viewPurchaseOrderReport(id) {
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
   modal.innerHTML = `
     <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
-      <div class="flex items-center gap-3 px-5 py-4 border-b" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+      <div class="flex items-center gap-3 px-5 py-4 border-b" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg">📊</div>
         <div class="flex-1 min-w-0">
           <h3 class="font-extrabold text-slate-800">PO Tracking — <span class="font-mono text-indigo-700">${po.poNo}</span></h3>

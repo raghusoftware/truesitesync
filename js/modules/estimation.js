@@ -104,7 +104,7 @@ export function renderEstimationView() {
     <div class="flex items-center justify-between mb-5">
       <div><h2 class="text-2xl font-extrabold text-slate-800">Estimation</h2>
         <p class="text-slate-500 text-sm font-medium mt-1">Rate-analysis costing — BOQ → cost heads → budget.</p></div>
-      <button onclick="window._estNew()" class="px-5 py-2.5 text-white rounded-xl font-bold text-sm" style="background:linear-gradient(135deg,#7C5CFC,#5B34D9);">+ New Estimate</button>
+      <button onclick="window._estNew()" class="px-5 py-2.5 text-white rounded-xl font-bold text-sm" style="background:linear-gradient(135deg,#F0542B,#DD3B1B);">+ New Estimate</button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       ${list.length ? list.map(e => `
@@ -128,7 +128,7 @@ function _renderEditor(c) {
     <div class="flex items-center justify-between mb-4">
       <button onclick="window._estClose()" class="text-sm font-bold text-slate-500">← All estimates</button>
       <div class="flex gap-2">
-        <button onclick="window._estSave()" class="px-5 py-2 text-white rounded-lg font-bold text-sm" style="background:linear-gradient(135deg,#7C5CFC,#5B34D9);">💾 Save</button>
+        <button onclick="window._estSave()" class="px-5 py-2 text-white rounded-lg font-bold text-sm" style="background:linear-gradient(135deg,#F0542B,#DD3B1B);">💾 Save</button>
       </div>
     </div>
 

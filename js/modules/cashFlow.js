@@ -684,7 +684,7 @@ function _renderForecast() {
         </div>
       </div>
     </div>
-    <div style="background:${tf.gap >= 0 ? 'linear-gradient(135deg,#7a1f14,#d6402c)' : 'linear-gradient(135deg,#7f1d1d,#dc2626)'};border-radius:16px;padding:16px 18px;margin-bottom:18px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <div style="background:${tf.gap >= 0 ? 'linear-gradient(135deg,#7a1f14,#d6402c)' : 'linear-gradient(135deg,#F0542B,#DD3B1B)'};border-radius:16px;padding:16px 18px;margin-bottom:18px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">30-day projected cash (opening ${fmt(tf.opening)})</div><div style="font-size:26px;font-weight:800;">${fmt(tf.projected)}</div></div>
       <div style="font-size:13px;opacity:.95;max-width:300px;">${tf.gap >= 0 ? '✅ Surplus — deploy it: pre-pay A-vendors or set aside profit.' : '⚠️ Gap — accelerate A/B collections before committing new spend.'}</div>
     </div>
@@ -749,7 +749,7 @@ function _renderTools() {
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <h3 style="font-size:14px;font-weight:800;color:#0f172a;">📋 Credit Policy</h3>
-          <button onclick="window._cfSaveCreditPolicy()" style="padding:6px 14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
+          <button onclick="window._cfSaveCreditPolicy()" style="padding:6px 14px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Save</button>
         </div>
         <p style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Clients currently take <b>${dso} days</b> on average — set your rules and enforce them.</p>
         <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;"><span style="flex:1;font-size:12px;color:#334155;font-weight:600;">Max credit days</span><input id="cpMaxDays" type="number" min="0" value="${N(p.maxDays)}" style="width:70px;padding:6px;border:1px solid #e2e8f0;border-radius:7px;text-align:center;font-size:13px;font-weight:700;"><span style="font-size:11px;color:#94a3b8;">days</span></div>

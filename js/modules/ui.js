@@ -126,7 +126,7 @@ window._filooPickProject = function(){
     const c = (state.clients||[]).find(x => x.id === p.clientId);
     const active = p.id === state.currentProjectId;
     return `<div onclick="window._filooSelectProject('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;margin-bottom:8px;background:${active?'#F3F0FD':'#fff'};border:1px solid ${active?'#C9BEF6':'#EEEAF7'};cursor:pointer;">
-      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7C5CFC,#5B34D9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">${_fhEsc(String(p.name||'P').charAt(0).toUpperCase())}</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">${_fhEsc(String(p.name||'P').charAt(0).toUpperCase())}</div>
       <div style="flex:1;min-width:0;"><div style="font-weight:700;color:#241E45;">${_fhEsc(p.name||'Project')}</div><div style="font-size:12px;color:#8B86A8;">${_fhEsc(c?.name || p.clientName || '')}</div></div>
       ${active ? '<span style="color:#7C5CFC;font-weight:900;font-size:16px;">✓</span>' : ''}
     </div>`;
@@ -136,7 +136,7 @@ window._filooPickProject = function(){
       <div style="width:40px;height:4px;background:#E5E1F5;border-radius:3px;margin:0 auto 14px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <h3 style="font-size:17px;font-weight:800;color:#241E45;margin:0;">Select project</h3>
-        <button onclick="document.getElementById('fhPick').remove(); if(typeof projHomeAction==='function')projHomeAction();" style="font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#7C5CFC,#5B34D9);border:none;padding:8px 14px;border-radius:20px;cursor:pointer;">+ New</button>
+        <button onclick="document.getElementById('fhPick').remove(); if(typeof projHomeAction==='function')projHomeAction();" style="font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#F0542B,#DD3B1B);border:none;padding:8px 14px;border-radius:20px;cursor:pointer;">+ New</button>
       </div>
       ${rows}
     </div></div>`;
@@ -2003,7 +2003,7 @@ function _renderStores() {
   }).join('');
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-      <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#ecfeff,#cffafe);">
+      <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-lg">🏬</div>
         <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stores &amp; Sites</h4><p class="text-[11px] text-slate-500">${locs.length} location${locs.length === 1 ? '' : 's'}${canTx ? '' : ' · transfer locked for your role'}</p></div>
         <div class="flex items-center gap-2">
@@ -2108,7 +2108,7 @@ function _renderStockStatement() {
   const partyOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-lg">📊</div>
         <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stock Statement</h4><p class="text-[11px] text-slate-500">Filter by period, type, material or party — then download</p></div>
         <button onclick="window._exportStockStatementXLSX()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬇ Excel</button>
@@ -2301,8 +2301,8 @@ function _renderGRN() {
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-hidden ${_grnEdit0 ? 'ring-2 ring-amber-300' : ''}">
       <!-- Header band -->
-      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#eff6ff,#dbeafe'});">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#3b82f6,#1d4ed8'});">🚚</div>
+      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#FDF1ED,#FBE7DF'});">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#F0542B,#DD3B1B'});">🚚</div>
         <div class="flex-1 min-w-0">
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">${_grnEdit0 ? 'Editing GRN' : 'Goods Receipt Note'}</h4>
           <p class="text-[11px] text-slate-500 font-medium truncate">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
@@ -2796,8 +2796,8 @@ function _renderGrnRegister() {
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <!-- Header -->
-      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#4338ca);">📋</div>
+      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,#F0542B,#DD3B1B);">📋</div>
         <div class="flex-1 min-w-0">
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">GRN Register</h4>
           <p class="text-[11px] text-slate-500 font-medium">All goods received on this project</p>
@@ -3542,8 +3542,8 @@ function _grnShowImportPreview() {
   const html = `
   <div id="grnImportModal" style="position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:18px;max-width:1040px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
-      <div style="padding:16px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#FDF1ED,#FBE7DF);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
         <div style="flex:1;">
           <h4 style="margin:0;font-weight:800;color:#065f46;font-size:15px;">Review GRNs to import</h4>
           <p style="margin:2px 0 0;font-size:11px;color:#047857;">Check and edit the rows below, then upload. Duplicates and incomplete rows are skipped.</p>
@@ -4416,7 +4416,7 @@ window.renderDeviationStatement = function () {
       <td class="px-3 py-2 text-right font-bold text-amber-700">${m(e.amount)}</td>
     </tr>`).join('');
   panel.innerHTML = `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-slate-100" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+    <div class="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
       <div class="mr-auto"><h3 class="font-extrabold text-slate-800 text-sm">Deviation Statement</h3><p class="text-[11px] text-slate-500">BOQ vs executed quantity · ${d.projName || ''}</p></div>
       <button onclick="printDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">🖨️ Print</button>
       <button onclick="toggleDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg">Close</button>
@@ -5363,7 +5363,7 @@ window._setGangAdvance = function (id) {
   m.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
   m.onclick = e => { if (e.target === m) m.remove(); };
   m.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f5f3ff,#ede9fe);"><h3 style="margin:0;font-size:16px;font-weight:800;color:#5b21b6;">💸 Weekly Payout — ${c.name}</h3><p style="margin:2px 0 0;font-size:11px;color:#7c6f9e;">Advance amount &amp; the day it&rsquo;s paid each week.</p></div>
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#FDF1ED,#FBE7DF);"><h3 style="margin:0;font-size:16px;font-weight:800;color:#5b21b6;">💸 Weekly Payout — ${c.name}</h3><p style="margin:2px 0 0;font-size:11px;color:#7c6f9e;">Advance amount &amp; the day it&rsquo;s paid each week.</p></div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
       <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Weekly Advance (&#8377;)</label><input id="_gaAmt" type="number" value="${c.weeklyAdvance || ''}" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;"></div>
       <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Pay Day (weekly)</label><select id="_gaDay" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;background:#fff;box-sizing:border-box;">${dayLong.map((d, i) => `<option value="${i}" ${i === curDay ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
@@ -6040,7 +6040,7 @@ window._dailyMusterRoll = function() {
 
   let html = `<div style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:16px;width:92%;max-width:560px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);">
-      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;">
         <div><h3 style="font-size:15px;font-weight:800;">Daily Muster Roll</h3><p style="font-size:11px;opacity:.85;">${date} • ${_siteLabel(siteId) || 'All Sites'}</p></div>
         <button onclick="this.closest('[style*=fixed]').remove()" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;cursor:pointer;">×</button>
       </div>

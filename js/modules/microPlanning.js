@@ -93,7 +93,7 @@ export function mpOpenTaskForm(editId) {
   const html = `
     <div id="mpTaskFormModal" class="ef-overlay" style="z-index:199999" onclick="if(event.target===this)_mpCloseTaskForm()">
       <div class="ef-modal" style="max-width:620px;">
-        <div class="ef-header" style="background:linear-gradient(135deg,#1e3a8a,#3b82f6)">
+        <div class="ef-header" style="background:linear-gradient(135deg,#F0542B,#DD3B1B)">
           <h3 class="ef-title" style="color:#fff">${existing ? 'Edit Task' : 'Add Micro-Plan Task'}</h3>
           <button onclick="_mpCloseTaskForm()" class="ef-close" style="color:#fff">&times;</button>
         </div>
@@ -1293,7 +1293,7 @@ window.renderPlanVsActual = function() {
   c.innerHTML = `
     <div class="bg-white border rounded-xl p-4 mb-4">
       <div class="flex items-center justify-between mb-2"><h3 class="font-bold text-slate-800 text-sm">📈 Overall progress</h3><span class="font-extrabold text-cyan-700">${overallPct.toFixed(1)}%</span></div>
-      <div style="background:#f1f5f9;border-radius:8px;height:20px;overflow:hidden;"><div style="background:linear-gradient(90deg,#0891b2,#06b6d4);height:100%;width:${overallPct}%;"></div></div>
+      <div style="background:#f1f5f9;border-radius:8px;height:20px;overflow:hidden;"><div style="background:linear-gradient(90deg,#F0542B,#DD3B1B);height:100%;width:${overallPct}%;"></div></div>
       <div class="flex justify-between text-[11px] text-slate-400 mt-1"><span>Done ${fmt(totDoneVal)}</span><span>Planned ${fmt(totPlanVal)}</span></div>
     </div>
     <div class="bg-white border rounded-xl overflow-hidden">
