@@ -467,7 +467,9 @@ async function _pushKey(dataKey, value) {
         const mergedJson = JSON.stringify(merged);
         if (mergedJson !== JSON.stringify(value)) {
           _lastJson[dataKey] = mergedJson;   // pre-seed so realtime echo is ignored
-          _rtApplyFn(dataKey, merged);
+          // fromPush: the server already merged OUR payload — anything missing from
+          // the result was deleted (tombstoned), so it must not be re-pushed.
+          _rtApplyFn(dataKey, merged, { fromPush: true });
         }
       }
     } catch {}

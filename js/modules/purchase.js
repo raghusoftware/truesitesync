@@ -8,6 +8,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
@@ -215,13 +216,13 @@ export function savePurchaseBillPDF(id) {
 export function deletePurchaseBill(id) {
   if (!confirm("Move this Purchase Bill to the Recycle Bin?\n\nThe associated Inventory items will be removed from stock (restored if you restore the bill).")) return;
   const bill = (state.vendorMaterials || []).find(m => m.id === id);
-  state.inventoryTx = state.inventoryTx.filter(tx => tx.refBillId !== id);
+  keepOnly('inventoryTx', tx => tx.refBillId !== id);
   // Remove auto-GRNs this bill created, and un-bill any manual GRNs it claimed
   // so they reappear as "pending" in the purchase form. A GRN can be claimed by
   // billedByBillId OR by a bill line item carrying its grnId (older bills set
   // only the latter) — clear the flag for both, or it stays stuck on "Billed".
   const claimedGrnIds = new Set((bill?.items || []).map(it => it && it.grnId).filter(Boolean));
-  state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== id);
+  keepOnly('grnRecords', g => g.refBillId !== id);
   state.grnRecords.forEach(g => {
     if (g.billedByBillId === id || claimedGrnIds.has(g.id)) { g.billed = false; delete g.billedByBillId; }
   });
@@ -617,8 +618,8 @@ export function savePanelPurchaseBill() {
     const idx = state.vendorMaterials.findIndex(m => m.id === existing.id);
     if (idx >= 0) state.vendorMaterials[idx] = rec;
     // Rebuild inventory entries + auto-GRN entries tied to this bill (avoid duplicates on edit).
-    state.inventoryTx = (state.inventoryTx || []).filter(tx => tx.refBillId !== billId);
-    state.grnRecords = (state.grnRecords || []).filter(g => g.refBillId !== billId);
+    keepOnly('inventoryTx', tx => tx.refBillId !== billId);
+    keepOnly('grnRecords', g => g.refBillId !== billId);
     // Un-link any manual GRNs this bill previously claimed, so the linkage is
     // recomputed cleanly from the current line items below.
     state.grnRecords.forEach(g => { if (g.billedByBillId === billId) { g.billed = false; delete g.billedByBillId; } });

@@ -327,7 +327,68 @@ export const state = {
  * its source array again as long as its bin entry still exists.
  * Returns the number of stray items removed.
  */
+/* ───────── Hard deletes (records removed without the recycle bin) ─────────
+ * The cloud merge only ever ADDS records a device lacks, so a record removed
+ * with a plain array filter came straight back from the cloud copy. keepOnly()
+ * removes AND tombstones: tombstones are queued locally (and stripped from any
+ * cloud data until the server has them), then sent to record_deletions, which
+ * also purges them from the stored rows. Ids are always fresh on re-create in
+ * this codebase, so a tombstoned id never blocks a new record. */
+const PENDING_TOMBS_KEY = 'mes_pending_tombstones';
+function _pendingTombs() { try { return JSON.parse(localStorage.getItem(PENDING_TOMBS_KEY) || '[]') || []; } catch { return []; } }
+function _setPendingTombs(list) { try { if (list.length) localStorage.setItem(PENDING_TOMBS_KEY, JSON.stringify(list)); else localStorage.removeItem(PENDING_TOMBS_KEY); } catch {} }
+let _flushingTombs = false;
+/** Send queued tombstones to the server (no-op offline; retried on reconnect / sync). */
+export async function flushPendingTombstones() {
+  if (_flushingTombs) return false;
+  const list = _pendingTombs();
+  if (!list.length) return true;
+  _flushingTombs = true;
+  try {
+    const ok = await syncRecordDeletions(list);
+    if (ok) {
+      const sent = new Set(list.map(t => t.key + '|' + t.id));
+      _setPendingTombs(_pendingTombs().filter(t => !sent.has(t.key + '|' + t.id)));
+    }
+    return ok;
+  } catch { return false; } finally { _flushingTombs = false; }
+}
+/**
+ * Remove from state[key] every record `keep` rejects, and tombstone them so the
+ * cloud can never bring them back. Returns the removed records.
+ */
+export function keepOnly(key, keep) {
+  if (!Array.isArray(state[key])) { state[key] = []; return []; }
+  const arr = state[key];
+  const removed = arr.filter(x => !keep(x));
+  if (!removed.length) return [];
+  state[key] = arr.filter(x => keep(x));
+  const tombs = removed.filter(x => x && x.id != null).map(x => ({ key, id: String(x.id) }));
+  if (tombs.length) {
+    _setPendingTombs([..._pendingTombs(), ...tombs]);
+    flushPendingTombstones();
+  }
+  return removed;
+}
+if (typeof window !== 'undefined') {
+  window.keepOnly = keepOnly;
+  window.flushPendingTombstones = flushPendingTombstones;
+  window.addEventListener('online', () => { setTimeout(() => flushPendingTombstones(), 500); });
+}
+
 export function reconcileRecycleBin() {
+  // Hard-deleted records whose tombstones haven't reached the server yet.
+  const pend = _pendingTombs();
+  if (pend.length) {
+    const byKey = {};
+    pend.forEach(t => { (byKey[t.key] = byKey[t.key] || new Set()).add(String(t.id)); });
+    for (const k in byKey) {
+      if (!Array.isArray(state[k])) continue;
+      const before = state[k].length;
+      state[k] = state[k].filter(x => !(x && x.id != null && byKey[k].has(String(x.id))));
+      if (state[k].length !== before) { try { const sk = STORAGE_KEYS[k]; if (sk) localStorage.setItem(sk, JSON.stringify(state[k])); } catch {} }
+    }
+  }
   const bin = state.recycleBin;
   if (!Array.isArray(bin) || !bin.length) return 0;
   let removed = 0;
@@ -346,6 +407,24 @@ export function reconcileRecycleBin() {
 }
 if (typeof window !== 'undefined') window.reconcileRecycleBin = reconcileRecycleBin;
 
+/**
+ * An EMPTY cloud recycle bin is legitimate (someone emptied it) — unlike other
+ * modules, it must not trigger the anti-clobber re-push, which used to upload a
+ * stale device's old bin straight back ("emptied bin still has data").
+ * Keep only entries deleted AFTER the cloud bin last changed (a genuine offline
+ * delete not yet synced); drop the rest. Returns true when handled.
+ */
+function _adoptEmptyBin(key, data, cloudTs) {
+  if (key !== 'recycleBin' || !_isEmptyVal(data) || !Array.isArray(state.recycleBin)) return false;
+  const since = Number(cloudTs) || 0;
+  const keep = since ? state.recycleBin.filter(e => (Date.parse(e && e.deletedAt) || 0) > since) : [];
+  state.recycleBin = keep;
+  try { localStorage.setItem(STORAGE_KEYS.recycleBin, JSON.stringify(keep)); } catch {}
+  if (keep.length) { try { syncPush('recycleBin', keep); } catch {} }
+  else { try { seedSyncBaseline('recycleBin', []); } catch {} }
+  return true;
+}
+
 /** True for "no data" values: null/undefined, [], or {}. Used by the anti-clobber
  *  guard so an EMPTY cloud value can never silently wipe populated local data
  *  (the root cause of the invite-join data-loss bug). Primitives count as data. */
@@ -361,7 +440,10 @@ function _isEmptyVal(v) {
  *  ~5MB localStorage quota) cannot abort the whole save or block cloud sync. */
 export function saveAllData() {
   if (_localWiped) return; // device data was just wiped — never write it back (page is reloading)
-  for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+  // Recycle bin FIRST: its entries are the tombstones the server uses to keep a
+  // just-deleted record out of the module pushed right after it.
+  const _keys = Object.entries(STORAGE_KEYS).sort((x, y) => (y[0] === 'recycleBin') - (x[0] === 'recycleBin'));
+  for (const [key, storageKey] of _keys) {
     if (state[key] === undefined) continue;
     const json = JSON.stringify(state[key]);
     try {
@@ -511,6 +593,7 @@ export async function loadFromCloud() {
       // ANTI-CLOBBER / RECOVERY: never let an EMPTY cloud value overwrite populated
       // local data. If a buggy/empty client wiped the shared cloud copy, the device
       // that still holds the real data restores it by re-pushing instead of adopting.
+      if (_adoptEmptyBin(key, c.data, cloudTs)) { setLocalKeyTs(key, cloudTs); merged++; continue; }
       if (_isEmptyVal(c.data) && !_isEmptyVal(state[key])) {
         syncPush(key, state[key]);
         kept++;
@@ -527,7 +610,9 @@ export async function loadFromCloud() {
       seedSyncBaseline(key, c.data); // adopted cloud → don't re-push unchanged
       merged++;
     }
+    reconcileRecycleBin();   // never show a binned record the cloud copy still held
     console.log(`[sync] Loaded ${merged} keys from cloud (kept ${kept} newer-local)`);
+    flushPendingTombstones();
     markSyncReady();
     // If login booted the app before this slow cloud pull finished, the current
     // view was rendered from empty state (the "Add Client" screen). Now that the
@@ -626,12 +711,16 @@ if (typeof window !== 'undefined') window.migrateClientsProjects = migrateClient
 /** Apply a change pushed from another device/tab (realtime) into local state. */
 let _rtRefreshTimer = null;
 let _rtChangedKeys = new Set();
-export function applyRemoteChange(key, data) {
+export function applyRemoteChange(key, data, opts = {}) {
   const storageKey = STORAGE_KEYS[key];
   if (!storageKey) { console.warn('[rt] unknown module key:', key); return; }
+  // An emptied recycle bin is legitimate — adopt it (keeping only newer offline deletes).
+  if (_adoptEmptyBin(key, data, Date.now() - 5000)) { _rtChangedKeys.add(key); return; }
   // ANTI-CLOBBER: ignore a realtime event that would replace our populated local
   // data with an empty value (another device wiped it) — and re-push to heal it.
-  if (_isEmptyVal(data) && !_isEmptyVal(state[key])) {
+  // Not for a push RESPONSE: the server merged our own payload, so an empty result
+  // means our records were deleted, not wiped.
+  if (!opts.fromPush && _isEmptyVal(data) && !_isEmptyVal(state[key])) {
     console.warn('[rt] ignoring empty remote value for "' + key + '" — keeping local data');
     try { syncPush(key, state[key]); } catch {}
     return;
@@ -736,6 +825,7 @@ export async function pullRemoteUpdates() {
       if (curJson === newJson) { setLocalKeyTs(key, cloudTs); seedSyncBaseline(key, c.data); continue; } // already in sync
       // ANTI-CLOBBER / RECOVERY: an empty cloud value must never wipe populated
       // local data — re-push our copy to restore the shared cloud instead.
+      if (_adoptEmptyBin(key, c.data, cloudTs)) { setLocalKeyTs(key, cloudTs); applied++; continue; }
       if (_isEmptyVal(c.data) && !_isEmptyVal(state[key])) { syncPush(key, state[key]); continue; }
       // Cloud differs from local. Keep local if we have a genuine un-synced edit
       // (it will be pushed).

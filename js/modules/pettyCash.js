@@ -10,6 +10,7 @@
  */
 
 import { state, saveAllData } from './state.js';
+import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
@@ -456,7 +457,7 @@ window._pcDeleteCustodian = function (id) {
   const _c = (state.pettyCashCustodians || []).find(c => c.id === id);
   // Tombstone via recycle bin so a stale re-push can't resurrect it (ghost-deletion guard).
   if (window.recycleDelete) window.recycleDelete('pettyCashCustodians', id, 'Petty Cash Custodian', _c?.name || id);
-  else { state.pettyCashCustodians = state.pettyCashCustodians.filter(c => c.id !== id); saveAllData(); }
+  else { keepOnly('pettyCashCustodians', c => c.id !== id); saveAllData(); }
   _pcCloseModal(); _pcSection = 'wallets'; renderPettyCash();
 };
 
@@ -719,7 +720,7 @@ window._pcDeleteTxn = function (id) {
   if (_t && _t.photoPath) removeExecMedia({ path: _t.photoPath });   // clean up the Storage file
   // Tombstone via recycle bin so a stale re-push can't resurrect it (ghost-deletion guard).
   if (window.recycleDelete) window.recycleDelete('pettyCashTxns', id, 'Petty Cash Txn');
-  else { state.pettyCashTxns = state.pettyCashTxns.filter(t => t.id !== id); saveAllData(); }
+  else { keepOnly('pettyCashTxns', t => t.id !== id); saveAllData(); }
   renderPettyCash();
   // Transfers & returns move money in/out of accounts — refresh the accounting view.
   if ((_t?.type === 'TRANSFER' || _t?.type === 'RETURN') && typeof window.renderAccounts === 'function') window.renderAccounts();

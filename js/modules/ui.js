@@ -1,4 +1,5 @@
 import { state, saveAllData, saveLabourData, migrateToProjects } from './state.js';
+import { keepOnly } from './state.js';
 import { settledAmount, deductionTotal } from './deductions.js';
 import { computeAnalytics } from './analyticsCalc.js';
 import { mountDeductions, applyDeductionsTo } from './deductionsUI.js';
@@ -2225,6 +2226,15 @@ window._exportStockStatementPDF = function () {
 };
 
 // ─── 1. Goods Receipt Note (GRN) ───
+/** Expand / collapse the GRN "Bulk import from Excel" panel (header button). */
+window._grnBulkToggle = function (open) {
+  const p = document.getElementById('grnBulkPanel'); if (!p) return;
+  const show = typeof open === 'boolean' ? open : p.style.maxHeight === '0px' || !p.style.maxHeight;
+  p.style.maxHeight = show ? p.scrollHeight + 'px' : '0px';
+  p.style.opacity = show ? '1' : '0';
+  const b = document.getElementById('grnBulkToggle'); if (b) b.setAttribute('aria-expanded', String(show));
+  const c = document.getElementById('grnBulkCaret'); if (c) c.style.transform = show ? 'rotate(180deg)' : '';
+};
 // Captured photos (Base64, compressed) held until the GRN is saved.
 let _grnChallanPhoto = null, _grnCondPhoto = null;
 // Set while an existing GRN is being edited; null when creating a new one.
@@ -2297,6 +2307,11 @@ function _renderGRN() {
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">${_grnEdit0 ? 'Editing GRN' : 'Goods Receipt Note'}</h4>
           <p class="text-[11px] text-slate-500 font-medium truncate">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
         </div>
+        ${_grnEdit0 ? '' : `<button type="button" id="grnBulkToggle" onclick="_grnBulkToggle()" aria-expanded="false" aria-controls="grnBulkPanel"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-white/80 border border-emerald-200 hover:bg-white hover:border-emerald-300 shadow-sm transition">
+            <style>@media(max-width:639px){#grnBulkToggle .grn-bulk-lbl{display:none}}</style>
+            <span>⚡</span><span class="grn-bulk-lbl">Bulk import</span>
+            <span id="grnBulkCaret" class="inline-block transition-transform duration-200" style="font-size:10px">▾</span></button>`}
         <div class="text-right flex-shrink-0">
           <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">GRN No.</div>
           ${_grnEdit0
@@ -2304,6 +2319,19 @@ function _renderGRN() {
             : `<div id="grnNoBadge" class="font-mono font-extrabold text-blue-700 text-sm bg-white/70 px-2.5 py-1 rounded-lg border border-blue-200">${_grnNextNumber(_grnDateVal)}</div>`}
         </div>
       </div>
+
+      ${_grnEdit0 ? '' : `<div id="grnBulkPanel" class="overflow-hidden transition-all duration-300 ease-out" style="max-height:0;opacity:0">
+        <div class="mx-5 mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-extrabold text-emerald-800 mr-1">⚡ Bulk import GRNs from Excel</span>
+            <input type="file" id="grnBulkFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_grnBulkImport(this)">
+            <button type="button" onclick="document.getElementById('grnBulkFile').click()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬆ Upload Excel</button>
+            <button type="button" onclick="_grnBulkSample()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-100">⬇ Sample file</button>
+            <button type="button" onclick="_grnBulkToggle(false)" class="ml-auto text-[11px] font-bold text-emerald-700/70 hover:text-emerald-800" aria-label="Close bulk import">✕ Close</button>
+          </div>
+          <p class="text-[11px] text-emerald-700 mt-2">Each row = one GRN. Download the sample, fill it in, then upload — imported GRNs appear in the register below.</p>
+        </div>
+      </div>`}
 
       <div class="p-5">
         ${_sec('Receipt Details')}
@@ -2320,13 +2348,6 @@ function _renderGRN() {
         </div>
 
         ${_sec('Materials Received')}
-        <div class="mb-3 flex flex-wrap items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-          <span class="text-xs font-bold text-emerald-800">⚡ Bulk import GRNs from Excel</span>
-          <input type="file" id="grnBulkFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_grnBulkImport(this)">
-          <button type="button" onclick="document.getElementById('grnBulkFile').click()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬆ Upload Excel</button>
-          <button type="button" onclick="_grnBulkSample()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-100">⬇ Sample file</button>
-          <span class="text-[10px] text-emerald-600 w-full sm:w-auto">Each row = one GRN. Imported GRNs appear in the register below.</span>
-        </div>
         <div class="overflow-x-auto border border-slate-200 rounded-xl">
           <table class="w-full text-xs">
             <thead class="bg-slate-50"><tr>
@@ -3301,7 +3322,7 @@ window._saveGRN = function() {
     else state.inventoryTx.push({ id: 'tx_grn_' + Date.now(), grnId: editing.id, date, siteId, rawMaterialId: it.matId, type: 'IN', qty: it.qty, rate: baseRate, ref: `${grnNo} ${challanNo || ''}${entryNote}`.trim() });
     const qc = _grnLinkedQc(editing);
     if (qc && testable) Object.assign(qc, { grnId: editing.id, element: mat?.name || it.category, grade: it.category, result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` });
-    else if (qc && !testable) state.qualityChecks = state.qualityChecks.filter(q => q !== qc);
+    else if (qc && !testable) keepOnly('qualityChecks', q => q !== qc);
     else if (!qc && testable) { if (!state.qualityChecks) state.qualityChecks = []; state.qualityChecks.push({ id: 'qc_grn_' + Date.now(), grnId: editing.id, projectId: state.currentProjectId, createdAt: Date.now(), date, element: mat?.name || it.category, type: 'Material Inspection', grade: it.category, status: 'Pending', result: `Awaiting test — ${grnNo} (${it.qty} ${mat?.unit || ''})` }); }
     _grnEditingId = null; _grnChallanPhoto = null; _grnCondPhoto = null;
     saveAllData(); _renderGRN(); renderLiveInventory();
@@ -4554,7 +4575,7 @@ export function deleteAbstract(id) {
     // RA bill too — otherwise it lingers in RA Billing and the cumulative math
     // keeps treating its quantities as billed.
     const raId = abs._raBillId || (state.raBills || []).find(b => b.abstractId === id)?.id;
-    if (raId) state.raBills = (state.raBills || []).filter(b => b.id !== raId);
+    if (raId) keepOnly('raBills', b => b.id !== raId);
     window.recycleDelete && window.recycleDelete('abstracts', id, 'Abstract');
     saveAllData(); renderAbstractsList(); window.renderSavedSheets?.(); window.renderMeasurementList?.();
     if (typeof window.renderRABilling === 'function') { try { window.renderRABilling(); } catch {} }
@@ -5373,7 +5394,7 @@ window._deleteContractor = function(id) {
   const c = (state.labourContractors || []).find(x => x.id === id);
   if (!c) return;
   if (!confirm(`Delete contractor "${c.name}"? Workers stay but become direct (no contractor).`)) return;
-  state.labourContractors = state.labourContractors.filter(x => x.id !== id);
+  keepOnly('labourContractors', x => x.id !== id);
   (state.labourMaster || []).forEach(l => { if (l.contractorId === id) l.contractorId = ''; });
   saveAllData();
   renderContractorsList();
@@ -5546,7 +5567,7 @@ window._prAddRate = function() {
   showToast('Rate added', 'success');
 };
 window._prDeleteRate = function(id) {
-  state.workItemRates = state.workItemRates.filter(r => r.id !== id);
+  keepOnly('workItemRates', r => r.id !== id);
   saveAllData(); _prRenderRates();
 };
 
@@ -5633,7 +5654,7 @@ window._prApprove = function(id) {
 };
 window._prRejectMeasure = function(id) {
   if (!confirm('Reject and delete this measurement?')) return;
-  state.workMeasurements = state.workMeasurements.filter(x => x.id !== id);
+  keepOnly('workMeasurements', x => x.id !== id);
   saveAllData(); _prRenderApprovals();
 };
 
@@ -5980,7 +6001,7 @@ export function saveAttendance() {
   const siteId = state.currentProjectId || 'site';
   const labours = _projectLabour();
   const projLabourIds = new Set(labours.map(l => l.id));
-  state.attendanceLogs = state.attendanceLogs.filter(a => !(a.date === date && projLabourIds.has(a.labourId)));
+  keepOnly('attendanceLogs', a => !(a.date === date && projLabourIds.has(a.labourId)));
   labours.forEach(l => {
     const card = document.getElementById('attc_' + l.id);
     const status = (card && card.dataset.status) || 'A';
