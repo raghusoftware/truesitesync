@@ -1693,7 +1693,7 @@ export function updatePurRowNums() {
 // ==========================================
 // INVENTORY
 // ==========================================
-import { unitMasterOptions, materialUnitOptions, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows, syncUnitPicker, pickedQtyToBase, pickedUnit } from './units.js';
+import { unitMasterOptions, materialUnitOptions, materialUnits, toBaseQty, addAltUnitRowTo, syncAltBaseLabels, readAltUnitRows, syncUnitPicker, pickedQtyToBase, pickedUnit } from './units.js';
 
 // Build one "1 <alt> = <factor> <base>" row inside the material modal.
 export function addAltUnitRow(unit = '', factor = '') {
@@ -2309,7 +2309,7 @@ function _renderGRN() {
       <div class="p-5">
         ${_sec('Receipt Details')}
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label><input id="grnDate" type="date" value="${_grnDateVal}" onchange="_grnDateChanged()" class="${_fld}"></div>
+          <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label>${_dateFieldHTML('grnDate', _grnDateVal, '_grnDateChanged', _fld)}</div>
           <div><label class="${_lbl}">Store / Site <span class="text-rose-400">*</span></label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
           <div><label class="${_lbl}">Source Type <span class="text-rose-400">*</span></label><select id="grnSource" onchange="_grnSourceChanged()" class="${_fld} bg-white"><option value="Supplier">Supplier</option><option value="Rent">Rent</option><option value="STN">STN (Stock Transfer)</option></select></div>
           <div><label class="${_lbl}"><span id="grnSupLabel">Supplier</span> <span id="grnSupStar" class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select —</option>${supplierOpts}</select></div>
@@ -2321,6 +2321,13 @@ function _renderGRN() {
         </div>
 
         ${_sec('Materials Received')}
+        <div class="mb-3 flex flex-wrap items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <span class="text-xs font-bold text-emerald-800">⚡ Bulk import GRNs from Excel</span>
+          <input type="file" id="grnBulkFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_grnBulkImport(this)">
+          <button type="button" onclick="document.getElementById('grnBulkFile').click()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬆ Upload Excel</button>
+          <button type="button" onclick="_grnBulkSample()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-100">⬇ Sample file</button>
+          <span class="text-[10px] text-emerald-600 w-full sm:w-auto">Each row = one GRN. Imported GRNs appear in the register below.</span>
+        </div>
         <div class="overflow-x-auto border border-slate-200 rounded-xl">
           <table class="w-full text-xs">
             <thead class="bg-slate-50"><tr>
@@ -2397,7 +2404,7 @@ function _grnAddItemRow(data) {
   tr.className = 'grn-item-row'; tr.style.borderTop = '1px solid #f1f5f9';
   tr.innerHTML =
     `<td class="px-2 py-1 text-center text-slate-400 grn-rn"></td>`
-    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="syncUnitPicker('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
+    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="_grnMatPick('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
     + `<td class="px-2 py-1"><input class="grn-cat ${inp}" placeholder="Steel / Cement…"></td>`
     + `<td class="px-2 py-1"><input type="number" class="grn-qty ${inp}" style="min-width:70px" placeholder="0"></td>`
     + `<td class="px-2 py-1"><select id="grnUnit_${i}" class="grn-unit ${inp} font-bold" style="min-width:70px"></select></td>`
@@ -2418,6 +2425,133 @@ function _grnAddItemRow(data) {
   return tr;
 }
 window._grnAddItemRow = _grnAddItemRow;
+
+/** The last rate (and unit) a material was received at, from GRN history — so
+ *  re-selecting e.g. "Sand" pre-fills the rate the storekeeper used last time. */
+function _grnLastRateFor(matId) {
+  if (!matId) return null;
+  const recs = (state.grnRecords || []).filter(g => g.matId === matId);
+  if (!recs.length) return null;
+  recs.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.receivedAt || '').localeCompare(a.receivedAt || ''));
+  const g = recs[0];
+  const entered = (g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty) || 0;
+  const rate = (entered > 0 && g.amount) ? (Number(g.amount) / entered) : (Number(g.rate) || 0);
+  if (!(rate > 0)) return null;
+  return { rate: Math.round(rate * 100) / 100, unit: g.entryUnit || '' };
+}
+
+/** Material chosen in a GRN item row: refresh its unit picker, then pre-fill the
+ *  rate (and unit) for that material if the rate box is still empty — first from
+ *  another row already filled in THIS form, else from saved GRN history. */
+window._grnMatPick = function (matSelId, unitSelId) {
+  syncUnitPicker(matSelId, unitSelId);
+  const matSel = document.getElementById(matSelId); if (!matSel || !matSel.value) return;
+  const tr = matSel.closest('tr'); if (!tr) return;
+  const rateEl = tr.querySelector('.grn-rate');
+  if (rateEl && rateEl.value) return;   // never overwrite a rate already typed
+
+  let rate = null, unit = '';
+  // 1) another row in this same receipt with the same material + a rate.
+  document.querySelectorAll('#grnItemsBody .grn-item-row').forEach(row => {
+    if (row === tr || rate != null) return;
+    const ms = row.querySelector('.grn-mat'); const rt = row.querySelector('.grn-rate');
+    if (ms && ms.value === matSel.value && rt && rt.value) { rate = parseFloat(rt.value); unit = row.querySelector('.grn-unit')?.value || ''; }
+  });
+  // 2) otherwise the last rate this material was received at.
+  if (rate == null) { const last = _grnLastRateFor(matSel.value); if (last) { rate = last.rate; unit = last.unit; } }
+  if (rate == null || isNaN(rate)) return;
+
+  const unitSel = document.getElementById(unitSelId);
+  if (unitSel && unit) { const opt = Array.from(unitSel.options).find(o => o.value === unit); if (opt) unitSel.value = unit; }
+  if (rateEl) rateEl.value = rate;
+};
+
+// ─── Styled date picker (replaces the browser's default calendar) ───
+// A GRN date field is a hidden <input> holding yyyy-mm-dd (so all read/write
+// code is unchanged) paired with a readonly display showing dd-mm-yyyy. The
+// calendar popup below is fully themed to match the app.
+const _DP_MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** yyyy-mm-dd → dd-mm-yyyy for display (blank/invalid → ''). */
+function _fmtDMY(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const [y, m, d] = iso.split('-'); return `${d}-${m}-${y}`;
+}
+/** Markup for a themed date field: hidden canonical value + readonly display. */
+function _dateFieldHTML(id, value, cb, cls) {
+  return `<div class="tss-dp" style="position:relative;">
+    <input id="${id}" type="hidden" value="${value || ''}">
+    <input id="${id}Disp" type="text" readonly placeholder="Select date" value="${_fmtDMY(value)}" onclick="_dpOpen('${id}','${cb || ''}')" class="${cls} cursor-pointer pr-9">
+    <span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:#94a3b8;">📅</span>
+  </div>`;
+}
+/** Set a date field's value programmatically (updates hidden + display). */
+window._dpSet = function (id, iso) {
+  const h = document.getElementById(id); const disp = document.getElementById(id + 'Disp');
+  if (h) h.value = iso || '';
+  if (disp) disp.value = _fmtDMY(iso);
+};
+function _dpGrid(vy, vm, sel) {
+  const first = new Date(vy, vm - 1, 1);
+  const startDow = (first.getDay() + 6) % 7;            // Monday-first
+  const daysIn = new Date(vy, vm, 0).getDate();
+  const today = new Date(); const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += `<span class="tss-dp-d tss-dp-empty"></span>`;
+  for (let d = 1; d <= daysIn; d++) {
+    const val = `${vy}-${String(vm).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const cl = ['tss-dp-d']; if (val === sel) cl.push('sel'); if (val === todayIso) cl.push('today');
+    cells += `<button type="button" data-dp="day" data-val="${val}" class="${cl.join(' ')}">${d}</button>`;
+  }
+  const nowY = new Date().getFullYear();
+  const y0 = Math.min(nowY - 12, vy), y1 = Math.max(nowY + 4, vy);
+  let years = ''; for (let y = y1; y >= y0; y--) years += `<option value="${y}" ${y === vy ? 'selected' : ''}>${y}</option>`;
+  const months = _DP_MON.map((nm, i) => `<option value="${i + 1}" ${i + 1 === vm ? 'selected' : ''}>${nm}</option>`).join('');
+  return `<div class="tss-dp-hd"><button type="button" data-dp="prev" class="tss-dp-nav">‹</button>
+      <div class="tss-dp-sel"><select data-dp="month" class="tss-dp-pick">${months}</select><select data-dp="year" class="tss-dp-pick">${years}</select></div>
+      <button type="button" data-dp="next" class="tss-dp-nav">›</button></div>
+    <div class="tss-dp-dow">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => `<span>${x}</span>`).join('')}</div>
+    <div class="tss-dp-grid">${cells}</div>
+    <div class="tss-dp-ft"><button type="button" data-dp="clear" class="tss-dp-link">Clear</button><button type="button" data-dp="today" class="tss-dp-link">Today</button></div>`;
+}
+/** Open the themed calendar anchored to a date field's display input. */
+window._dpOpen = function (id, cb) {
+  document.getElementById('tssDpPop')?.remove();
+  const hidden = document.getElementById(id); const disp = document.getElementById(id + 'Disp');
+  if (!hidden || !disp) return;
+  let cur = /^\d{4}-\d{2}-\d{2}$/.test(hidden.value) ? hidden.value : new Date().toISOString().slice(0, 10);
+  let [vy, vm] = cur.split('-').map(Number);
+  const pop = document.createElement('div'); pop.id = 'tssDpPop'; pop.className = 'tss-dp-pop';
+  const render = () => { pop.innerHTML = _dpGrid(vy, vm, hidden.value); };
+  const close = () => { pop.remove(); document.removeEventListener('mousedown', onDoc, true); window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true); };
+  const pick = (val) => { window._dpSet(id, val); if (cb && typeof window[cb] === 'function') { try { window[cb](); } catch (e) {} } close(); };
+  const onDoc = (e) => { if (!pop.contains(e.target) && e.target !== disp) close(); };
+  pop.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-dp]'); if (!t || t.tagName === 'SELECT') return;
+    const a = t.getAttribute('data-dp');
+    if (a === 'prev') { if (--vm < 1) { vm = 12; vy--; } render(); }
+    else if (a === 'next') { if (++vm > 12) { vm = 1; vy++; } render(); }
+    else if (a === 'today') { pick(new Date().toISOString().slice(0, 10)); }
+    else if (a === 'clear') { pick(''); }
+    else if (a === 'day') { pick(t.getAttribute('data-val')); }
+  });
+  // Jump straight to a month / year from the header dropdowns.
+  pop.addEventListener('change', (e) => {
+    const t = e.target.closest('[data-dp]'); if (!t) return;
+    const a = t.getAttribute('data-dp');
+    if (a === 'month') { vm = parseInt(t.value, 10) || vm; render(); }
+    else if (a === 'year') { vy = parseInt(t.value, 10) || vy; render(); }
+  });
+  render();
+  pop.style.position = 'fixed'; pop.style.visibility = 'hidden'; document.body.appendChild(pop);
+  const r = disp.getBoundingClientRect();
+  let left = r.left, top = r.bottom + 6;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  if (left + pw > window.innerWidth - 10) left = Math.max(10, window.innerWidth - 10 - pw);
+  if (top + ph > window.innerHeight - 10) top = Math.max(10, r.top - ph - 6);   // flip above if no room
+  pop.style.left = left + 'px'; pop.style.top = top + 'px'; pop.style.visibility = 'visible';
+  setTimeout(() => { document.addEventListener('mousedown', onDoc, true); window.addEventListener('resize', close); window.addEventListener('scroll', close, true); }, 0);
+};
+
 function _grnRenumberRows() { document.querySelectorAll('#grnItemsBody .grn-item-row .grn-rn').forEach((c, idx) => c.textContent = idx + 1); }
 window._grnRenumberRows = _grnRenumberRows;
 
@@ -2488,7 +2622,7 @@ function _renderGrnList() {
   wrap.innerHTML = `
     <div class="px-3 py-1.5 text-[11px] text-slate-500 bg-slate-50 border-b">${rows.length} ${active ? 'matching' : 'recent'} GRN${rows.length === 1 ? '' : 's'}${active ? ` &middot; total qty ${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}</div>
     <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">GRN No</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Supplier</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">QC</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Bill</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">📷</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Edit</th></tr></thead><tbody>
-    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
+    ${rows.map(g=>{const m=state.rawMaterials.find(r=>r.id===g.matId);const sup=state.vendors.find(v=>v.id===g.supplierId);const qc=g.qcStatus==='Pending Inspection'?`<span class="text-amber-600 font-bold">⏳ Pending</span> <button onclick="_grnApproveQc('${g.id}')" class="text-[9px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-1.5 py-0.5 rounded">Approve</button>`:'<span class="text-green-600 font-bold">✓ OK</span>';const billed=_grnIsBilled(g);const bill=billed?'<span class="text-green-600">Billed</span>':'<span class="text-rose-600 font-bold">Unbilled</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-mono text-blue-700">${g.grnNo||'—'}</td><td class="px-3 py-2">${_grnFmtDate(g.date)}</td><td class="px-3 py-2">${sup?.name||'—'}${g.poNo?` <span class="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-1 py-0.5 rounded" title="Purchase Order">${g.poNo}</span>`:''}</td><td class="px-3 py-2 font-bold">${m?.name||g.category||'—'}</td><td class="px-3 py-2 text-right font-bold">${_grnDispQty(g,m)}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td><td class="px-3 py-2 text-center">${qc}</td><td class="px-3 py-2 text-center">${bill}</td><td class="px-3 py-2 text-center">${g.challanPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-blue-500 hover:underline">view</button>`:'—'}</td><td class="px-3 py-2 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td></tr>`;}).join('')||`<tr><td colspan="9" class="p-5 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs yet.'}</td></tr>`}
     </tbody></table></div>`;
 }
 
@@ -2574,6 +2708,37 @@ function _grnIsBilled(g) {
   return bills.some(b => (b.items || []).some(it => it.grnId === g.id));      // claimed by a live bill line
 }
 
+/** Format a number with Indian grouping and up to 3 decimals (trims trailing zeros). */
+function _grnQtyFmt(n) {
+  return (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
+}
+/** Quantity + unit for a GRN, SHOWN in the unit it was received/converted to
+ *  (entryUnit) when that differs from the material's base unit — so a line
+ *  converted to Tonne reads "33.310 Tonne", not the base "33310 Kg". */
+function _grnDispQty(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  if (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '')
+    return `${_grnQtyFmt(g.enteredQty)} ${eu}`;
+  return `${_grnQtyFmt(g.qty)} ${base}`;
+}
+/** The unit a GRN's qty is shown in (entry unit when it differs from base). */
+function _grnDispUnit(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  return (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '') ? eu : base;
+}
+/** Rate PER the displayed unit — amount ÷ shown qty, so a Tonne line reads the
+ *  per-Tonne rate. Falls back to the stored base rate for older records. */
+function _grnDispRate(g, m) {
+  const base = m?.unit || '';
+  const eu = g.entryUnit || base;
+  const shownQty = (eu && base && eu !== base && g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : Number(g.qty);
+  const amount = Number(g.amount) || 0;
+  if (shownQty > 0 && amount) return amount / shownQty;
+  return Number(g.rate) || 0;
+}
+
 /** Current-project GRNs after applying the register filters, newest first. */
 function _grnRegFiltered() {
   const f = _grnRegFilters;
@@ -2632,12 +2797,17 @@ function _renderGrnRegister() {
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
         <button onclick="_grnRegClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
-        <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition ml-auto">🖨️ Print</button>
+        <div class="flex items-center gap-2 ml-auto">
+          <button onclick="_grnRegExportXLSX()" class="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">⬇ Excel</button>
+          <button onclick="_grnRegExportPDF()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">⬇ PDF</button>
+          <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">🖨️ Print</button>
+        </div>
       </div>
 
       <!-- Bulk-select action bar (shown when GRNs are ticked) -->
       <div id="grnRegSelBar" class="hide px-5 py-2.5 border-b border-rose-100 bg-rose-50 flex items-center gap-3">
         <span class="text-xs font-bold text-rose-700"><b id="grnRegSelCount">0</b> selected</span>
+        <button onclick="_grnRegEditRateSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition">✏️ Edit rate</button>
         <button onclick="_grnRegDeleteSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">🗑 Delete selected</button>
         <button onclick="_grnRegClearSel()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear selection</button>
       </div>
@@ -2660,6 +2830,7 @@ function _renderGrnRegister() {
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Material</th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">Challan</th>
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Qty</th>
+          <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Rate</th>
           <th class="px-3 py-2.5 text-right font-bold uppercase text-slate-500">Amount</th>
           <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">QC</th>
           <th class="px-3 py-2.5 text-center font-bold uppercase text-slate-500">Bill</th>
@@ -2674,13 +2845,14 @@ function _renderGrnRegister() {
           <td class="px-3 py-2.5">${sup?.name||'—'}</td>
           <td class="px-3 py-2.5 font-bold text-slate-700">${m?.name||g.category||'—'}</td>
           <td class="px-3 py-2.5 text-slate-500">${g.challanNo||'—'}</td>
-          <td class="px-3 py-2.5 text-right font-bold">${g.qty} ${m?.unit||''}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
+          <td class="px-3 py-2.5 text-right font-bold">${_grnDispQty(g,m)}${g.expectedQty&&g.qty<g.expectedQty?` <span class="text-rose-500 text-[9px]">(short ${(g.expectedQty-g.qty).toFixed(0)})</span>`:''}</td>
+          <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+_grnDispRate(g,m).toLocaleString('en-IN',{maximumFractionDigits:2})+`<span class="text-[9px] text-slate-400">/${_grnDispUnit(g,m)}</span>`:'—'}</td>
           <td class="px-3 py-2.5 text-right text-slate-600">${g.amount?cur+Number(g.amount).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'}</td>
           <td class="px-3 py-2.5 text-center">${qc}</td>
           <td class="px-3 py-2.5 text-center">${bill}</td>
           <td class="px-3 py-2.5 text-center">${g.challanPhoto||g.condPhoto?`<button onclick="_grnViewPhoto('${g.id}')" class="text-indigo-500 hover:underline font-semibold">view</button>`:'—'}</td>
           <td class="px-3 py-2.5 text-right"><div class="flex gap-1 justify-end">${billed?`<span class="text-slate-300" title="Billed GRNs cannot be edited — unbill it first">Edit</span>`:`<button onclick="_grnRegEdit('${g.id}')" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">Edit</button>`}${billed?`<span class="text-slate-300" title="Billed GRNs can't be deleted — unbill it first">Del</span>`:`<button onclick="_grnRegDelete('${g.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 px-2 py-1 rounded">Del</button>`}</div></td>
-        </tr>`;}).join('')||`<tr><td colspan="12" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
+        </tr>`;}).join('')||`<tr><td colspan="13" class="p-8 text-center text-slate-400">${active?'No GRNs match these filters.':'No GRNs received yet.'}</td></tr>`}
         </tbody>
       </table></div>
 
@@ -2713,6 +2885,96 @@ window._grnRegClearFilter = function () {
 window._grnRegSetSize = function (v) { _grnRegSize = parseInt(v, 10) || 0; _grnRegPage = 1; _renderGrnRegister(); };
 window._grnRegGo = function (p) { _grnRegPage = p; _renderGrnRegister(); };
 window._grnRegPrint = function () { _grnPrintRows(_grnRegFiltered(), _grnRegFilters); };
+
+/** Build the GRN register rows as a plain array-of-cells for export, mirroring
+ *  the on-screen columns (qty + rate shown in each line's unit). */
+function _grnRegExportData() {
+  const rows = _grnRegFiltered();
+  const cur = getCurrencySymbol().trim();
+  const out = rows.map((g, i) => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    const sup = (state.vendors || []).find(v => v.id === g.supplierId);
+    const base = m?.unit || '';
+    const unit = _grnDispUnit(g, m);
+    const qnum = (unit !== base && g.enteredQty != null && g.enteredQty !== '') ? Number(g.enteredQty) : (Number(g.qty) || 0);
+    const rate = _grnDispRate(g, m);
+    return {
+      sn: i + 1, grnNo: g.grnNo || '', date: _grnFmtDate(g.date) || '',
+      supplier: sup?.name || '', material: m?.name || g.category || '',
+      site: _invSiteName(g.siteId) || '', challan: g.challanNo || '',
+      qty: Math.round(qnum * 1000) / 1000, unit,
+      rate: Math.round(rate * 100) / 100, amount: Math.round((Number(g.amount) || 0) * 100) / 100,
+      qc: g.qcStatus === 'Pending Inspection' ? 'Pending' : 'OK',
+      bill: _grnIsBilled(g) ? 'Billed' : 'Unbilled',
+    };
+  });
+  return { rows: out, cur, totalQtyBase: rows.reduce((s, g) => s + (Number(g.qty) || 0), 0), totalAmt: rows.reduce((s, g) => s + (Number(g.amount) || 0), 0) };
+}
+
+/** Download the filtered GRN register as an Excel workbook. */
+window._grnRegExportXLSX = function () {
+  const XLSX = window.XLSX; if (!XLSX) return showToast('Excel library not loaded', 'error');
+  const { rows, cur, totalAmt } = _grnRegExportData();
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
+  const aoa = [];
+  aoa.push(['GRN REGISTER' + (proj ? ' — ' + proj.name : '')]);
+  aoa.push([_grnRegFilterCaption()]);
+  aoa.push([]);
+  aoa.push(['#', 'GRN No', 'Date', 'Supplier', 'Material', 'Site', 'Challan', 'Qty', 'Unit', `Rate (${cur})`, `Amount (${cur})`, 'QC', 'Bill']);
+  rows.forEach(r => aoa.push([r.sn, r.grnNo, r.date, r.supplier, r.material, r.site, r.challan, r.qty, r.unit, r.rate, r.amount, r.qc, r.bill]));
+  aoa.push(['', '', '', '', '', '', '', '', '', 'TOTAL', Math.round(totalAmt * 100) / 100, '', '']);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 9 }, { wch: 10 }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 12 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'GRN Register');
+  mobileSaveXLSX(wb, `GRN_Register_${_grnRegFilters.to || 'all'}.xlsx`);
+  showToast('Excel exported', 'success');
+};
+
+/** Download the filtered GRN register as a PDF. */
+window._grnRegExportPDF = function () {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded', 'error');
+  const { rows, totalAmt } = _grnRegExportData();
+  if (!rows.length) return showToast('Nothing to export for these filters', 'warning');
+  const scur = getPdfCurrency();
+  const doc = new window.jspdf.jsPDF('landscape');
+  let y = getCompanyHeaderForPDF(doc);
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
+  doc.text('GRN REGISTER', pw / 2, y + 5, { align: 'center' });
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+  doc.text(_grnRegFilterCaption(), pw / 2, y + 10, { align: 'center' });
+  const n2 = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const n3 = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
+  const body = rows.map(r => [r.sn, r.grnNo, r.date, r.supplier, r.material, r.challan, `${n3(r.qty)} ${r.unit}`, scur + n2(r.rate), scur + n2(r.amount), r.bill]);
+  body.push([{ content: 'TOTAL', colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }, { content: scur + n2(totalAmt), styles: { fontStyle: 'bold', halign: 'right' } }, '']);
+  doc.autoTable({
+    startY: y + 14,
+    head: [['#', 'GRN No', 'Date', 'Supplier', 'Material', 'Challan', 'Qty', 'Rate', 'Amount', 'Bill']],
+    body, theme: 'grid',
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 8.5, halign: 'center' },
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: 10, halign: 'right' }, 1: { cellWidth: 40 }, 2: { cellWidth: 20 }, 3: { cellWidth: 34 }, 4: { cellWidth: 'auto' }, 5: { cellWidth: 20 }, 6: { halign: 'right', cellWidth: 28 }, 7: { halign: 'right', cellWidth: 24 }, 8: { halign: 'right', cellWidth: 28 }, 9: { halign: 'center', cellWidth: 18 } },
+    margin: { left: 10, right: 10 }
+  });
+  mobileSavePDF(doc, `GRN_Register_${_grnRegFilters.to || 'all'}.pdf`);
+  showToast('PDF exported', 'success');
+};
+
+/** One-line caption describing the active register filters (for exports). */
+function _grnRegFilterCaption() {
+  const f = _grnRegFilters;
+  const parts = [];
+  parts.push('Supplier: ' + (f.supplier ? (state.vendors.find(v => v.id === f.supplier)?.name || '—') : 'All'));
+  parts.push('Material: ' + (f.material ? (state.rawMaterials.find(r => r.id === f.material)?.name || '—') : 'All'));
+  if (f.site) parts.push('Site: ' + (_invSiteName(f.site) || '—'));
+  parts.push('Period: ' + ((f.from || f.to) ? `${f.from || '…'} to ${f.to || '…'}` : 'All'));
+  if (f.bill) parts.push('Bill: ' + (f.bill === 'billed' ? 'Billed' : 'Unbilled'));
+  return parts.join('  |  ');
+}
+
 /** Edit from the register — jump to the GRN entry form in edit mode. */
 window._grnRegEdit = function (id) { _openInvSection('grn'); _grnEdit(id); };
 /** Delete from the register — reuse the shared delete, then repaint the register. */
@@ -2748,6 +3010,110 @@ function _grnRegUpdateSelBar() {
     all.indeterminate = checked > 0 && checked < boxes.length;
   }
 }
+/** The selected, still-unbillable GRNs (billed ones can never be in the set). */
+function _grnRegSelVictims() {
+  return Array.from(_grnRegSel)
+    .map(id => (state.grnRecords || []).find(x => x.id === id)).filter(Boolean)
+    .filter(g => !_grnIsBilled(g));
+}
+
+/** Open the bulk-edit box for the ticked GRNs: change the unit (UOM) and/or
+ *  the rate across all of them at once. Billed GRNs are never selectable, so
+ *  this can't desync a posted bill. */
+window._grnRegEditRateSelected = function () {
+  const victims = _grnRegSelVictims();
+  if (!victims.length) return;
+  const cur = getCurrencySymbol().trim();
+  // Union of entry units available to the selected GRNs' materials (base + alts),
+  // so "kg → Tonne / M3 …" only offers conversions the materials actually support.
+  const unitSet = new Map();   // unit → label
+  victims.forEach(g => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    materialUnits(m).forEach(u => { if (u.unit && !unitSet.has(u.unit)) unitSet.set(u.unit, u.unit); });
+    if (g.entryUnit && !unitSet.has(g.entryUnit)) unitSet.set(g.entryUnit, g.entryUnit);
+  });
+  const unitOpts = Array.from(unitSet.keys()).map(u => `<option value="${u}">${u}</option>`).join('');
+  const matNames = Array.from(new Set(victims.map(g => (state.rawMaterials || []).find(r => r.id === g.matId)?.name).filter(Boolean)));
+  document.getElementById('grnBulkEditModal')?.remove();
+  const html = `
+  <div id="grnBulkEditModal" style="position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
+    <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div style="padding:18px 20px;background:linear-gradient(135deg,#fffbeb,#fef3c7);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;">✏️</div>
+        <div>
+          <h4 style="margin:0;font-weight:800;color:#1e293b;font-size:15px;">Edit ${victims.length} selected GRN${victims.length > 1 ? 's' : ''}</h4>
+          <p style="margin:2px 0 0;font-size:11px;color:#92400e;">${matNames.length ? matNames.slice(0, 3).join(', ') + (matNames.length > 3 ? ` +${matNames.length - 3} more` : '') : ''}</p>
+        </div>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Unit of measure (UOM)</label>
+          <select id="grnBulkUnit" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;outline:none;">
+            <option value="">— Keep each GRN's current unit —</option>
+            ${unitOpts}
+          </select>
+          <p style="margin:6px 0 0;font-size:10.5px;color:#94a3b8;">Changing it re-expresses each line in the new unit (e.g. Kg → Tonne). Only GRNs whose material supports the unit are changed.</p>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Rate <span style="font-weight:500;text-transform:none;">(per unit, ${cur})</span></label>
+          <input id="grnBulkRate" type="number" step="any" min="0" placeholder="Leave blank to keep current" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;">
+          <p style="margin:6px 0 0;font-size:10.5px;color:#94a3b8;">Each line's amount becomes: rate × its quantity (in the unit above).</p>
+        </div>
+      </div>
+      <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('grnBulkEditModal').remove()" style="padding:9px 16px;font-size:13px;font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;">Cancel</button>
+        <button onclick="_grnRegApplyBulkEdit()" style="padding:9px 18px;font-size:13px;font-weight:700;color:#fff;background:#d97706;border:none;border-radius:10px;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,.35);">Apply changes</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+/** Apply the bulk-edit box: set the chosen unit and/or rate on every ticked
+ *  GRN, recompute base qty + amount, and keep the linked stock txn in sync. */
+window._grnRegApplyBulkEdit = function () {
+  const victims = _grnRegSelVictims();
+  if (!victims.length) { document.getElementById('grnBulkEditModal')?.remove(); return; }
+  const newUnit = document.getElementById('grnBulkUnit')?.value || '';
+  const rateRaw = (document.getElementById('grnBulkRate')?.value ?? '').trim();
+  const hasRate = rateRaw !== '';
+  const newRate = parseFloat(rateRaw);
+  if (hasRate && (isNaN(newRate) || newRate < 0)) { showToast('Enter a valid rate', 'error'); return; }
+  if (!newUnit && !hasRate) { showToast('Set a new unit or a rate first', 'info'); return; }
+
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const r3 = n => Math.round((Number(n) || 0) * 1000) / 1000;
+  let changed = 0, unitChanged = 0;
+  victims.forEach(g => {
+    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+    const supports = u => !!m && (m.unit === u || (m.altUnits || []).some(a => a.unit === u));
+    // A unit change is a TRUE conversion — the physical quantity in stock stays
+    // the same, it's just re-expressed in the new unit. 33310 Kg → 33.310 Tonne.
+    const baseQty = Number(g.qty) || 0;                       // base-unit stock — preserved
+    const curBaseRate = (Number(g.rate) || 0) || (baseQty > 0 ? (Number(g.amount) || 0) / baseQty : 0);
+    const unit = (newUnit && supports(newUnit)) ? newUnit : (g.entryUnit || (m ? m.unit : ''));
+    if (newUnit && supports(newUnit) && unit !== g.entryUnit) unitChanged++;
+    // factor = base units in ONE of this entry unit (1 for the base unit).
+    const factor = (m && unit === m.unit) ? 1 : (((m && m.altUnits) || []).find(a => a.unit === unit)?.factor || 1);
+    const entered = factor > 0 ? r3(baseQty / factor) : baseQty;   // qty shown in the new unit
+    // Rate is per entry unit. Blank → keep the same per-base-unit rate (amount unchanged).
+    const entryRate = hasRate ? newRate : r2(curBaseRate * factor);
+    const baseRate = factor > 0 ? (entryRate / factor) : entryRate;
+    const amount = r2(baseQty * baseRate);
+    Object.assign(g, { entryUnit: unit, enteredQty: entered, qty: baseQty, rate: baseRate, amount });
+    const tx = _grnLinkedTx(g); if (tx) Object.assign(tx, { qty: baseQty, rate: baseRate });
+    changed++;
+  });
+  saveAllData();
+  document.getElementById('grnBulkEditModal')?.remove();
+  _grnRegSel.clear();
+  _renderGRN(); renderLiveInventory(); _renderGrnRegister();
+  const bits = [];
+  if (hasRate) bits.push('rate');
+  if (unitChanged) bits.push(`unit on ${unitChanged}`);
+  showToast(`Updated ${bits.join(' & ') || 'values'} across ${changed} GRN${changed > 1 ? 's' : ''}`, 'success');
+};
+
 /** Delete every ticked GRN at once (billed ones are never selectable). */
 window._grnRegDeleteSelected = function () {
   const ids = Array.from(_grnRegSel);
@@ -2820,7 +3186,7 @@ window._grnEdit = function (id) {
 
   // Header + the single editable item row are rebuilt by _renderGRN() from the
   // editing record; here we only set the header inputs it doesn't default.
-  const _gd = document.getElementById('grnDate'); if (_gd) _gd.value = g.date || '';
+  window._dpSet('grnDate', g.date || '');
   document.getElementById('grnSite').value = g.siteId || '';
   document.getElementById('grnSupplier').value = g.supplierId || '';
   const src = document.getElementById('grnSource'); if (src) src.value = g.sourceType || 'Supplier';
@@ -2885,13 +3251,29 @@ window._saveGRN = function() {
   }
   if (!items.length) { showToast('Add at least one material with quantity > 0', 'error'); return; }
 
-  // Duplicate-challan guard (once for the whole receipt; new receipts only).
-  if (challanNo && !editing) {
-    const dup = (state.grnRecords || []).find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase());
-    if (dup) {
-      const supName = state.vendors.find(v => v.id === supplierId)?.name || 'this party';
-      const msg = `⚠ Duplicate challan\n\nChallan "${challanNo}" from ${supName} is already recorded as ${dup.grnNo} (dated ${_grnFmtDate(dup.date) || '—'}).\n\nAdd this receipt anyway?`;
-      if (!confirm(msg)) { showToast('Duplicate GRN not added', 'info'); return; }
+  // ── Double-entry guard — BLOCK (not just warn) a repeat receipt ──
+  // A duplicate is either the same challan from the same supplier, or the same
+  // supplier + material + quantity on the same date. Excludes the record being
+  // edited so re-saving an edit never flags itself.
+  {
+    const selfId = editing ? editing.id : null;
+    const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId && g.id !== selfId);
+    // 1) same challan + same supplier
+    if (challanNo) {
+      const dupCh = existing.find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase());
+      if (dupCh) {
+        showToast(`Double entry blocked — challan "${challanNo}" from this supplier is already recorded as ${dupCh.grnNo} (${_grnFmtDate(dupCh.date) || '—'}).`, 'error');
+        return;
+      }
+    }
+    // 2) same supplier + material + quantity + date
+    for (const it of items) {
+      const dup = existing.find(g => g.supplierId === supplierId && g.matId === it.matId && (g.date || '') === date && Math.abs((Number(g.qty) || 0) - (Number(it.qty) || 0)) < 1e-6);
+      if (dup) {
+        const mName = state.rawMaterials.find(r => r.id === it.matId)?.name || 'this material';
+        showToast(`Double entry blocked — ${mName} of the same quantity on ${_grnFmtDate(date) || 'this date'} already exists (${dup.grnNo}). Change the challan, qty or date if it's a separate delivery.`, 'error');
+        return;
+      }
     }
   }
 
@@ -2957,6 +3339,132 @@ window._grnApproveQc = function (id) {
   try { _renderGrnList(); } catch {}
   try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
   showToast(`QC approved — ${g.grnNo || 'GRN'}`, 'success');
+};
+
+// ─── Bulk GRN import from Excel ───
+/** Flexible date parse: Date object, yyyy-mm-dd, dd-mm-yyyy, dd/mm/yyyy, or
+ *  anything Date() understands → yyyy-mm-dd ('' if unparseable). */
+function _parseImportDate(v) {
+  if (v == null || v === '') return '';
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (v instanceof Date && !isNaN(v)) return iso(v);
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/); if (m) { let [, d, mo, y] = m; if (y.length === 2) y = '20' + y; return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`; }
+  const dt = new Date(s); return isNaN(dt) ? '' : iso(dt);
+}
+
+/** Download a ready-to-fill sample workbook for bulk GRN import. */
+window._grnBulkSample = function () {
+  const XLSX = window.XLSX; if (!XLSX) return showToast('Excel library not loaded', 'error');
+  const headers = ['Date', 'Site', 'Supplier', 'Source Type', 'Material', 'Category', 'Qty', 'Unit', 'Expected Qty', 'Rate', 'Challan No', 'Vehicle No', 'Driver', 'Mode'];
+  const today = new Date().toISOString().slice(0, 10);
+  const ex1 = [today, '', 'Aai Krupa', 'Supplier', 'Aggregate 20mm', 'Aggregate', 100, 'Tonne', 100, 900, 'CH-001', 'GJ-01-AB-1234', 'Ramesh', 'Transport'];
+  const ex2 = [today, '', 'Praxair India', 'Supplier', 'Cement', 'Cement', 200, 'Bag', 200, 350, 'CH-002', '', '', 'Transport'];
+  const note = ['← Date (dd-mm-yyyy or yyyy-mm-dd). Site optional (defaults to this project store). Material & Qty required. Unknown material/supplier names are created automatically.'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ex1, ex2, [], note]);
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(11, h.length + 2) }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'GRN Import');
+  mobileSaveXLSX(wb, 'GRN_Bulk_Upload_Sample.xlsx');
+  showToast('Sample downloaded', 'success');
+};
+
+/** Turn parsed sheet rows into GRN records (+ stock txns). Returns a summary. */
+function _grnImportRows(rows) {
+  const errors = []; let added = 0, skipped = 0, matCreated = 0, venCreated = 0;
+  const pick = (m, keys) => { for (const k of keys) { const v = m[k]; if (v !== undefined && v !== null && String(v).trim() !== '') return v; } return ''; };
+  const locs = getAllLocations();
+  const defaultSite = locs.find(l => l.id === state.currentProjectId) || locs[0] || null;
+  const qcRequired = !!(state.printSettings && state.printSettings.grnQcApproval);
+  rows.forEach((raw, i) => {
+    const m = {}; Object.keys(raw).forEach(k => { m[String(k).trim().toLowerCase()] = raw[k]; });
+    const rowRef = `Row ${i + 2}`;
+    const dateStr = _parseImportDate(pick(m, ['date', 'receipt date', 'grn date']));
+    const matName = String(pick(m, ['material', 'item', 'material name'])).trim();
+    const qty = parseFloat(pick(m, ['qty', 'quantity', 'received qty'])) || 0;
+    if (!matName && !dateStr && !qty) return;   // wholly blank row
+    if (!dateStr) { errors.push(`${rowRef}: missing/invalid date`); skipped++; return; }
+    if (!matName) { errors.push(`${rowRef}: missing material`); skipped++; return; }
+    if (!(qty > 0)) { errors.push(`${rowRef}: qty must be > 0`); skipped++; return; }
+    const unit = String(pick(m, ['unit', 'uom'])).trim();
+    const rate = parseFloat(pick(m, ['rate', 'unit rate', 'price'])) || 0;
+    const category = String(pick(m, ['category', 'cat'])).trim();
+    const challanNo = String(pick(m, ['challan no', 'challan', 'invoice no', 'invoice'])).trim();
+    const vehicleNo = String(pick(m, ['vehicle no', 'vehicle'])).trim();
+    const driver = String(pick(m, ['driver', 'driver contact'])).trim();
+    const sourceType = String(pick(m, ['source type', 'source'])).trim() || 'Supplier';
+    const modeOfReceipt = String(pick(m, ['mode', 'mode of receipt'])).trim() || 'Transport';
+    const expRaw = parseFloat(pick(m, ['expected qty', 'exp.', 'exp', 'expected'])) || 0;
+
+    // resolve / auto-create material
+    let mat = (state.rawMaterials || []).find(r => String(r.name || '').trim().toLowerCase() === matName.toLowerCase());
+    if (!mat) {
+      mat = { id: 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: matName, unit: unit || 'Nos', type: 'Material', category: category || 'General', projectId: state.currentProjectId, rate: 0, minStock: 0 };
+      if (window.stampCreate) mat = window.stampCreate(mat);
+      (state.rawMaterials = state.rawMaterials || []).push(mat); matCreated++;
+    }
+    // resolve / auto-create supplier
+    const supName = String(pick(m, ['supplier', 'vendor', 'party'])).trim();
+    let supplierId = '';
+    if (supName) {
+      let v = (state.vendors || []).find(x => String(x.name || '').trim().toLowerCase() === supName.toLowerCase());
+      if (!v) { v = { id: 'vend_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: supName, projectId: state.currentProjectId }; if (window.stampCreate) v = window.stampCreate(v); (state.vendors = state.vendors || []).push(v); venCreated++; }
+      supplierId = v.id;
+    }
+    if (sourceType === 'Supplier' && !supplierId) { errors.push(`${rowRef}: supplier required for a Supplier receipt`); skipped++; return; }
+    // resolve site
+    const siteName = String(pick(m, ['site', 'store', 'store / site', 'store/site'])).trim();
+    const site = (siteName && locs.find(l => String(l.name || '').trim().toLowerCase() === siteName.toLowerCase())) || defaultSite;
+    if (!site) { errors.push(`${rowRef}: no store/site — create one first`); skipped++; return; }
+    const siteId = site.id;
+
+    // conversions
+    const entryUnit = unit || mat.unit || '';
+    const qtyBase = toBaseQty(mat, qty, entryUnit);
+    const expectedQty = expRaw ? toBaseQty(mat, expRaw, entryUnit) : 0;
+    const baseRate = qtyBase > 0 ? (qty * rate) / qtyBase : rate;
+    const amount = Math.round(qty * rate * 100) / 100;
+
+    // double-entry guard (incl. earlier rows pushed in this same import)
+    const existing = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+    const dup = (challanNo && existing.find(g => g.supplierId === supplierId && String(g.challanNo || '').trim().toLowerCase() === challanNo.toLowerCase()))
+      || existing.find(g => g.supplierId === supplierId && g.matId === mat.id && (g.date || '') === dateStr && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6);
+    if (dup) { errors.push(`${rowRef}: duplicate of ${dup.grnNo} — skipped`); skipped++; return; }
+
+    const grnNo = _grnNextNumber(dateStr);
+    const stamp = Date.now() + '_' + i;
+    const grnId = 'grn_' + stamp;
+    state.grnRecords.push({ id: grnId, grnNo, receiptId: 'rcpt_imp_' + stamp, line: 1, date: dateStr, receivedAt: new Date().toISOString(), siteId, matId: mat.id, category, qty: qtyBase, expectedQty, rate: baseRate, amount, enteredQty: qty, entryUnit, challanNo, supplierId, poId: '', poNo: '', sourceType, modeOfReceipt, vehicleNo, driver, projectId: state.currentProjectId, challanPhoto: null, condPhoto: null, billed: false, qcStatus: qcRequired ? 'Pending Inspection' : 'Accepted', importedAt: new Date().toISOString() });
+    state.inventoryTx.push({ id: 'tx_grn_' + stamp, grnId, date: dateStr, siteId, rawMaterialId: mat.id, type: 'IN', qty: qtyBase, rate: baseRate, ref: `${grnNo} ${challanNo || ''}`.trim() });
+    added++;
+  });
+  if (matCreated) errors.unshift(`${matCreated} new material(s) created from the sheet.`);
+  if (venCreated) errors.unshift(`${venCreated} new supplier(s) created from the sheet.`);
+  return { added, skipped, errors };
+}
+
+/** Read an uploaded workbook and import its rows as GRNs. */
+window._grnBulkImport = function (input) {
+  const file = input && input.files && input.files[0]; if (!file) return;
+  const XLSX = window.XLSX; if (!XLSX) { showToast('Excel library not loaded', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+      if (!rows.length) { showToast('No rows found in the file', 'warning'); input.value = ''; return; }
+      const res = _grnImportRows(rows);
+      input.value = '';
+      saveAllData(); _renderGRN(); renderLiveInventory();
+      try { if (typeof _renderGrnRegister === 'function') _renderGrnRegister(); } catch {}
+      let msg = `${res.added} GRN${res.added !== 1 ? 's' : ''} imported`;
+      if (res.skipped) msg += ` · ${res.skipped} skipped`;
+      showToast(msg, res.added ? 'success' : 'warning');
+      if (res.errors.length) alert('Import summary:\n\n' + res.errors.slice(0, 20).join('\n') + (res.errors.length > 20 ? `\n…and ${res.errors.length - 20} more` : ''));
+    } catch (err) { console.error(err); showToast('Could not read the Excel file', 'error'); input.value = ''; }
+  };
+  reader.readAsArrayBuffer(file);
 };
 
 // ─── 2. Gang Material Issue / Return / Wastage ───

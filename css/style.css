@@ -2671,3 +2671,25 @@ body.filoo-home #appContainer main { padding-top: calc(12px + env(safe-area-inse
 .sb-task-fields label{ max-width:100%; }
 .sb-task-fields select.sb-in{ max-width:170px; min-width:0; }
 @media (max-width:820px){ .sb-task{ align-items:flex-start; } .sb-task-fields select.sb-in{ max-width:130px; } }
+
+/* ─── Themed date picker (replaces the native calendar) ─── */
+.tss-dp-pop{background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 50px rgba(15,23,42,.18);padding:12px;width:272px;font-family:inherit;}
+.tss-dp-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.tss-dp-title{font-weight:800;color:#1e293b;font-size:14px;}
+.tss-dp-nav{width:30px;height:30px;border:none;background:#f1f5f9;border-radius:9px;font-size:18px;line-height:1;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.tss-dp-nav:hover{background:#e2e8f0;}
+.tss-dp-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.tss-dp-dow span{text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;}
+.tss-dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.tss-dp-d{height:34px;border:none;background:none;border-radius:9px;font-size:13px;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:600;transition:background .12s;}
+.tss-dp-d:hover{background:#eef2ff;}
+.tss-dp-d.today{color:#4f46e5;box-shadow:inset 0 0 0 1.5px #c7d2fe;}
+.tss-dp-d.sel{background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;}
+.tss-dp-d.sel:hover{background:linear-gradient(135deg,#4f46e5,#3730a3);}
+.tss-dp-empty{visibility:hidden;cursor:default;}
+.tss-dp-ft{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;}
+.tss-dp-link{border:none;background:none;color:#4f46e5;font-weight:700;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:7px;}
+.tss-dp-link:hover{background:#eef2ff;}
+.tss-dp-sel{display:flex;gap:6px;align-items:center;}
+.tss-dp-pick{border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;font-size:13px;font-weight:700;color:#1e293b;background:#fff;cursor:pointer;outline:none;}
+.tss-dp-pick:focus{border-color:#a5b4fc;box-shadow:0 0 0 2px #e0e7ff;}
