@@ -2301,18 +2301,18 @@ function _renderGRN() {
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-hidden ${_grnEdit0 ? 'ring-2 ring-amber-300' : ''}">
       <!-- Header band -->
-      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#FDF1ED,#FBE7DF'});">
+      <div class="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#FDF1ED,#FBE7DF'});">
         <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#F0542B,#DD3B1B'});">🚚</div>
-        <div class="flex-1 min-w-0">
+        <div class="flex-1 min-w-[150px]">
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">${_grnEdit0 ? 'Editing GRN' : 'Goods Receipt Note'}</h4>
-          <p class="text-[11px] text-slate-500 font-medium truncate">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
+          <p class="text-[11px] text-slate-500 font-medium">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
         </div>
         ${_grnEdit0 ? '' : `<button type="button" id="grnBulkToggle" onclick="_grnBulkToggle()" aria-expanded="false" aria-controls="grnBulkPanel"
             class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-white/80 border border-emerald-200 hover:bg-white hover:border-emerald-300 shadow-sm transition">
             <style>@media(max-width:639px){#grnBulkToggle .grn-bulk-lbl{display:none}}</style>
             <span>⚡</span><span class="grn-bulk-lbl">Bulk import</span>
             <span id="grnBulkCaret" class="inline-block transition-transform duration-200" style="font-size:10px">▾</span></button>`}
-        <div class="text-right flex-shrink-0">
+        <div class="text-right flex-shrink-0 ml-auto">
           <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">GRN No.</div>
           ${_grnEdit0
             ? `<div class="flex items-center gap-2"><span class="font-mono font-extrabold text-amber-700 text-sm bg-white/70 px-2.5 py-1 rounded-lg border border-amber-200">${_grnEdit0.grnNo}</span><button onclick="_grnCancelEdit()" class="text-[10px] font-bold text-slate-500 hover:text-slate-800 underline">Cancel</button></div>`
