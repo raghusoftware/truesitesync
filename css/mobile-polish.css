@@ -216,3 +216,37 @@ button, a, [onclick], .cursor-pointer, label, select { touch-action: manipulatio
   .bg-white.rounded-xl, .bg-white.rounded-2xl { padding: 16px !important; }
   h2, h3 { line-height: 1.2; }
 }
+
+/* ── 9. Native-shell feel & scroll smoothness (global, safe on desktop too) ──
+   The biggest remaining "it's a webview" tells: the whole page rubber-banding,
+   an accidental pull-down reloading the entire app, blurry text, and the text-
+   selection magnifier popping up on buttons. Kill all four. */
+html, body {
+  overscroll-behavior: none;              /* no page rubber-band, no pull-to-refresh reload */
+}
+body {
+  -webkit-font-smoothing: antialiased;    /* crisper text = more native */
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+/* Inner scrollers keep their momentum to themselves — reaching the end of a
+   list or a wide table never nudges the page or fires the back gesture. */
+.overflow-y-auto, .overflow-auto, .overflow-x-auto { overscroll-behavior: contain; }
+
+/* Controls & chrome: no long-press callout / selection magnifier. Data cells,
+   inputs and anything marked .selectable stay copyable so figures can be grabbed. */
+button, .mbn-item, .mbn-fab, .cursor-pointer, label, [role="button"], nav, summary {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable], td, .selectable {
+  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+}
+
+/* Smoother, GPU-composited sheet/overlay animations + tactile row taps. */
+@media (max-width: 768px) {
+  [id$="Modal"].fixed.inset-0 > div, [id$="Overlay"].fixed.inset-0 > div { will-change: transform; }
+  tr.cursor-pointer:active, .cursor-pointer.bg-white:active { background-color: #f8fafc; }
+}
