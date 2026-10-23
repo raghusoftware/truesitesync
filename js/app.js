@@ -37,7 +37,7 @@ import {
   renderMaintenanceLogs, showAssetHistory, openEquipmentModal, saveEquipment,
   renderEquipmentView, saveEquipmentLog, renderEquipmentLog,
   deleteEquipment, deleteEquipmentLog
-} from './modules/fleet.js?v=1.0.2';
+} from './modules/fleet.js?v=1.0.3';
 import {
   switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
@@ -62,13 +62,13 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.37';
+} from './modules/ui.js?v=1.7.38';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.28';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.26';
-import { renderPettyCash } from './modules/pettyCash.js?v=1.0.7';
-import { renderNotifications } from './modules/notifications.js?v=1.0.3';
+import { renderPettyCash } from './modules/pettyCash.js?v=1.0.8';
+import { renderNotifications } from './modules/notifications.js?v=1.0.5';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.119';
@@ -76,11 +76,14 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.41';
 import './modules/ledgerReports.js?v=1.0.1';
-import './modules/mobileShell.js?v=1.6.86';
+import './modules/mobileShell.js?v=1.6.90';
 import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
+import './modules/labourHome.js?v=1.0.1';
+import './modules/calcTools.js?v=1.0.1';
+import './modules/appShell.js?v=1.0.6';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';
@@ -94,7 +97,7 @@ import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.6';
 import './modules/executionEngine.js?v=1.6.90';
 import './modules/scheduleBuilder.js?v=1.6.89';
-import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.54';
+import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.55';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
@@ -104,10 +107,10 @@ import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js?v=1.0.1';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.52';
 import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.81';
-import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.56';
+import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.57';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.89';
-import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.7';
+import { renderPaymentsHub } from './modules/paymentsUI.js?v=1.0.8';
 import { openPurchaseOrderForm, addPOFormRow, calcPOFormTotal, savePurchaseOrderForm, renderPurchaseOrders, clearPOFilters, deletePurchaseOrder, openPurchaseReturnForm, savePurchaseReturnForm, renderPurchaseReturns, deletePurchaseReturn, openFixedAssetForm, saveFixedAssetForm, renderFixedAssets, deleteFixedAsset } from './modules/purchaseDocs.js?v=1.6.73';
 import { openProformaInvoiceForm, addPIFormRow, calcPIFormTotal, saveProformaInvoiceForm, renderProformaInvoices, clearPIFilters, deleteProformaInvoice, openPaymentInForm, savePaymentInForm, renderPaymentInList, clearPaymentInFilters, deletePaymentIn, openSaleOrderForm, addSOFormRow, calcSOFormTotal, saveSaleOrderForm, renderSaleOrders, clearSOFilters, deleteSaleOrder, openDeliveryChallanForm, saveDeliveryChallanForm, renderDeliveryChallans, clearDCFilters, deleteDeliveryChallan, openSaleReturnForm, saveSaleReturnForm, renderSaleReturns, clearSRFilters, deleteSaleReturn, openSaleFixedAssetForm, saveSaleFixedAssetForm, renderSaleFixedAssets, clearSFAFilters, deleteSaleFixedAsset, openOtherIncomeForm, saveOtherIncomeForm, renderOtherIncome, clearOIFilters, deleteOtherIncome } from './modules/saleDocs.js?v=1.0.3';
 import { openSaleInvoiceForm, addSIFormRow, calcSIFormTotal, saveSaleInvoiceForm, setSIPayMode, loadSIPendingItems, addSIPendingItem, onSIItemInput, onSIClientChange, onSIProjectChange, onSIWOChange, searchSIPO, closeSIDropdowns, renderSaleInvoices, deleteSaleInvoice, viewSaleInvoiceInfo, _navigateToAbstract, _navigateToSheet } from './modules/saleInvoice.js?v=1.6.60';
@@ -716,22 +719,18 @@ function _updateSyncBadge() {
   el.title = 'Tap for sync status & force sync';
   if (!el.onclick) el.onclick = () => window._openSyncDoctor?.();
   const sb = getSupabase();
-  if (!sb) {
-    el.textContent = '⚡ Local Only';
-    el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200';
-    return;
-  }
-  const status = getSyncStatus();
-  if (!status.online) {
-    el.textContent = '📡 Offline';
-    el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-red-50 text-red-500 border border-red-200';
-  } else if (status.dirtyCount > 0) {
-    el.textContent = `🔄 Syncing (${status.dirtyCount})`;
-    el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200';
-  } else {
-    el.textContent = '☁️ Synced';
-    el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200';
-  }
+  const status = sb ? getSyncStatus() : null;
+  const [st, label] = !sb ? ['local', 'Local only']
+    : !status.online ? ['offline', 'Offline']
+    : status.dirtyCount > 0 ? ['syncing', `Syncing (${status.dirtyCount})`]
+    : ['ok', 'Synced'];
+  _paintSyncBadge(el, st, label);
+}
+// App-bar sync chip: cloud icon + short label (label hides on phones).
+function _paintSyncBadge(el, st, label) {
+  el.className = 'tsb-sync';
+  el.dataset.sync = st;
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 9.5z"/>${st === 'ok' ? '<path d="M9.5 13.2l1.8 1.8 3.4-3.6"/>' : st === 'offline' ? '<path d="M4 4l16 16"/>' : ''}</svg><span class="tsb-sync-tx">${label}</span>`;
 }
 // Update sync badge every 10s
 setInterval(_updateSyncBadge, 10000);
@@ -791,7 +790,7 @@ window._onSyncBatch = function ({ ok, errCount }) {
 // Manual "Sync Now" — click the header badge to force a cloud pull + flush.
 window._manualSync = async function () {
   const el = document.getElementById('headerSyncBadge');
-  if (el) { el.textContent = '🔄 Syncing…'; el.className = 'text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 cursor-pointer'; }
+  if (el) _paintSyncBadge(el, 'syncing', 'Syncing…');
   try { window.flushPendingSaves?.(); } catch {}
   let n = 0;
   try { n = (await window.pullRemoteUpdates?.()) || 0; } catch {}

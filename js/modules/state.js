@@ -790,8 +790,8 @@ function _renderForKeys(keys) {
   const seen = new Set();
   keys.forEach(k => (map[k] || []).forEach(fn => { if (!seen.has(fn)) { seen.add(fn); call(fn); } }));
   // Parties list + closing balance always reflect the latest if it's open.
-  if (document.getElementById('partyTransactionsBody') && typeof window.renderPartyTransactions === 'function') {
-    try { window.renderPartyTransactions(); } catch {}
+  if (document.getElementById('partyRoot') && typeof window.renderPartiesList === 'function') {
+    try { window.renderPartiesList(); } catch {}
   }
 }
 /** Start live cloud sync (other devices' changes appear instantly). */

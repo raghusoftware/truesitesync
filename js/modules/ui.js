@@ -48,7 +48,7 @@ if (typeof window !== 'undefined') {
     // labourView is the CURRENT view and a section is open (grid hidden). The section's
     // lists already refreshed via _renderForKeys.
     if (v === 'labourView') {
-      const g = document.getElementById('labourGrid');
+      const g = document.getElementById('labHomeWrap');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Same guard for Inventory: a full switchView('inventoryView') calls
@@ -56,7 +56,7 @@ if (typeof window !== 'undefined') {
     // after "Receive Stock") back to the icon grid. Leave them where they are —
     // the sub-section already re-rendered itself on the local save.
     if (v === 'inventoryView') {
-      const g = document.getElementById('invGrid');
+      const g = document.getElementById('invTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Settings: switchView('settingsView') resets to the icon home grid, bouncing
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
     }
     // Equipment: same pattern — switchView('equipmentView') calls _openEquipSection(null).
     if (v === 'equipmentView') {
-      const g = document.getElementById('equipGrid');
+      const g = document.getElementById('eqTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     try { switchView(v); } catch {}
@@ -77,10 +77,13 @@ if (typeof window !== 'undefined') {
 /** Navigate to Projects Home */
 // Two-level home navigation: null = show clients list; otherwise show that client's projects
 let _homeClientId = null;
+// Home shows the project list (appShell); "By client" switches to the client list.
+let _clientsMode = false;
 
 export function goProjectsHome() {
   state.currentProjectId = null;
   _homeClientId = null;
+  _clientsMode = false;
   document.getElementById('projectContextNav')?.classList.add('hidden');
   const badge = document.getElementById('headerProjBadge');
   if (badge) { badge.classList.add('hidden'); badge.textContent = ''; }
@@ -94,11 +97,19 @@ export function openClientProjects(clientId) {
   renderProjectsHome();
 }
 
-/** Back to the clients list */
+/** Back one level: a client's projects → client list → project list */
 export function backToClients() {
-  _homeClientId = null;
+  if (_homeClientId) _homeClientId = null; else _clientsMode = false;
   renderProjectsHome();
 }
+
+/** Home in "By client" mode (Master → Clients, or "By client ›" on the project list) */
+export function showClientsList() {
+  _clientsMode = true;
+  _homeClientId = null;
+  if (window.__currentViewId === 'projectsHome') renderProjectsHome(); else switchView('projectsHome');
+}
+if (typeof window !== 'undefined') window.showClientsList = showClientsList;
 
 /** Header action button — context aware (New Client vs Add Project) */
 export function projHomeAction() {
@@ -248,6 +259,13 @@ export function renderProjectsHome() {
   const empty = document.getElementById('projectsEmpty');
   try { renderFilooHome(); } catch(e){ console.warn('[filooHome]', e); }
   if (!grid) return;
+  // Default: the project-first list rendered by appShell.js
+  const listHost = document.getElementById('tsProjects');
+  const clientsWrap = document.getElementById('projClientsWrap');
+  const byClient = _clientsMode || !!_homeClientId;
+  if (listHost) listHost.style.display = byClient ? 'none' : '';
+  if (clientsWrap) clientsWrap.style.display = byClient ? '' : 'none';
+  if (!byClient) { window.renderShellProjects?.(); return; }
   const backBtn = document.getElementById('projHomeBack');
   const titleEl = document.getElementById('projHomeTitle');
   const subEl = document.getElementById('projHomeSub');
@@ -265,7 +283,7 @@ export function renderProjectsHome() {
 
   // ── MODE A: Clients list ───────────────────────────────
   if (!_homeClientId) {
-    if (backBtn) backBtn.classList.add('hidden');
+    if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Projects'; }
     if (titleEl) titleEl.textContent = 'My Clients';
     if (subEl) subEl.textContent = 'Create a client, then add projects under it.';
     if (actLabel) actLabel.textContent = 'New Client';
@@ -304,7 +322,7 @@ export function renderProjectsHome() {
 
   // ── MODE B: One client's projects ──────────────────────
   const client = clients.find(c => c.id === _homeClientId);
-  if (backBtn) backBtn.classList.remove('hidden');
+  if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Clients'; }
   if (titleEl) titleEl.textContent = client ? client.name : 'Projects';
   if (subEl) subEl.textContent = 'Projects under this client.';
   if (actLabel) actLabel.textContent = 'Add Project';
@@ -384,43 +402,8 @@ export function renderProjectDashboard() {
     if (proj.location) sub += (sub ? ' | ' : '') + proj.location;
     subEl.textContent = sub || 'No details set';
   }
-  const pid = proj.id;
-  const kpiEl = document.getElementById('projDashKPIs');
-  if (kpiEl) {
-    const boqCount = (proj.boqs || []).length || (proj.woNumber ? 1 : 0);
-    const sheetCount = (state.sheets || []).filter(s => s.projectId === pid).length;
-    const invCount = (state.saleInvoices || []).filter(i => i.projectId === pid).length;
-    const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
-    const kpis = [
-      { label: 'BOQ / PO', value: boqCount, iconName: 'clipboard' },
-      { label: 'Measurements', value: sheetCount, iconName: 'ruler' },
-      { label: 'Invoices', value: invCount, iconName: 'receipt' },
-      { label: 'Open Issues', value: openIssues, iconName: 'flag' },
-    ];
-    kpiEl.innerHTML = kpis.map(k => `
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-        <div style="width:38px;height:38px;border-radius:11px;background:var(--brand-50);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${window.tssIcon ? window.tssIcon(k.iconName, { size: 19 }) : ''}</div>
-        <div class="min-w-0">
-          <div class="text-xl font-extrabold text-slate-800 leading-none">${k.value}</div>
-          <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide truncate mt-1">${k.label}</div>
-        </div>
-      </div>`).join('');
-  }
-  // Module cards
-  const grid = document.getElementById('moduleCardsGrid');
-  if (!grid) return;
-  grid.innerHTML = MODULE_CARDS.map(m => {
-    return `<div onclick="switchView('${m.id}')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-      <div class="flex items-center gap-3">
-        <div style="width:44px;height:44px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;transition:all .2s;" class="group-hover:scale-110">${window.tssIcon ? window.tssIcon(m.iconName, { size: 22 }) : m.icon}</div>
-        <div class="flex-1">
-          <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">${m.label}</h4>
-          <p class="text-[10px] text-slate-400">${m.desc}</p>
-        </div>
-        <span class="text-[10px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition">&rarr;</span>
-      </div>
-    </div>`;
-  }).join('');
+  // Money summary + module tiles (appShell.js)
+  window.renderShellProjectHome?.();
 }
 
 // ── BOQ / PO Group Management ──
@@ -1283,19 +1266,22 @@ export function renderAnalyticsDashboard() {
 // LABOUR — app-icon section navigation
 // ==========================================
 window._openLabourSection = function(section) {
-  const grid = document.getElementById('labourGrid');
+  const grid = document.getElementById('labHomeWrap');
   const backBtn = document.getElementById('labourBackBtn');
   document.querySelectorAll('.labour-section').forEach(s => s.classList.add('hide'));
 
   if (!section) {
-    // Back to grid
-    if (grid) grid.style.display = 'grid';
+    // Back to the attendance home (labourHome.js)
+    if (grid) grid.style.display = '';
     if (backBtn) backBtn.style.display = 'none';
+    window.renderLabourHome?.();
+    window.shellSectionChanged?.();
     return;
   }
 
   if (grid) grid.style.display = 'none';
   if (backBtn) backBtn.style.display = 'inline-block';
+  window.shellSectionChanged?.();
 
   const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster', contractors: 'labourSecContractors', piecerate: 'labourSecPiecerate' };
   const el = document.getElementById(map[section]);
@@ -1353,6 +1339,7 @@ export function switchView(viewId) {
   if (typeof window !== 'undefined') {
     const prev = window.__currentViewId;
     if (!window.__viewHistory) window.__viewHistory = [];
+    try { window.__noteNav?.(prev, viewId); } catch {}
     if (!window.__navBack && prev && prev !== viewId) {
       window.__viewHistory.push(prev);
       if (window.__viewHistory.length > 50) window.__viewHistory.shift();
@@ -1370,6 +1357,7 @@ export function switchView(viewId) {
   }
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.target === viewId));
   _updateBreadcrumb(viewId);
+  try { window.shellOnView?.(viewId); } catch (e) { console.warn('[shell]', e); }
   try { window.highlightBottomNav?.(); } catch {}
 
   if (viewId === 'paymentsHubView') { try { window.renderPaymentsHub?.(); } catch (e) { console.warn(e); } }
@@ -1671,7 +1659,7 @@ export function saveVendor() {
   showToast('Vendor Saved');
   renderMasterVendorList();
   if (typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(rec);
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function addPurchaseRow(count = 1) {
@@ -1923,7 +1911,7 @@ function _unitPicker(id) {
 }
 
 window._openInvSection = function(section) {
-  const grid = document.getElementById('invGrid');
+  const grid = document.getElementById('invTiles');
   const back = document.getElementById('invBackBtn');
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
@@ -5081,8 +5069,8 @@ export function saveLabour() {
   }
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
-  renderLabourMasterList(); renderMonthlyMuster();
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  renderLabourMasterList(); renderMonthlyMuster(); window.renderLabourHome?.();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function renderLabourMasterList() {
@@ -5238,6 +5226,10 @@ function _backfillLabourProjects() {
   if (changed && typeof saveLabourData === 'function') saveLabourData();
 }
 
+if (typeof window !== 'undefined') {
+  window._projectLabourList = () => _projectLabour();
+  window._labourNetPayable = (id) => _labourNetPayable(id);
+}
 function _projectLabour() {
   // Strictly this project's workers — same scoping the attendance sheet and the
   // labour master both use, so the two views always match. Untagged legacy

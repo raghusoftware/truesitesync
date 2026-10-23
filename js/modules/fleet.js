@@ -395,7 +395,7 @@ window._eqConfirmRentalPay = function(assetId, net) {
 
 /** App-icon section navigation for Equipment module */
 window._openEquipSection = function(section) {
-  const grid = document.getElementById('equipGrid');
+  const grid = document.getElementById('eqTiles');
   const backBtn = document.getElementById('equipBackBtn');
   document.querySelectorAll('.equip-section').forEach(s => s.classList.add('hide'));
   if (!section) {

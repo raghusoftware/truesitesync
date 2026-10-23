@@ -18,6 +18,7 @@ import {
 } from './paymentsEngine.js';
 import { settledAmount, deductionTotal, deductionTypes, deductionBalances, markDeposited } from './deductions.js';
 import { exportCAPack, fyRange } from './caExport.js';
+import { inProject } from './analyticsCalc.js';
 import { deductionsBlockHTML, initDeductions, readDeductions, refreshBills, clientBills, vendorBills } from './deductionsUI.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -25,7 +26,8 @@ const _pid = () => state.currentProjectId || null;
 const money = (n) => (typeof formatINR === 'function' ? formatINR(n) : '₹' + Math.round(n || 0).toLocaleString('en-IN'));
 
 // Module UI state
-const _ui = { mode: 'out', payeeType: 'vendor', source: 'account' };
+// screen: 'list' (Transactions) | 'form' (Payment In / Out entry)
+const _ui = { mode: 'out', payeeType: 'vendor', source: 'account', screen: 'list', scope: 'project', dir: 'all', q: '' };
 
 /** Expense-head chart (editable). Seeded from defaults on first use. */
 function heads() {
@@ -65,6 +67,7 @@ function _opts(list, idKey = 'id', nameKey = 'name', extra) {
 export function renderPaymentsHub() {
   const el = document.getElementById('paymentsHubView');
   if (!el) return;
+  if (_ui.screen !== 'form') { _renderList(el); return; }
 
   const accCards = accounts().map((a, i) => `
     <div class="pmt-bal ${i === 0 ? 'primary' : ''}">
@@ -383,7 +386,7 @@ function _syncSourceUI() {
 }
 
 /* ── window handlers ── */
-function _pmtSetMode(m) { _ui.mode = m; renderPaymentsHub(); }
+function _pmtSetMode(m) { _ui.mode = m; _ui.screen = 'form'; renderPaymentsHub(); try { window.shellSectionChanged?.(); } catch {} }
 function _pmtSetPayee(t) { _ui.payeeType = t; renderPaymentsHub(); }
 function _pmtSetSource(s) { _ui.source = s; renderPaymentsHub(); }
 function _pmtSetPayer(t) { _ui.payerType = t; renderPaymentsHub(); }
@@ -428,7 +431,9 @@ function _pmtSaveOut() {
   if (t === 'taxDeposit') markDeposited(state, input.settlesDeduction, amount, input.challanNo, input.date);
   saveAllData();
   showToast(ded.deductions.length ? 'Payment recorded — bill settled with deductions' : 'Payment recorded', 'success');
+  _ui.screen = 'list';
   renderPaymentsHub();
+  try { window.shellSectionChanged?.(); window.renderPartiesList?.(); } catch {}
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
 
@@ -453,7 +458,9 @@ function _pmtSaveIn() {
   _appendAll(append);
   saveAllData();
   showToast(ded.deductions.length ? 'Receipt recorded — bill settled with deductions' : 'Receipt recorded', 'success');
+  _ui.screen = 'list';
   renderPaymentsHub();
+  try { window.shellSectionChanged?.(); window.renderPartiesList?.(); } catch {}
   try { window.renderPettyCash?.(); window.renderAccounts?.(); } catch {}
 }
 
@@ -503,23 +510,29 @@ function _pmtExportCA() {
 }
 
 /* ── recent payments (with attribution) ── */
-function _recent() {
+/** Every money movement, newest first: { src, id, rec, dir, amt, who, via, date, icon, ded, settled }. */
+function _txRows() {
   const rows = [];
   const pName = (arr, id, nk = 'name') => (state[arr] || []).find(x => x.id === id)?.[nk] || '';
   // Sortable timestamp — createdAt (ms), else the ms embedded in the id, else the
   // date. Ensures the newest transaction shows first even when many share a date.
   const ts = r => r.createdAt || parseInt((String(r.id || '').match(/(\d{9,})/) || [])[1] || '0', 10) || Date.parse(r.date || '') || 0;
-  (state.vendorPayments || []).forEach(v => rows.push({ ded: deductionTotal(v), settled: settledAmount(v), icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
-  (state.labourPayments || []).forEach(l => rows.push({ ded: deductionTotal(l), settled: settledAmount(l), icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
-  (state.expenses || []).forEach(e => rows.push({ ded: deductionTotal(e), settled: settledAmount(e), icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
+  (state.vendorPayments || []).forEach(v => rows.push({ src: 'vendorPayments', id: v.id, rec: v, ded: deductionTotal(v), settled: settledAmount(v), icon: '🧾', date: v.date, ts: ts(v), dir: 'out', amt: v.amount, who: 'Vendor: ' + (pName('vendors', v.vendorId) || v.ref || ''), via: v.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', v.custodianId)) : (pName('accounts', v.accountId)) }));
+  (state.labourPayments || []).forEach(l => rows.push({ src: 'labourPayments', id: l.id, rec: l, ded: deductionTotal(l), settled: settledAmount(l), icon: '👷', date: l.date, ts: ts(l), dir: 'out', amt: l.amount, who: 'Labour: ' + (pName('labourMaster', l.labourId) || l.ref || ''), via: l.source === 'petty' ? 'Petty · ' + (pName('pettyCashCustodians', l.custodianId)) : (pName('accounts', l.accountId)) }));
+  (state.expenses || []).forEach(e => rows.push({ src: 'expenses', id: e.id, rec: e, ded: deductionTotal(e), settled: settledAmount(e), icon: (e.head === 'Equipment' ? '🚜' : e.category === 'Piece-Rate Gang Payout' ? '🤝' : '📂'), date: e.date, ts: ts(e), dir: 'out', amt: e.amount, who: (e.category === 'Piece-Rate Gang Payout' ? (e.remarks || 'Gang payout') : (e.head || e.category || 'Expense') + (e.subHead ? ' · ' + e.subHead : '')), via: pName('accounts', e.accountId) }));
   (state.pettyCashTxns || []).forEach(t => {
-    if (t.type === 'EXPENSE') rows.push({ icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
-    if (t.type === 'TRANSFER') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
-    if (t.type === 'RETURN') rows.push({ icon: '👛', date: t.date, ts: ts(t), dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
+    if (t.type === 'EXPENSE') rows.push({ src: 'pettyCashTxns', id: t.id, rec: t, icon: (t.subHead === 'Contractor' ? '🤝' : '👛'), date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: (t.head || t.payeeName || t.category || 'Petty expense') + (t.subHead ? ' · ' + t.subHead : ''), via: 'Petty · ' + (pName('pettyCashCustodians', t.custodianId)) });
+    if (t.type === 'TRANSFER') rows.push({ src: 'pettyCashTxns', id: t.id, rec: t, icon: '👛', date: t.date, ts: ts(t), dir: 'out', amt: t.amount, who: 'Top-up → ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.fromAccountId) });
+    if (t.type === 'RETURN') rows.push({ src: 'pettyCashTxns', id: t.id, rec: t, icon: '👛', date: t.date, ts: ts(t), dir: 'in', amt: t.amount, who: 'Petty return ← ' + (pName('pettyCashCustodians', t.custodianId)), via: pName('accounts', t.toAccountId) });
   });
-  (state.paymentsIn || []).forEach(p => rows.push({ ded: deductionTotal(p), settled: settledAmount(p), icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
-  (state.otherIncome || []).forEach(o => rows.push({ icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: o.settlesDeduction ? 'Retention / deposit released: ' + (pName('clients', o.clientId) || o.source || '') : 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
+  (state.paymentsIn || []).forEach(p => rows.push({ src: 'paymentsIn', id: p.id, rec: p, ded: deductionTotal(p), settled: settledAmount(p), icon: '🏗️', date: p.date, ts: ts(p), dir: 'in', amt: p.amount, who: 'Receipt: ' + (pName('clients', p.clientId) || p.ref || ''), via: pName('accounts', p.accountId) }));
+  (state.otherIncome || []).forEach(o => rows.push({ src: 'otherIncome', id: o.id, rec: o, icon: '💼', date: o.date, ts: ts(o), dir: 'in', amt: o.amount, who: o.settlesDeduction ? 'Retention / deposit released: ' + (pName('clients', o.clientId) || o.source || '') : 'Other income: ' + (o.source || ''), via: pName('accounts', o.accountId) }));
   rows.sort((a, b) => (b.ts - a.ts) || (new Date(b.date || 0) - new Date(a.date || 0)));
+  return rows;
+}
+
+function _recent() {
+  const rows = _txRows();
   const top = rows.slice(0, 15);
   const body = top.length
     ? top.map(r =>
@@ -536,10 +549,102 @@ function _recent() {
   </div>`;
 }
 
+/* ── Transactions screen (landing) ── */
+const _TX_SEARCH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+let _txShown = [];
+function _renderList(el) {
+  const pid = _pid();
+  const scoped = pid && _ui.scope === 'project';
+  let rows = _txRows();
+  if (scoped) rows = rows.filter(r => inProject(state, r.rec, pid) === true);
+  const tin = rows.filter(r => r.dir === 'in').reduce((a, r) => a + (Number(r.amt) || 0), 0);
+  const tout = rows.filter(r => r.dir === 'out').reduce((a, r) => a + (Number(r.amt) || 0), 0);
+  const q = (_ui.q || '').trim().toLowerCase();
+  const shown = rows.filter(r => (_ui.dir === 'all' || r.dir === _ui.dir)
+    && (!q || [r.who, r.via, r.date, String(r.amt)].some(v => String(v || '').toLowerCase().includes(q))));
+  _txShown = shown.slice(0, 300);
+  const proj = pid ? (state.projects || []).find(p => p.id === pid) : null;
+  const chip = (fn, l, on) => `<button type="button" class="ts-chip ${on ? 'on' : ''}" onclick="${fn}">${l}</button>`;
+  const list = _txShown.map((r, i) => `<div class="tx-row" role="button" tabindex="0" onclick="window._pmtTxMenu(${i})">
+      <div class="tx-ic ${r.dir}" data-keep-emoji>${r.icon || (r.dir === 'out' ? '↗' : '↙')}</div>
+      <div class="tx-m"><b>${esc(r.who)}</b><small>${esc([r.via, r.date].filter(Boolean).join(' · '))}</small>${r.ded > 0 ? `<small style="color:#be123c">${money(r.ded)} deducted · bill settled ${money(r.settled)}</small>` : ''}</div>
+      <div class="tx-a ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
+    </div>`).join('');
+  const keepFocus = document.activeElement && document.activeElement.id === 'txSearch';
+  el.innerHTML = `<div class="ts-page tx">
+    <div class="tsp-sum">
+      <div><b style="color:var(--ts-green)">${money(tin)}</b><small>Payment In</small></div>
+      <div><b style="color:var(--ts-red)">${money(tout)}</b><small>Payment Out</small></div>
+      <div><b>${money(tin - tout)}</b><small>Balance</small></div>
+    </div>
+    <div class="ts-search">${_TX_SEARCH}<input id="txSearch" type="search" placeholder="Search transaction" value="${esc(_ui.q || '')}" oninput="window._pmtTxSearch(this.value)" autocomplete="off"></div>
+    <div class="ts-chips">
+      ${chip("window._pmtTxDir('all')", 'All', _ui.dir === 'all')}${chip("window._pmtTxDir('in')", 'Payment In', _ui.dir === 'in')}${chip("window._pmtTxDir('out')", 'Payment Out', _ui.dir === 'out')}
+      ${proj ? chip("window._pmtScope('project')", esc(proj.name), scoped) + chip("window._pmtScope('all')", 'All projects', !scoped) : ''}
+      ${chip('window._pmtMore()', 'More ›', false)}
+    </div>
+    ${list ? `<div class="tx-list">${list}</div>` : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No transaction found</h3><p>Record money received or paid with the buttons below.</p></div>`}
+    ${shown.length > _txShown.length ? `<p style="text-align:center;color:var(--ts-muted);font-size:13px;margin:12px 0">Showing ${_txShown.length} of ${shown.length} — search to narrow down</p>` : ''}
+    <div class="ts-actbar">
+      <button type="button" class="ts-act in" onclick="window._pmtSetMode('in')">↙ Payment In</button>
+      <button type="button" class="ts-act out" onclick="window._pmtSetMode('out')">↗ Payment Out</button>
+    </div>
+  </div>`;
+  if (keepFocus) { const i = document.getElementById('txSearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+}
+
+function _pmtTxMenu(i) {
+  const r = _txShown[i]; if (!r) return;
+  const items = [];
+  if (['paymentsIn', 'vendorPayments', 'labourPayments'].includes(r.src)) items.push({ icon: '✏️', title: 'Edit', desc: 'Open this entry', run: () => window._editPartyTx?.(r.src, r.id) });
+  if (['paymentsIn', 'vendorPayments', 'labourPayments', 'expenses'].includes(r.src)) {
+    items.push({ icon: '🧾', title: 'Receipt / voucher', desc: 'Preview & download PDF', run: () => window._partyReceipt?.(r.src, r.id) });
+    items.push({ icon: '🗑️', title: 'Delete', desc: 'Moves it to the Recycle Bin', danger: true, run: () => {
+      if (!confirm('Move this entry to the Recycle Bin?')) return;
+      if (window.recycleDelete?.(r.src, r.id, r.dir === 'in' ? 'Payment In' : 'Payment Out', r.who)) { renderPaymentsHub(); window.renderPartiesList?.(); }
+    } });
+  }
+  if (r.src === 'pettyCashTxns') items.push({ icon: '👛', title: 'Open in Petty Cash', desc: 'Vouchers & transfers', run: () => window.switchView?.('pettyCashView') });
+  if (!items.length) return;
+  window.shellSheet?.(r.who, items);
+}
+
+function _pmtMore() {
+  window.shellSheet?.('Payments', [
+    { icon: '🤝', title: 'Party', desc: 'Who owes you, who you owe', run: () => window.switchView?.('partiesLedgerView') },
+    { icon: '👛', title: 'Petty Cash', desc: 'Site cash accounts', run: () => window.switchView?.('pettyCashView') },
+    { icon: '🏦', title: 'Bank & Cash', desc: 'Account balances', run: () => window.switchView?.('accountsManagerView') },
+    { icon: '📊', title: 'Deductions & CA pack', desc: 'TDS, retention, penalties · Excel for your CA', run: () => {
+      _ui.screen = 'form'; renderPaymentsHub(); try { window.shellSectionChanged?.(); } catch {}
+      setTimeout(() => document.querySelector('.pmt-side')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } },
+  ]);
+}
+
+/** Open the entry form, optionally with the party already chosen. */
+function _pmtStart(mode, opts = {}) {
+  window.switchView?.('paymentsHubView');
+  _ui.mode = mode; _ui.screen = 'form';
+  if (mode === 'out' && opts.payeeType) _ui.payeeType = opts.payeeType;
+  if (mode === 'in' && opts.payerType) _ui.payerType = opts.payerType;
+  renderPaymentsHub();
+  if (opts.id) {
+    const sel = document.getElementById(mode === 'out' ? 'pmtPayeeName' : 'pmtInName');
+    if (sel && [...sel.options].some(o => o.value === opts.id)) { sel.value = opts.id; sel.dispatchEvent(new Event('change')); }
+  }
+  try { window.shellSectionChanged?.(); } catch {}
+}
+
 /* ── self-bind for inline handlers ── */
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     renderPaymentsHub, _pmtSetMode, _pmtSetPayee, _pmtSetSource, _pmtSetPayer, _pmtHeldRefresh, _pmtOpenReport, _pmtExportCA,
-    _pmtHeadChange, _pmtSaveOut, _pmtSaveIn,
+    _pmtHeadChange, _pmtSaveOut, _pmtSaveIn, _pmtStart, _pmtTxMenu, _pmtMore,
+    _pmtShowList: (render = true) => { _ui.screen = 'list'; if (render) renderPaymentsHub(); },
+    _pmtIsForm: () => _ui.screen === 'form',
+    _pmtFormTitle: () => (_ui.mode === 'in' ? 'Payment In' : 'Payment Out'),
+    _pmtScope: (sc) => { _ui.scope = sc; renderPaymentsHub(); },
+    _pmtTxDir: (d) => { _ui.dir = d; renderPaymentsHub(); },
+    _pmtTxSearch: (q) => { _ui.q = q; renderPaymentsHub(); },
   });
 }
