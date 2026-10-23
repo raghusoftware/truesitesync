@@ -17,19 +17,19 @@ import { renderAssetsView, renderEquipmentView } from './fleet.js';
 // ══════════════════════════════════════════
 
 const MODULE_CARDS = [
-  { id: 'execEngineView', icon: '&#128203;', label: 'Planning', desc: 'Activities, quantities, resources, durations & cost', color: '#7c3aed', stateKey: 'execActivities' },
-  { id: 'scheduleBuilderView', icon: '&#128197;', label: 'Scheduling', desc: 'Sequence planned activities on a timeline', color: '#0ea5e9', stateKey: 'scheduleLocations' },
-  { id: 'issuesView', icon: '&#128681;', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
-  { id: 'chatView', icon: '&#128172;', label: 'Chat', desc: 'Site messaging, media & voice', color: '#2563eb', stateKey: 'chat' },
-  { id: 'executionView', icon: '&#127959;', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
-  { id: 'labourView', icon: '&#128119;', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
-  { id: 'equipmentView', icon: '&#128666;', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
-  { id: 'inventoryView', icon: '&#128230;', label: 'Inventory', desc: 'Stock & materials', color: '#ef8420', stateKey: 'rawMaterials' },
-  { id: 'recipeView', icon: '&#129514;', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
-  { id: 'assetsView', icon: '&#128295;', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
-  { id: 'measurementListView', icon: '&#128208;', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
-  { id: 'abstractsView', icon: '&#128209;', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
-  { id: 'documentsView', icon: '&#128193;', label: 'Documents', desc: 'Drawings & files, in folders', color: '#0284c7', stateKey: 'projectDocs' },
+  { id: 'execEngineView', icon: '&#128203;', iconName: 'planning', label: 'Planning', desc: 'Activities, quantities, resources, durations & cost', color: '#7c3aed', stateKey: 'execActivities' },
+  { id: 'scheduleBuilderView', icon: '&#128197;', iconName: 'calendar', label: 'Scheduling', desc: 'Sequence planned activities on a timeline', color: '#0ea5e9', stateKey: 'scheduleLocations' },
+  { id: 'issuesView', icon: '&#128681;', iconName: 'flag', label: 'Issues', desc: 'Snags, RFIs & site issues', color: '#ef4444', stateKey: 'issues' },
+  { id: 'chatView', icon: '&#128172;', iconName: 'chat', label: 'Chat', desc: 'Site messaging, media & voice', color: '#2563eb', stateKey: 'chat' },
+  { id: 'executionView', icon: '&#127959;', iconName: 'execution', label: 'Execution', desc: 'DPR, pours, milestones, QA/safety', color: '#f97316', stateKey: 'dailyProgress' },
+  { id: 'labourView', icon: '&#128119;', iconName: 'labour', label: 'Labour', desc: 'Attendance, wages & muster', color: '#f59e0b', stateKey: 'labourMaster' },
+  { id: 'equipmentView', icon: '&#128666;', iconName: 'equipment', label: 'Equipment', desc: 'Vehicles & machinery logs', color: '#8b5cf6', stateKey: 'equipmentList' },
+  { id: 'inventoryView', icon: '&#128230;', iconName: 'inventory', label: 'Inventory', desc: 'Stock & materials', color: '#ef8420', stateKey: 'rawMaterials' },
+  { id: 'recipeView', icon: '&#129514;', iconName: 'flask', label: 'Mix Design', desc: 'Material recipes & formulas', color: '#ea580c', stateKey: 'recipes' },
+  { id: 'assetsView', icon: '&#128295;', iconName: 'wrench', label: 'Tools & Assets', desc: 'Transfers & maintenance', color: '#6366f1', stateKey: 'locations' },
+  { id: 'measurementListView', icon: '&#128208;', iconName: 'ruler', label: 'Measurement', desc: 'Sheets & quantity entry', color: '#0ea5e9', stateKey: 'sheets' },
+  { id: 'abstractsView', icon: '&#128209;', iconName: 'document', label: 'Abstracts', desc: 'Work abstracts & billing', color: '#14b8a6', stateKey: 'abstracts' },
+  { id: 'documentsView', icon: '&#128193;', iconName: 'folder', label: 'Documents', desc: 'Drawings & files, in folders', color: '#0284c7', stateKey: 'projectDocs' },
 ];
 
 // Re-render the active view (used by realtime sync). Skips while the user is
@@ -48,7 +48,7 @@ if (typeof window !== 'undefined') {
     // labourView is the CURRENT view and a section is open (grid hidden). The section's
     // lists already refreshed via _renderForKeys.
     if (v === 'labourView') {
-      const g = document.getElementById('labourGrid');
+      const g = document.getElementById('labHomeWrap');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Same guard for Inventory: a full switchView('inventoryView') calls
@@ -56,7 +56,7 @@ if (typeof window !== 'undefined') {
     // after "Receive Stock") back to the icon grid. Leave them where they are —
     // the sub-section already re-rendered itself on the local save.
     if (v === 'inventoryView') {
-      const g = document.getElementById('invGrid');
+      const g = document.getElementById('invTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Settings: switchView('settingsView') resets to the icon home grid, bouncing
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
     }
     // Equipment: same pattern — switchView('equipmentView') calls _openEquipSection(null).
     if (v === 'equipmentView') {
-      const g = document.getElementById('equipGrid');
+      const g = document.getElementById('eqTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     try { switchView(v); } catch {}
@@ -77,10 +77,13 @@ if (typeof window !== 'undefined') {
 /** Navigate to Projects Home */
 // Two-level home navigation: null = show clients list; otherwise show that client's projects
 let _homeClientId = null;
+// Home shows the project list (appShell); "By client" switches to the client list.
+let _clientsMode = false;
 
 export function goProjectsHome() {
   state.currentProjectId = null;
   _homeClientId = null;
+  _clientsMode = false;
   document.getElementById('projectContextNav')?.classList.add('hidden');
   const badge = document.getElementById('headerProjBadge');
   if (badge) { badge.classList.add('hidden'); badge.textContent = ''; }
@@ -94,11 +97,19 @@ export function openClientProjects(clientId) {
   renderProjectsHome();
 }
 
-/** Back to the clients list */
+/** Back one level: a client's projects → client list → project list */
 export function backToClients() {
-  _homeClientId = null;
+  if (_homeClientId) _homeClientId = null; else _clientsMode = false;
   renderProjectsHome();
 }
+
+/** Home in "By client" mode (Master → Clients, or "By client ›" on the project list) */
+export function showClientsList() {
+  _clientsMode = true;
+  _homeClientId = null;
+  if (window.__currentViewId === 'projectsHome') renderProjectsHome(); else switchView('projectsHome');
+}
+if (typeof window !== 'undefined') window.showClientsList = showClientsList;
 
 /** Header action button — context aware (New Client vs Add Project) */
 export function projHomeAction() {
@@ -126,7 +137,7 @@ window._filooPickProject = function(){
     const c = (state.clients||[]).find(x => x.id === p.clientId);
     const active = p.id === state.currentProjectId;
     return `<div onclick="window._filooSelectProject('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;margin-bottom:8px;background:${active?'#F3F0FD':'#fff'};border:1px solid ${active?'#C9BEF6':'#EEEAF7'};cursor:pointer;">
-      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7C5CFC,#5B34D9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">${_fhEsc(String(p.name||'P').charAt(0).toUpperCase())}</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">${_fhEsc(String(p.name||'P').charAt(0).toUpperCase())}</div>
       <div style="flex:1;min-width:0;"><div style="font-weight:700;color:#241E45;">${_fhEsc(p.name||'Project')}</div><div style="font-size:12px;color:#8B86A8;">${_fhEsc(c?.name || p.clientName || '')}</div></div>
       ${active ? '<span style="color:#7C5CFC;font-weight:900;font-size:16px;">✓</span>' : ''}
     </div>`;
@@ -136,7 +147,7 @@ window._filooPickProject = function(){
       <div style="width:40px;height:4px;background:#E5E1F5;border-radius:3px;margin:0 auto 14px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <h3 style="font-size:17px;font-weight:800;color:#241E45;margin:0;">Select project</h3>
-        <button onclick="document.getElementById('fhPick').remove(); if(typeof projHomeAction==='function')projHomeAction();" style="font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#7C5CFC,#5B34D9);border:none;padding:8px 14px;border-radius:20px;cursor:pointer;">+ New</button>
+        <button onclick="document.getElementById('fhPick').remove(); if(typeof projHomeAction==='function')projHomeAction();" style="font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#F0542B,#DD3B1B);border:none;padding:8px 14px;border-radius:20px;cursor:pointer;">+ New</button>
       </div>
       ${rows}
     </div></div>`;
@@ -248,6 +259,13 @@ export function renderProjectsHome() {
   const empty = document.getElementById('projectsEmpty');
   try { renderFilooHome(); } catch(e){ console.warn('[filooHome]', e); }
   if (!grid) return;
+  // Default: the project-first list rendered by appShell.js
+  const listHost = document.getElementById('tsProjects');
+  const clientsWrap = document.getElementById('projClientsWrap');
+  const byClient = _clientsMode || !!_homeClientId;
+  if (listHost) listHost.style.display = byClient ? 'none' : '';
+  if (clientsWrap) clientsWrap.style.display = byClient ? '' : 'none';
+  if (!byClient) { window.renderShellProjects?.(); return; }
   const backBtn = document.getElementById('projHomeBack');
   const titleEl = document.getElementById('projHomeTitle');
   const subEl = document.getElementById('projHomeSub');
@@ -265,7 +283,7 @@ export function renderProjectsHome() {
 
   // ── MODE A: Clients list ───────────────────────────────
   if (!_homeClientId) {
-    if (backBtn) backBtn.classList.add('hidden');
+    if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Projects'; }
     if (titleEl) titleEl.textContent = 'My Clients';
     if (subEl) subEl.textContent = 'Create a client, then add projects under it.';
     if (actLabel) actLabel.textContent = 'New Client';
@@ -304,7 +322,7 @@ export function renderProjectsHome() {
 
   // ── MODE B: One client's projects ──────────────────────
   const client = clients.find(c => c.id === _homeClientId);
-  if (backBtn) backBtn.classList.remove('hidden');
+  if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Clients'; }
   if (titleEl) titleEl.textContent = client ? client.name : 'Projects';
   if (subEl) subEl.textContent = 'Projects under this client.';
   if (actLabel) actLabel.textContent = 'Add Project';
@@ -384,43 +402,8 @@ export function renderProjectDashboard() {
     if (proj.location) sub += (sub ? ' | ' : '') + proj.location;
     subEl.textContent = sub || 'No details set';
   }
-  const pid = proj.id;
-  const kpiEl = document.getElementById('projDashKPIs');
-  if (kpiEl) {
-    const boqCount = (proj.boqs || []).length || (proj.woNumber ? 1 : 0);
-    const sheetCount = (state.sheets || []).filter(s => s.projectId === pid).length;
-    const invCount = (state.saleInvoices || []).filter(i => i.projectId === pid).length;
-    const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
-    const kpis = [
-      { label: 'BOQ / PO', value: boqCount, icon: '📋', color: '#3b82f6' },
-      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#ef8420' },
-      { label: 'Invoices', value: invCount, icon: '🧾', color: '#8b5cf6' },
-      { label: 'Open Issues', value: openIssues, icon: '⚠️', color: openIssues ? '#ef4444' : '#94a3b8' },
-    ];
-    kpiEl.innerHTML = kpis.map(k => `
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-        <div style="width:38px;height:38px;border-radius:11px;background:${k.color}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${k.icon}</div>
-        <div class="min-w-0">
-          <div class="text-xl font-extrabold text-slate-800 leading-none">${k.value}</div>
-          <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide truncate mt-1">${k.label}</div>
-        </div>
-      </div>`).join('');
-  }
-  // Module cards
-  const grid = document.getElementById('moduleCardsGrid');
-  if (!grid) return;
-  grid.innerHTML = MODULE_CARDS.map(m => {
-    return `<div onclick="switchView('${m.id}')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-      <div class="flex items-center gap-3">
-        <div style="width:44px;height:44px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;transition:all .2s;" class="group-hover:scale-110">${m.icon}</div>
-        <div class="flex-1">
-          <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">${m.label}</h4>
-          <p class="text-[10px] text-slate-400">${m.desc}</p>
-        </div>
-        <span class="text-[10px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition">&rarr;</span>
-      </div>
-    </div>`;
-  }).join('');
+  // Money summary + module tiles (appShell.js)
+  window.renderShellProjectHome?.();
 }
 
 // ── BOQ / PO Group Management ──
@@ -1283,19 +1266,22 @@ export function renderAnalyticsDashboard() {
 // LABOUR — app-icon section navigation
 // ==========================================
 window._openLabourSection = function(section) {
-  const grid = document.getElementById('labourGrid');
+  const grid = document.getElementById('labHomeWrap');
   const backBtn = document.getElementById('labourBackBtn');
   document.querySelectorAll('.labour-section').forEach(s => s.classList.add('hide'));
 
   if (!section) {
-    // Back to grid
-    if (grid) grid.style.display = 'grid';
+    // Back to the attendance home (labourHome.js)
+    if (grid) grid.style.display = '';
     if (backBtn) backBtn.style.display = 'none';
+    window.renderLabourHome?.();
+    window.shellSectionChanged?.();
     return;
   }
 
   if (grid) grid.style.display = 'none';
   if (backBtn) backBtn.style.display = 'inline-block';
+  window.shellSectionChanged?.();
 
   const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster', contractors: 'labourSecContractors', piecerate: 'labourSecPiecerate' };
   const el = document.getElementById(map[section]);
@@ -1353,6 +1339,7 @@ export function switchView(viewId) {
   if (typeof window !== 'undefined') {
     const prev = window.__currentViewId;
     if (!window.__viewHistory) window.__viewHistory = [];
+    try { window.__noteNav?.(prev, viewId); } catch {}
     if (!window.__navBack && prev && prev !== viewId) {
       window.__viewHistory.push(prev);
       if (window.__viewHistory.length > 50) window.__viewHistory.shift();
@@ -1370,6 +1357,7 @@ export function switchView(viewId) {
   }
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.target === viewId));
   _updateBreadcrumb(viewId);
+  try { window.shellOnView?.(viewId); } catch (e) { console.warn('[shell]', e); }
   try { window.highlightBottomNav?.(); } catch {}
 
   if (viewId === 'paymentsHubView') { try { window.renderPaymentsHub?.(); } catch (e) { console.warn(e); } }
@@ -1671,7 +1659,7 @@ export function saveVendor() {
   showToast('Vendor Saved');
   renderMasterVendorList();
   if (typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(rec);
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function addPurchaseRow(count = 1) {
@@ -1923,7 +1911,7 @@ function _unitPicker(id) {
 }
 
 window._openInvSection = function(section) {
-  const grid = document.getElementById('invGrid');
+  const grid = document.getElementById('invTiles');
   const back = document.getElementById('invBackBtn');
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
@@ -2003,7 +1991,7 @@ function _renderStores() {
   }).join('');
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-      <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#ecfeff,#cffafe);">
+      <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-lg">🏬</div>
         <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stores &amp; Sites</h4><p class="text-[11px] text-slate-500">${locs.length} location${locs.length === 1 ? '' : 's'}${canTx ? '' : ' · transfer locked for your role'}</p></div>
         <div class="flex items-center gap-2">
@@ -2108,7 +2096,7 @@ function _renderStockStatement() {
   const partyOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-lg">📊</div>
         <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stock Statement</h4><p class="text-[11px] text-slate-500">Filter by period, type, material or party — then download</p></div>
         <button onclick="window._exportStockStatementXLSX()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬇ Excel</button>
@@ -2301,18 +2289,18 @@ function _renderGRN() {
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-hidden ${_grnEdit0 ? 'ring-2 ring-amber-300' : ''}">
       <!-- Header band -->
-      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#eff6ff,#dbeafe'});">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#3b82f6,#1d4ed8'});">🚚</div>
-        <div class="flex-1 min-w-0">
+      <div class="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-5 py-4" style="background:linear-gradient(135deg,${_grnEdit0 ? '#fffbeb,#fef3c7' : '#FDF1ED,#FBE7DF'});">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,${_grnEdit0 ? '#f59e0b,#d97706' : '#F0542B,#DD3B1B'});">🚚</div>
+        <div class="flex-1 min-w-[150px]">
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">${_grnEdit0 ? 'Editing GRN' : 'Goods Receipt Note'}</h4>
-          <p class="text-[11px] text-slate-500 font-medium truncate">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
+          <p class="text-[11px] text-slate-500 font-medium">${_grnEdit0 ? 'Update this receipt — stock &amp; QC re-sync on save' : 'Record materials received on site'}</p>
         </div>
         ${_grnEdit0 ? '' : `<button type="button" id="grnBulkToggle" onclick="_grnBulkToggle()" aria-expanded="false" aria-controls="grnBulkPanel"
             class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-white/80 border border-emerald-200 hover:bg-white hover:border-emerald-300 shadow-sm transition">
             <style>@media(max-width:639px){#grnBulkToggle .grn-bulk-lbl{display:none}}</style>
             <span>⚡</span><span class="grn-bulk-lbl">Bulk import</span>
             <span id="grnBulkCaret" class="inline-block transition-transform duration-200" style="font-size:10px">▾</span></button>`}
-        <div class="text-right flex-shrink-0">
+        <div class="text-right flex-shrink-0 ml-auto">
           <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">GRN No.</div>
           ${_grnEdit0
             ? `<div class="flex items-center gap-2"><span class="font-mono font-extrabold text-amber-700 text-sm bg-white/70 px-2.5 py-1 rounded-lg border border-amber-200">${_grnEdit0.grnNo}</span><button onclick="_grnCancelEdit()" class="text-[10px] font-bold text-slate-500 hover:text-slate-800 underline">Cancel</button></div>`
@@ -2796,8 +2784,8 @@ function _renderGrnRegister() {
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <!-- Header -->
-      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#4338ca);">📋</div>
+      <div class="flex items-center gap-3.5 px-5 py-4" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm flex-shrink-0" style="background:linear-gradient(135deg,#F0542B,#DD3B1B);">📋</div>
         <div class="flex-1 min-w-0">
           <h4 class="font-extrabold text-slate-800 text-base leading-tight">GRN Register</h4>
           <p class="text-[11px] text-slate-500 font-medium">All goods received on this project</p>
@@ -3542,8 +3530,8 @@ function _grnShowImportPreview() {
   const html = `
   <div id="grnImportModal" style="position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:18px;max-width:1040px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
-      <div style="padding:16px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#FDF1ED,#FBE7DF);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
         <div style="flex:1;">
           <h4 style="margin:0;font-weight:800;color:#065f46;font-size:15px;">Review GRNs to import</h4>
           <p style="margin:2px 0 0;font-size:11px;color:#047857;">Check and edit the rows below, then upload. Duplicates and incomplete rows are skipped.</p>
@@ -4416,7 +4404,7 @@ window.renderDeviationStatement = function () {
       <td class="px-3 py-2 text-right font-bold text-amber-700">${m(e.amount)}</td>
     </tr>`).join('');
   panel.innerHTML = `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-slate-100" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+    <div class="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
       <div class="mr-auto"><h3 class="font-extrabold text-slate-800 text-sm">Deviation Statement</h3><p class="text-[11px] text-slate-500">BOQ vs executed quantity · ${d.projName || ''}</p></div>
       <button onclick="printDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">🖨️ Print</button>
       <button onclick="toggleDeviationStatement()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg">Close</button>
@@ -5081,8 +5069,8 @@ export function saveLabour() {
   }
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
-  renderLabourMasterList(); renderMonthlyMuster();
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  renderLabourMasterList(); renderMonthlyMuster(); window.renderLabourHome?.();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function renderLabourMasterList() {
@@ -5238,6 +5226,10 @@ function _backfillLabourProjects() {
   if (changed && typeof saveLabourData === 'function') saveLabourData();
 }
 
+if (typeof window !== 'undefined') {
+  window._projectLabourList = () => _projectLabour();
+  window._labourNetPayable = (id) => _labourNetPayable(id);
+}
 function _projectLabour() {
   // Strictly this project's workers — same scoping the attendance sheet and the
   // labour master both use, so the two views always match. Untagged legacy
@@ -5363,7 +5355,7 @@ window._setGangAdvance = function (id) {
   m.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
   m.onclick = e => { if (e.target === m) m.remove(); };
   m.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f5f3ff,#ede9fe);"><h3 style="margin:0;font-size:16px;font-weight:800;color:#5b21b6;">💸 Weekly Payout — ${c.name}</h3><p style="margin:2px 0 0;font-size:11px;color:#7c6f9e;">Advance amount &amp; the day it&rsquo;s paid each week.</p></div>
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#FDF1ED,#FBE7DF);"><h3 style="margin:0;font-size:16px;font-weight:800;color:#5b21b6;">💸 Weekly Payout — ${c.name}</h3><p style="margin:2px 0 0;font-size:11px;color:#7c6f9e;">Advance amount &amp; the day it&rsquo;s paid each week.</p></div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
       <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Weekly Advance (&#8377;)</label><input id="_gaAmt" type="number" value="${c.weeklyAdvance || ''}" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;"></div>
       <div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#7c8aa0;margin-bottom:5px;">Pay Day (weekly)</label><select id="_gaDay" style="width:100%;padding:10px 12px;border:1px solid #e6ebf3;border-radius:10px;font-size:14px;outline:none;background:#fff;box-sizing:border-box;">${dayLong.map((d, i) => `<option value="${i}" ${i === curDay ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
@@ -6040,7 +6032,7 @@ window._dailyMusterRoll = function() {
 
   let html = `<div style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:16px;width:92%;max-width:560px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);">
-      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;">
         <div><h3 style="font-size:15px;font-weight:800;">Daily Muster Roll</h3><p style="font-size:11px;opacity:.85;">${date} • ${_siteLabel(siteId) || 'All Sites'}</p></div>
         <button onclick="this.closest('[style*=fixed]').remove()" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;cursor:pointer;">×</button>
       </div>

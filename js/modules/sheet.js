@@ -180,7 +180,7 @@ export function showBOQQuickRef() {
 
   let html = `<div id="boqQuickRefModal" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:100000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:16px;width:90%;max-width:900px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.2);">
-      <div class="px-5 py-3 border-b flex items-center justify-between" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:16px 16px 0 0;">
+      <div class="px-5 py-3 border-b flex items-center justify-between" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);border-radius:16px 16px 0 0;">
         <h4 class="text-sm font-extrabold text-slate-700">BOQ/PO — ${proj.name}</h4>
         <button onclick="document.getElementById('boqQuickRefModal').remove()" class="w-7 h-7 rounded-full bg-white text-slate-400 hover:text-red-500 flex items-center justify-center font-bold text-sm">✕</button>
       </div>

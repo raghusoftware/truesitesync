@@ -717,7 +717,7 @@ export function hasAccess(viewId) {
   if (!_modeAllows(viewId)) return false;
   if (isFullAccessRole(user.role)) return true;
   // Hub launchers are always viewable; the real modules behind each tile stay gated.
-  if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView'].includes(viewId)) return true;
+  if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView','calcView'].includes(viewId)) return true;
   const role = (state.rbacRoles || {})[user.role];
   if (!role) return false;
   return (role.permissions || []).includes(viewId);
@@ -821,7 +821,7 @@ function _upgradeLoginForm() {
         <div id="forgotPwRow" style="text-align:right;margin-top:-12px;margin-bottom:16px;">
           <a href="#" onclick="window._rbacForgotPassword();return false;" style="font-size:11px;color:#3b82f6;font-weight:600;text-decoration:none;">Forgot password?</a>
         </div>
-        <button id="loginBtn" onclick="window._rbacHandleLogin()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,.35);transition:opacity .15s;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">Sign In</button>
+        <button id="loginBtn" onclick="window._rbacHandleLogin()" style="width:100%;padding:14px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,.35);transition:opacity .15s;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">Sign In</button>
         <p style="text-align:center;margin-top:18px;font-size:12px;color:#64748b;">
           <span id="authToggleText">Don't have an account?</span>
           <a href="#" onclick="window._rbacToggleAuth();return false;" style="color:#3b82f6;font-weight:700;text-decoration:none;margin-left:4px;" id="authToggleLink">Create Account</a>
@@ -916,7 +916,7 @@ function _showConfirmationScreen(email) {
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:18px;text-align:left;">
         <p style="font-size:12px;color:#1e3a8a;font-weight:700;margin:0 0 8px;">Enter the 6-digit code from the email</p>
         <input id="signupOtp" type="text" inputmode="numeric" maxlength="8" placeholder="Enter code" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:10px;" onkeydown="if(event.key==='Enter')window._rbacVerifySignupOtp('${email}')">
-        <button onclick="window._rbacVerifySignupOtp('${email}')" id="otpVerifyBtn" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Verify &amp; Continue</button>
+        <button onclick="window._rbacVerifySignupOtp('${email}')" id="otpVerifyBtn" style="width:100%;padding:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Verify &amp; Continue</button>
         <p style="font-size:10px;color:#94a3b8;margin:8px 0 0;text-align:center;">…or just click the confirmation link in the email.</p>
       </div>
       <p style="font-size:11px;color:#94a3b8;margin:0 0 16px;">Didn't receive it? Check spam or</p>
@@ -1018,7 +1018,7 @@ export function showPasswordResetCodeScreen(prefillEmail) {
         <input id="prCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code from email" style="${inp}text-align:center;letter-spacing:4px;font-size:18px;font-weight:700;">
         <input id="prPass" type="password" placeholder="New password (min 6)" style="${inp}">
         <input id="prPass2" type="password" placeholder="Confirm new password" style="${inp}margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacResetWithCode()">
-        <button id="prBtn" onclick="window._rbacResetWithCode()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+        <button id="prBtn" onclick="window._rbacResetWithCode()" style="width:100%;padding:14px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
       </div>
       <p style="text-align:center;margin:16px 0 0;"><a href="#" onclick="window._rbacShowLogin&&window._rbacShowLogin();return false;" style="font-size:12px;color:#64748b;font-weight:600;text-decoration:none;">Back to sign in</a></p>
     </div>`;
@@ -1099,7 +1099,7 @@ export function showPasswordResetScreen() {
       <div id="prError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:16px;text-align:center;"></div>
       <input id="prPass" type="password" placeholder="New password (min 6)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;">
       <input id="prPass2" type="password" placeholder="Confirm new password" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:18px;" onkeydown="if(event.key==='Enter')window._rbacSubmitNewPassword()">
-      <button id="prBtn" onclick="window._rbacSubmitNewPassword()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
+      <button id="prBtn" onclick="window._rbacSubmitNewPassword()" style="width:100%;padding:14px;background:linear-gradient(135deg,#F0542B,#DD3B1B);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Update Password</button>
     </div>`;
 }
 
