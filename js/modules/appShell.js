@@ -73,7 +73,9 @@ export function renderAppBar(viewId) {
   if (av) av.textContent = SC.initials(u.name || u.username || org.name);
   if (SC.ROOT_VIEWS.includes(viewId)) {
     // Top-left: your profile (opens the profile menu), then the organisation.
-    const me = u.photo ? `<img src="${esc(u.photo)}" alt="">` : esc(SC.initials(u.name || u.username || org.name));
+    // Company logo (Settings → Company) first, then your photo, then initials.
+    const pic = org.logo || u.photo;
+    const me = pic ? `<img src="${esc(pic)}" alt="">` : esc(SC.initials(u.name || u.username || org.name));
     left.innerHTML = `<button type="button" class="tsb-me" onclick="window._shellDrawer()" aria-label="Profile menu" title="Profile menu">
         <span class="tsb-logo" data-keep-emoji>${me}</span></button>
       <button type="button" class="tsb-org" onclick="switchView('profileView')" title="Company profile">
@@ -102,7 +104,8 @@ export function openDrawer() {
   const name = u.name || u.username || 'My account';
   let role = u.role || '';
   try { const r = window.getCurrentOrg?.()?._userRole; if (r) role = r; } catch {}
-  const me = u.photo ? `<img src="${esc(u.photo)}" alt="">` : esc(SC.initials(name));
+  const pic = u.photo || org.logo;
+  const me = pic ? `<img src="${esc(pic)}" alt="">` : esc(SC.initials(name));
   const items = [
     ['🏠', 'Home', "switchView('projectsHome')"],
     ['🙂', 'My Profile', "switchView('profileView')"],
