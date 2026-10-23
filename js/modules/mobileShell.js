@@ -211,10 +211,11 @@ function buildBottomNav() {
   const nav = existing || document.createElement('nav');
   nav.id = 'mobileBottomNav';
   nav.className = 'mobile-bottom-nav no-print';
+  const ic = (it, size) => (window.tssIcon ? window.tssIcon(it.iconName, { size }) : it.icon);
   nav.innerHTML = items.map(item =>
     item.fab
       ? `<button type="button" class="mbn-item mbn-fab" data-nav="${item.id}" aria-label="${item.label}">
-           <span class="mbn-fab-circle">${item.icon}</span>
+           <span class="mbn-fab-circle">${ic(item, 26)}</span>
          </button>`
       : `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
            <span class="mbn-ico">${item.icon}</span><span>${item.id === 'projects' && shop ? 'Home' : item.label}</span>

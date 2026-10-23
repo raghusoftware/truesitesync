@@ -7,7 +7,7 @@
 :root {
   --ts-navy: #c2321f;
   --ts-navy2: #ef8420;
-  --ts-blue: #d9481f;
+  --ts-blue: var(--brand, #d9481f);
   --ts-bg: #eef1f6;
   --ts-card: #ffffff;
   --ts-ink: #111827;
@@ -421,3 +421,10 @@ body #paymentsHubView .pmt-main, body #paymentsHubView .pmt-card { min-width: 0;
 #calcView .ct-f select, #calcView .ct-in input[type="number"] { background: #fff !important; border: 1.5px solid var(--ts-line) !important; height: 46px !important; }
 #calcView .ct-f select:focus, #calcView .ct-in input[type="number"]:focus { border-color: var(--ts-blue) !important; }
 @media (max-width: 768px) { #calcView .ct-wide { grid-column: 1 / -1; } }
+
+/* The app bar replaces the old breadcrumb row (mobile-polish.css forces it visible). */
+#breadcrumbBar #breadcrumbPath, #breadcrumbBar > [hidden] { display: none !important; }
+@media (max-width: 768px) {
+  #breadcrumbBar #headerSyncBadge.tsb-sync { padding: 0 !important; font-size: 12px !important; }
+  #breadcrumbBar .tsb-right { margin-left: 0; }
+}

@@ -51,6 +51,11 @@ const PAYEE_LABELS = {
   owner: 'Owner / Drawings', pettyTopup: 'Petty-cash top-up', taxDeposit: 'TDS / tax deposit',
 };
 const PAYER_LABELS = { client: 'Client receipt', heldRelease: 'Retention released', other: 'Other income', owner: 'Owner / Capital', loan: 'Loan', custodianReturn: 'Petty-cash return' };
+// Short one-line labels for the selector tiles (the full names above are kept
+// for the rest of the form). Avoids the two-line wrapping that made the grid
+// look cramped and uneven on phones.
+const PAYEE_CHIP = { vendor: 'Vendor', labour: 'Labour', contractor: 'Contractor', expense: 'Expense', equipment: 'Equipment', statutory: 'Statutory', owner: 'Owner', pettyTopup: 'Petty-cash', taxDeposit: 'TDS / Tax' };
+const PAYER_CHIP = { client: 'Client', heldRelease: 'Retention', other: 'Other income', owner: 'Owner', loan: 'Loan', custodianReturn: 'Petty return' };
 const PAYEE_ICONS = { vendor: '🧾', labour: '👷', contractor: '🤝', expense: '📂', equipment: '🚜', statutory: '🏛️', owner: '👤', pettyTopup: '👛', taxDeposit: '📮' };
 const PAYER_ICONS = { heldRelease: '🔓', client: '🏗️', other: '💼', owner: '👤', loan: '🏦', custodianReturn: '👛' };
 
@@ -95,7 +100,7 @@ export function renderPaymentsHub() {
       .pmt-balstrip{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 6px;margin-bottom:14px;scrollbar-width:none}
       .pmt-balstrip::-webkit-scrollbar{display:none}
       .pmt-bal{flex:0 0 auto;width:auto;min-width:150px;max-width:230px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;box-shadow:var(--sh-soft);overflow:hidden}
-      .pmt-bal.primary{background:linear-gradient(150deg,#6D28D9,#4F46E5);border:none;color:#fff;box-shadow:0 12px 26px -12px rgba(91,33,182,.7)}
+      .pmt-bal.primary{background:linear-gradient(150deg,#F0542B,#DD3B1B);border:none;color:#fff;box-shadow:0 12px 26px -12px rgba(91,33,182,.7)}
       .pmt-bal-ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--purple-tint);margin-bottom:9px}
       .pmt-bal.primary .pmt-bal-ic{background:rgba(255,255,255,.18)}
       .pmt-bal-nm{font-size:12px;font-weight:700;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -118,7 +123,7 @@ export function renderPaymentsHub() {
       .pmt-lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 
       .pmt-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-      .pmt-chip{display:flex;align-items:center;gap:7px;padding:11px 12px;border-radius:13px;border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;transition:.16s;line-height:1.15}
+      .pmt-chip{display:flex;align-items:center;gap:8px;padding:0 12px;min-height:48px;border-radius:13px;border:1.5px solid var(--line);background:#fff;font-size:13.5px;font-weight:600;color:var(--ink2);cursor:pointer;transition:.16s;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .pmt-chip:hover{border-color:#D9CEF6}
       .pmt-chip.active{background:var(--purple);border-color:var(--purple);color:#fff;box-shadow:0 8px 18px -10px rgba(109,40,217,.75)}
       .pmt-chip .ci{font-size:14px}
@@ -224,7 +229,7 @@ function _readDed() {
 
 function _formOut() {
   const chips = Object.keys(PAYEE_LABELS).map(k =>
-    `<div class="pmt-chip ${_ui.payeeType === k ? 'active' : ''}" onclick="window._pmtSetPayee('${k}')"><span class="ci">${PAYEE_ICONS[k] || ''}</span> ${esc(PAYEE_LABELS[k])}</div>`).join('');
+    `<div class="pmt-chip ${_ui.payeeType === k ? 'active' : ''}" onclick="window._pmtSetPayee('${k}')" title="${esc(PAYEE_LABELS[k])}"><span class="ci">${PAYEE_ICONS[k] || ''}</span> ${esc(PAYEE_CHIP[k] || PAYEE_LABELS[k])}</div>`).join('');
   const acc0 = accounts()[0];
   const cust0 = custodians()[0];
   return `
@@ -284,7 +289,7 @@ function _formOut() {
 function _formIn() {
   if (!_ui.payerType) _ui.payerType = 'client';
   const chips = Object.keys(PAYER_LABELS).map(k =>
-    `<div class="pmt-chip ${_ui.payerType === k ? 'active' : ''}" onclick="window._pmtSetPayer('${k}')"><span class="ci">${PAYER_ICONS[k] || ''}</span> ${esc(PAYER_LABELS[k])}</div>`).join('');
+    `<div class="pmt-chip ${_ui.payerType === k ? 'active' : ''}" onclick="window._pmtSetPayer('${k}')" title="${esc(PAYER_LABELS[k])}"><span class="ci">${PAYER_ICONS[k] || ''}</span> ${esc(PAYER_CHIP[k] || PAYER_LABELS[k])}</div>`).join('');
   const showClient = _ui.payerType === 'client';
   const showCust = _ui.payerType === 'custodianReturn';
   return `

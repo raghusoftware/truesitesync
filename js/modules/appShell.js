@@ -269,14 +269,31 @@ export function renderWorkspace() {
   if (!el) return;
   const shop = isShop();
   el.innerHTML = `<div class="ts-page">${sectionsHTML([
-    ['Money', [
+    ['Sales', [
+      { icon: '🧾', label: 'Sale Invoices', view: 'salesLedgerView' },
+      { icon: '⬇️', label: 'Payment In', view: 'paymentInView' },
+      { icon: '📝', label: 'Estimates / Quotation', view: 'estimatesView' },
+      { icon: '📄', label: 'Proforma Invoice', view: 'proformaInvoiceView' },
+      { icon: '📋', label: 'Sale Orders', view: 'saleOrderView' },
+      { icon: '🚚', label: 'Delivery Challan', view: 'deliveryChallanView' },
+      { icon: '🔄', label: 'Sale Returns', view: 'saleReturnView' },
+      { icon: '💰', label: 'Other Income', view: 'otherIncomeView' },
+      { icon: '📒', label: 'Udhaar Book', view: 'creditBookView', when: () => shop },
+    ]],
+    ['Purchase', [
+      { icon: '🛒', label: 'Purchase Bills', view: 'purchaseBillsView' },
+      { icon: '⬆️', label: 'Payment Out', view: 'paymentOutView' },
+      { icon: '📋', label: 'Purchase Orders', view: 'purchaseOrderView' },
+      { icon: '💳', label: 'Expenses', view: 'expensesView' },
+      { icon: '↩️', label: 'Purchase Returns', view: 'purchaseReturnView' },
+      { icon: '🏗️', label: 'Fixed Assets', view: 'purchaseAssetsView' },
+    ]],
+    ['Finance', [
       { icon: '💸', label: 'Payments', view: 'paymentsHubView' },
       { icon: '🤝', label: 'Party', view: 'partiesLedgerView' },
-      { icon: '🧾', label: 'Sales', view: 'salesHubView' },
-      { icon: '🛒', label: 'Purchase', view: 'purchaseHubView' },
-      { icon: '💳', label: 'Expenses', view: 'expensesView' },
       { icon: '🏦', label: 'Bank & Cash', view: 'accountsManagerView' },
-      { icon: '📒', label: 'Udhaar Book', view: 'creditBookView', when: () => shop },
+      { icon: '🌊', label: 'Cash Flow', view: 'cashFlowView' },
+      { icon: '💹', label: 'Cost & Profit', view: 'costProfitView' },
     ]],
     [shop ? 'Shop' : '', [
       { icon: '📦', label: 'Stock', view: 'inventoryView', when: () => shop },
@@ -290,8 +307,6 @@ export function renderWorkspace() {
     ['Reports & insights', [
       { icon: '📈', label: 'Charts & Performance', view: 'analyticsView' },
       { icon: '📊', label: 'Reports', view: 'reportsView' },
-      { icon: '🌊', label: 'Cash Flow', view: 'cashFlowView' },
-      { icon: '💹', label: 'Cost & Profit', view: 'costProfitView' },
     ]],
     ['Tools', [
       { icon: '🧮', label: 'Engineer Tools', view: 'calcView' },

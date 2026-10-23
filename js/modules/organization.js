@@ -491,7 +491,7 @@ export function renderOrgSettings() {
       <!-- Org Header -->
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px;">${(_currentOrg.name || 'O')[0].toUpperCase()}</div>
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#F0542B,#DD3B1B);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px;">${(_currentOrg.name || 'O')[0].toUpperCase()}</div>
           <div>
             <h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:0;">${_currentOrg.name}</h3>
             <p style="font-size:11px;color:#64748b;margin:2px 0 0;">Plan: <strong style="color:#ef8420;text-transform:capitalize;">${_currentOrg.plan}</strong> · ${activeMembers}/${_currentOrg.max_seats} seats used${_currentOrg.plan === 'free' && trialDays > 0 ? ` · <span style="color:#f59e0b;">${trialDays} days left in trial</span>` : ''}</p>
