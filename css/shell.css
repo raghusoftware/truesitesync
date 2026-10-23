@@ -428,3 +428,8 @@ body #paymentsHubView .pmt-main, body #paymentsHubView .pmt-card { min-width: 0;
   #breadcrumbBar #headerSyncBadge.tsb-sync { padding: 0 !important; font-size: 12px !important; }
   #breadcrumbBar .tsb-right { margin-left: 0; }
 }
+/* Phones: the app bar runs edge to edge (content keeps its own padding) */
+@media (max-width: 768px) {
+  #appContainer main { padding-left: 0 !important; padding-right: 0 !important; }
+  .tx .tsp-sum b { font-size: 15px; }
+}
