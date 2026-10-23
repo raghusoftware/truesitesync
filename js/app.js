@@ -81,7 +81,7 @@ import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
 import './modules/labourHome.js?v=1.0.0';
-import './modules/appShell.js?v=1.0.2';
+import './modules/appShell.js?v=1.0.3';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';

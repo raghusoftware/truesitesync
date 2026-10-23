@@ -72,9 +72,11 @@ export function renderAppBar(viewId) {
   const av = document.getElementById('tsbAvatar');
   if (av) av.textContent = SC.initials(u.name || u.username || org.name);
   if (SC.ROOT_VIEWS.includes(viewId)) {
-    const logo = org.logo ? `<img src="${esc(org.logo)}" alt="">` : esc(SC.initials(org.name));
-    left.innerHTML = `<button type="button" class="tsb-org" onclick="switchView('profileView')" title="Company profile">
-      <span class="tsb-logo" data-keep-emoji>${logo}</span>
+    // Top-left: your profile (opens the profile menu), then the organisation.
+    const me = u.photo ? `<img src="${esc(u.photo)}" alt="">` : esc(SC.initials(u.name || u.username || org.name));
+    left.innerHTML = `<button type="button" class="tsb-me" onclick="window._shellDrawer()" aria-label="Profile menu" title="Profile menu">
+        <span class="tsb-logo" data-keep-emoji>${me}</span></button>
+      <button type="button" class="tsb-org" onclick="switchView('profileView')" title="Company profile">
       <span class="tsb-txt"><span class="tsb-cap" style="display:block">Organization</span>
         <span class="tsb-title" style="display:flex;align-items:center;gap:6px">${esc(org.name)} ${svg.chev}</span></span>
     </button>`;
@@ -89,6 +91,51 @@ export function renderAppBar(viewId) {
   else if (proj && SC.tabOf(viewId) === 'projects') sub = proj.name || sub;
   left.innerHTML = `<button type="button" class="tsb-ic tsb-back" onclick="window._navBack()" aria-label="Back">${svg.back}</button>
     <div class="tsb-txt"><div class="tsb-title">${esc(title)}</div><div class="tsb-sub">${esc(sub)}</div></div>`;
+}
+
+/* ── Profile drawer (top-left avatar) ──────────────────────────────────────── */
+
+export function openDrawer() {
+  closeDrawer();
+  const org = orgInfo(), u = user();
+  const name = u.name || u.username || 'My account';
+  let role = u.role || '';
+  try { const r = window.getCurrentOrg?.()?._userRole; if (r) role = r; } catch {}
+  const me = u.photo ? `<img src="${esc(u.photo)}" alt="">` : esc(SC.initials(name));
+  const items = [
+    ['🏠', 'Home', "switchView('projectsHome')"],
+    ['🙂', 'My Profile', "switchView('profileView')"],
+    ['👥', 'Roles & Access', "switchView('masterData')", 'masterData'],
+    ['🏢', 'Company Settings', "switchView('settingsView')", 'settingsView'],
+    ['📚', 'Master Library', "switchView('masterView')"],
+    ['💳', 'Subscription', "switchView('planBillingView')", 'planBillingView'],
+    ['🎧', 'Customer Support', 'window._shellSupport()'],
+    ['💾', 'Backup (download)', 'window.exportJSONBackup&&window.exportJSONBackup()'],
+    ['☁️', 'Cloud Sync', 'window._openSyncDoctor&&window._openSyncDoctor()'],
+    ['🗑️', 'Recycle Bin', "switchView('recycleBinView')", 'recycleBinView'],
+  ].filter(i => !i[3] || allowed(i[3]));
+  document.body.insertAdjacentHTML('beforeend', `<div id="tsDrawer" class="ts-drawer-scrim" onclick="if(event.target===this)window._shellCloseDrawer()">
+    <div class="ts-drawer" role="dialog" aria-label="Profile menu">
+      <div class="ts-drawer-hd">
+        <span class="ts-drawer-av" data-keep-emoji>${me}</span>
+        <div style="flex:1;min-width:0"><b>${esc(name)}</b><small>${esc([role && String(role).replace(/^./, c => c.toUpperCase()), org.name].filter(Boolean).join(' · '))}</small></div>
+        <button type="button" class="ts-kebab" title="Edit profile" onclick="window._shellCloseDrawer();switchView('profileView')">✎</button>
+      </div>
+      <nav class="ts-drawer-nav">${items.map(([ic, l, fn]) => `<button type="button" class="ts-drawer-it" onclick="window._shellCloseDrawer();${fn}"><span data-keep-emoji>${ic}</span>${l}</button>`).join('')}
+        <button type="button" class="ts-drawer-it danger" onclick="window._shellCloseDrawer();window._rbacLogout&&window._rbacLogout()"><span data-keep-emoji>🚪</span>Logout</button>
+      </nav>
+      <div class="ts-drawer-ft">True Site Sync</div>
+    </div></div>`);
+}
+export function closeDrawer() { document.getElementById('tsDrawer')?.remove(); }
+
+function supportSheet() {
+  openSheet('Customer Support', [
+    { icon: '💬', title: 'WhatsApp us', desc: '+91 73835 03062', run: () => window.open('https://wa.me/917383503062', '_blank') },
+    { icon: '📞', title: 'Call us', desc: '+91 73835 03062', run: () => { location.href = 'tel:+917383503062'; } },
+    { icon: '📞', title: 'Call us', desc: '+91 70432 74323', run: () => { location.href = 'tel:+917043274323'; } },
+    { icon: '🌐', title: 'Visit our website', desc: 'truesitesync.com', run: () => window.open('https://truesitesync.com', '_blank') },
+  ]);
 }
 
 /* ── Options bottom-sheet ─────────────────────────────────────────────────── */
@@ -417,6 +464,8 @@ function openSection(viewId) {
 }
 /** Back pressed: close an open section first. true = handled. */
 export function closeSection() {
+  if (document.getElementById('tsDrawer')) { closeDrawer(); return true; }
+  if (document.getElementById('tsSheet')) { closeSheet(); return true; }
   const v = window.__currentViewId;
   const d = SECTIONS[v];
   if (d && openSection(v)) { window[d.fn]?.(null); return true; }
@@ -484,6 +533,9 @@ function renderEquipSummary() {
 
 if (typeof window !== 'undefined') {
   window.shellSheet = openSheet;
+  window._shellDrawer = openDrawer;
+  window._shellCloseDrawer = closeDrawer;
+  window._shellSupport = supportSheet;
   window.shellCloseSection = closeSection;
   window.shellSectionChanged = () => { const v = window.__currentViewId; renderAppBar(v); syncFab(v); };
   window._shellFab = () => { try { _fabRun?.(); } catch (e) { console.warn(e); } };
