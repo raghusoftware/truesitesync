@@ -48,7 +48,7 @@ if (typeof window !== 'undefined') {
     // labourView is the CURRENT view and a section is open (grid hidden). The section's
     // lists already refreshed via _renderForKeys.
     if (v === 'labourView') {
-      const g = document.getElementById('labourGrid');
+      const g = document.getElementById('labHomeWrap');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Same guard for Inventory: a full switchView('inventoryView') calls
@@ -56,7 +56,7 @@ if (typeof window !== 'undefined') {
     // after "Receive Stock") back to the icon grid. Leave them where they are —
     // the sub-section already re-rendered itself on the local save.
     if (v === 'inventoryView') {
-      const g = document.getElementById('invGrid');
+      const g = document.getElementById('invTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     // Settings: switchView('settingsView') resets to the icon home grid, bouncing
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
     }
     // Equipment: same pattern — switchView('equipmentView') calls _openEquipSection(null).
     if (v === 'equipmentView') {
-      const g = document.getElementById('equipGrid');
+      const g = document.getElementById('eqTiles');
       if (g && g.style.display === 'none') return; // a section is open — leave it
     }
     try { switchView(v); } catch {}
@@ -1266,19 +1266,22 @@ export function renderAnalyticsDashboard() {
 // LABOUR — app-icon section navigation
 // ==========================================
 window._openLabourSection = function(section) {
-  const grid = document.getElementById('labourGrid');
+  const grid = document.getElementById('labHomeWrap');
   const backBtn = document.getElementById('labourBackBtn');
   document.querySelectorAll('.labour-section').forEach(s => s.classList.add('hide'));
 
   if (!section) {
-    // Back to grid
-    if (grid) grid.style.display = 'grid';
+    // Back to the attendance home (labourHome.js)
+    if (grid) grid.style.display = '';
     if (backBtn) backBtn.style.display = 'none';
+    window.renderLabourHome?.();
+    window.shellSectionChanged?.();
     return;
   }
 
   if (grid) grid.style.display = 'none';
   if (backBtn) backBtn.style.display = 'inline-block';
+  window.shellSectionChanged?.();
 
   const map = { markAtt: 'labourSecMarkAtt', sheet: 'labourSecSheet', master: 'labourSecMaster', contractors: 'labourSecContractors', piecerate: 'labourSecPiecerate' };
   const el = document.getElementById(map[section]);
@@ -1656,7 +1659,7 @@ export function saveVendor() {
   showToast('Vendor Saved');
   renderMasterVendorList();
   if (typeof window._applyPendingPartySelect === 'function') window._applyPendingPartySelect(rec);
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function addPurchaseRow(count = 1) {
@@ -1908,7 +1911,7 @@ function _unitPicker(id) {
 }
 
 window._openInvSection = function(section) {
-  const grid = document.getElementById('invGrid');
+  const grid = document.getElementById('invTiles');
   const back = document.getElementById('invBackBtn');
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
   if (!section) { if (grid) grid.style.display='grid'; if (back) back.style.display='none'; return; }
@@ -5066,8 +5069,8 @@ export function saveLabour() {
   }
   saveLabourData();
   document.getElementById('labourModal').classList.add('hidden');
-  renderLabourMasterList(); renderMonthlyMuster();
-  if (typeof window.renderPartiesList === 'function' && document.getElementById('partySearch')) window.renderPartiesList();
+  renderLabourMasterList(); renderMonthlyMuster(); window.renderLabourHome?.();
+  if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
 export function renderLabourMasterList() {
@@ -5223,6 +5226,10 @@ function _backfillLabourProjects() {
   if (changed && typeof saveLabourData === 'function') saveLabourData();
 }
 
+if (typeof window !== 'undefined') {
+  window._projectLabourList = () => _projectLabour();
+  window._labourNetPayable = (id) => _labourNetPayable(id);
+}
 function _projectLabour() {
   // Strictly this project's workers — same scoping the attendance sheet and the
   // labour master both use, so the two views always match. Untagged legacy

@@ -129,7 +129,7 @@ export function renderPettyCash() {
   return _renderHome(root);
 }
 
-window._pcOpen = function (section) { _pcSection = section; renderPettyCash(); };
+window._pcOpen = function (section) { _pcSection = section; renderPettyCash(); try { window.shellSectionChanged?.(); } catch {} };
 
 // ══════════════════════════════════════════════════════════
 //  HOME — app-icon grid + total-in-field card
@@ -138,41 +138,55 @@ function _renderHome(root) {
   const custs = _custodians();
   const totalInField = custs.reduce((s, c) => s + _balance(c.id), 0);
   const totalPending = custs.reduce((s, c) => s + _pendingIn(c.id), 0);
-  const card = (icon, color, title, sub, onclick) => `
-    <div onclick="${onclick}" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:50px;height:50px;background:${color}15;border:2px solid ${color}30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">${icon}</div>
-      <div style="font-size:13px;font-weight:700;color:#0f172a;">${title}</div>
-      <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</div>
-    </div>`;
-
-  root.innerHTML = `
-    <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Petty Cash</h2>
-    <p class="text-sm text-slate-400 mb-5">Imprest wallets — push funds to field custodians & track every rupee</p>
-
-    <div style="background:linear-gradient(135deg,#0f766e,#ef8420);border-radius:20px;padding:22px 26px;color:#fff;margin-bottom:22px;box-shadow:0 10px 30px rgba(239,132,32,.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;">Total Cash in Field</div>
-        <div style="font-size:34px;font-weight:800;margin-top:2px;">${_fmt(totalInField)}</div>
-        <div style="font-size:12px;opacity:.85;margin-top:2px;">${custs.length} custodian${custs.length === 1 ? '' : 's'}</div>
+  const q = _pcQuery.trim().toLowerCase();
+  const shown = custs.filter(c => !q || [c.name, c.role, c.phone].some(v => String(v || '').toLowerCase().includes(q)));
+  const cards = shown.map(c => {
+    const bal = _balance(c.id), pend = _pendingIn(c.id);
+    return `<div class="pc-acct" role="button" tabindex="0" onclick="_pcOpen('cust:${c.id}')" onkeydown="if(event.key==='Enter')this.click()">
+      <div style="min-width:0;flex:1">
+        <div class="pc-acct-n">${_esc(c.name)}</div>
+        <div class="pc-acct-l">Petty Cash Balance${c.role ? ' · ' + _esc(c.role) : ''}</div>
+        <div class="pc-acct-b ${bal < 0 ? 'neg' : ''}">${_fmt(bal)}</div>
+        ${pend > 0 ? `<div class="pc-acct-p">⏳ ${_fmt(pend)} to confirm</div>` : ''}
       </div>
-      <div style="font-size:46px;opacity:.35;">🪙</div>
-    </div>
-
-    ${totalPending > 0 ? `<div onclick="_pcOpen('wallets')" style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:14px 16px;margin-bottom:18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <div><div style="font-weight:800;color:#b45309;font-size:14px;">⏳ ${_fmt(totalPending)} awaiting confirmation</div><div style="font-size:12px;color:#92400e;">Some transfers haven't been confirmed as received yet.</div></div>
-      <span style="font-size:12px;font-weight:700;color:#b45309;">Review →</span>
-    </div>` : ''}
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
-      ${card('👛', '#ef8420', 'Wallets', 'Custodians & balances', "_pcOpen('wallets')")}
-      ${card('🧾', '#f59e0b', 'Log Expense', 'Deduct a field spend', "_pcOpen('expense')")}
-      ${card('📜', '#2563eb', 'Ledger', 'All transfers & expenses', "_pcOpen('ledger')")}
-      ${card('📊', '#7c3aed', 'Reconciliation', 'Issued vs spent vs returned', "_pcOpen('recon')")}
+      <span class="pc-acct-go">→</span>
     </div>`;
+  }).join('');
+  const keepFocus = document.activeElement && document.activeElement.id === 'pcSearch';
+  root.innerHTML = `<div class="ts-page">
+    <div class="tsp-sum" style="grid-template-columns:repeat(2,1fr)">
+      <div><b style="color:var(--ts-green)">${_fmt(totalInField)}</b><small>Cash in field</small></div>
+      <div><b style="color:${totalPending > 0 ? '#b45309' : 'inherit'}">${_fmt(totalPending)}</b><small>Awaiting confirmation</small></div>
+    </div>
+    <div class="ts-search">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'}
+      <input id="pcSearch" type="search" placeholder="Search account" value="${_esc(_pcQuery)}" oninput="window._pcSearch(this.value)" autocomplete="off"></div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+      ${cards || (custs.length
+        ? '<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No account found</h3></div>'
+        : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>👛</div><h3>No petty cash accounts yet</h3><p style="margin-bottom:18px">Add the site person who holds cash, then top them up.</p>
+           <button type="button" class="ts-btn" onclick="_pcCustodianModal()">+ Add custodian</button></div>`)}
+    </div>
+  </div>`;
+  if (keepFocus) { const i = document.getElementById('pcSearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
 
+let _pcQuery = '';
+window._pcSearch = function (q) { _pcQuery = q; renderPettyCash(); };
+window._pcIsOpen = function () { return !!_pcSection; };
+/** + on the Petty Cash home (appShell's floating button). */
+window.pettyOptionsSheet = function () {
+  window.shellSheet?.('Petty Cash Options', [
+    { icon: '🧾', title: 'Add expense voucher', desc: 'Deduct a field spend from a custodian', run: () => _pcOpen('expense') },
+    { icon: '💸', title: 'Top up / transfer', desc: 'Send cash from the bank to a custodian', run: () => window._pcTransferModal?.() },
+    { icon: '👤', title: 'Add custodian', desc: 'A site person who holds petty cash', run: () => window._pcCustodianModal?.() },
+    { icon: '👛', title: 'Wallets', desc: 'All custodians, pending confirmations', run: () => _pcOpen('wallets') },
+    { icon: '📜', title: 'Petty cash report', desc: 'Every transfer and voucher', run: () => _pcOpen('ledger') },
+    { icon: '📊', title: 'Reconciliation', desc: 'Issued vs spent vs returned', run: () => _pcOpen('recon') },
+  ]);
+};
+
 function _backBar(title) {
-  return `<button onclick="_pcOpen(null)" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Petty Cash</button>
+  return `<button class="pc-backbtn" onclick="_pcOpen(null)" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Petty Cash</button>
     <h2 class="text-2xl font-extrabold text-slate-800 mb-4">${title}</h2>`;
 }
 

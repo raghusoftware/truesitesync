@@ -144,6 +144,9 @@ export function handleBack() {
   const sheet = document.querySelector('.fullscreen-sheet');
   if (sheet) { goBackView(); return true; }
 
+  // 3b. Close an open module section (e.g. Material Received → Manage Materials)
+  try { if (window.shellCloseSection?.()) return true; } catch {}
+
   // 4. Walk UP the menu tree: leaf → its hub/section → Home.
   if (parentOf(window.__currentViewId)) { goBackView(); return true; }
 
@@ -304,6 +307,7 @@ if (typeof window !== 'undefined') {
   // Generic "back" for in-view back buttons: go UP one level in the menu tree
   // (leaf → hub → Home), matching the hardware back button.
   window._navBack = function () {
+    try { if (window.shellCloseSection?.()) return; } catch {}
     if (parentOf(window.__currentViewId)) goBackView();
     else if (typeof window.switchView === 'function') window.switchView(HOME_VIEW);
   };

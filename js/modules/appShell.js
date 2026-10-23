@@ -82,6 +82,9 @@ export function renderAppBar(viewId) {
   }
   const proj = currentProject();
   let title = SC.viewTitle(viewId), sub = org.name;
+  const sec = openSection(viewId);
+  if (sec) title = sec;
+  if (viewId === 'paymentsHubView' && window._pmtIsForm?.()) title = window._pmtFormTitle?.() || title;
   if (viewId === 'projectDashboard' && proj) { title = proj.name || 'Project'; sub = ['Project Home', proj.location].filter(Boolean).join(' · '); }
   else if (proj && SC.tabOf(viewId) === 'projects') sub = proj.name || sub;
   left.innerHTML = `<button type="button" class="tsb-ic tsb-back" onclick="window._navBack()" aria-label="Back">${svg.back}</button>
@@ -370,19 +373,121 @@ export function onView(viewId) {
   if (viewId === 'workspaceView') renderWorkspace();
   if (viewId === 'masterView') renderMaster();
   if (viewId === 'profileView') renderProfile();
-  // + Options only on the projects home
-  let fab = document.getElementById('tsFab');
-  const show = viewId === 'projectsHome' && !isShop();
-  if (show && !fab) {
-    document.body.insertAdjacentHTML('beforeend', `<button type="button" id="tsFab" class="ts-fab no-print" aria-label="Options" onclick="window._shellOptions()">${svg.plus}</button>`);
-    fab = document.getElementById('tsFab');
-  }
-  if (fab) fab.classList.toggle('on', show);
+  wrapSections();
+  if (viewId === 'equipmentView') renderEquipSummary();
+  // Party / Payments open on their list unless a caller asks for a detail / form right after.
+  if (viewId === 'partiesLedgerView' && !window.__navBack) state.currentSelectedParty = null;
+  if (viewId === 'paymentsHubView' && !window.__navBack) window._pmtShowList?.(false);
+  syncFab(viewId);
   const lbl = document.getElementById('sbProjectsLbl');
   if (lbl) lbl.textContent = isShop() ? 'Home' : 'Projects';
 }
 
+/* ── Module sections (tile grid → section in place) ─────────────────────── */
+
+// Each module opens its sections in place; the app bar shows the section name
+// and Back closes the section before leaving the module.
+const SECTIONS = {
+  labourView: { grid: 'labHomeWrap', fn: '_openLabourSection', titles: { markAtt: 'Mark Attendance', sheet: 'Monthly Attendance', master: 'All Labour', contractors: 'Contractors / Gangs', piecerate: 'Piece-Rate Work' } },
+  inventoryView: { grid: 'invTiles', fn: '_openInvSection', titles: { stock: 'Current Inventory', stores: 'Central Store', grn: 'Material Received', grnregister: 'GRN Register', gang: 'Material Issue', tools: 'Returnable Tools', transfer: 'Material Transfer', audit: 'Physical Audit', statement: 'Stock Register' } },
+  equipmentView: { grid: 'eqTiles', fn: '_openEquipSection', titles: { fleet: 'Equipment List', log: 'Usage Entry', activity: 'Usage History', fuel: 'Fuel' } },
+};
+const _openSec = {};
+function wrapSections() {
+  Object.entries(SECTIONS).forEach(([view, d]) => {
+    const orig = window[d.fn];
+    if (typeof orig !== 'function' || orig.__shell) return;
+    const w = function (sec, ...rest) {
+      _openSec[view] = sec || null;
+      const r = orig.call(this, sec, ...rest);
+      if (window.__currentViewId === view) { renderAppBar(view); syncFab(view); }
+      return r;
+    };
+    w.__shell = true;
+    window[d.fn] = w;
+  });
+}
+/** Title of the open section of a module view, or null. */
+function openSection(viewId) {
+  const d = SECTIONS[viewId];
+  if (!d) return null;
+  const g = document.getElementById(d.grid);
+  if (!g || g.style.display !== 'none') return null;
+  return d.titles[_openSec[viewId]] || SC.viewTitle(viewId);
+}
+/** Back pressed: close an open section first. true = handled. */
+export function closeSection() {
+  const v = window.__currentViewId;
+  const d = SECTIONS[v];
+  if (d && openSection(v)) { window[d.fn]?.(null); return true; }
+  if (v === 'pettyCashView' && window._pcIsOpen?.()) { window._pcOpen?.(null); renderAppBar(v); syncFab(v); return true; }
+  if (v === 'partiesLedgerView' && state.currentSelectedParty) { window._partyBack?.(); return true; }
+  if (v === 'paymentsHubView' && window._pmtIsForm?.()) { window._pmtShowList?.(); renderAppBar(v); return true; }
+  return false;
+}
+
+/* ── Floating + per screen ─────────────────────────────────────────────────── */
+
+const FAB = {
+  projectsHome: () => !isShop() && (() => openSheet('Options', quickActions())),
+  labourView: () => !openSection('labourView') && (() => window.labourOptionsSheet?.()),
+  inventoryView: () => !openSection('inventoryView') && invSheet,
+  equipmentView: () => !openSection('equipmentView') && eqAddSheet,
+  pettyCashView: () => !window._pcIsOpen?.() && (() => window.pettyOptionsSheet?.()),
+  partiesLedgerView: () => !state.currentSelectedParty && (() => window._addPartyChooser?.()),
+};
+let _fabRun = null;
+function syncFab(viewId) {
+  const f = FAB[viewId] ? FAB[viewId]() : null;
+  _fabRun = typeof f === 'function' ? f : null;
+  let fab = document.getElementById('tsFab');
+  if (_fabRun && !fab) {
+    document.body.insertAdjacentHTML('beforeend', `<button type="button" id="tsFab" class="ts-fab no-print" aria-label="Options" onclick="window._shellFab()">${svg.plus}</button>`);
+    fab = document.getElementById('tsFab');
+  }
+  if (fab) fab.classList.toggle('on', !!_fabRun);
+}
+
+function invSheet() {
+  openSheet('Material Options', [
+    { icon: '🚚', title: 'Material Received', desc: 'Log a delivery (GRN) against this project', run: () => window._openInvSection?.('grn') },
+    { icon: '🧱', title: 'Material Issue', desc: 'Issue material to a gang / activity', run: () => window._openInvSection?.('gang') },
+    { icon: '🔄', title: 'Material Transfer', desc: 'Send stock to another site', run: () => window._openInvSection?.('transfer') },
+    { icon: '🧾', title: 'Purchase Order', desc: 'Raise a PO to a vendor', run: () => go('purchaseOrderView') },
+    { icon: '📦', title: 'Adjust stock', desc: 'Opening stock or a manual correction', run: () => window._openInvSection?.('stock') },
+  ]);
+}
+
+function eqAddSheet() {
+  const add = (own) => {
+    window.openEquipmentModal?.();
+    const sel = document.getElementById('eqOwnership');
+    if (sel) { sel.value = own; try { window._eqToggleRental?.(); } catch {} sel.dispatchEvent(new Event('change')); }
+  };
+  openSheet('Select Equipment Type', [
+    { icon: '🏗️', title: 'Company Owned', desc: 'Machines and vehicles you own', run: () => add('OWNED') },
+    { icon: '🤝', title: 'Rented', desc: 'Hired by the hour, day or month — rent is worked out for you', run: () => add('RENTED') },
+    { icon: '📝', title: 'Usage entry', desc: 'Hours, fuel or movement for a machine', run: () => window._openEquipSection?.('log') },
+  ]);
+}
+
+function renderEquipSummary() {
+  const el = document.getElementById('equipSummary');
+  if (!el) return;
+  const list = (state.equipmentList || []).filter(e => !e.projectId || e.projectId === state.currentProjectId);
+  const rented = list.filter(e => e.ownership === 'RENTED').length;
+  const today = new Date().toISOString().slice(0, 10);
+  const used = new Set((state.equipmentLogs || []).filter(l => l.date === today && list.some(e => e.id === (l.equipmentId || l.assetId))).map(l => l.equipmentId || l.assetId)).size;
+  el.innerHTML = `<div class="tsp-sum" style="margin-bottom:14px"><div><b>${list.length - rented}</b><small>Company owned</small></div>
+    <div><b style="color:#7c3aed">${rented}</b><small>Rented</small></div><div><b style="color:var(--ts-green)">${used}</b><small>Used today</small></div></div>`;
+}
+
 if (typeof window !== 'undefined') {
+  window.shellSheet = openSheet;
+  window.shellCloseSection = closeSection;
+  window.shellSectionChanged = () => { const v = window.__currentViewId; renderAppBar(v); syncFab(v); };
+  window._shellFab = () => { try { _fabRun?.(); } catch (e) { console.warn(e); } };
+  window._eqAddSheet = eqAddSheet;
   window.shellOnView = onView;
   window.shellTabOf = SC.tabOf;
   window.renderShellProjects = renderProjectList;
@@ -391,6 +496,7 @@ if (typeof window !== 'undefined') {
   window._shellSheetRun = (n) => { const f = _sheetActions[n]; closeSheet(); try { f?.(); } catch (e) { console.warn(e); } };
   window._shellTile = (n) => { try { _tileRuns[n]?.(); } catch (e) { console.warn(e); } };
   window._shellOptions = () => openSheet('Options', quickActions());
+  wrapSections();
   window._shellNewProject = newProject;
   window._shellChip = (c) => { _chip = c; _chipPicked = true; renderProjectList(); };
   window._shellSearch = (q) => { _q = q; renderProjectList(); };

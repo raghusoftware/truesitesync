@@ -58,8 +58,8 @@
     <link rel="stylesheet" href="css/mobile-polish.css?v=1.6.97">
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.195"></script>
+    <link rel="stylesheet" href="css/shell.css?v=1.0.2">
+    <script type="module" src="js/app.js?v=1.6.196"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -709,47 +709,18 @@
 
         <!-- ═══════ INVENTORY ═══════ -->
         <div id="inventoryView" class="view-section hide">
-            <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Inventory & Stock Management</h2>
-            <p class="text-sm text-slate-400 mb-5">Material master, GRN, gang issue, tools, transfers & audit</p>
-
-            <!-- App-icon grid -->
-            <div id="invGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
-              <div onclick="_openInvSection('stock')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#ef842015;border:2px solid #ef842030;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📦</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Stock & Adjust</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Live stock & manual entry</div>
-              </div>
-              <div onclick="_openInvSection('stores')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#0d948815;border:2px solid #0d948830;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🏬</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Stores</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">All sites, add store & transfer</div>
-              </div>
-              <div onclick="_openInvSection('grn')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#2563eb15;border:2px solid #2563eb30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🚚</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Goods Receipt</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">GRN — inbound logistics</div>
-              </div>
-              <div onclick="_openInvSection('grnregister')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#6366f115;border:2px solid #6366f130;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">GRN Register</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">View all received goods</div>
-              </div>
-              <div onclick="_openInvSection('gang')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🧱</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Material Issue</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Requisition, issue & return</div>
-              </div>
-              <div onclick="_openInvSection('tools')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#8b5cf615;border:2px solid #8b5cf630;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🔧</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Returnable Tools</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tools & scaffolding</div>
-              </div>
-              <div onclick="_openInvSection('transfer')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#0891b215;border:2px solid #0891b230;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🔄</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Inter-Site Transfer</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Move stock between sites</div>
-              </div>
-              <div onclick="_openInvSection('audit')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#dc262615;border:2px solid #dc262630;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📋</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Physical Audit</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Reconcile book vs actual</div>
-              </div>
-              <div onclick="_openInvSection('statement')" class="inv-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px 16px;cursor:pointer;text-align:center;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-                <div style="width:50px;height:50px;background:#0ea5e915;border:2px solid #0ea5e930;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">📊</div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">Stock Statement</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">Filter & export (Excel / PDF)</div>
-              </div>
+            <!-- Manage Materials tiles (titles show in the app bar) -->
+            <div id="invTiles" class="ts-tiles" style="display:grid">
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('stock')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>📦</span><span class="ts-lbl">Current Inventory</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('grn')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🚚</span><span class="ts-lbl">Material Received</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('gang')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🧱</span><span class="ts-lbl">Material Issue</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('transfer')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🔄</span><span class="ts-lbl">Material Transfer</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="switchView('purchaseOrderView')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🧾</span><span class="ts-lbl">Purchase Order</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('stores')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🏬</span><span class="ts-lbl">Central Store</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('grnregister')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>📋</span><span class="ts-lbl">GRN Register</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('statement')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>📊</span><span class="ts-lbl">Stock Register</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('tools')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🔧</span><span class="ts-lbl">Returnable Tools</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openInvSection('audit')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🔍</span><span class="ts-lbl">Physical Audit</span></div>
             </div>
 
             <button id="invBackBtn" onclick="_openInvSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Inventory</button>
@@ -2015,46 +1986,9 @@
 </div>
 
 <div id="labourView" class="view-section hide">
-  <div class="flex justify-between items-end mb-4">
-    <div><h2>Labour Management</h2><p class="text-slate-500 font-medium mt-1">Attendance, wages, muster cards & payments</p></div>
-    <div class="flex gap-2">
-      <button onclick="openLabourModal()" class="bg-blue-600 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition text-sm">👤 Add</button>
-      <button onclick="_musterCardChooser()" class="bg-[#f97316] text-white px-3 py-2.5 rounded-lg font-bold hover:bg-orange-600 transition text-sm">📋 Muster</button>
-      <button onclick="_recordDeduction()" class="bg-rose-500 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-rose-600 transition text-sm">➖ Deduction</button>
-      <button onclick="_issuePPE()" class="bg-yellow-500 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-yellow-600 transition text-sm">🦺 PPE</button>
-      <button onclick="_bulkLabourPayment()" class="bg-emerald-600 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-emerald-700 transition text-sm">💰 Bulk Pay</button>
-      <button onclick="_finalSettlement()" class="bg-slate-700 text-white px-3 py-2.5 rounded-lg font-bold hover:bg-slate-800 transition text-sm">🤝 Settle</button>
-    </div>
-  </div>
-
-  <!-- App-icon grid (landing) -->
-  <div id="labourGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;">
-    <div onclick="_openLabourSection('markAtt')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#1e3a8a15;border:2px solid #1e3a8a30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📅</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Mark Attendance</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Daily site attendance</div>
-    </div>
-    <div onclick="_openLabourSection('sheet')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#f9731615;border:2px solid #f9731630;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📋</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Attendance Sheet</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Monthly muster summary</div>
-    </div>
-    <div onclick="_openLabourSection('master')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#8b5cf615;border:2px solid #8b5cf630;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">👷</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Labour Master</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Worker list & details</div>
-    </div>
-    <div onclick="_openLabourSection('contractors')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#0ea5e915;border:2px solid #0ea5e930;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">🧑‍🔧</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Contractors / Gangs</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Mukadam & gang payouts</div>
-    </div>
-    <div onclick="_openLabourSection('piecerate')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📏</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Piece-Rate Work</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Rate card, measure & payout</div>
-    </div>
-  </div>
+  <!-- Landing: Labour Attendance (labourHome.js). The old action buttons now live
+       in the + Labour Options sheet; the sections below open from there. -->
+  <div id="labHomeWrap"><div id="labourHome"></div></div>
 
   <!-- Back button (shown when a section is open) -->
   <button id="labourBackBtn" onclick="_openLabourSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Labour</button>
@@ -2113,33 +2047,13 @@
 
         <!-- ═══════ EQUIPMENT & VEHICLES ═══════ -->
 <div id="equipmentView" class="view-section hide">
-  <div class="flex justify-between items-end mb-4">
-    <div><h2>Equipment & Vehicle Management</h2><p class="text-slate-500 font-medium mt-1">Fleet register, fuel & maintenance logs</p></div>
-    <button onclick="openEquipmentModal()" class="bg-[#f97316] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-orange-600 transition">➕ Add Equipment</button>
-  </div>
-
-  <!-- App-icon grid -->
-  <div id="equipGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;">
-    <div onclick="_openEquipSection('fleet')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#8b5cf615;border:2px solid #8b5cf630;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">🚛</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Fleet Register</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">All vehicles & machinery</div>
-    </div>
-    <div onclick="_openEquipSection('log')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#1e3a8a15;border:2px solid #1e3a8a30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📋</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Log Entry</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Fuel, maintenance, movement</div>
-    </div>
-    <div onclick="_openEquipSection('activity')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#ef842015;border:2px solid #ef842030;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">📊</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Activity Log</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">History & expenses</div>
-    </div>
-    <div onclick="_openEquipSection('fuel')" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px 18px;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,.04)'">
-      <div style="width:54px;height:54px;background:#f59e0b15;border:2px solid #f59e0b30;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">⛽</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;">Fuel Management</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Tank, pump & efficiency</div>
-    </div>
+  <div id="equipSummary"></div>
+  <div id="eqTiles" class="ts-tiles" style="display:grid">
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openEquipSection('log')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>📝</span><span class="ts-lbl">Usage Entry</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openEquipSection('fleet')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>🚜</span><span class="ts-lbl">Equipment List</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openEquipSection('activity')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>📊</span><span class="ts-lbl">Usage History</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="_openEquipSection('fuel')" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>⛽</span><span class="ts-lbl">Fuel</span></div>
+    <div class="ts-tile" role="button" tabindex="0" onclick="window._eqAddSheet()" onkeydown="if(event.key==='Enter')this.click()"><span class="ts-emo" data-keep-emoji>➕</span><span class="ts-lbl">Add Equipment</span></div>
   </div>
 
   <button id="equipBackBtn" onclick="_openEquipSection(null)" style="display:none;margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Back to Equipment</button>
@@ -2211,30 +2125,8 @@
 </div>
 
         <!-- ═══════ PARTIES LEDGER ═══════ -->
-<div id="partiesLedgerView" class="view-section hide h-full flex flex-col md:flex-row gap-4" style="height: 85vh;">
-  <div class="w-full md:w-80 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden flex-shrink-0">
-    <div class="p-3 border-b border-slate-200 bg-slate-50 flex flex-col gap-2">
-      <input type="text" id="partySearch" placeholder="🔍 Search Party Name..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-medium outline-none focus:border-blue-500" oninput="renderPartiesList()">
-      <select id="partyTypeFilter" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-blue-500 bg-white" onchange="renderPartiesList()"><option value="All">All Parties</option><option value="Client">Clients</option><option value="Vendor">Vendors</option><option value="Labour">Labour</option></select>
-      <button onclick="window._addPartyChooser()" class="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition">+ Add Party</button>
-    </div>
-    <div class="flex text-[10px] font-bold text-slate-500 uppercase px-4 py-2.5 border-b border-slate-200 bg-slate-100 justify-between"><span>Party Name</span><div class="flex gap-2 items-center"><span title="Filter">⏳</span><span>Amount</span></div></div>
-    <div id="partiesListContainer" class="flex-1 overflow-y-auto bg-white divide-y divide-slate-100"></div>
-  </div>
-  <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden relative">
-    <div id="partyEmptyState" class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-10"><p class="text-4xl mb-3">🤝</p><h3 class="text-xl font-bold text-slate-700">Select a Party</h3><p class="text-slate-500 text-sm mt-1">Choose a client or vendor from the left panel to view their ledger.</p></div>
-    <div class="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
-      <div class="flex items-center gap-2"><h3 class="font-extrabold text-lg text-blue-900 uppercase tracking-wider" id="selectedPartyName">PARTY NAME</h3><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200" id="selectedPartyType">TYPE</span></div>
-      <div class="flex gap-2" id="partyActionButtons"></div>
-    </div>
-    <div id="partyInfoCard"></div>
-    <div class="p-2 border-b border-slate-100 bg-slate-50 flex justify-between items-center px-4"><h4 class="font-bold text-slate-600 text-sm">Transactions</h4><button onclick="printReport('partyLedgerPrintZone', document.getElementById('selectedPartyName').textContent + ' Ledger')" class="text-slate-500 hover:text-slate-800 font-bold text-xl" title="Print Ledger">🖨️</button></div>
-    <div class="flex-1 overflow-y-auto" id="partyLedgerPrintZone">
-      <table class="min-w-full text-sm"><thead class="bg-white sticky top-0 border-b border-slate-200 z-0"><tr class="text-left text-[11px] font-bold uppercase text-slate-400"><th class="px-4 py-3">Type</th><th class="px-4 py-3">Number / Ref</th><th class="px-4 py-3">Date</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-right">Balance</th><th class="px-4 py-3 text-center">Status</th></tr></thead><tbody id="partyTransactionsBody" class="divide-y divide-slate-100 bg-white"></tbody></table>
-    </div>
-    <div class="bg-slate-800 text-white p-4 flex justify-between items-center text-sm font-bold"><span>Closing Balance:</span><span id="partyClosingBalance" class="text-xl font-extrabold">₹0.00</span></div>
-  </div>
-</div>
+<!-- Party list / one party's ledger — rendered by parties.js -->
+<div id="partiesLedgerView" class="view-section hide"><div id="partyRoot"></div></div>
 
         <!-- ═══════ CLIENT HUB (hidden / no nav link) ═══════ -->
         <div id="clientDashboardView" class="view-section hide">

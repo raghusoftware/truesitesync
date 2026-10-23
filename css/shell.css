@@ -19,7 +19,7 @@
   --ts-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .05);
 }
 
-main { background: var(--ts-bg) !important; }
+main, #appContainer main { background: var(--ts-bg) !important; }
 
 /* ── App bar ─────────────────────────────────────────────────────────────── */
 #breadcrumbBar.tsb-bar {
@@ -229,3 +229,113 @@ button.ts-fab:active, button.ts-sheet-x:active { transform: scale(.94) !importan
 @media (max-width: 768px) {
   body:not(.ts-root) #tsbChatBtn { display: none; }   /* room for the title; Chat is a project tile */
 }
+
+/* ── Module screens ──────────────────────────────────────────────────────── */
+/* the app-bar ← replaces the in-page "← Back to …" buttons */
+#labourBackBtn, #invBackBtn, #equipBackBtn, .pc-backbtn { display: none !important; }
+#invTiles.ts-tiles, #eqTiles.ts-tiles { margin-bottom: 16px; }
+
+/* Labour Attendance */
+.lab-date { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; padding: 6px; box-shadow: var(--ts-shadow); }
+button.lab-dnav { width: 44px; height: 44px; border: none; background: transparent; color: var(--ts-blue); border-radius: 10px !important; display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 0 !important; }
+button.lab-dnav:hover { background: #f1f5fb; }
+button.lab-dnav:disabled { color: #c7cfdb; cursor: default; }
+.lab-dlbl { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--ts-ink); cursor: pointer; min-width: 0; }
+.lab-dlbl svg { color: var(--ts-blue); flex-shrink: 0; }
+.lab-dlbl span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-dlbl input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.lab-sum { display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; box-shadow: var(--ts-shadow); margin-top: 12px; }
+.lab-sum > div { text-align: center; padding: 12px 4px; border-right: 1px solid var(--ts-line); min-width: 0; }
+.lab-sum > div:last-child { border-right: none; }
+.lab-sum b { display: block; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-sum small { font-size: 12px; color: var(--ts-muted); }
+.lab-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.lab-card { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; box-shadow: var(--ts-shadow); padding: 14px 10px 14px 14px; }
+.lab-top { display: flex; align-items: flex-start; gap: 12px; }
+.lab-av { width: 44px; height: 44px; border-radius: 999px; background: #e8eefc; color: var(--ts-blue); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; flex-shrink: 0; overflow: hidden; }
+.lab-av img { width: 100%; height: 100%; object-fit: cover; }
+.lab-meta { flex: 1; min-width: 0; }
+button.lab-name { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; font-size: 16px !important; font-weight: 700 !important; color: var(--ts-ink); text-align: left; max-width: 100%; min-height: 0 !important; border-radius: 0 !important; }
+button.lab-name svg { color: var(--ts-muted); flex-shrink: 0; }
+.lab-trade { font-size: 13px; color: var(--ts-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-pay { text-align: right; flex-shrink: 0; }
+.lab-pay b { display: block; font-size: 15px; font-weight: 700; color: var(--ts-ink); }
+.lab-pay b.due { color: var(--ts-blue); }
+.lab-pay small { font-size: 11px; color: var(--ts-muted); }
+.lab-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 4px 0 0; }
+button.lab-b { height: 42px; border-radius: 8px !important; border: 1.5px solid transparent; font-size: 15px !important; font-weight: 700 !important; min-height: 0 !important; transition: background .12s, color .12s; }
+button.lab-b.p { background: #e9f7ee; color: #15803d; }
+button.lab-b.a { background: #fdecea; color: #d92d20; }
+button.lab-b.h { background: #f1f3f6; color: #4b5563; }
+button.lab-b.ot { background: #fff3e6; color: #c2410c; }
+button.lab-b.p.on { background: #16a34a; color: #fff; }
+button.lab-b.a.on { background: #dc2626; color: #fff; }
+button.lab-b.h.on { background: #64748b; color: #fff; }
+button.lab-b.ot.on { background: #ea580c; color: #fff; }
+@media (max-width: 768px) {
+  .lab-list { grid-template-columns: 1fr; }
+  .lab-sum b { font-size: 16px; }
+}
+
+/* Petty cash accounts */
+.pc-acct { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--ts-line); border-left: 4px solid #1f2937; border-radius: 10px; padding: 14px 16px; box-shadow: var(--ts-shadow); cursor: pointer; }
+.pc-acct:hover { border-color: #d5dce8; border-left-color: var(--ts-blue); }
+.pc-acct-n { font-size: 17px; font-weight: 700; color: var(--ts-ink); }
+.pc-acct-l { font-size: 12px; color: var(--ts-muted); margin-top: 4px; }
+.pc-acct-b { font-size: 17px; font-weight: 600; color: var(--ts-ink); margin-top: 2px; }
+.pc-acct-b.neg { color: var(--ts-red); }
+.pc-acct-p { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 1px 8px; }
+.pc-acct-go { color: var(--ts-blue); font-size: 22px; font-weight: 700; }
+
+/* Party */
+.pt-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.pt-card { background: #fff; border: 1px solid var(--ts-line); border-left: 4px solid var(--ts-muted); border-radius: 10px; padding: 14px 16px; box-shadow: var(--ts-shadow); cursor: pointer; }
+.pt-card:hover { box-shadow: 0 8px 20px -10px rgba(16, 24, 40, .25); }
+.pt-card-h { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.pt-card-h b { font-size: 16px; font-weight: 700; color: var(--ts-ink); text-transform: uppercase; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-go { color: var(--ts-blue); font-weight: 700; font-size: 20px; }
+.pt-card-r { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.pt-card-r small { display: block; font-size: 12px; color: var(--ts-muted); }
+.pt-card-r span { font-size: 15px; color: var(--ts-ink); }
+.tsp-sum > div small + b { margin-top: 2px; }
+.pt-head { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; padding: 14px 8px 14px 14px; box-shadow: var(--ts-shadow); }
+.pt-av { width: 46px; height: 46px; border-radius: 10px; background: var(--ts-blue); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pt-name { display: block; font-size: 16px; font-weight: 700; color: var(--ts-ink); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-head small { color: var(--ts-muted); font-size: 12px; }
+.pt-entries, .tx-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pt-entry, .tx-row { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--ts-line); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+.pt-entry:hover, .tx-row:hover { border-color: #d5dce8; }
+.pt-e-ic, .tx-ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; flex-shrink: 0; background: #eef3ff; color: var(--ts-blue); }
+.pt-e-ic.in, .tx-ic.in { background: #e9f7ee; color: #15803d; }
+.pt-e-ic.out, .tx-ic.out { background: #fdecea; color: #d92d20; }
+.pt-e-m, .tx-m { flex: 1; min-width: 0; }
+.pt-e-m b, .tx-m b { display: block; font-size: 14.5px; font-weight: 600; color: var(--ts-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-e-m small, .tx-m small { display: block; font-size: 12px; color: var(--ts-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-e-ded { font-size: 11.5px; color: #be123c; margin-top: 2px; }
+.pt-e-a { text-align: right; flex-shrink: 0; }
+.pt-e-a b { display: block; font-size: 15px; font-weight: 700; color: var(--ts-ink); }
+.pt-e-a small { font-size: 11px; color: var(--ts-muted); }
+.tx-a { font-size: 15px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.tx-a.in { color: #15803d; } .tx-a.out { color: #d92d20; }
+
+/* Bottom action bar: money in (green) · money out (red) */
+.ts-actbar { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 0 calc(6px + env(safe-area-inset-bottom, 0px)); margin-top: 14px; background: linear-gradient(180deg, rgba(238, 241, 246, 0), var(--ts-bg) 30%); }
+button.ts-act { height: 50px; border: none; border-radius: 10px !important; font-size: 16px !important; font-weight: 600 !important; color: #fff; box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .45); min-height: 0 !important; }
+button.ts-act.in { background: #1f8a3b; }
+button.ts-act.out { background: #d92d20; }
+@media (max-width: 768px) {
+  .ts-actbar { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); padding-bottom: 6px; }
+  .pt-list { grid-template-columns: 1fr; }
+}
+
+/* Long party names wrap in the detail header */
+.pt-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+/* Payment entry form: blue / navy instead of the old purple theme */
+body #paymentsHubView {
+  --bg: var(--ts-bg); --purple: #1d5fd1; --purple-tint: #e8efff; --indigo: #0b3d91;
+  --sh: 0 1px 3px rgba(16, 24, 40, .08); --sh-soft: 0 1px 2px rgba(16, 24, 40, .06);
+}
+body #paymentsHubView .pmt-bal.primary { background: linear-gradient(150deg, #0b3d91, #1d5fd1); box-shadow: 0 10px 22px -12px rgba(11, 61, 145, .6); }
+body #paymentsHubView .pmt-seg button.on-in, body #paymentsHubView .pmt-save.in { background: #1f8a3b; box-shadow: none; }
+body #paymentsHubView .pmt-seg button.on-out, body #paymentsHubView .pmt-save.out { background: #d92d20; box-shadow: none; }
+body #paymentsHubView .pmt-card, body #paymentsHubView .pmt-listcard { border-radius: 14px; }
