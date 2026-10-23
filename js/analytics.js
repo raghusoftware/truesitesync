@@ -14,7 +14,7 @@
  *   calculator_use     first change to any calculator on a page
  */
 (function () {
-  var GA4_ID = '';
+  var GA4_ID = 'G-PJHSGJHVRQ';
   var CLARITY_ID = '';
 
   var enabled = !!(GA4_ID || CLARITY_ID);
