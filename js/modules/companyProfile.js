@@ -54,6 +54,7 @@ export function handleLogoUpload(event) {
     if (pdfImg) { pdfImg.src = base64; pdfImg.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
     saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
+    try { window.shellSectionChanged?.(); } catch {} // app-bar logo
     showToast('Logo Uploaded!', 'success');
   };
   reader.readAsDataURL(file);
@@ -62,6 +63,7 @@ export function handleLogoUpload(event) {
 export function removeCompanyLogo() {
   state.companyProfile.logo = null;
   saveAllData(); // persist locally AND push to cloud (was localStorage-only → never synced)
+  try { window.shellSectionChanged?.(); } catch {}
   const img = document.getElementById('companyLogoPreview');
   const pdfImg = document.getElementById('pdfLogoPreview');
   const placeholder = document.getElementById('logoPlaceholder');
