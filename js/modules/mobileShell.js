@@ -174,18 +174,19 @@ export function goBackView() {
 
 /* ───────────────────────── Bottom navigation ───────────────────────── */
 
-// Three tabs — Projects · Workspace · Master — the same on every screen.
+// Three tabs — Sites · Business · Setup — the same on every screen.
 // Icons are inline SVG (app.html never loads an icon font; the APK runs offline).
 const ICON = {
-  projects: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.8 11h2.7v9h5v-6h3v6h5v-9h2.7z"/></svg>',
-  workspace: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></svg>',
-  master: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6" y="3.5" width="14" height="16" rx="1.5"/><path d="M3.5 7v13.5H17"/><path d="M9.5 8h7M9.5 11.5h7M9.5 15h4"/></svg>',
+  // Sites: a building with a crane · Business: a wallet · Setup: a gear
+  projects: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V10h7v11"/><path d="M11 21V6h6v15"/><path d="M3 21h18"/><path d="M7 13h1M7 16h1M14 9h1M14 12h1M14 15h1"/><path d="M17 6V3h4"/></svg>',
+  workspace: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1z"/><path d="M4 7l11-3v3"/><path d="M15.5 13.5h4.5"/><circle cx="16" cy="13.5" r=".6" fill="currentColor"/></svg>',
+  master: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>',
 };
 // Three tabs, same as the desktop sidebar (appShell.js renders the tab pages).
 const TABS = [
-  { id: 'projects',  label: 'Projects',  icon: ICON.projects,  action: () => navTo('projectsHome') },
-  { id: 'workspace', label: 'Workspace', icon: ICON.workspace, action: () => navTo('workspaceView') },
-  { id: 'master',    label: 'Master',    icon: ICON.master,    action: () => navTo('masterView') },
+  { id: 'projects',  label: 'Sites',    icon: ICON.projects,  action: () => navTo('projectsHome') },
+  { id: 'workspace', label: 'Business', icon: ICON.workspace, action: () => navTo('workspaceView') },
+  { id: 'master',    label: 'Setup',    icon: ICON.master,    action: () => navTo('masterView') },
 ];
 // Views that live INSIDE a project → show the project bar.
 const PROJECT_VIEWS = new Set([

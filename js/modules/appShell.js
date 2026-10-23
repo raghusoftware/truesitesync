@@ -1,9 +1,9 @@
 /**
  * appShell.js — the clean app shell, same on web and mobile:
  *   • navy app bar: organisation on the tab roots, ← title / project elsewhere
- *   • three tabs: Projects · Workspace · Master (bottom bar on phones, sidebar on desktop)
+ *   • three tabs: Sites · Business · Setup (bottom bar on phones, sidebar on desktop)
  *   • project-first home: search, status chips, project cards, + Options sheet
- *   • tile grids for Workspace, Master and Project Home
+ *   • tile grids for Business, Setup and Project Home
  *   • My Profile page (company, subscription, help & support, log out)
  * Pure rules (titles, tabs, filters, progress) live in shellCalc.js.
  */
@@ -77,7 +77,7 @@ export function renderAppBar(viewId) {
     left.innerHTML = `<button type="button" class="tsb-me" onclick="window._shellDrawer()" aria-label="Profile menu" title="Profile menu">
         <span class="tsb-logo" data-keep-emoji>${me}</span></button>
       <button type="button" class="tsb-org" onclick="switchView('profileView')" title="Company profile">
-      <span class="tsb-txt"><span class="tsb-cap" style="display:block">Organization</span>
+      <span class="tsb-txt"><span class="tsb-cap" style="display:block">Company</span>
         <span class="tsb-title" style="display:flex;align-items:center;gap:6px">${esc(org.name)} ${svg.chev}</span></span>
     </button>`;
     return;
@@ -107,7 +107,7 @@ export function openDrawer() {
     ['🙂', 'My Profile', "switchView('profileView')"],
     ['👥', 'Roles & Access', "switchView('masterData')", 'masterData'],
     ['🏢', 'Company Settings', "switchView('settingsView')", 'settingsView'],
-    ['📚', 'Master Library', "switchView('masterView')"],
+    ['⚙️', 'Setup', "switchView('masterView')"],
     ['💳', 'Subscription', "switchView('planBillingView')", 'planBillingView'],
     ['🎧', 'Customer Support', 'window._shellSupport()'],
     ['💾', 'Backup (download)', 'window.exportJSONBackup&&window.exportJSONBackup()'],
@@ -427,7 +427,7 @@ export function onView(viewId) {
   if (viewId === 'paymentsHubView' && !window.__navBack) window._pmtShowList?.(false);
   syncFab(viewId);
   const lbl = document.getElementById('sbProjectsLbl');
-  if (lbl) lbl.textContent = isShop() ? 'Home' : 'Projects';
+  if (lbl) lbl.textContent = isShop() ? 'Home' : 'Sites';
 }
 
 /* ── Module sections (tile grid → section in place) ─────────────────────── */

@@ -1,5 +1,5 @@
 /**
- * shellCalc.js — pure helpers for the app shell (Projects / Workspace / Master
+ * shellCalc.js — pure helpers for the app shell (Sites / Business / Setup
  * tabs, app-bar titles, the project list). No DOM; unit-tested in
  * tests/shellCalc.test.js.
  */
@@ -110,7 +110,7 @@ export function tabOf(viewId) {
 }
 
 export const VIEW_TITLES = {
-  projectsHome: 'Projects', bizHomeView: 'Home', workspaceView: 'Workspace', masterView: 'Master', profileView: 'My Profile',
+  projectsHome: 'Sites', bizHomeView: 'Home', workspaceView: 'Business', masterView: 'Setup', profileView: 'My Profile',
   projectDashboard: 'Project Home', execEngineView: 'Planning', scheduleBuilderView: 'Scheduling', executionView: 'Daily Progress',
   issuesView: 'Issues & Snags', chatView: 'Chat', labourView: 'Labour & Attendance', equipmentView: 'Equipment',
   inventoryView: 'Manage Materials', recipeView: 'Mix Design', assetsView: 'Tools & Assets', measurementListView: 'Measurement',

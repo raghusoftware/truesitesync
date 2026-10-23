@@ -136,7 +136,7 @@ export function renderNotifications() {
   const mine = _mine();
   const unread = mine.filter(n => !n.read).length;
   const badge = unread > 0
-    ? `<span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:#ef4444;color:#fff;border-radius:9px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #0b3d91;">${unread > 99 ? '99+' : unread}</span>`
+    ? `<span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:#ef4444;color:#fff;border-radius:9px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #c2321f;">${unread > 99 ? '99+' : unread}</span>`
     : '';
   const rows = mine.slice(0, 40).map(n => `
     <div onclick="_notifOpen('${n.id}')" style="padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;gap:10px;background:${n.read ? '#fff' : '#fff3ea'};">

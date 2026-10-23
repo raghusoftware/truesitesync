@@ -175,7 +175,7 @@ export function renderLabourHome() {
       <div><b style="color:#15803d">${sum.P}</b><small>Present</small></div>
       <div><b style="color:#d92d20">${sum.A}</b><small>Absent</small></div>
       <div><b style="color:#4b5563">${sum.H}</b><small>Half Day</small></div>
-      <div><b style="color:#1d5fd1">${money(due).replace(/\.00$/, '')}</b><small>To Pay</small></div>
+      <div><b style="color:var(--ts-blue)">${money(due).replace(/\.00$/, '')}</b><small>To Pay</small></div>
     </div>
     ${all.length ? `<div class="ts-chips" style="padding-top:2px">${chips}</div>` : ''}
     ${list.length ? `<div class="lab-list">${cards}</div>` : empty}
