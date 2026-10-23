@@ -32,7 +32,7 @@ const _childrenOf = {
   // Workspace tab
   workspaceView: [
     'analyticsView', 'reportsView', 'paymentsHubView', 'salesHubView', 'purchaseHubView', 'financeHubView',
-    'creditBookView',
+    'creditBookView', 'calcView',
   ],
   // Master tab
   masterView: ['profileView', 'systemHubView', 'superAdminView'],

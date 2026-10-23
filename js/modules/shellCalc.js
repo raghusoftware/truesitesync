@@ -95,7 +95,7 @@ const WORKSPACE_VIEWS = new Set([
   'salesLedgerView', 'saleOrderView', 'proformaInvoiceView', 'deliveryChallanView', 'estimatesView', 'estimationView',
   'paymentInView', 'saleReturnView', 'otherIncomeView', 'saleFixedAssetsView', 'purchaseBillsView', 'purchaseOrderView',
   'paymentOutView', 'purchaseReturnView', 'expensesView', 'purchaseAssetsView', 'vendorView', 'partiesLedgerView',
-  'accountsManagerView', 'cashFlowView', 'costProfitView', 'creditBookView',
+  'accountsManagerView', 'cashFlowView', 'costProfitView', 'creditBookView', 'calcView',
 ]);
 const MASTER_VIEWS = new Set([
   'masterView', 'systemHubView', 'itemsMasterView', 'masterData', 'planBillingView', 'settingsView', 'recycleBinView',
@@ -126,6 +126,7 @@ export const VIEW_TITLES = {
   vendorView: 'Vendor Purchase', partiesLedgerView: 'Party', accountsManagerView: 'Bank & Cash', cashFlowView: 'Cash Flow',
   costProfitView: 'Cost & Profit', creditBookView: 'Udhaar Book', itemsMasterView: 'Materials & Items', masterData: 'Team & Roles',
   planBillingView: 'Subscription', settingsView: 'Settings', recycleBinView: 'Recycle Bin', superAdminView: 'Admin Panel',
+  calcView: 'Engineer Tools',
 };
 
 export function viewTitle(viewId) {

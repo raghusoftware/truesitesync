@@ -717,7 +717,7 @@ export function hasAccess(viewId) {
   if (!_modeAllows(viewId)) return false;
   if (isFullAccessRole(user.role)) return true;
   // Hub launchers are always viewable; the real modules behind each tile stay gated.
-  if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView'].includes(viewId)) return true;
+  if (['projectsHome','salesHubView','purchaseHubView','financeHubView','systemHubView','calcView'].includes(viewId)) return true;
   const role = (state.rbacRoles || {})[user.role];
   if (!role) return false;
   return (role.permissions || []).includes(viewId);

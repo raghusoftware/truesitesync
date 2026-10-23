@@ -75,13 +75,14 @@ import './modules/chat.js?v=1.0.3';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.41';
 import './modules/ledgerReports.js?v=1.0.1';
-import './modules/mobileShell.js?v=1.6.88';
+import './modules/mobileShell.js?v=1.6.89';
 import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
 import './modules/labourHome.js?v=1.0.1';
-import './modules/appShell.js?v=1.0.4';
+import './modules/calcTools.js?v=1.0.1';
+import './modules/appShell.js?v=1.0.5';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';
@@ -122,7 +123,7 @@ import {
   _ensureRbacUser,
   renderUsersRolesPanel, openUserForm, saveUser, deleteUser, closeUserForm,
   togglePermission, toggleGroupPermissions
-} from './modules/rbac.js?v=1.6.87';
+} from './modules/rbac.js?v=1.6.88';
 import {
   THEMES, getThemeList, getActiveThemeId, setActiveTheme, renderWithTheme,
   getPrintSettings as getPrintSettingsTheme, getMargins, fmtINR, numWords

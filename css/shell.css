@@ -365,3 +365,59 @@ body #paymentsHubView .pmt-lbl { white-space: nowrap; overflow: hidden; text-ove
 body #paymentsHubView .pmt-side .pmt-listcard { display: none; }
 body #paymentsHubView .pmt-payfrom > .pmt-pf { min-width: 0; }
 body #paymentsHubView .pmt-main, body #paymentsHubView .pmt-card { min-width: 0; max-width: 100%; }
+
+/* ── Engineer Tools (calcTools.js) ─────────────────────────────────────── */
+.ct-intro { margin: 2px 4px 14px; }
+.ct-intro b { display: block; font-size: 18px; color: var(--ts-ink); }
+.ct-intro small { font-size: 13px; color: var(--ts-muted); }
+.ct { max-width: 860px; }
+.ct-card, .ct-res { background: #fff; border: 1px solid var(--ts-line); border-radius: 14px; box-shadow: var(--ts-shadow); padding: 16px; margin-bottom: 14px; }
+.ct-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.ct-ic { width: 46px; height: 46px; border-radius: 12px; background: #fff1e8; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+.ct-hd b { display: block; font-size: 17px; color: var(--ts-ink); }
+.ct-hd small { font-size: 12.5px; color: var(--ts-muted); }
+.ct-units { display: flex; align-items: center; gap: 6px; margin: 2px 0 10px; font-size: 12px; color: var(--ts-muted); font-weight: 600; }
+.ct-units span { margin-right: 4px; }
+.ct-units button { border: 1px solid var(--ts-line); background: #fff; color: var(--ts-ink2); padding: 5px 12px; font-size: 13px !important; font-weight: 600 !important; border-radius: 999px !important; min-height: 0 !important; }
+.ct-units button.on { background: var(--ts-blue); border-color: var(--ts-blue); color: #fff; }
+.ct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ct-f { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ct-f > span { font-size: 12.5px; font-weight: 600; color: var(--ts-ink2); }
+.ct-f select, .ct-in input { width: 100%; height: 46px; border: 1.5px solid var(--ts-line) !important; border-radius: 10px !important; background: #fff !important; padding: 0 12px !important; font-size: 16px !important; color: var(--ts-ink); outline: none; min-height: 0 !important; box-shadow: none !important; }
+.ct-f select:focus, .ct-in input:focus { border-color: var(--ts-blue) !important; }
+.ct-in { position: relative; }
+.ct-in i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 13px; color: var(--ts-muted); font-weight: 600; pointer-events: none; }
+.ct-in input { padding-right: 52px !important; }
+.ct-chk { flex-direction: row; align-items: center; gap: 10px; padding-top: 22px; }
+.ct-chk input { width: 20px; height: 20px; accent-color: var(--ts-blue); }
+.ct-chk > span { font-size: 14px; }
+.ct-sec { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ts-muted); margin: 10px 0 4px; }
+.ct-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f1f3f7; }
+.ct-row:last-of-type { border-bottom: none; }
+.ct-row b { font-size: 14.5px; color: var(--ts-ink); font-weight: 600; }
+.ct-row small { display: block; font-size: 12px; color: var(--ts-muted); margin-top: 1px; }
+.ct-q { text-align: right; flex-shrink: 0; }
+.ct-q b { font-size: 18px; font-weight: 700; color: var(--ts-blue); }
+.ct-q span { font-size: 13px; color: var(--ts-ink2); font-weight: 600; }
+.ct-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.ct-stats > div { background: #fff7f1; border: 1px solid #fde3d1; border-radius: 10px; padding: 9px 11px; min-width: 0; }
+.ct-stats small { display: block; font-size: 11.5px; color: var(--ts-muted); }
+.ct-stats b { font-size: 14.5px; color: var(--ts-ink); overflow-wrap: anywhere; }
+.ct-big { background: linear-gradient(120deg, #c2321f, #ef8420); color: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 6px; }
+.ct-big small { font-size: 12.5px; opacity: .9; }
+.ct-big b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -.01em; margin: 2px 0; }
+.ct-big span { font-size: 12.5px; opacity: .9; }
+.ct-bar { height: 6px; background: #f3f4f6; border-radius: 99px; margin-top: 6px; overflow: hidden; width: 160px; max-width: 45vw; }
+.ct-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ef8420, #d6402c); border-radius: 99px; }
+.ct-total { display: flex; justify-content: space-between; align-items: center; background: #fff1e8; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-weight: 600; color: var(--ts-ink2); }
+.ct-total b { font-size: 18px; color: var(--ts-ink); }
+.ct-note { font-size: 12px; color: var(--ts-muted); margin: 12px 0 0; }
+.ct-actions { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; }
+@media (max-width: 768px) {
+  .ct-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ct-chk { padding-top: 0; }
+}
+/* calculator fields: one look for inputs & selects (beats global input rules) */
+#calcView .ct-f select, #calcView .ct-in input[type="number"] { background: #fff !important; border: 1.5px solid var(--ts-line) !important; height: 46px !important; }
+#calcView .ct-f select:focus, #calcView .ct-in input[type="number"]:focus { border-color: var(--ts-blue) !important; }
+@media (max-width: 768px) { #calcView .ct-wide { grid-column: 1 / -1; } }

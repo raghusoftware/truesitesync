@@ -87,6 +87,7 @@ export function renderAppBar(viewId) {
   const sec = openSection(viewId);
   if (sec) title = sec;
   if (viewId === 'paymentsHubView' && window._pmtIsForm?.()) title = window._pmtFormTitle?.() || title;
+  if (viewId === 'calcView' && window._calcTitle?.()) title = window._calcTitle();
   if (viewId === 'projectDashboard' && proj) { title = proj.name || 'Project'; sub = ['Project Home', proj.location].filter(Boolean).join(' · '); }
   else if (proj && SC.tabOf(viewId) === 'projects') sub = proj.name || sub;
   left.innerHTML = `<button type="button" class="tsb-ic tsb-back" onclick="window._navBack()" aria-label="Back">${svg.back}</button>
@@ -109,6 +110,7 @@ export function openDrawer() {
     ['🏢', 'Company Settings', "switchView('settingsView')", 'settingsView'],
     ['⚙️', 'Setup', "switchView('masterView')"],
     ['💳', 'Subscription', "switchView('planBillingView')", 'planBillingView'],
+    ['🧮', 'Engineer Tools', "switchView('calcView')"],
     ['🎧', 'Customer Support', 'window._shellSupport()'],
     ['💾', 'Backup (download)', 'window.exportJSONBackup&&window.exportJSONBackup()'],
     ['☁️', 'Cloud Sync', 'window._openSyncDoctor&&window._openSyncDoctor()'],
@@ -291,6 +293,10 @@ export function renderWorkspace() {
       { icon: '🌊', label: 'Cash Flow', view: 'cashFlowView' },
       { icon: '💹', label: 'Cost & Profit', view: 'costProfitView' },
     ]],
+    ['Tools', [
+      { icon: '🧮', label: 'Engineer Tools', view: 'calcView' },
+      { icon: '📏', label: 'Unit Converter', run: () => window.openUnitConverter?.() },
+    ]],
   ])}</div>`;
 }
 
@@ -337,6 +343,7 @@ const PROJECT_TILES = [
   { icon: '🏛️', label: 'Guarantees', view: 'guaranteesView' },
   { icon: '💳', label: 'WPS Salary', view: 'wpsView' },
   { icon: '📑', label: 'Reports', view: 'reportsView' },
+  { icon: '🧮', label: 'Engineer Tools', view: 'calcView' },
 ];
 
 export function renderProjectHome() {
@@ -420,6 +427,7 @@ export function onView(viewId) {
   if (viewId === 'workspaceView') renderWorkspace();
   if (viewId === 'masterView') renderMaster();
   if (viewId === 'profileView') renderProfile();
+  if (viewId === 'calcView') { if (!window.__navBack) window._calcClose?.(); else window.renderCalcTools?.(); }
   wrapSections();
   if (viewId === 'equipmentView') renderEquipSummary();
   // Party / Payments open on their list unless a caller asks for a detail / form right after.
@@ -471,6 +479,7 @@ export function closeSection() {
   if (d && openSection(v)) { window[d.fn]?.(null); return true; }
   if (v === 'pettyCashView' && window._pcIsOpen?.()) { window._pcOpen?.(null); renderAppBar(v); syncFab(v); return true; }
   if (v === 'partiesLedgerView' && state.currentSelectedParty) { window._partyBack?.(); return true; }
+  if (v === 'calcView' && window._calcIsOpen?.()) { window._calcClose?.(); return true; }
   if (v === 'paymentsHubView' && window._pmtIsForm?.()) { window._pmtShowList?.(); renderAppBar(v); return true; }
   return false;
 }
