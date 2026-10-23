@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
+const { buildPromptHtml } = require('./prompt');
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -80,6 +81,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
     backgroundColor: '#0a0f1a',
     show: false,
@@ -160,6 +162,56 @@ function createWindow() {
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// ══════════════════════════════════════
+// PROMPT — Electron doesn't implement window.prompt(), so the app's prompt()
+// calls (deposit, breakdown, retention release, chat channel…) did nothing on
+// desktop. preload.js forwards them here synchronously; we show a small modal
+// window and return its answer (or null on Cancel / close), like a browser does.
+// ══════════════════════════════════════
+let _promptSeq = 0;
+ipcMain.on('tss-prompt', (event, message, defaultValue) => {
+  const owner = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const id = ++_promptSeq;
+  let settled = false;
+  const win = new BrowserWindow({
+    parent: owner || undefined, modal: !!owner,
+    width: 460, height: 210, useContentSize: true,
+    resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    show: false, title: 'True Site Sync', autoHideMenuBar: true, backgroundColor: '#ffffff',
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false, contextIsolation: true, sandbox: true,
+      preload: path.join(__dirname, 'prompt-preload.js'),
+    },
+  });
+  win.setMenu(null);
+
+  const onDone = (e, gotId, value) => {
+    if (win.isDestroyed() || e.sender.id !== win.webContents.id || gotId !== id) return;
+    finish(value == null ? null : String(value));
+  };
+  function finish(value) {
+    if (settled) return;
+    settled = true;
+    ipcMain.removeListener('tss-prompt-done', onDone);
+    event.returnValue = value;
+    if (!win.isDestroyed()) win.destroy();
+  }
+  ipcMain.on('tss-prompt-done', onDone);
+  win.on('closed', () => finish(null));
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.on('did-fail-load', () => finish(null));   // never leave the app blocked
+  win.webContents.on('render-process-gone', () => finish(null));
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.executeJavaScript('document.documentElement.scrollHeight')
+      .then((h) => { if (!win.isDestroyed()) win.setContentSize(460, Math.min(Math.max(150, h), 520)); })
+      .catch(() => {})
+      .finally(() => { if (!win.isDestroyed()) win.show(); });
+  });
+  win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(buildPromptHtml(id, message, defaultValue)));
+});
 
 function showAbout() {
   dialog.showMessageBox(mainWindow, {
