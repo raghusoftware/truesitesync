@@ -51,6 +51,29 @@ jobs:
           echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
           echo "----- android/variables.gradle -----"; cat android/variables.gradle
 
+      - name: Add Firebase Analytics (only when google-services.json is provided)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -f firebase/google-services.json ]; then
+            cp firebase/google-services.json android/app/google-services.json
+          elif [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            echo "::notice::No google-services.json (firebase/google-services.json or GOOGLE_SERVICES_JSON secret) - building without Firebase Analytics"
+            exit 0
+          fi
+          node -e "const j=require('./android/app/google-services.json');const ok=(j.client||[]).some(c=>((c.client_info||{}).android_client_info||{}).package_name==='com.truesitesync.app');if(!ok){console.error('google-services.json has no client for com.truesitesync.app');process.exit(1)}" || exit 1
+          grep -q "com.google.gms:google-services" android/build.gradle || { echo '::error::google-services classpath missing from android/build.gradle'; exit 1; }
+          grep -q "com.google.gms.google-services" android/app/build.gradle || { echo '::error::google-services plugin hook missing from android/app/build.gradle'; exit 1; }
+          cat >> android/app/build.gradle << 'GRADLE'
+
+          dependencies {
+              implementation platform('com.google.firebase:firebase-bom:33.7.0')
+              implementation 'com.google.firebase:firebase-analytics'
+          }
+          GRADLE
+          echo "----- Firebase added -----"; tail -5 android/app/build.gradle
       - name: Sync web assets
         run: npx cap sync android
 
