@@ -1655,6 +1655,7 @@ window._mpExportLocationPlanPDF = function(dateStr) {
 export function mpPrintDay(dateStr) {
   const el = document.getElementById(`dailySheet_${dateStr}`);
   if (!el) return;
+  if (window.tssPrintHtml?.(`<h1>Daily Plan ${dateStr}</h1>${el.outerHTML}`, 'Daily Plan ' + dateStr)) return; // phone app: PDF
   const w = window.open('', '_blank');
   w.document.write(`<html><head><title>Daily Plan ${dateStr}</title><link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet"><style>@media print{.no-print{display:none}}</style></head><body class="p-4">${el.outerHTML}</body></html>`);
   w.document.close();

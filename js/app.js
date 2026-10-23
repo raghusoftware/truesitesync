@@ -6,7 +6,7 @@ import { installPdfMonochrome } from './modules/pdfMono.js?v=1.5.54';
 import { getSyncStatus } from './database/sync.js';
 import { loadUserOrg, loadOrgMembers, loadOrgInvites, renderOrgSettings, createOrganization, bindOrgWindowFunctions, getCurrentOrg } from './modules/organization.js?v=1.6.69';
 import { isSuperAdmin, renderSuperAdminDashboard, bindSuperAdminFunctions } from './modules/superAdmin.js?v=1.6.57';
-import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.7';
+import { showToast, getAllLocations, isNameTaken, refreshPurchaseDropdowns, populateDropdowns, setDateFields, formatINR, formatINR2, printReport, getCompanyHeaderForPDF } from './modules/utils.js?v=1.0.8';
 import { subscribe, publish, EVENTS } from './modules/events.js';
 import {
   calcPurchaseTotal, calcQty, calcEstimateRow, calcEstimateTotal,
@@ -20,7 +20,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.100';
+} from './controllers/reportController.js?v=1.6.101';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.38';
+} from './modules/ui.js?v=1.7.39';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.28';
@@ -106,7 +106,7 @@ import './modules/itemsMaster.js?v=1.1.5';
 import './modules/projectDocs.js?v=1.0.0';
 import { exportJSONBackup, restoreJSONBackup } from './modules/backupRestore.js?v=1.0.1';
 import { renderSalesLedger, clearSalesLedgerFilters, cancelInvoiceFromLedger, deleteInvoiceFromLedger, viewInvoiceFromLedger } from './modules/salesLedger.js?v=1.6.52';
-import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.81';
+import { renderPurchaseLedger, clearPurchaseLedgerFilters, viewPurchaseBill, deletePurchaseBill, previewPurchaseBillPDF, openPurchaseBillPDF, savePurchaseBillPDF, openPurchaseFormPanel, closePurchaseFormPanel, addPurchaseRowToPanel, updatePanelRowNums, calcPanelPurchaseTotal, savePanelPurchaseBill } from './modules/purchase.js?v=1.6.82';
 import { renderPartiesList, renderPartyTransactions, selectParty, _editParty, _deleteParty } from './modules/parties.js?v=1.6.57';
 import { closeFullScreenForm } from './modules/formHelpers.js';
 import { openPaymentOutForm, savePaymentOutForm, renderPaymentOut, clearPaymentOutFilters, deletePaymentOutRecord, openExpenseForm, saveExpenseForm, renderExpenseCategories, selectExpenseCategory, renderExpenseTransactions } from './modules/expenseOut.js?v=1.6.89';
@@ -141,7 +141,7 @@ import {
   decomposeTasksToDaily, calculateLaborRequirements, allocateLabor,
   detectConflicts, generateDailySheet, reallocateForDelays, computeUtilization,
   computeProjectPnL
-} from './modules/microPlanning.js?v=1.4.40';
+} from './modules/microPlanning.js?v=1.4.41';
 
 // Expose every function to window for inline onclick handlers
 Object.assign(window, {
@@ -807,7 +807,7 @@ window._manualSync = async function () {
 // this against the latest GitHub release tag to decide whether to show the
 // "update available" banner — if it lags behind the tag, every fresh APK falsely
 // shows an update prompt. Bump this together with package.json on every release.
-const APP_VERSION = '1.6.171';
+const APP_VERSION = '1.6.172';
 const GH_RELEASES_API = 'https://api.github.com/repos/raghusoftware/truesitesync/releases/latest';
 
 async function _checkForAppUpdate() {

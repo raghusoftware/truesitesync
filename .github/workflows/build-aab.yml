@@ -48,7 +48,7 @@ jobs:
           cp -r assets www/
 
       - name: Install Capacitor
-        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor/app@6 @capacitor/status-bar@6 @capacitor/geolocation@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4 capacitor-voice-recorder@5 --legacy-peer-deps
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor-community/file-opener@6 @capacitor/app@6 @capacitor/status-bar@6 @capacitor/geolocation@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4 capacitor-voice-recorder@5 --legacy-peer-deps
 
       - name: Confirm Google Sign-In client ID
         run: grep -A3 '"GoogleAuth"' capacitor.config.json
@@ -147,6 +147,8 @@ jobs:
       - name: Configure Android (in-app links + HTTPS), same as the APK build
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Save exports to Documents/TrueSiteSync on Android 10 and older (11+ needs no permission)
+          grep -q 'WRITE_EXTERNAL_STORAGE' "$MANIFEST" || sed -i '0,/<manifest[^>]*>/s##&\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />#' "$MANIFEST"
           # Site-capture permissions for the Execution Intelligence platform (photos / voice / GPS)
           if ! grep -q 'android.permission.CAMERA' "$MANIFEST"; then
             sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />#' "$MANIFEST"
