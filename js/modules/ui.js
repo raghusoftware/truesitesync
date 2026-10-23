@@ -2682,6 +2682,7 @@ function _grnPrintRows(rows, f) {
     <tbody>${body}</tbody>
     <tfoot><tr><td colspan="5" class="r">Total Qty</td><td class="r">${totalQty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td><td colspan="2"></td></tr></tfoot>
     </table></body></html>`;
+  if (window.tssPrintHtml?.(html, 'GRN Material List')) return; // phone app: save a PDF instead
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to print the list', 'error'); return; }
   w.document.write(html);
@@ -4459,6 +4460,7 @@ window.printDeviationStatement = function () {
     <table><thead><tr><th>#</th><th>Code</th><th>Description</th><th class="c">UOM</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
     <tbody>${extraBody}</tbody><tfoot><tr><td colspan="6" class="r">Total Extra Work</td><td class="r">${m(d.totals.extraAmt)}</td></tr></tfoot></table>` : ''}
     </body></html>`;
+  if (window.tssPrintHtml?.(html, 'Deviation Statement')) return; // phone app: save a PDF instead
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
   w.document.write(html); w.document.close(); w.focus();
@@ -4852,6 +4854,7 @@ window.printFinalAccount = function () {
     </table>
     <p style="font-size:10px;color:#94a3b8;margin-top:14px;max-width:560px">Retention is released at closeout; TDS, advance recovery and LD are permanent deductions. Record the retention release as a Payment when settled.</p>
     </body></html>`;
+  if (window.tssPrintHtml?.(html, 'Final Account Statement')) return; // phone app: save a PDF instead
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
   w.document.write(html); w.document.close(); w.focus();

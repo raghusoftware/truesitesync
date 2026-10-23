@@ -180,8 +180,11 @@ function _buildPurchaseBillDoc(id) {
   return { doc, name: `PurchaseBill-${(b.billNo || id).toString().replace(/[^\w.-]/g, '_')}.pdf` };
 }
 
+const _isPhoneApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
 // Preview — embed the rendered PDF inline inside the details modal
 export function previewPurchaseBillPDF(id) {
+  if (_isPhoneApp()) return savePurchaseBillPDF(id); // WebView can't show blob: PDFs — save & open instead
   const built = _buildPurchaseBillDoc(id ?? _purInfoBillId);
   if (!built) return;
   const holder = document.getElementById('purInfoContent');
@@ -196,6 +199,7 @@ export function previewPurchaseBillPDF(id) {
 
 // Open PDF — open the rendered PDF in a new browser tab
 export function openPurchaseBillPDF(id) {
+  if (_isPhoneApp()) return savePurchaseBillPDF(id);
   const built = _buildPurchaseBillDoc(id ?? _purInfoBillId);
   if (!built) return;
   try {

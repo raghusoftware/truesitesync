@@ -33,7 +33,7 @@ jobs:
           cp -r assets www/
 
       - name: Install Capacitor
-        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor/app@6 @capacitor/status-bar@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor-community/file-opener@6 @capacitor/app@6 @capacitor/status-bar@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4
 
       - name: Confirm Google Sign-In client ID
         run: grep -A3 '"GoogleAuth"' capacitor.config.json
@@ -89,6 +89,8 @@ jobs:
         run: |
           # Override AndroidManifest to handle all links inside WebView
           MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Save exports to Documents/TrueSiteSync on Android 10 and older (11+ needs no permission)
+          grep -q 'WRITE_EXTERNAL_STORAGE' "$MANIFEST" || sed -i '0,/<manifest[^>]*>/s##&\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />#' "$MANIFEST"
 
           # Add internet permission and usesCleartextTraffic
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"

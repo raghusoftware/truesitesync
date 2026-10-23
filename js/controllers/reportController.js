@@ -988,6 +988,8 @@ export function exportReportExcel(reportId) {
 export function printCurrentReport() {
   const area = document.getElementById('reportTableArea');
   if (!area) return;
+  const rptTitle = (document.querySelector('#reportsView h2, #reportTitle')?.textContent || 'Report').trim();
+  if (window.tssPrintHtml?.(`<h1>${rptTitle}</h1>` + area.innerHTML, rptTitle)) return; // phone app: PDF
   const w = window.open('', '_blank');
   w.document.write(`<html><head><title>Report</title><style>
     body{font-family:Arial;padding:20px} table{width:100%;border-collapse:collapse;font-size:12px}

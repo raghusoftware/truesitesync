@@ -364,6 +364,7 @@ export function printReport(elemId, title) {
       <p style="font-size:12px;color:#94a3b8;margin-top:4px;">Generated on: ${timestamp}</p>
     </div>`;
   }
+  if (printHtmlOnPhone(headerHtml + sourceElem.outerHTML, title)) return;
   printContainer.innerHTML = headerHtml + sourceElem.outerHTML;
   window.print();
 }
@@ -559,6 +560,8 @@ async function _capacitorSaveAndShare(base64, filename, mimeType) {
   const { Filesystem } = window.Capacitor.Plugins;
   const safe = _safeFilename(filename);
   const folder = 'TrueSiteSync';
+  // Android 10 and older need the storage permission for Documents/.
+  try { if (Filesystem.requestPermissions) await Filesystem.requestPermissions(); } catch (_) {}
   // Ordered by how visible/persistent the location is to the user.
   const attempts = [
     { directory: 'DOCUMENTS', path: folder + '/' + safe, label: 'Documents/' + folder },
@@ -575,22 +578,112 @@ async function _capacitorSaveAndShare(base64, filename, mimeType) {
     } catch (e) { lastErr = e; }
   }
   if (!result) throw lastErr || new Error('Could not write the file');
-
-  // Offer Share / Open on top of the saved copy (best-effort — the file is
-  // already saved even if the user cancels the sheet).
-  try {
-    const { Share } = window.Capacitor.Plugins;
-    if (Share) {
-      await Share.share({ title: filename, url: result.uri, dialogTitle: 'Share or re-save ' + filename });
-      return savedTo;
-    }
-  } catch (_) {}
-  try {
-    const { FileOpener } = window.Capacitor.Plugins;
-    if (FileOpener) { await FileOpener.open({ filePath: result.uri, contentType: mimeType }); return savedTo; }
-  } catch (_) {}
+  _savedSheet(safe, savedTo, result.uri, mimeType);
   return savedTo;
 }
+
+/** Open a saved file in the phone's viewer (PDF reader, Excel/Sheets…). */
+async function _openSaved(uri, mimeType, filename) {
+  const P = window.Capacitor.Plugins;
+  try { if (P.FileOpener) { await P.FileOpener.open({ filePath: uri, contentType: mimeType, openWithDefault: true }); return; } } catch (_) {}
+  try { if (P.Share) await P.Share.share({ title: filename, url: uri, dialogTitle: 'Open ' + filename + ' with…' }); } catch (_) {}
+}
+async function _shareSaved(uri, filename) {
+  try { await window.Capacitor.Plugins.Share.share({ title: filename, url: uri, dialogTitle: 'Share ' + filename }); }
+  catch (_) {}
+}
+
+/**
+ * After a save on the phone: a small sheet that says where the file went and
+ * offers Open / Share — instead of throwing the share sheet up every time.
+ */
+function _savedSheet(filename, savedTo, uri, mimeType) {
+  document.getElementById('tssSavedSheet')?.remove();
+  const e = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const icon = /pdf/i.test(mimeType) ? '📄' : /sheet|excel|csv/i.test(mimeType) ? '📊' : '📁';
+  const wrap = document.createElement('div');
+  wrap.id = 'tssSavedSheet';
+  wrap.setAttribute('style', 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center;');
+  wrap.innerHTML = `<div role="dialog" aria-label="File saved" style="width:100%;max-width:520px;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(18px + env(safe-area-inset-bottom,0px));font-family:Inter,system-ui,sans-serif;box-shadow:0 -10px 30px rgba(0,0,0,.18)">
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px">
+        <div style="width:52px;height:52px;border-radius:14px;background:#e9f7ee;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${icon}</div>
+        <div style="min-width:0"><div style="font-size:17px;font-weight:700;color:#15803d">Saved ✓</div>
+          <div style="font-size:14px;font-weight:600;color:#111827;word-break:break-all">${e(filename)}</div>
+          <div style="font-size:12.5px;color:#6b7280;margin-top:2px">Files app → ${e(savedTo)}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <button type="button" data-act="open" style="height:48px;border:none;border-radius:12px;background:#DD3B1B;color:#fff;font-size:15px;font-weight:700">Open</button>
+        <button type="button" data-act="share" style="height:48px;border:1.5px solid #f6cfc2;border-radius:12px;background:#fff;color:#AE2C11;font-size:15px;font-weight:700">Share</button>
+        <button type="button" data-act="done" style="height:48px;border:1.5px solid #e5e9f0;border-radius:12px;background:#fff;color:#374151;font-size:15px;font-weight:600">Done</button>
+      </div></div>`;
+  const close = () => wrap.remove();
+  wrap.addEventListener('click', (ev) => {
+    if (ev.target === wrap) return close();
+    const act = ev.target.closest && ev.target.closest('[data-act]')?.dataset.act;
+    if (act === 'open') { close(); _openSaved(uri, mimeType, filename); }
+    else if (act === 'share') { close(); _shareSaved(uri, filename); }
+    else if (act === 'done') close();
+  });
+  document.body.appendChild(wrap);
+}
+
+/**
+ * Turn printable HTML (a report / list / statement) into a PDF with the
+ * bundled jsPDF + autoTable: headings and text lines in order, every <table>
+ * as a real table. Used on the phone app, where the WebView cannot print.
+ */
+export function htmlToPdfDoc(html, title) {
+  const { jsPDF } = window.jspdf;
+  const dom = new DOMParser().parseFromString(String(html), 'text/html');
+  dom.querySelectorAll('script,style,link,button,.no-print,input,select').forEach(n => n.remove());
+  const wide = [...dom.querySelectorAll('table')].some(t => (t.rows[0]?.cells.length || 0) > 7);
+  const doc = new jsPDF({ orientation: wide ? 'l' : 'p', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), m = 12;
+  let y = 14;
+  const cp = state.companyProfile || {};
+  if (cp.CompanyName) { doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(String(cp.CompanyName), m, y); y += 6; }
+  const text = (t, size, bold, color) => {
+    const v = String(t || '').replace(/\s+/g, ' ').trim(); if (!v) return;
+    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(...(color || [15, 23, 42]));
+    doc.splitTextToSize(v, pw - 2 * m).forEach(line => { if (y > ph - 14) { doc.addPage(); y = 14; } doc.text(line, m, y); y += size * 0.45; });
+    y += 1.5;
+  };
+  const nodes = [...dom.body.querySelectorAll('h1,h2,h3,h4,p,.meta,.sub,table')].filter(n => n.tagName === 'TABLE' || !n.closest('table'));
+  if (!nodes.length) text(dom.body.textContent, 10);
+  if (title && !dom.querySelector('h1,h2')) text(title, 15, true);
+  nodes.forEach(n => {
+    if (n.tagName === 'TABLE') {
+      doc.autoTable({ html: n, startY: y + 1, margin: { left: m, right: m }, theme: 'grid',
+        styles: { fontSize: wide ? 7.5 : 8.5, cellPadding: 1.8, overflow: 'linebreak' },
+        headStyles: { fillColor: [221, 59, 27], textColor: 255, fontStyle: 'bold' } });
+      y = doc.lastAutoTable.finalY + 6;
+    } else if (/^H[12]$/.test(n.tagName)) text(n.textContent, n.tagName === 'H1' ? 15 : 12.5, true);
+    else if (/^H[34]$/.test(n.tagName)) text(n.textContent, 11, true, [180, 83, 9]);
+    else text(n.textContent, 9.5, false, [71, 85, 105]);
+  });
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Generated ' + new Date().toLocaleString('en-IN') + ' · True Site Sync', m, ph - 6);
+  return doc;
+}
+
+/**
+ * Print helper for the phone app. Returns true when it handled the request
+ * (on the Android app: saved a PDF to Files instead of printing); returns
+ * false on web / desktop so the caller prints as usual.
+ */
+export function printHtmlOnPhone(html, title) {
+  if (!_isCapacitor()) return false;
+  const name = String(title || 'Report').replace(/[^\w\- ]+/g, ' ').trim().replace(/\s+/g, '_').slice(0, 60) || 'Report';
+  const run = () => {
+    try { mobileSavePDF(htmlToPdfDoc(html, title), name + '.pdf'); }
+    catch (e) { showToast('Could not create the PDF: ' + (e.message || e), 'error'); }
+  };
+  if (window.jspdf && window.jspdf.jsPDF) run();
+  else if (typeof window.whenVendorLibs === 'function') window.whenVendorLibs(run);
+  else showToast('PDF tools are still loading — try again', 'info');
+  return true;
+}
+if (typeof window !== 'undefined') window.tssPrintHtml = printHtmlOnPhone;
 
 /**
  * Mobile-friendly PDF save.
@@ -603,8 +696,7 @@ export function mobileSavePDF(doc, filename) {
       try {
         const blob = doc.output('blob');
         const base64 = await _blobToBase64(blob);
-        const savedTo = await _capacitorSaveAndShare(base64, filename, 'application/pdf');
-        showToast(savedTo ? `Saved to ${savedTo}` : 'PDF saved', 'success');
+        await _capacitorSaveAndShare(base64, filename, 'application/pdf');
       } catch (e) {
         try { window.open(doc.output('datauristring'), '_blank'); } catch(_) {}
         showToast('Download failed: ' + (e.message || e), 'error');
@@ -646,8 +738,7 @@ export function mobileDownloadBlob(blob, filename, mimeType) {
     (async () => {
       try {
         const base64 = await _blobToBase64(blob);
-        const savedTo = await _capacitorSaveAndShare(base64, filename, mimeType || 'application/octet-stream');
-        showToast(savedTo ? `Saved to ${savedTo}` : 'File saved', 'success');
+        await _capacitorSaveAndShare(base64, filename, mimeType || 'application/octet-stream');
       } catch (e) {
         showToast('Download failed: ' + (e.message || e), 'error');
       }
@@ -659,4 +750,8 @@ export function mobileDownloadBlob(blob, filename, mimeType) {
   a.href = url; a.download = filename; a.target = '_blank';
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+if (typeof window !== 'undefined') {
+  window.mobileSavePDF = window.mobileSavePDF || mobileSavePDF;
+  window.mobileSaveXLSX = window.mobileSaveXLSX || mobileSaveXLSX;
 }
