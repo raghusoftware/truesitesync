@@ -146,7 +146,7 @@
     var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         var p = n.parentNode;
-        if (!p || SKIP[p.nodeName] || (p.classList && p.classList.contains('tss-ic')) || (p.closest && p.closest('[contenteditable="true"],[contenteditable=""]'))) return NodeFilter.FILTER_REJECT;
+        if (!p || SKIP[p.nodeName] || (p.classList && p.classList.contains('tss-ic')) || (p.closest && p.closest('[data-keep-emoji]')) || (p.closest && p.closest('[contenteditable="true"],[contenteditable=""]'))) return NodeFilter.FILTER_REJECT;
         return HAS.test(n.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });

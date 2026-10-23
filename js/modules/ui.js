@@ -77,10 +77,13 @@ if (typeof window !== 'undefined') {
 /** Navigate to Projects Home */
 // Two-level home navigation: null = show clients list; otherwise show that client's projects
 let _homeClientId = null;
+// Home shows the project list (appShell); "By client" switches to the client list.
+let _clientsMode = false;
 
 export function goProjectsHome() {
   state.currentProjectId = null;
   _homeClientId = null;
+  _clientsMode = false;
   document.getElementById('projectContextNav')?.classList.add('hidden');
   const badge = document.getElementById('headerProjBadge');
   if (badge) { badge.classList.add('hidden'); badge.textContent = ''; }
@@ -94,11 +97,19 @@ export function openClientProjects(clientId) {
   renderProjectsHome();
 }
 
-/** Back to the clients list */
+/** Back one level: a client's projects → client list → project list */
 export function backToClients() {
-  _homeClientId = null;
+  if (_homeClientId) _homeClientId = null; else _clientsMode = false;
   renderProjectsHome();
 }
+
+/** Home in "By client" mode (Master → Clients, or "By client ›" on the project list) */
+export function showClientsList() {
+  _clientsMode = true;
+  _homeClientId = null;
+  if (window.__currentViewId === 'projectsHome') renderProjectsHome(); else switchView('projectsHome');
+}
+if (typeof window !== 'undefined') window.showClientsList = showClientsList;
 
 /** Header action button — context aware (New Client vs Add Project) */
 export function projHomeAction() {
@@ -248,6 +259,13 @@ export function renderProjectsHome() {
   const empty = document.getElementById('projectsEmpty');
   try { renderFilooHome(); } catch(e){ console.warn('[filooHome]', e); }
   if (!grid) return;
+  // Default: the project-first list rendered by appShell.js
+  const listHost = document.getElementById('tsProjects');
+  const clientsWrap = document.getElementById('projClientsWrap');
+  const byClient = _clientsMode || !!_homeClientId;
+  if (listHost) listHost.style.display = byClient ? 'none' : '';
+  if (clientsWrap) clientsWrap.style.display = byClient ? '' : 'none';
+  if (!byClient) { window.renderShellProjects?.(); return; }
   const backBtn = document.getElementById('projHomeBack');
   const titleEl = document.getElementById('projHomeTitle');
   const subEl = document.getElementById('projHomeSub');
@@ -265,7 +283,7 @@ export function renderProjectsHome() {
 
   // ── MODE A: Clients list ───────────────────────────────
   if (!_homeClientId) {
-    if (backBtn) backBtn.classList.add('hidden');
+    if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Projects'; }
     if (titleEl) titleEl.textContent = 'My Clients';
     if (subEl) subEl.textContent = 'Create a client, then add projects under it.';
     if (actLabel) actLabel.textContent = 'New Client';
@@ -304,7 +322,7 @@ export function renderProjectsHome() {
 
   // ── MODE B: One client's projects ──────────────────────
   const client = clients.find(c => c.id === _homeClientId);
-  if (backBtn) backBtn.classList.remove('hidden');
+  if (backBtn) { backBtn.classList.remove('hidden'); backBtn.innerHTML = '<span style="font-size:16px;">&larr;</span> All Clients'; }
   if (titleEl) titleEl.textContent = client ? client.name : 'Projects';
   if (subEl) subEl.textContent = 'Projects under this client.';
   if (actLabel) actLabel.textContent = 'Add Project';
@@ -384,43 +402,8 @@ export function renderProjectDashboard() {
     if (proj.location) sub += (sub ? ' | ' : '') + proj.location;
     subEl.textContent = sub || 'No details set';
   }
-  const pid = proj.id;
-  const kpiEl = document.getElementById('projDashKPIs');
-  if (kpiEl) {
-    const boqCount = (proj.boqs || []).length || (proj.woNumber ? 1 : 0);
-    const sheetCount = (state.sheets || []).filter(s => s.projectId === pid).length;
-    const invCount = (state.saleInvoices || []).filter(i => i.projectId === pid).length;
-    const openIssues = (state.issues || []).filter(i => i.projectId === pid && !['Solved', 'Closed', 'Resolved'].includes(i.status)).length;
-    const kpis = [
-      { label: 'BOQ / PO', value: boqCount, icon: '📋', color: '#3b82f6' },
-      { label: 'Measurements', value: sheetCount, icon: '📏', color: '#ef8420' },
-      { label: 'Invoices', value: invCount, icon: '🧾', color: '#8b5cf6' },
-      { label: 'Open Issues', value: openIssues, icon: '⚠️', color: openIssues ? '#ef4444' : '#94a3b8' },
-    ];
-    kpiEl.innerHTML = kpis.map(k => `
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-        <div style="width:38px;height:38px;border-radius:11px;background:${k.color}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${k.icon}</div>
-        <div class="min-w-0">
-          <div class="text-xl font-extrabold text-slate-800 leading-none">${k.value}</div>
-          <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wide truncate mt-1">${k.label}</div>
-        </div>
-      </div>`).join('');
-  }
-  // Module cards
-  const grid = document.getElementById('moduleCardsGrid');
-  if (!grid) return;
-  grid.innerHTML = MODULE_CARDS.map(m => {
-    return `<div onclick="switchView('${m.id}')" class="bg-white rounded-2xl border border-slate-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 group" style="box-shadow:0 1px 3px rgba(0,0,0,.04);">
-      <div class="flex items-center gap-3">
-        <div style="width:44px;height:44px;background:${m.color}12;border:2px solid ${m.color}25;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;transition:all .2s;" class="group-hover:scale-110">${m.icon}</div>
-        <div class="flex-1">
-          <h4 class="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">${m.label}</h4>
-          <p class="text-[10px] text-slate-400">${m.desc}</p>
-        </div>
-        <span class="text-[10px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition">&rarr;</span>
-      </div>
-    </div>`;
-  }).join('');
+  // Money summary + module tiles (appShell.js)
+  window.renderShellProjectHome?.();
 }
 
 // ── BOQ / PO Group Management ──
@@ -1353,6 +1336,7 @@ export function switchView(viewId) {
   if (typeof window !== 'undefined') {
     const prev = window.__currentViewId;
     if (!window.__viewHistory) window.__viewHistory = [];
+    try { window.__noteNav?.(prev, viewId); } catch {}
     if (!window.__navBack && prev && prev !== viewId) {
       window.__viewHistory.push(prev);
       if (window.__viewHistory.length > 50) window.__viewHistory.shift();
@@ -1370,6 +1354,7 @@ export function switchView(viewId) {
   }
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.target === viewId));
   _updateBreadcrumb(viewId);
+  try { window.shellOnView?.(viewId); } catch (e) { console.warn('[shell]', e); }
   try { window.highlightBottomNav?.(); } catch {}
 
   if (viewId === 'paymentsHubView') { try { window.renderPaymentsHub?.(); } catch (e) { console.warn(e); } }

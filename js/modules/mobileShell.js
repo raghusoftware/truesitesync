@@ -28,10 +28,14 @@ const HOME_VIEW = 'projectsHome';
 
 const _childrenOf = {
   // Home's direct children (hubs + top-level views)
-  [HOME_VIEW]: [
-    'projectDashboard', 'analyticsView', 'reportsView', 'paymentsHubView',
-    'salesHubView', 'purchaseHubView', 'financeHubView', 'systemHubView', 'superAdminView',
+  [HOME_VIEW]: ['projectDashboard', 'workspaceView', 'masterView'],
+  // Workspace tab
+  workspaceView: [
+    'analyticsView', 'reportsView', 'paymentsHubView', 'salesHubView', 'purchaseHubView', 'financeHubView',
+    'creditBookView',
   ],
+  // Master tab
+  masterView: ['profileView', 'systemHubView', 'superAdminView'],
   // Inside an open project
   projectDashboard: [
     'planningView', 'microPlanView', 'execEngineView', 'scheduleBuilderView', 'executionView',
@@ -53,6 +57,7 @@ const _childrenOf = {
   ],
   // Finance
   financeHubView: ['partiesLedgerView', 'accountsManagerView', 'cashFlowView', 'costProfitView'],
+  // (Workspace / Master tiles that open a leaf directly come back to their tab — see parentOf)
   // System / masters
   systemHubView: ['itemsMasterView', 'masterData', 'planBillingView', 'settingsView', 'recycleBinView'],
 };
@@ -65,9 +70,27 @@ const VIEW_PARENT = (() => {
 })();
 
 /** The logical parent of a view for Back, or null at the root. */
+// Leaves opened straight from a Workspace / Master tile (not via a hub) go back
+// to that tab instead of the hub they nominally sit under.
+let _tabOrigin = null; // { view, tab }
 function parentOf(viewId) {
-  if (!viewId || viewId === HOME_VIEW) return null;
+  if (!viewId || viewId === HOME_VIEW || viewId === 'bizHomeView') return null;
+  if (viewId === 'workspaceView' || viewId === 'masterView') return HOME_VIEW;
+  if (_tabOrigin && _tabOrigin.view === viewId) return _tabOrigin.tab;
+  // Project modules return to the project's home while a project is open
+  if (PROJECT_VIEWS.has(viewId) && viewId !== 'projectDashboard' && window.state?.currentProjectId) return 'projectDashboard';
   return VIEW_PARENT[viewId] || HOME_VIEW;
+}
+// switchView reports every navigation; remember when a leaf was opened from a tab.
+if (typeof window !== 'undefined') {
+  window.__noteNav = function (from, to) {
+    if (from === 'workspaceView' || from === 'masterView') {
+      if (to !== from && VIEW_PARENT[to] !== from) _tabOrigin = { view: to, tab: from };
+    } else if (_tabOrigin && _tabOrigin.view !== to && !window.__navBack) {
+      // moving deeper keeps the origin only for the leaf itself
+      if (from !== _tabOrigin.view) _tabOrigin = null;
+    }
+  };
 }
 
 /* ───────────────────────── Back navigation ───────────────────────── */
@@ -148,53 +171,36 @@ export function goBackView() {
 
 /* ───────────────────────── Bottom navigation ───────────────────────── */
 
-// The bottom bar is CONTEXT-AWARE. Icons are EMOJI (not FontAwesome) — app.html
-// never loads FA and the APK runs offline, so emoji are the only glyphs that
-// always render.
-//
-// Inside an open project → project modules (Labour/Inventory/Equipment need a
-// project). Everywhere else (home / all-projects / business ledgers) → the
-// business-level shortcuts, so the project items never sit dead on a screen
-// with no project.
-const PROJECT_NAV = [
-  { id: 'home',      label: 'Home',      icon: '🏠', action: () => navTo('projectsHome') },
-  { id: 'labour',    label: 'Labour',    icon: '👷', action: () => navTo('labourView') },
-  { id: 'add',       label: 'Menu',      icon: '+',  fab: true, action: () => openDrawer() },
-  { id: 'inventory', label: 'Inventory', icon: '📦', action: () => navTo('inventoryView') },
-  { id: 'equipment', label: 'Equipment', icon: '🚚', action: () => navTo('equipmentView') },
+// Three tabs — Projects · Workspace · Master — the same on every screen.
+// Icons are inline SVG (app.html never loads an icon font; the APK runs offline).
+const ICON = {
+  projects: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.8 11h2.7v9h5v-6h3v6h5v-9h2.7z"/></svg>',
+  workspace: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></svg>',
+  master: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6" y="3.5" width="14" height="16" rx="1.5"/><path d="M3.5 7v13.5H17"/><path d="M9.5 8h7M9.5 11.5h7M9.5 15h4"/></svg>',
+};
+// Three tabs, same as the desktop sidebar (appShell.js renders the tab pages).
+const TABS = [
+  { id: 'projects',  label: 'Projects',  icon: ICON.projects,  action: () => navTo('projectsHome') },
+  { id: 'workspace', label: 'Workspace', icon: ICON.workspace, action: () => navTo('workspaceView') },
+  { id: 'master',    label: 'Master',    icon: ICON.master,    action: () => navTo('masterView') },
 ];
-const GLOBAL_NAV = [
-  { id: 'home',     label: 'Home',     icon: '🏠', action: () => navTo('projectsHome') },
-  { id: 'sales',    label: 'Sales',    icon: '🧾', action: () => navTo('salesLedgerView') },
-  { id: 'add',      label: 'Menu',     icon: '+',  fab: true, action: () => openDrawer() },
-  { id: 'purchase', label: 'Purchase', icon: '🛒', action: () => navTo('purchaseBillsView') },
-  { id: 'payments', label: 'Payments', icon: '💸', action: () => navTo('paymentsHubView') },
-];
-
 // Views that live INSIDE a project → show the project bar.
 const PROJECT_VIEWS = new Set([
   'projectDashboard','planningView','microPlanView','execEngineView','scheduleBuilderView','issuesView','executionView',
   'labourView','equipmentView','inventoryView','recipeView','assetsView',
   'measurementListView','abstractsView','pettyCashView','documentsView','entrySheet',
 ]);
-function currentNav() {
-  // Shop / Manufacturing have no projects — always the business bar.
-  if (typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction') return GLOBAL_NAV;
-  return PROJECT_VIEWS.has(window.__currentViewId || '') ? PROJECT_NAV : GLOBAL_NAV;
-}
+function currentNav() { return TABS; }
 
 function navTo(viewId) {
   if (typeof window.switchView === 'function') window.switchView(viewId);
 }
-function openDrawer() {
-  document.getElementById('appSidebar')?.classList.add('mobile-open');
-  document.getElementById('mobileOverlay')?.classList.add('active');
-}
 
-let _navMode = null; // 'project' | 'global' — which item set is currently rendered
+let _navMode = null; // 'construction' | 'shop' — first tab reads Projects / Home
 function buildBottomNav() {
   const items = currentNav();
-  const mode = items === PROJECT_NAV ? 'project' : 'global';
+  const shop = typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction';
+  const mode = shop ? 'shop' : 'construction';
   const existing = document.getElementById('mobileBottomNav');
   if (existing && _navMode === mode) return; // right bar already up
   _navMode = mode;
@@ -207,7 +213,7 @@ function buildBottomNav() {
            <span class="mbn-fab-circle">${item.icon}</span>
          </button>`
       : `<button type="button" class="mbn-item" data-nav="${item.id}" aria-label="${item.label}">
-           <span class="mbn-ico">${item.icon}</span><span>${item.label}</span>
+           <span class="mbn-ico">${item.icon}</span><span>${item.id === 'projects' && shop ? 'Home' : item.label}</span>
          </button>`).join('');
   if (!existing) document.body.appendChild(nav);
   nav.querySelectorAll('.mbn-item').forEach(btn => {
@@ -223,18 +229,9 @@ function buildBottomNav() {
 function highlightBottomNav() {
   buildBottomNav(); // rebuilds if the project↔global context changed
   const v = window.__currentViewId || '';
-  const map = {
-    home: ['projectsHome', 'projectDashboard', 'bizHomeView'],
-    labour: ['labourView'],
-    inventory: ['inventoryView'],
-    equipment: ['equipmentView'],
-    sales: ['salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','billingView'],
-    purchase: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView','vendorView'],
-    payments: ['paymentsHubView','paymentInView'],
-  };
+  const tab = typeof window.shellTabOf === 'function' ? window.shellTabOf(v) : 'projects';
   document.querySelectorAll('#mobileBottomNav .mbn-item').forEach(btn => {
-    const ids = map[btn.dataset.nav] || [];
-    btn.classList.toggle('active', ids.includes(v));
+    btn.classList.toggle('active', btn.dataset.nav === tab);
   });
 }
 

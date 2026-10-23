@@ -136,7 +136,7 @@ export function renderNotifications() {
   const mine = _mine();
   const unread = mine.filter(n => !n.read).length;
   const badge = unread > 0
-    ? `<span style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:#dc2626;color:#fff;border-radius:9px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;">${unread > 99 ? '99+' : unread}</span>`
+    ? `<span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:#ef4444;color:#fff;border-radius:9px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #0b3d91;">${unread > 99 ? '99+' : unread}</span>`
     : '';
   const rows = mine.slice(0, 40).map(n => `
     <div onclick="_notifOpen('${n.id}')" style="padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;gap:10px;background:${n.read ? '#fff' : '#fff3ea'};">
@@ -149,7 +149,7 @@ export function renderNotifications() {
     </div>`).join('') || '<div style="padding:28px 14px;text-align:center;color:#94a3b8;font-size:13px;">No notifications yet.</div>';
 
   const panel = _panelOpen ? `
-    <div style="position:absolute;top:34px;right:0;width:340px;max-width:90vw;max-height:70vh;overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.22);z-index:200000;">
+    <div style="position:absolute;top:44px;right:0;width:340px;max-width:90vw;max-height:70vh;overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.22);z-index:200000;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #f1f5f9;position:sticky;top:0;background:#fff;">
         <span style="font-weight:800;color:#0f172a;font-size:14px;">Notifications</span>
         <span style="display:flex;gap:6px;align-items:center;">
@@ -161,7 +161,7 @@ export function renderNotifications() {
     </div>` : '';
 
   mount.innerHTML = `
-    <button onclick="event.stopPropagation();_notifToggle()" title="Notifications" style="position:relative;border:1px solid #e2e8f0;background:#fff;border-radius:9999px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;">🔔${badge}</button>
+    <button onclick="event.stopPropagation();_notifToggle()" title="Notifications" aria-label="Notifications" class="tsb-ic" style="position:relative;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>${badge}</button>
     ${panel}`;
   if (_panelOpen) { try { window._refreshPushToggle && window._refreshPushToggle(); } catch {} }
 }
