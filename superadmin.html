@@ -78,6 +78,16 @@
     .abtn-green{border-color:#a7f3d0;color:#059669;background:#ecfdf5}
     .abtn-green:hover{background:#d1fae5}
 
+    /* Filters */
+    .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+    .fchip{padding:6px 12px;border:1px solid #e2e8f0;background:#fff;border-radius:20px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .fchip b{font-weight:800;color:#94a3b8;margin-left:4px}
+    .fchip.on{background:#1e293b;border-color:#1e293b;color:#fff}
+    .fchip.on b{color:#cbd5e1}
+    .fsel,.fsearch{padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:12px;font-family:inherit;color:#1e293b;outline:none}
+    .fsearch{flex:1;min-width:180px}
+    .fcount{font-size:11px;color:#94a3b8;font-weight:600;margin-left:auto}
+    .sub{font-size:10px;color:#94a3b8;margin-top:2px}
     @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.container{padding:12px}.tbl{font-size:11px}.tbl th,.tbl td{padding:8px 10px}}
   </style>
@@ -196,11 +206,11 @@ function renderKPIs() {
   document.getElementById('kpiGrid').innerHTML = [
     kpi(s.totalUsers, 'Total Users', '#2563eb'),
     kpi(s.activeToday, 'Active Today', '#059669'),
-    kpi(s.activeWeek, 'Active 6 Days', '#0891b2'),
+    kpi(s.activeWeek, 'Active 7 Days', '#0891b2'),
+    kpi(s.activeMonth ?? '—', 'Active 30 Days', '#0e7490'),
+    kpi(s.paidOrgs, 'Paying Companies', '#059669'),
+    kpi('₹' + (s.totalRevenue||0).toLocaleString('en-IN'), 'Revenue Received', '#059669'),
     kpi(s.withProjects, 'With Projects', '#7c3aed'),
-    kpi(s.totalOrgs, 'Organizations', '#d97706'),
-    kpi(s.paidOrgs, 'Paid Plans', '#059669'),
-    kpi('₹' + (s.totalRevenue||0).toLocaleString('en-IN'), 'Revenue', '#059669'),
     kpi(s.totalLeads, 'Downloads', '#ea580c'),
   ].join('');
 }
@@ -215,45 +225,139 @@ function switchTab(t, btn) {
   if (t==='users') renderUsers(); else if (t==='leads') renderLeads(); else renderOrgs();
 }
 
+// ═══ Users: filters ═══
+const _f = { pay: 'all', act: 'all', q: '', sort: 'active' };
+const DAY = 86400000;
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+
+function lastActiveOf(u) { return u.last_active || u.last_sign_in || null; }
+
+function trialInfo(u, now) {
+  const te = u.trial_ends ? new Date(u.trial_ends) : new Date(new Date(u.created_at).getTime() + 7*DAY);
+  return Math.max(0, Math.ceil((te - now) / DAY));
+}
+
+/** One status per user: paid | lapsed | manual | pending | trial | expired */
+function payStatus(u, now) {
+  const ps = u.payment_status;
+  if (ps === 'paid' || ps === 'lapsed' || ps === 'manual') return ps;
+  if (!ps && u.org_plan && u.org_plan !== 'free') return 'paid';   // older admin-data
+  if (ps === 'pending') return 'pending';
+  return trialInfo(u, now) > 0 ? 'trial' : 'expired';
+}
+
+const PAY_FILTERS = [
+  ['all', 'All'], ['paid', 'Paid'], ['manual', 'Plan given (no payment)'], ['lapsed', 'Payment lapsed'],
+  ['pending', 'Tried to pay'], ['trial', 'On trial'], ['expired', 'Trial expired'], ['unpaid', 'All unpaid'],
+];
+const ACT_FILTERS = [
+  ['all', 'Any activity'], ['today', 'Active today'], ['7', 'Active in 7 days'], ['30', 'Active in 30 days'],
+  ['idle30', 'Inactive 30+ days'], ['never', 'Never used'],
+];
+
+function matchPay(st, f) {
+  if (f === 'all') return true;
+  if (f === 'unpaid') return st !== 'paid' && st !== 'manual';
+  return st === f;
+}
+function matchAct(u, f, now) {
+  if (f === 'all') return true;
+  const la = lastActiveOf(u);
+  if (f === 'never') return !la;
+  const age = la ? now - new Date(la).getTime() : Infinity;
+  if (f === 'today') return age < DAY;
+  if (f === '7') return age < 7*DAY;
+  if (f === '30') return age < 30*DAY;
+  if (f === 'idle30') return age >= 30*DAY;
+  return true;
+}
+
+function setUserFilter(k, v) { _f[k] = v; renderUsers(); }
+
 function renderUsers() {
   const c = document.getElementById('tabContent');
-  if (!_data?.users?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
+  const all = _data?.users || [];
+  if (!all.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No users yet</div>'; return; }
   const now = Date.now();
-  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Status</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Actions</th></tr></thead><tbody>';
+  const q = _f.q.trim().toLowerCase();
+  const withSt = all.map(u => ({ u, st: payStatus(u, now) }));
+  const actOk = withSt.filter(x => matchAct(x.u, _f.act, now));
+  const searchOk = x => !q || [x.u.name, x.u.email, x.u.org_name, x.u.phone].some(v => String(v || '').toLowerCase().includes(q));
+  const rows = actOk.filter(x => matchPay(x.st, _f.pay) && searchOk(x));
+  const ts = d => d ? new Date(d).getTime() : 0;
+  const sorters = {
+    active: (a, b) => ts(lastActiveOf(b.u)) - ts(lastActiveOf(a.u)),
+    signup: (a, b) => ts(b.u.created_at) - ts(a.u.created_at),
+    paid: (a, b) => (b.u.paid_total || 0) - (a.u.paid_total || 0) || ts(lastActiveOf(b.u)) - ts(lastActiveOf(a.u)),
+    projects: (a, b) => (b.u.projects || 0) - (a.u.projects || 0),
+  };
+  rows.sort(sorters[_f.sort] || sorters.active);
 
-  _data.users.forEach(u => {
-    const su = new Date(u.created_at);
-    const la = u.last_sign_in ? new Date(u.last_sign_in) : null;
-    const days = la ? Math.floor((now - la) / 86400000) : 999;
-    const ac = days===0 ? '#059669' : days<=7 ? '#d97706' : '#dc2626';
-    const al = days===0 ? 'Today' : days===1 ? 'Yesterday' : la ? days+'d ago' : 'Never';
-    const te = u.trial_ends ? new Date(u.trial_ends) : new Date(su.getTime()+7*86400000);
-    const td = Math.max(0, Math.ceil((te - now) / 86400000));
-    const free = !u.org_plan || u.org_plan==='free';
-    const exp = free && td<=0;
-    let st = !free ? '<span class="chip chip-green">Paid</span>' : exp ? '<span class="chip chip-red">Expired</span>' : '<span class="chip chip-amber">Trial '+td+'d</span>';
-    const pc = {free:'chip-gray',starter:'chip-blue',business:'chip-purple',enterprise:'chip-green'};
+  // Filter bar (payment chip counts respect the activity filter + search)
+  const cnt = f => actOk.filter(x => matchPay(x.st, f) && searchOk(x)).length;
+  let h = '<div class="filters">' + PAY_FILTERS.map(([k, l]) =>
+    '<button class="fchip' + (_f.pay === k ? ' on' : '') + '" onclick="setUserFilter(\'pay\',\'' + k + '\')">' + l + '<b>' + cnt(k) + '</b></button>').join('') + '</div>';
+  h += '<div class="filters">'
+    + '<select class="fsel" onchange="setUserFilter(\'act\',this.value)">' + ACT_FILTERS.map(([k, l]) => '<option value="' + k + '"' + (_f.act === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>'
+    + '<select class="fsel" onchange="setUserFilter(\'sort\',this.value)">'
+    + [['active','Sort: Last active'],['signup','Sort: Newest signup'],['paid','Sort: Amount paid'],['projects','Sort: Most projects']].map(([k, l]) => '<option value="' + k + '"' + (_f.sort === k ? ' selected' : '') + '>' + l + '</option>').join('')
+    + '</select>'
+    + '<input class="fsearch" id="userSearch" placeholder="Search name, email, company, phone…" value="' + esc(_f.q) + '" oninput="_f.q=this.value;renderUsersKeepFocus()">'
+    + '<span class="fcount">' + rows.length + ' of ' + all.length + ' users</span></div>';
 
-    h += '<tr><td><div class="user-name">'+(u.name||u.email.split('@')[0])+'</div><div class="user-email">'+u.email+'</div>'+(u.org_name?'<div class="user-org">'+u.org_name+'</div>':'')+'</td>';
-    h += '<td class="center" style="font-weight:700;">'+u.projects+'</td>';
-    h += '<td class="center"><span class="chip '+(pc[u.org_plan]||'chip-gray')+'">'+(u.org_plan||'free')+'</span></td>';
-    h += '<td class="center">'+st+'</td>';
-    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+su.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'})+'</td>';
-    h += '<td class="center nowrap"><span style="font-size:11px;font-weight:600;color:'+ac+';">'+al+'</span></td>';
+  if (!rows.length) { c.innerHTML = h + '<div class="tbl-wrap"><div class="empty">No users match these filters</div></div>'; return; }
+
+  h += '<div class="tbl-wrap" style="overflow-x:auto"><table class="tbl"><thead><tr><th>User</th><th class="center">Projects</th><th class="center">Plan</th><th class="center">Payment</th><th class="center nowrap">Signed Up</th><th class="center nowrap">Last Active</th><th class="center">Actions</th></tr></thead><tbody>';
+  const pc = {free:'chip-gray',solo:'chip-blue',starter:'chip-blue',business:'chip-purple',pro:'chip-purple',enterprise:'chip-green'};
+
+  rows.forEach(({ u, st }) => {
+    const la = lastActiveOf(u);
+    const days = la ? Math.floor((now - new Date(la).getTime()) / DAY) : null;
+    const ac = days === null ? '#dc2626' : days===0 ? '#059669' : days<=7 ? '#d97706' : '#dc2626';
+    const al = days === null ? 'Never' : days===0 ? 'Today' : days===1 ? 'Yesterday' : days+'d ago';
+    const alSub = la ? new Date(la).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    const td = trialInfo(u, now);
+    const stChip = {
+      paid: '<span class="chip chip-green">Paid</span>',
+      lapsed: '<span class="chip chip-red">Lapsed</span>',
+      manual: '<span class="chip chip-blue">Plan given</span>',
+      pending: '<span class="chip chip-amber">Tried to pay</span>',
+      trial: '<span class="chip chip-amber">Trial '+td+'d</span>',
+      expired: '<span class="chip chip-red">Expired</span>',
+    }[st];
+    let paySub = '';
+    if (u.paid_total) paySub = '₹' + Number(u.paid_total).toLocaleString('en-IN') + (u.last_paid_at ? ' · ' + fmtDate(u.last_paid_at) : '');
+    if (u.paid_until) paySub += '<br>till ' + fmtDate(u.paid_until);
+
+    h += '<tr><td><div class="user-name">'+esc(u.name||u.email.split('@')[0])+'</div><div class="user-email">'+esc(u.email)+(u.phone?' · '+esc(u.phone):'')+'</div>'+(u.org_name?'<div class="user-org">'+esc(u.org_name)+'</div>':'')+'</td>';
+    h += '<td class="center" style="font-weight:700;">'+(u.projects||0)+'</td>';
+    h += '<td class="center"><span class="chip '+(pc[u.org_plan]||'chip-gray')+'">'+esc(u.org_plan||'free')+'</span></td>';
+    h += '<td class="center">'+stChip+(paySub?'<div class="sub">'+paySub+'</div>':'')+'</td>';
+    h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+fmtDate(u.created_at)+'</td>';
+    h += '<td class="center nowrap"><span style="font-size:11px;font-weight:600;color:'+ac+';">'+al+'</span>'+(alSub?'<div class="sub">'+alSub+'</div>':'')+'</td>';
     const oid = u.org_id || '';
     let acts = '';
     if (oid) {
       acts += '<button class="abtn" onclick="editSeats(\''+oid+'\','+u.max_seats+')">Seats</button>';
-      acts += '<button class="abtn" onclick="changePlan(\''+oid+'\',\''+(u.org_plan||'free')+'\')">Plan</button>';
+      acts += '<button class="abtn" onclick="changePlan(\''+oid+'\',\''+esc(u.org_plan||'free')+'\')">Plan</button>';
       acts += '<button class="abtn" onclick="extendTrial(\''+oid+'\')">+Trial</button>';
       acts += '<button class="abtn abtn-red" onclick="toggleActive(\''+oid+'\')">On/Off</button>';
     } else {
       acts += '<button class="abtn abtn-blue" onclick="createOrgForUser(\''+u.id+'\')">+ Org</button>';
     }
-    acts += '<button class="abtn abtn-red" onclick="deleteUser(\''+u.id+'\',\''+u.email+'\')">Del</button>';
+    acts += '<button class="abtn abtn-red" onclick="deleteUser(\''+u.id+'\',\''+esc(u.email)+'\')">Del</button>';
     h += '<td class="center nowrap">'+acts+'</td></tr>';
   });
   c.innerHTML = h + '</tbody></table></div>';
+}
+
+/** Re-render while typing in search without losing the cursor. */
+function renderUsersKeepFocus() {
+  const pos = document.getElementById('userSearch')?.selectionStart;
+  renderUsers();
+  const el = document.getElementById('userSearch');
+  if (el) { el.focus(); if (pos != null) el.setSelectionRange(pos, pos); }
 }
 
 function renderLeads() {
@@ -278,13 +382,15 @@ function renderOrgs() {
   const c = document.getElementById('tabContent');
   const orgs = _data?.orgs || [];
   if (!orgs.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div>No organizations created yet</div>'; return; }
-  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th><th class="center">Actions</th></tr></thead><tbody>';
+  let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Company</th><th class="center">Plan</th><th class="center">Seats</th><th class="center">Projects</th><th class="center">Paid</th><th class="center">Status</th><th class="center nowrap">Trial Ends</th><th class="center nowrap">Created</th><th class="center">Actions</th></tr></thead><tbody>';
 
   orgs.forEach(o => {
     const te = o.trial_ends_at ? new Date(o.trial_ends_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
-    h += '<tr><td><div style="font-weight:700;">'+o.name+'</div><div style="font-size:10px;color:#94a3b8;">'+(o.email||o.slug||'')+'</div></td>';
+    h += '<tr><td><div style="font-weight:700;">'+esc(o.name)+'</div><div style="font-size:10px;color:#94a3b8;">'+esc(o.email||o.slug||'')+'</div></td>';
     h += '<td class="center"><span class="chip chip-blue">'+o.plan+'</span></td>';
     h += '<td class="center" style="font-weight:700;">'+o.max_seats+'</td>';
+    h += '<td class="center" style="font-weight:700;">'+(o.projects||0)+'</td>';
+    h += '<td class="center nowrap">'+(o.payments ? '<span class="chip chip-green">₹'+Number(o.paid_total||0).toLocaleString('en-IN')+'</span><div class="sub">'+fmtDate(o.last_paid_at)+(o.paid_until?' → '+fmtDate(o.paid_until):'')+'</div>' : (o.pending ? '<span class="chip chip-amber">Tried</span>' : '<span style="color:#cbd5e1">—</span>'))+'</td>';
     h += '<td class="center"><span class="chip '+(o.is_active?'chip-green':'chip-red')+'">'+(o.is_active?'Active':'Disabled')+'</span></td>';
     h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+te+'</td>';
     h += '<td class="center nowrap" style="font-size:11px;color:#64748b;">'+new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</td>';

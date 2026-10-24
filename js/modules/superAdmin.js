@@ -179,7 +179,9 @@ function _renderUsersTab() {
 
   users.forEach(u => {
     const signedUp = new Date(u.created_at);
-    const lastActive = u.last_sign_in ? new Date(u.last_sign_in) : null;
+    // last_active = latest of app session refresh, data saved, sign-in (admin-data edge fn).
+    const lastSeen = u.last_active || u.last_sign_in;
+    const lastActive = lastSeen ? new Date(lastSeen) : null;
     const daysAgo = lastActive ? Math.floor((now - lastActive) / 86400000) : 999;
     const activeColor = daysAgo === 0 ? '#ef8420' : daysAgo <= 7 ? '#f59e0b' : '#ef4444';
     const activeLabel = daysAgo === 0 ? 'Today' : daysAgo <= 1 ? 'Yesterday' : lastActive ? `${daysAgo}d ago` : 'Never';
@@ -187,7 +189,7 @@ function _renderUsersTab() {
     // Trial status
     const trialEnd = u.trial_ends ? new Date(u.trial_ends) : new Date(signedUp.getTime() + 6 * 86400000);
     const trialDaysLeft = Math.max(0, Math.ceil((trialEnd - now) / 86400000));
-    const isTrial = u.org_plan === 'free' || !u.org_plan;
+    const isTrial = u.payment_status ? !['paid', 'manual'].includes(u.payment_status) : (u.org_plan === 'free' || !u.org_plan);
     const trialExpired = isTrial && trialDaysLeft <= 0;
 
     let statusHtml = '';
