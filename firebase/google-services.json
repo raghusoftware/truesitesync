@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "226909588628",
+    "project_id": "true-site-sync-d19df",
+    "storage_bucket": "true-site-sync-d19df.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:226909588628:android:cc2150ae34b7b78865b881",
+        "android_client_info": {
+          "package_name": "com.truesitesync.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCC0gtg4MIVE00SP7JM9sDneGyam7Zrl0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
