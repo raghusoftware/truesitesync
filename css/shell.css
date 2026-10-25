@@ -249,20 +249,25 @@ button.lab-dnav:disabled { color: #c7cfdb; cursor: default; }
 .lab-sum > div:last-child { border-right: none; }
 .lab-sum b { display: block; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lab-sum small { font-size: 12px; color: var(--ts-muted); }
-.lab-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
-.lab-card { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; box-shadow: var(--ts-shadow); padding: 14px 10px 14px 14px; }
+/* minmax(0, …) + min-width:0: cards shrink to the screen instead of growing to their content */
+.lab { min-width: 0; max-width: 100%; }
+.lab-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 12px; }
+.lab-list > *, .lab-sum > * { min-width: 0; }
+.lab-card { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; box-shadow: var(--ts-shadow); padding: 14px 10px 14px 14px; min-width: 0; overflow: hidden; }
 .lab-top { display: flex; align-items: flex-start; gap: 12px; }
 .lab-av { width: 44px; height: 44px; border-radius: 999px; background: #fff1e8; color: var(--ts-blue); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; flex-shrink: 0; overflow: hidden; }
 .lab-av img { width: 100%; height: 100%; object-fit: cover; }
 .lab-meta { flex: 1; min-width: 0; }
 button.lab-name { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; font-size: 16px !important; font-weight: 700 !important; color: var(--ts-ink); text-align: left; max-width: 100%; min-height: 0 !important; border-radius: 0 !important; }
 button.lab-name svg { color: var(--ts-muted); flex-shrink: 0; }
-.lab-trade { font-size: 13px; color: var(--ts-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lab-pay { text-align: right; flex-shrink: 0; }
+.lab-trade { font-size: 13px; color: var(--ts-muted); margin-top: 3px; overflow-wrap: anywhere; }
+.lab-pay { text-align: right; flex-shrink: 0; max-width: 42%; cursor: pointer; }
+.lab-pay b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lab-pay b { display: block; font-size: 15px; font-weight: 700; color: var(--ts-ink); }
 .lab-pay b.due { color: var(--ts-blue); }
 .lab-pay small { font-size: 11px; color: var(--ts-muted); }
-.lab-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 4px 0 0; }
+.lab-btns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 4px 0 0; }
+button.lab-b { min-width: 0 !important; padding: 0 !important; overflow: hidden; white-space: nowrap; }
 button.lab-b { height: 42px; border-radius: 8px !important; border: 1.5px solid transparent; font-size: 15px !important; font-weight: 700 !important; min-height: 0 !important; transition: background .12s, color .12s; }
 button.lab-b.p { background: #e9f7ee; color: #15803d; }
 button.lab-b.a { background: #fdecea; color: #d92d20; }
@@ -273,9 +278,76 @@ button.lab-b.a.on { background: #dc2626; color: #fff; }
 button.lab-b.h.on { background: #64748b; color: #fff; }
 button.lab-b.ot.on { background: #ea580c; color: #fff; }
 @media (max-width: 768px) {
-  .lab-list { grid-template-columns: 1fr; }
+  .lab-list { grid-template-columns: minmax(0, 1fr); }
   .lab-sum b { font-size: 16px; }
 }
+@media (max-width: 380px) {
+  .lab-top { gap: 8px; }
+  .lab-av { width: 38px; height: 38px; font-size: 15px; }
+  .lab-pay b { font-size: 14px; }
+  .lab-sum b { font-size: 14px; }
+  .lab-sum small { font-size: 11px; }
+}
+
+/* Worker panel — payments & attendance (labourWorker.js) */
+.lw-overlay { position: fixed; inset: 0; z-index: 200000; background: rgba(15, 23, 42, .5); display: flex; align-items: flex-end; justify-content: center; }
+.lw-sheet { background: #f6f7f9; width: 100%; max-width: 560px; max-height: 92vh; border-radius: 18px 18px 0 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 -10px 40px rgba(0,0,0,.25); padding-bottom: env(safe-area-inset-bottom); }
+@media (min-width: 769px) { .lw-overlay { align-items: center; } .lw-sheet { border-radius: 18px; } }
+.lw-grab { width: 40px; height: 4px; border-radius: 4px; background: #cbd2dc; margin: 8px auto 0; }
+.lw-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px 12px; background: #fff; border-bottom: 1px solid var(--ts-line); }
+.lw-who { flex: 1; min-width: 0; }
+.lw-who b { display: block; font-size: 17px; color: var(--ts-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lw-who small { font-size: 13px; color: var(--ts-muted); }
+button.lw-x { width: 36px; height: 36px; min-height: 0 !important; border: none; border-radius: 10px !important; background: #f1f3f6; color: #4b5563; font-size: 15px; flex-shrink: 0; }
+.lw-body { overflow-y: auto; padding: 12px 14px 16px; -webkit-overflow-scrolling: touch; }
+.lw-filter { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; padding: 10px; }
+.lw-chips { display: flex; gap: 6px; }
+.lw-chips .ts-chip { flex: 1; justify-content: center; }
+.lw-step { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-weight: 700; color: var(--ts-ink); }
+.lw-step button { width: 40px; height: 36px; min-height: 0 !important; border: none; border-radius: 8px !important; background: #f6f7f9; color: var(--ts-blue); font-size: 22px; line-height: 1; }
+.lw-step button:disabled { color: #c7cfdb; }
+.lw-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.lw-dates label { font-size: 11px; font-weight: 700; color: var(--ts-muted); text-transform: uppercase; min-width: 0; }
+.lw-dates input { display: block; width: 100%; margin-top: 3px; padding: 8px; border: 1px solid var(--ts-line); border-radius: 8px; font-size: 14px; background: #fff; min-width: 0; }
+.lw-period { margin-top: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--ts-ink); }
+.lw-paid { margin-top: 12px; border-radius: 14px; padding: 14px 16px; color: #fff; background: linear-gradient(135deg, #15803d, #1f8a3b 55%, #22a04b); }
+.lw-paid small { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; opacity: .85; }
+.lw-paid b { display: block; font-size: 28px; font-weight: 800; margin: 2px 0; overflow-wrap: anywhere; }
+.lw-paid span { font-size: 12px; opacity: .9; }
+.lw-money { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.lw-money > div { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; padding: 10px; min-width: 0; }
+.lw-money small { display: block; font-size: 11px; color: var(--ts-muted); }
+.lw-money b { display: block; font-size: 14px; font-weight: 700; color: var(--ts-ink); margin-top: 2px; overflow-wrap: anywhere; }
+.lw-money b.due { color: var(--ts-blue); }
+.lw-att { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; margin-top: 10px; }
+.lw-att > div { text-align: center; padding: 10px 2px; border-right: 1px solid var(--ts-line); }
+.lw-att > div:last-child { border-right: none; }
+.lw-att b { display: block; font-size: 18px; font-weight: 800; }
+.lw-att small { font-size: 11px; color: var(--ts-muted); }
+.lw-att .p { color: #15803d; } .lw-att .h { color: #b45309; } .lw-att .a { color: #d92d20; } .lw-att .ot { color: #c2410c; }
+.lw-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; padding: 10px; margin-top: 10px; }
+.lw-cal-h { text-align: center; font-size: 10px; font-weight: 700; color: var(--ts-muted); }
+.lw-day { position: relative; display: flex; align-items: center; justify-content: center; height: 30px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #9aa3b2; background: #f3f5f8; }
+.lw-day.p { background: #dcfce7; color: #15803d; }
+.lw-day.h { background: #fef3c7; color: #b45309; }
+.lw-day.a { background: #fee2e2; color: #d92d20; }
+.lw-day.future { background: transparent; color: #d4d9e1; }
+.lw-day i { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: #ea580c; }
+.lw-sec { margin: 14px 2px 6px; font-size: 12px; font-weight: 800; color: var(--ts-muted); text-transform: uppercase; letter-spacing: .4px; }
+.lw-txs { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; }
+.lw-tx { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--ts-line); }
+.lw-tx:last-child { border-bottom: none; }
+.lw-tx div { min-width: 0; }
+.lw-tx b { display: block; font-size: 14px; color: var(--ts-ink); }
+.lw-tx small { display: block; font-size: 12px; color: var(--ts-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lw-tx span { font-weight: 800; font-size: 14px; flex-shrink: 0; }
+.lw-tx .paid { color: #15803d; } .lw-tx .adv { color: #b45309; } .lw-tx .ded { color: #d92d20; }
+.lw-none { padding: 16px; text-align: center; font-size: 13px; color: var(--ts-muted); }
+.lw-overall { margin-top: 10px; font-size: 12px; color: var(--ts-muted); text-align: center; }
+.lw-overall b { color: var(--ts-ink); }
+.lw-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; background: #fff; border-top: 1px solid var(--ts-line); }
+button.lw-btn { height: 46px; min-height: 0 !important; border: none; border-radius: 12px !important; background: var(--ts-blue); color: #fff; font-weight: 800; font-size: 15px; }
+button.lw-btn.ghost { background: #fff; color: var(--ts-ink); border: 1.5px solid var(--ts-line); }
 
 /* Petty cash accounts */
 .pc-acct { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--ts-line); border-left: 4px solid #1f2937; border-radius: 10px; padding: 14px 16px; box-shadow: var(--ts-shadow); cursor: pointer; }
@@ -433,3 +505,5 @@ body #paymentsHubView .pmt-main, body #paymentsHubView .pmt-card { min-width: 0;
   #appContainer main { padding-left: 0 !important; padding-right: 0 !important; }
   .tx .tsp-sum b { font-size: 15px; }
 }
+/* Labour filter chips wrap instead of scrolling sideways */
+.lab .ts-chips { flex-wrap: wrap; overflow: visible; }

@@ -81,7 +81,7 @@ import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
-import './modules/labourHome.js?v=1.0.1';
+import './modules/labourHome.js?v=1.0.2';
 import './modules/calcTools.js?v=1.0.1';
 import './modules/appShell.js?v=1.0.9';
 import './modules/wps.js?v=1.0.2';

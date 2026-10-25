@@ -81,3 +81,74 @@ export function dayLabel(date, today = todayISO()) {
   const wd = 'Sun Mon Tue Wed Thu Fri Sat'.split(' ')[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${wd}, ${base}`;
 }
+
+/* ── Worker period summary (worker panel + muster card PDF) ── */
+
+/** Day wage rules — same as the attendance sheet: half day = ½, OT at 1.5× of rate/8. */
+export function wagesFor(rate, present, half, otHours) {
+  const r = Number(rate) || 0;
+  return Math.round((present + half * 0.5) * r + otHours * (r / 8) * 1.5);
+}
+
+/** Every YYYY-MM-DD from `from` to `to` inclusive (max ~1 year). */
+export function dateRange(from, to) {
+  const out = [];
+  for (let d = from; d <= to && out.length < 400; d = shiftDate(d, 1)) out.push(d);
+  return out;
+}
+
+/**
+ * Period presets for the worker panel filter.
+ * kind: 'month' (offset months from today's month) · 'week' (Mon → today) · 'custom'
+ */
+export function periodRange(kind, { offset = 0, from, to } = {}, today = todayISO()) {
+  if (kind === 'custom') {
+    const f = from || today, t = to || today;
+    return f <= t ? { from: f, to: t } : { from: t, to: f };
+  }
+  if (kind === 'week') {
+    const [y, m, d] = today.split('-').map(Number);
+    const wd = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; // Mon = 0
+    return { from: shiftDate(today, -wd), to: today };
+  }
+  const [y, m] = today.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1 + offset, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
+  return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) };
+}
+
+const _inRange = (d, from, to) => !!d && d >= from && d <= to;
+const _amt = (v) => parseFloat(v) || 0;
+
+/**
+ * Attendance + money for one worker over [from, to].
+ * `settle` returns what a payment clears (cash + deductions); defaults to amount.
+ * Paid = wage payments in the period; advances / deductions are listed separately.
+ */
+export function workerPeriod({ worker, logs = [], payments = [], advances = [], deductions = [], from, to, settle = (p) => _amt(p.amount) }) {
+  const id = worker && worker.id;
+  const byDate = {};
+  logs.forEach(a => { if (a.labourId === id && _inRange(a.date, from, to)) byDate[a.date] = a; });
+  const days = dateRange(from, to).map(date => {
+    const a = byDate[date];
+    return { date, status: a ? a.status : '', ot: a ? (Number(a.ot) || 0) : 0, night: !!(a && a.shift === 'Night') };
+  });
+  const count = (s) => days.filter(d => d.status === s).length;
+  const present = count('P'), half = count('H'), absent = count('A');
+  const otHours = days.reduce((s, d) => s + d.ot, 0);
+  const earned = wagesFor(worker && worker.dayRate, present, half, otHours);
+  const mine = (list) => list.filter(r => r.labourId === id && _inRange(r.date, from, to)).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const payList = mine(payments).map(p => ({ ...p, paid: settle(p) }));
+  const advList = mine(advances);
+  const dedList = mine(deductions);
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const paid = r2(payList.reduce((s, p) => s + p.paid, 0));
+  const advance = r2(advList.reduce((s, a) => s + _amt(a.amount), 0));
+  const deduction = r2(dedList.reduce((s, d) => s + _amt(d.amount), 0));
+  return {
+    from, to, days, present, half, absent, unmarked: days.length - present - half - absent,
+    otHours, earned, paid, advance, deduction,
+    balance: r2(earned - paid - advance - deduction),
+    payments: payList, advances: advList, deductions: dedList,
+  };
+}

@@ -2,11 +2,13 @@
  * labourHome.js — Labour Attendance, the landing screen of the Labour module:
  * date ‹ › · search · Present / Absent / Half Day / To Pay · one card per worker
  * with P · A · H · OT buttons that save on tap · + Labour Options sheet.
+ * Tapping a worker opens their payments & attendance panel (labourWorker.js).
  * Older screens (monthly sheet, labour list, contractors, piece-rate) open as
  * sections from the Options sheet. Attendance rules live in labourCalc.js.
  */
 import { state, saveLabourData, keepOnly } from './state.js';
 import * as LC from './labourCalc.js';
+import './labourWorker.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cur = () => (typeof window.getCurrencySymbol === 'function' ? window.getCurrencySymbol() : '₹');
@@ -67,13 +69,20 @@ function workerMenu(labourId) {
   const l = workers().find(w => w.id === labourId);
   if (!l) return;
   window.shellSheet?.(l.name || 'Worker', [
-    { icon: '📒', title: 'Ledger', desc: 'Wages earned, payments & balance', run: () => openLedger(labourId) },
+    { icon: '💳', title: 'Payments & attendance', desc: 'Amount paid, wages and days — filter by month', run: () => window.openLabourWorkerPanel?.(labourId) },
+    { icon: '📒', title: 'Full party ledger', desc: 'Every entry for this worker across projects', run: () => openLedger(labourId) },
     { icon: '💸', title: 'Pay', desc: 'Record a payment to this worker', run: () => window.openLabourPaymentModal?.(labourId) },
     { icon: '🪙', title: 'Advance (kharchi)', desc: 'Cash given before wages', run: () => window._recordAdvance?.() },
-    { icon: '📋', title: 'Muster card', desc: 'Monthly attendance card (PDF)', run: () => window._musterCardChooser?.() },
+    { icon: '📋', title: 'Muster card (this month)', desc: 'Attendance + total paid, as PDF', run: () => window.exportLabourMusterCard?.(labourId, ...monthBounds()) },
     { icon: '✏️', title: 'Edit details', desc: 'Name, trade, day rate, documents', run: () => window.openLabourModal?.(labourId) },
     { icon: '🗑️', title: 'Delete', desc: 'Remove this worker', danger: true, run: () => { window.deleteLabour?.(labourId); renderLabourHome(); } },
   ]);
+}
+
+/** First and last day of the month being viewed on the attendance screen. */
+function monthBounds() {
+  const r = LC.periodRange('month', {}, _date);
+  return [r.from, r.to];
 }
 
 function openLedger(labourId) {
@@ -100,6 +109,7 @@ function optionsSheet() {
   window.shellSheet?.(`${T} Options`, [
     { icon: '➕', title: `Add New ${T}`, desc: `Create a new ${T.toLowerCase()} record for this project`, run: () => window.openLabourModal?.() },
     { icon: '✅', title: 'Mark all present', desc: `Everyone in the list for ${LC.dayLabel(_date)}`, run: () => markAll('P') },
+    { icon: '📋', title: 'Muster card for the month', desc: 'One worker — attendance + total paid (PDF)', run: () => musterPicker() },
     { icon: '🗓️', title: 'Monthly attendance sheet', desc: 'Days present, half days & wages per worker', run: () => window._openLabourSection?.('sheet') },
     { icon: '👥', title: `All ${T} list`, desc: 'Details, rates, documents & PPE', run: () => window._openLabourSection?.('master') },
     { icon: '🧑‍🔧', title: 'Contractors / gangs', desc: 'Mukadam & gang payouts', run: () => window._openLabourSection?.('contractors') },
@@ -113,6 +123,16 @@ function optionsSheet() {
       const d = document.getElementById('attDate'); if (d) d.value = _date; window._dailyMusterRoll?.();
     } },
   ]);
+}
+
+/** Pick a worker, then export their muster card for the viewed month. */
+function musterPicker() {
+  const [from, to] = monthBounds();
+  const ws = workers();
+  if (!ws.length) { window.showToast?.('No workers yet', 'error'); return; }
+  window.shellSheet?.(`Muster card — ${LC.dayLabel(from).replace(/^.*?, \d+ /, '')}`, ws.map(w => ({
+    icon: '👷', title: w.name || 'Worker', desc: w.trade || '', run: () => window.exportLabourMusterCard?.(w.id, from, to),
+  })));
 }
 
 function filtered() {
@@ -143,10 +163,10 @@ export function renderLabourHome() {
       <div class="lab-top">
         <div class="lab-av">${av}</div>
         <div class="lab-meta">
-          <button type="button" class="lab-name" onclick="window._labLedger('${esc(w.id)}')">${esc(w.name || 'Worker')} ${ico.go}</button>
+          <button type="button" class="lab-name" onclick="window._labWorker('${esc(w.id)}')">${esc(w.name || 'Worker')} ${ico.go}</button>
           <div class="lab-trade">${esc(w.trade || T)}${w.dayRate ? ` · ${money(w.dayRate).replace(/\.00$/, '')}/day` : ''}</div>
         </div>
-        <div class="lab-pay"><b class="${pay > 0 ? 'due' : ''}">${money(pay)}</b><small>${pay < 0 ? 'Advance' : 'To Pay'}</small></div>
+        <div class="lab-pay" role="button" tabindex="0" onclick="window._labWorker('${esc(w.id)}')"><b class="${pay > 0 ? 'due' : ''}">${money(pay)}</b><small>${pay < 0 ? 'Advance' : 'To Pay'}</small></div>
         <button type="button" class="ts-kebab" onclick="window._labMenu('${esc(w.id)}')" aria-label="Worker options">${ico.dots}</button>
       </div>
       <div class="lab-btns" role="group" aria-label="Attendance">
@@ -189,6 +209,7 @@ if (typeof window !== 'undefined') {
   window._labOT = otSheet;
   window._labMenu = workerMenu;
   window._labLedger = openLedger;
+  window._labWorker = (id) => window.openLabourWorkerPanel?.(id);
   window._labChip = (c) => { _chip = c; renderLabourHome(); };
   window._labSearch = (q) => { _q = q; renderLabourHome(); };
   window._labDay = (d) => { const n = LC.shiftDate(_date, d); if (n <= LC.todayISO()) { _date = n; renderLabourHome(); } };
