@@ -163,6 +163,9 @@ export function handleBack() {
   const sheet = document.querySelector('.fullscreen-sheet');
   if (sheet) { goBackView(); return true; }
 
+  // 3a. Chat: thread panel → conversation → channel list
+  try { if (window.chatHandleBack?.()) return true; } catch {}
+
   // 3b. Close an open module section (e.g. Material Received → Manage Materials)
   try { if (window.shellCloseSection?.()) return true; } catch {}
 
