@@ -8,7 +8,8 @@ import { lookupBoqItem } from './abstractCalc.js';
 import { projectBoqRate } from './estimateCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
-import { materialIcon } from './inventoryCalc.js';
+import { materialIcon, transferMovesStock } from './inventoryCalc.js';
+import { pcPage, pcStats, pcCard, pcField, pcForm, pcPill, pcItem, pcList, pcEsc, pcDate } from './pcKit.js';
 import './grnPicker.js';
 import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
@@ -1839,8 +1840,9 @@ export function renderLiveInventory() {
     if (tx.type === 'OUT') stockMap[tx.rawMaterialId].out += tx.qty;
     if (tx.type === 'CONSUME') stockMap[tx.rawMaterialId].consume += tx.qty;
   });
-  let locTxIn = state.itemTransfers.filter(t => t.toLocId === siteId);
-  let locTxOut = state.itemTransfers.filter(t => t.fromLocId === siteId);
+  // Material Transfers already wrote OUT/IN inventory entries — count only the rest.
+  let locTxIn = state.itemTransfers.filter(t => t.toLocId === siteId && transferMovesStock(t));
+  let locTxOut = state.itemTransfers.filter(t => t.fromLocId === siteId && transferMovesStock(t));
   locTxIn.forEach(t => { if (stockMap[t.assetId]) stockMap[t.assetId].in += t.qty; });
   locTxOut.forEach(t => { if (stockMap[t.assetId]) stockMap[t.assetId].out += t.qty; });
   for (const key in stockMap) {
@@ -1877,7 +1879,7 @@ function _materialSOH(matId, siteId) {
     else bal -= (tx.qty || 0); // OUT, CONSUME, ISSUE
   });
   (state.itemTransfers || []).forEach(t => {
-    if (t.assetId === matId) {
+    if (t.assetId === matId && transferMovesStock(t)) {   // Material Transfers already wrote inventoryTx
       if (t.toLocId === siteId) bal += (t.qty || 0);
       if (t.fromLocId === siteId) bal -= (t.qty || 0);
     }
@@ -3820,27 +3822,38 @@ window._calcWastage=function(){
   </div>`;
 };
 
-// ─── 3. Returnable Tools ───
+// ─── 3. Tools (issued to workers, tracked until returned) ───
 function _renderTools() {
   const c=document.getElementById('toolsContent'); if(!c) return;
-  const labOpts=_projectLabour().map(l=>`<option value="${l.id}">${l.name}</option>`).join('')||'<option value="">No workers</option>';
-  const outstanding=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId&&!t.returned);
-  const all=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId).slice(-15).reverse();
-  c.innerHTML=`
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">🔧 Issue Tool / Scaffolding to Worker</h4>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <select id="tiLabour" class="p-2 border rounded-lg text-sm bg-white">${labOpts}</select>
-        <input id="tiTool" placeholder="Tool (e.g. Drill, 50 scaffold tubes)" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="tiValue" type="number" placeholder="Value ${getCurrencySymbol().trim()} (for penalty)" class="p-2 border rounded-lg text-sm outline-none">
-        <button onclick="_saveToolIssue()" class="bg-violet-600 text-white rounded-lg font-bold text-sm hover:bg-violet-700">Issue Tool</button>
-      </div>
-    </div>
-    <div class="bg-white border rounded-xl overflow-hidden">
-      <div class="p-3 border-b font-bold text-slate-700 text-sm">${outstanding.length} tools currently held</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Worker</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Tool</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
-      ${all.map(t=>{const l=(state.labourMaster||[]).find(x=>x.id===t.labourId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${l?.name||'—'}</td><td class="px-3 py-2">${t.tool}</td><td class="px-3 py-2 text-right">${getCurrencySymbol()}${(t.value||0).toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${t.returned?`<span style="font-size:10px;color:#d6402c;font-weight:700;">✓ Returned</span>`:`<button onclick="_returnTool('${t.id}')" style="font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Return</button>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No tools issued.</td></tr>'}
-      </tbody></table></div>`;
+  const cur=getCurrencySymbol();
+  const labOpts=_projectLabour().map(l=>`<option value="${l.id}">${pcEsc(l.name)}</option>`).join('')||'<option value="">No workers yet</option>';
+  const mine=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId);
+  const held=mine.filter(t=>!t.returned).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const returned=mine.filter(t=>t.returned).sort((a,b)=>String(b.returnedDate||b.date).localeCompare(String(a.returnedDate||a.date))).slice(0,15);
+  const atRisk=held.reduce((s,t)=>s+(Number(t.value)||0),0);
+  const worker=(id)=>(state.labourMaster||[]).find(x=>x.id===id)?.name||'—';
+  const money=(n)=>cur+(Number(n)||0).toLocaleString('en-IN');
+  c.innerHTML=pcPage(
+    pcStats([
+      { label:'Out now', value:held.length, tone:'brand', hint:'with workers' },
+      { label:'Value out', value:money(atRisk), tone:'amber', hint:'if not returned' },
+      { label:'Returned', value:mine.length-held.length, tone:'green', hint:'all time' },
+    ]),
+    pcCard({ icon:'🔧', title:'Issue a tool', sub:'Hand a tool or scaffolding to a worker — tracked until it comes back', tone:'violet', body:
+      pcForm(
+        pcField('Worker', `<select id="tiLabour" class="pc-in">${labOpts}</select>`),
+        pcField(`Value (${cur.trim()})`, `<input id="tiValue" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField('Tool', `<input id="tiTool" class="pc-in" placeholder="e.g. Drill, 50 scaffold tubes">`, { wide:true, hint:'Value is charged to the worker if the tool is lost or damaged' }),
+      )+`<button type="button" class="pc-btn violet" onclick="_saveToolIssue()">Issue tool</button>` }),
+    pcCard({ icon:'👷', title:'With workers now', sub:'Tap Return when a tool comes back', tone:'brand', flush:true,
+      action:`<span class="pc-count">${held.length}</span>`,
+      body:pcList(held.map(t=>pcItem({ icon:'🔧', tone:'violet', title:t.tool,
+        meta:[pcEsc(worker(t.labourId)), 'Issued '+pcDate(t.date), money(t.value)],
+        right:`<button type="button" class="pc-act" onclick="_returnTool('${t.id}')">Return</button>` })), 'No tools are out with workers.') }),
+    returned.length ? pcCard({ icon:'✅', title:'Recently returned', tone:'green', flush:true,
+      body:pcList(returned.map(t=>pcItem({ icon:'✓', tone:'green', title:t.tool,
+        meta:[pcEsc(worker(t.labourId)), 'Returned '+pcDate(t.returnedDate||t.date)], right:pcPill('Returned','green') })), '') }) : '',
+  );
 }
 window._saveToolIssue=function(){
   const labourId=document.getElementById('tiLabour').value, tool=document.getElementById('tiTool').value.trim();
@@ -3863,26 +3876,36 @@ window._returnTool=function(id){
 // ─── 4. Inter-Site Transfer ───
 function _renderInvTransfer() {
   const c=document.getElementById('invTransferContent'); if(!c) return;
-  const transfers=(state.itemTransfers||[]).slice(-15).reverse();
-  c.innerHTML=`
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">🔄 Inter-Site Material Transfer</h4>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-2">
-        <select id="itFrom" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <select id="itTo" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <input id="itVehicle" placeholder="Vehicle No" class="p-2 border rounded-lg text-sm outline-none">
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <select id="itMat" onchange="syncUnitPicker('itMat','itQtyUnit')" class="p-2 border rounded-lg text-sm bg-white">${_matOptions()}</select>
-        <input id="itQty" type="number" placeholder="Qty to dispatch" class="p-2 border rounded-lg text-sm outline-none">
-        ${_unitPicker('itQtyUnit')}
-        <button onclick="_initTransfer()" class="bg-cyan-600 text-white rounded-lg font-bold text-sm hover:bg-cyan-700">Dispatch (In-Transit)</button>
-      </div>
-    </div>
-    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Transfers</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">From → To</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
-      ${transfers.map(t=>{const m=state.rawMaterials.find(r=>r.id===t.assetId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2">${_invSiteName(t.fromLocId)} → ${_invSiteName(t.toLocId)}</td><td class="px-3 py-2 text-right font-bold">${t.qty}${t.receivedQty!=null&&t.receivedQty!==t.qty?` (rcv ${t.receivedQty})`:''}</td><td class="px-3 py-2 text-center">${t.status==='IN_TRANSIT'?`<button onclick="_receiveTransfer('${t.id}')" style="font-size:10px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:2px 8px;font-weight:700;cursor:pointer;">Receive</button>`:`<span style="font-size:10px;color:#d6402c;font-weight:700;">✓ Received</span>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No transfers.</td></tr>'}
-      </tbody></table></div>`;
+  const all=(state.itemTransfers||[]);
+  const transit=all.filter(t=>t.status==='IN_TRANSIT');
+  const recent=all.slice(-20).reverse();
+  const short=all.filter(t=>t.receivedQty!=null&&t.receivedQty<t.qty).length;
+  const mat=(id)=>state.rawMaterials.find(r=>r.id===id);
+  c.innerHTML=pcPage(
+    pcStats([
+      { label:'In transit', value:transit.length, tone:'amber', hint:'awaiting receipt' },
+      { label:'Received', value:all.length-transit.length, tone:'green', hint:'all time' },
+      { label:'Short received', value:short, tone:short?'red':'slate', hint:'qty variance' },
+    ]),
+    pcCard({ icon:'🔄', title:'Dispatch material', sub:'Send stock from one site or store to another', tone:'cyan', body:
+      pcForm(
+        pcField('From', `<select id="itFrom" class="pc-in">${_invSiteOptions()}</select>`),
+        pcField('To', `<select id="itTo" class="pc-in">${_invSiteOptions()}</select>`),
+        pcField('Material', `<select id="itMat" class="pc-in" onchange="syncUnitPicker('itMat','itQtyUnit')">${_matOptions()}</select>`, { wide:true }),
+        pcField('Quantity', `<input id="itQty" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField('Unit', `<select id="itQtyUnit" class="pc-in"></select>`),
+        pcField('Vehicle no.', `<input id="itVehicle" class="pc-in" placeholder="e.g. GJ-01-AB-1234">`, { wide:true }),
+      )+`<button type="button" class="pc-btn cyan" onclick="_initTransfer()">Dispatch · mark in transit</button>` }),
+    pcCard({ icon:'🚛', title:'Transfers', sub:'Tap Receive when the vehicle arrives', tone:'brand', flush:true,
+      action:`<span class="pc-count">${recent.length}</span>`,
+      body:pcList(recent.map(t=>{ const m=mat(t.assetId); const u=m?.unit||'';
+        const shortBy=t.receivedQty!=null&&t.receivedQty<t.qty;
+        return pcItem({ icon:'📦', tone:t.status==='IN_TRANSIT'?'amber':'green', title:m?.name||'Material',
+          meta:[`<b>${(Number(t.qty)||0).toLocaleString('en-IN')} ${pcEsc(u)}</b>`, `${pcEsc(_invSiteName(t.fromLocId))} → ${pcEsc(_invSiteName(t.toLocId))}`, pcDate(t.date), t.vehicleNo?pcEsc(t.vehicleNo):''],
+          right:t.status==='IN_TRANSIT'
+            ? `<button type="button" class="pc-act amber" onclick="_receiveTransfer('${t.id}')">Receive</button>`
+            : (shortBy ? pcPill(`Short ${(t.qty-t.receivedQty).toLocaleString('en-IN')}`,'red') : pcPill('Received','green')) }); }), 'No transfers yet.') }),
+  );
   syncUnitPicker('itMat', 'itQtyUnit');
 }
 window._initTransfer=function(){
@@ -3911,23 +3934,31 @@ window._receiveTransfer=function(id){
 // ─── 5. Physical Audit ───
 function _renderInvAudit() {
   const c=document.getElementById('invAuditContent'); if(!c) return;
-  const audits=(state.stockAudits||[]).filter(a=>a.projectId===state.currentProjectId).slice(-15).reverse();
-  c.innerHTML=`
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">📋 Physical Stock Audit</h4>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <select id="auSite" class="p-2 border rounded-lg text-sm bg-white">${_invSiteOptions()}</select>
-        <select id="auMat" class="p-2 border rounded-lg text-sm bg-white" onchange="syncUnitPicker('auMat','auQtyUnit');_auShowBook()">${_matOptions()}</select>
-        <input id="auActual" type="number" placeholder="Physical count" class="p-2 border rounded-lg text-sm outline-none">
-        ${_unitPicker('auQtyUnit')}
-        <button onclick="_saveAudit()" class="bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700">Reconcile</button>
-      </div>
-      <p id="auBook" class="text-xs text-slate-500 mt-2"></p>
-    </div>
-    <div class="bg-white border rounded-xl overflow-hidden"><div class="p-3 border-b font-bold text-slate-700 text-sm">Audit History</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Book</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Physical</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Variance</th></tr></thead><tbody>
-      ${audits.map(a=>{const m=state.rawMaterials.find(r=>r.id===a.matId);return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${a.date}</td><td class="px-3 py-2 font-bold">${m?.name||'—'}</td><td class="px-3 py-2 text-right">${a.book.toFixed(1)}</td><td class="px-3 py-2 text-right">${a.actual.toFixed(1)}</td><td class="px-3 py-2 text-right font-bold" style="color:${Math.abs(a.variance)>0?(a.variance<0?'#dc2626':'#d6402c'):'#64748b'};">${a.variance>0?'+':''}${a.variance.toFixed(1)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="p-5 text-center text-slate-400">No audits yet.</td></tr>'}
-      </tbody></table></div>`;
+  const mine=(state.stockAudits||[]).filter(a=>a.projectId===state.currentProjectId);
+  const audits=mine.slice(-20).reverse();
+  const shortages=mine.filter(a=>a.variance<-0.0001).length;
+  const matched=mine.filter(a=>Math.abs(a.variance)<=0.0001).length;
+  const fmt=(n)=>(Math.round((Number(n)||0)*10)/10).toLocaleString('en-IN');
+  c.innerHTML=pcPage(
+    pcStats([
+      { label:'Audits', value:mine.length, tone:'brand', hint:'this project' },
+      { label:'Matched', value:matched, tone:'green', hint:'count = book' },
+      { label:'Shortages', value:shortages, tone:shortages?'red':'slate', hint:'less than book' },
+    ]),
+    pcCard({ icon:'🔍', title:'Count stock', sub:'Enter what is physically on site — stock is corrected to your count', tone:'red', body:
+      pcForm(
+        pcField('Site / store', `<select id="auSite" class="pc-in" onchange="_auShowBook()">${_invSiteOptions()}</select>`, { wide:true }),
+        pcField('Material', `<select id="auMat" class="pc-in" onchange="syncUnitPicker('auMat','auQtyUnit');_auShowBook()">${_matOptions()}</select>`, { wide:true }),
+        pcField('Physical count', `<input id="auActual" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField('Unit', `<select id="auQtyUnit" class="pc-in"></select>`),
+      )+`<div class="pc-note" id="auBook"></div><button type="button" class="pc-btn red" onclick="_saveAudit()">Reconcile stock</button>` }),
+    pcCard({ icon:'📋', title:'Audit history', tone:'brand', flush:true, action:`<span class="pc-count">${audits.length}</span>`,
+      body:pcList(audits.map(a=>{ const m=state.rawMaterials.find(r=>r.id===a.matId); const u=m?.unit||'';
+        const v=a.variance; const tone=Math.abs(v)<=0.0001?'green':(v<0?'red':'amber');
+        return pcItem({ icon:'📋', tone, title:m?.name||'Material',
+          meta:[pcDate(a.date), `Book ${fmt(a.book)} ${u}`, `Counted ${fmt(a.actual)} ${u}`],
+          right:pcPill(Math.abs(v)<=0.0001?'Matched':`${v>0?'+':''}${fmt(v)} ${u}`, tone) }); }), 'No audits yet.') }),
+  );
   syncUnitPicker('auMat', 'auQtyUnit');
   _auShowBook();
 }
@@ -3935,7 +3966,7 @@ window._auShowBook=function(){
   const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;
   const book=_materialSOH(matId,siteId);
   const m=state.rawMaterials.find(r=>r.id===matId);
-  document.getElementById('auBook').textContent=`Book stock: ${book.toFixed(1)} ${m?.unit||''}`;
+  const el=document.getElementById('auBook'); if(el) el.innerHTML=`Book stock here: <b>${(Math.round(book*10)/10).toLocaleString('en-IN')} ${m?.unit||''}</b>`;
 };
 window._saveAudit=function(){
   const siteId=document.getElementById('auSite').value, matId=document.getElementById('auMat').value;

@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.41';
+} from './modules/ui.js?v=1.7.42';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.28';
@@ -83,7 +83,7 @@ import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
 import './modules/labourHome.js?v=1.0.2';
 import './modules/calcTools.js?v=1.0.1';
-import './modules/appShell.js?v=1.0.9';
+import './modules/appShell.js?v=1.0.10';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';

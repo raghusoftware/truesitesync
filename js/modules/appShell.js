@@ -462,7 +462,7 @@ export function onView(viewId) {
 // and Back closes the section before leaving the module.
 const SECTIONS = {
   labourView: { grid: 'labHomeWrap', fn: '_openLabourSection', titles: { markAtt: 'Mark Attendance', sheet: 'Monthly Attendance', master: 'All Labour', contractors: 'Contractors / Gangs', piecerate: 'Piece-Rate Work' } },
-  inventoryView: { grid: 'invTiles', fn: '_openInvSection', titles: { stock: 'Current Inventory', stores: 'Central Store', grn: 'Material Received', grnregister: 'GRN Register', gang: 'Material Issue', tools: 'Returnable Tools', transfer: 'Material Transfer', audit: 'Physical Audit', statement: 'Stock Register' } },
+  inventoryView: { grid: 'invTiles', fn: '_openInvSection', titles: { stock: 'Current Inventory', stores: 'Central Store', grn: 'Material Received', grnregister: 'GRN Register', gang: 'Material Issue', tools: 'Tools', transfer: 'Material Transfer', audit: 'Physical Audit', statement: 'Stock Register' } },
   equipmentView: { grid: 'eqTiles', fn: '_openEquipSection', titles: { fleet: 'Equipment List', log: 'Usage Entry', activity: 'Usage History', fuel: 'Fuel' } },
 };
 const _openSec = {};

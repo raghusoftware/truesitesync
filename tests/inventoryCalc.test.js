@@ -108,3 +108,19 @@ test('pendingOrders: open PO lines minus quantity received against them', () => 
   ];
   assert.deepEqual(pendingOrders(pos, grns), { cem: 30 + 20 });
 });
+
+test('Material Transfer records are not counted twice (their stock entries already moved it)', () => {
+  const mats = [{ id: 'cem', name: 'Cement', minStock: 1 }];
+  const tx = [
+    { rawMaterialId: 'cem', siteId: 'A', type: 'IN', qty: 500 },
+    { rawMaterialId: 'cem', siteId: 'A', type: 'OUT', qty: 100, ref: 'Transfer out' },
+    { rawMaterialId: 'cem', siteId: 'B', type: 'IN', qty: 95, ref: 'Transfer in' },
+  ];
+  const transfers = [
+    { assetId: 'cem', fromLocId: 'A', toLocId: 'B', qty: 100, status: 'RECEIVED', receivedQty: 95 },
+    { assetId: 'cem', fromLocId: 'A', toLocId: 'B', qty: 10 },   // older move with no stock entries
+  ];
+  const at = (site) => stockRows({ materials: mats, tx, transfers, siteId: site })[0].stock;
+  assert.equal(at('A'), 500 - 100 - 10);
+  assert.equal(at('B'), 95 + 10);
+});

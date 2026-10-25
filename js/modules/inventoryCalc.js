@@ -51,9 +51,20 @@ export function stockMeter(stock, min) {
 }
 
 /**
+ * Does this transfer record move stock by itself? Material Transfer records
+ * (they carry a status: IN_TRANSIT / RECEIVED) already wrote their own OUT and
+ * IN inventory entries, so counting them again would double the movement.
+ * Older tool moves (no status) only exist as the transfer record.
+ */
+export function transferMovesStock(t) {
+  return !!t && !t.status;
+}
+
+/**
  * One row per material that has moved at this site, or has a minimum level set
  * (so an item that ran out still shows as Out of stock).
- * Transfers count only for a specific site (they cancel out across all sites).
+ * Transfers count only for a specific site (they cancel out across all sites),
+ * and only those that did not write their own inventory entries.
  */
 export function stockRows({ materials = [], tx = [], transfers = [], siteId = '' }) {
   const map = new Map();
@@ -66,7 +77,7 @@ export function stockRows({ materials = [], tx = [], transfers = [], siteId = ''
   });
   if (siteId) transfers.forEach(t => {
     const r = map.get(t.assetId);
-    if (!r) return;
+    if (!r || !transferMovesStock(t)) return;
     if (t.toLocId === siteId) { r.in += _n(t.qty); r.moved = true; }
     if (t.fromLocId === siteId) { r.out += _n(t.qty); r.moved = true; }
   });
