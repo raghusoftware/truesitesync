@@ -8,12 +8,13 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.93';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.94';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.93';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';
 import { formatINR, showToast, printReport, getCompanyHeaderForPDF, mobileSavePDF, mobileSaveXLSX, getPdfCurrency } from '../modules/utils.js';
 import { getEntryFormButton, hasEntryForm } from '../modules/formEngine.js';
+import { reportCardsHtml } from '../modules/reportCards.js';
 
 const engine = new ReportEngine();
 
@@ -375,8 +376,30 @@ function _buildFilterBar(reportId) {
 }
 
 // ── Render domain-aware table with multi-level headers, column widths, and aggregate footer ──
+/** One table cell's display value — shared by the table and the phone cards. */
+function _fmtCell(c, val) {
+  if (c.type === 'currency') return formatINR(parseFloat(val) || 0);
+  if (c.type === 'number') return val === '—' ? '—' : (parseFloat(val) || 0).toLocaleString('en-IN');
+  if (c.type === 'percent') return val === '—' ? '—' : (parseFloat(val) || 0).toFixed(1) + '%';
+  if (c.type === 'date') return val || '—';
+  if (c.type === 'badge') {
+    const badgeMap = {
+      'Active': 'emerald', 'Paid': 'emerald', 'Complete': 'emerald', 'Eligible': 'emerald', 'Under Budget': 'emerald', 'Current': 'emerald',
+      'Cancelled': 'red', 'Over Budget': 'red', 'Ineligible': 'red', '90+ Days': 'red',
+      'B2B': 'blue', 'B2CS': 'amber', 'B2CL': 'purple', 'In Progress': 'blue', 'Not Started': 'gray',
+      'Owned': 'blue', 'Rented': 'amber', 'Yes': 'emerald', 'No': 'gray',
+      'Income': 'emerald', 'Expense': 'red', 'Total': 'blue',
+      'Released': 'emerald', 'Held': 'amber', 'Pending': 'amber',
+    };
+    return `<span class="rpt-badge rpt-badge-${badgeMap[val] || 'blue'}">${val}</span>`;
+  }
+  return val;
+}
+
 function _renderDomainTable(rows, columns, headers, aggregateRow, domainDef) {
-  let html = `<table class="rpt-table">`;
+  // Phones get one card per row (reportCards.js); wider screens and print get the table.
+  let html = reportCardsHtml(rows, columns, aggregateRow, domainDef?.card, (c, v) => _fmtCell(c, v));
+  html += `<table class="rpt-table">`;
 
   // Multi-level header row (if defined)
   if (headers && headers.length) {
@@ -403,25 +426,8 @@ function _renderDomainTable(rows, columns, headers, aggregateRow, domainDef) {
     const isTotal = r.type === 'Total' || r._isTotal;
     html += `<tr class="${isTotal ? 'rpt-total-row' : ''}">`;
     columns.forEach(c => {
-      let val = r[c.key] ?? '—';
-      let cls = c.align === 'right' ? 'text-right' : '';
-      if (c.type === 'currency') { val = formatINR(parseFloat(val) || 0); cls = 'text-right'; }
-      else if (c.type === 'number') { val = val === '—' ? '—' : (parseFloat(val) || 0).toLocaleString('en-IN'); cls = 'text-right'; }
-      else if (c.type === 'percent') { val = val === '—' ? '—' : (parseFloat(val) || 0).toFixed(1) + '%'; cls = 'text-right'; }
-      else if (c.type === 'date') { val = val || '—'; }
-      else if (c.type === 'badge') {
-        const badgeMap = {
-          'Active': 'emerald', 'Paid': 'emerald', 'Complete': 'emerald', 'Eligible': 'emerald', 'Under Budget': 'emerald', 'Current': 'emerald',
-          'Cancelled': 'red', 'Over Budget': 'red', 'Ineligible': 'red', '90+ Days': 'red',
-          'B2B': 'blue', 'B2CS': 'amber', 'B2CL': 'purple', 'In Progress': 'blue', 'Not Started': 'gray',
-          'Owned': 'blue', 'Rented': 'amber', 'Yes': 'emerald', 'No': 'gray',
-          'Income': 'emerald', 'Expense': 'red', 'Total': 'blue',
-          'Released': 'emerald', 'Held': 'amber', 'Pending': 'amber',
-        };
-        const color = badgeMap[val] || 'blue';
-        val = `<span class="rpt-badge rpt-badge-${color}">${val}</span>`;
-      }
-      html += `<td class="${cls}">${val}</td>`;
+      const numeric = c.align === 'right' || ['currency', 'number', 'percent'].includes(c.type);
+      html += `<td class="${numeric ? 'text-right' : ''}">${_fmtCell(c, r[c.key] ?? '—')}</td>`;
     });
     html += `</tr>`;
   });
@@ -986,8 +992,10 @@ export function exportReportExcel(reportId) {
 }
 
 export function printCurrentReport() {
-  const area = document.getElementById('reportTableArea');
-  if (!area) return;
+  const live = document.getElementById('reportTableArea');
+  if (!live) return;
+  const area = live.cloneNode(true);                       // print the table, not the phone cards
+  area.querySelectorAll('.rpt-cards').forEach(el => el.remove());
   const rptTitle = (document.querySelector('#reportsView h2, #reportTitle')?.textContent || 'Report').trim();
   if (window.tssPrintHtml?.(`<h1>${rptTitle}</h1>` + area.innerHTML, rptTitle)) return; // phone app: PDF
   const w = window.open('', '_blank');

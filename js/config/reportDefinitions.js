@@ -102,6 +102,7 @@ export const REPORT_DEFINITIONS = {
       { key: 'inputCredit', fn: 'sum' },
       { key: 'netPayable',  fn: 'sum' },
     ],
+    card: { hero: 'netPayable', grid: ['outputTax', 'inputCredit', 'cgst', 'sgst'] },   // phone card layout
     compute: 'computeGSTSummary',
   },
 

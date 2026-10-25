@@ -11,7 +11,7 @@
 import { state } from './state.js';
 import { settledAmount, deductionRegister, fyQuarter, tdsDueDate, findType } from './deductions.js';
 import { formatINR } from './utils.js';
-import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.92';
+import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.93';
 
 // ────────────────────────────────────────────
 //  REPORT CATALOG — 400+ reports organized by category

@@ -713,3 +713,47 @@ button.pc-act.amber { border-color: #fde68a; background: #fffbeb; color: #b45309
 .pc-pill.red { background: #fee2e2; color: #b91c1c; } .pc-pill.slate { background: #f1f5f9; color: #475569; } .pc-pill.blue { background: #dbeafe; color: #1d4ed8; }
 .pc-empty { padding: 22px var(--pc-pad) 18px; text-align: center; font-size: 14px; color: #94a3b8; }
 @media (max-width: 380px) { .pc-stat b { font-size: 18px; } .pc-stat { padding: 12px 10px 10px; } .pc-item { gap: 10px; } }
+
+/* ── Register cards (reportCards.js): GST & other reports, Stock Register ──
+   Phones: one card per entry, never wider than the screen. ≥769px: the table. */
+.rpt-cards { display: none; }
+@media (max-width: 768px) {
+  #reportsView, #reportsDashContent, #invSecStatement, #stmtContent { max-width: 100%; overflow-x: hidden; }
+  .rpt-table-wrap { background: transparent !important; border: none !important; overflow: visible !important; }
+  .rpt-table-wrap > .rpt-table, .stmt-table { display: none !important; }
+  .rpt-cards { display: flex; flex-direction: column; gap: 12px; padding: 2px 0 4px; }
+  .stmt-cards { padding: 12px; background: #f6f7f9; }
+  .rpt-report-header { flex-wrap: wrap; gap: 10px; }
+  .rpt-report-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rpt-kpi-strip { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: visible !important; }
+  .rpt-kpi-card { min-width: 0 !important; }
+}
+.rc-card { background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 3px 10px rgba(16, 24, 40, .05); overflow: hidden; min-width: 0; }
+.rc-card.total { border-color: #bbf7d0; background: #f6fef9; }
+.rc-top { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px 10px; }
+.rc-id { flex: 1; min-width: 0; }
+.rc-id > b { display: block; font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.3; overflow-wrap: anywhere; }
+.rc-id small { display: block; margin-top: 3px; font-size: 12.5px; color: #64748b; line-height: 1.4; overflow-wrap: anywhere; }
+.rc-id small i { font-style: normal; margin: 0 6px; color: #cbd5e1; }
+.rc-right { flex-shrink: 0; max-width: 55%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+.rc-hero span { display: block; font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; }
+.rc-hero b { display: block; font-size: 16px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rc-card.total .rc-id > b { color: #15803d; text-transform: uppercase; letter-spacing: .4px; font-size: 13px; }
+/* 2-column micro-grid with hairline dividers */
+.rc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid #eef1f5; }
+.rc-kv { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; min-width: 0; border-bottom: 1px solid #eef1f5; }
+.rc-kv:nth-child(odd) { border-right: 1px solid #eef1f5; }
+.rc-kv:nth-last-child(-n+2):nth-child(odd), .rc-kv:last-child { border-bottom: none; }
+.rc-kv span { font-size: 11px; font-weight: 600; color: #8a94a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-kv b { font-size: 13.5px; font-weight: 700; color: #1e293b; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rc-card.total .rc-kv b { color: #065f46; }
+/* Progressive disclosure */
+.rc-more { border-top: 1px solid #eef1f5; }
+.rc-more > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; font-size: 13px; font-weight: 700; color: #2563eb; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rc-more > summary::-webkit-details-marker { display: none; }
+.rc-more > summary::after { content: '▾'; font-size: 12px; transition: transform .15s; }
+.rc-more[open] > summary::after { transform: rotate(180deg); }
+.rc-more > summary em { font-style: normal; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #eff6ff; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.rc-more[open] > summary { border-bottom: 1px solid #eef1f5; background: #fafbfc; }
+.rc-more .rc-grid { border-top: none; }
+@media print { .rpt-cards { display: none !important; } .rpt-table-wrap > .rpt-table { display: table !important; } .stmt-table { display: block !important; } }

@@ -9,6 +9,7 @@ import { projectBoqRate } from './estimateCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialIcon, transferMovesStock } from './inventoryCalc.js';
+import { reportCardsHtml } from './reportCards.js';
 import { pcPage, pcStats, pcCard, pcField, pcForm, pcPill, pcItem, pcList, pcEsc, pcDate } from './pcKit.js';
 import './grnPicker.js';
 import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
@@ -2101,9 +2102,9 @@ function _renderStockStatement() {
   const partyOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
   c.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
+      <div class="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-slate-100" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-lg">📊</div>
-        <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stock Statement</h4><p class="text-[11px] text-slate-500">Filter by period, type, material or party — then download</p></div>
+        <div class="flex-1 min-w-[150px]"><h4 class="font-extrabold text-slate-800">Stock Statement</h4><p class="text-[11px] text-slate-500">Filter by period, type, material or party — then download</p></div>
         <button onclick="window._exportStockStatementXLSX()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">⬇ Excel</button>
         <button onclick="window._exportStockStatementPDF()" class="px-3 py-2 rounded-lg font-bold text-xs text-white bg-rose-600 hover:bg-rose-700 shadow-sm">⬇ PDF</button>
       </div>
@@ -2128,7 +2129,8 @@ function _renderStockStatementTable() {
   if (!rows.length) { wrap.innerHTML = `<div class="p-8 text-center text-slate-400">No stock movement for these filters.</div>`; return; }
   wrap.innerHTML = `
     <div class="px-4 py-2 text-[11px] text-slate-500 bg-white border-b">${rows.length} material${rows.length === 1 ? '' : 's'}${partyNote}</div>
-    <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-100"><tr>
+    ${_stmtCards(rows, totals, cur)}
+    <div class="overflow-x-auto stmt-table"><table class="w-full text-xs"><thead class="bg-slate-100"><tr>
       <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Material</th>
       <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Unit</th>
       <th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Type</th>
@@ -2157,6 +2159,26 @@ function _renderStockStatementTable() {
       <td class="px-3 py-2" colspan="2"></td>
       <td class="px-3 py-2 text-right font-extrabold text-slate-800">${cur}${_stmtN2(totals.value)}</td>
     </tr></tfoot></table></div>`;
+}
+/** Phone layout: one card per material (closing stock up front), shared report-card renderer. */
+function _stmtCards(rows, totals, cur) {
+  const cols = [
+    { key: 'name', label: 'Material', type: 'text' },
+    { key: 'type', label: 'Type', type: 'text' },
+    { key: 'closing', label: 'Closing stock', type: 'number' },
+    { key: 'opening', label: 'Opening', type: 'number' },
+    { key: 'inward', label: 'Inward', type: 'number' },
+    { key: 'outward', label: 'Outward', type: 'number' },
+    { key: 'value', label: 'Value', type: 'currency' },
+    { key: 'rate', label: 'Rate', type: 'currency' },
+  ];
+  const fmt = (c, v, r) => {
+    if (c.type === 'currency') return cur + _stmtN2(v);
+    if (c.type === 'number') return _stmtN2(v) + (r && r.unit ? ' ' + String(r.unit).replace(/</g, '&lt;') : '');
+    return String(v).replace(/</g, '&lt;');
+  };
+  return reportCardsHtml(rows, cols, { inward: totals.inward, outward: totals.outward, value: totals.value },
+    { title: 'name', hero: 'closing', grid: ['opening', 'inward', 'outward', 'value'] }, fmt).replace('class="rpt-cards"', 'class="rpt-cards stmt-cards"');
 }
 window._genStockStatement = function () { _renderStockStatementTable(); };
 

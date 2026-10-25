@@ -20,7 +20,7 @@ import {
   renderReportsDashboard, openReportCategory, runReport,
   searchReports, filterCatReports, applyFilters, clearFilters,
   exportReportPDF, exportReportExcel, printCurrentReport,
-} from './controllers/reportController.js?v=1.6.101';
+} from './controllers/reportController.js?v=1.6.102';
 import {
   openEntryForm, saveEntry, closeEntryForm, deleteEntry
 } from './modules/formEngine.js';
@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.42';
+} from './modules/ui.js?v=1.7.43';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.28';
