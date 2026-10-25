@@ -103,7 +103,11 @@ export function renderExecution() {
   if (_section === 'staff') return _renderStaff(root);
   return _renderHome(root);
 }
-window._exOpen = function (s) { _section = s; renderExecution(); };
+window._exOpen = function (s) {
+  _section = s; renderExecution();
+  try { window.shellSectionChanged?.(); } catch {}
+};
+window._exSection = () => _section;
 
 function _backBar(title) {
   return `<button onclick="_exOpen('home')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Execution</button>
@@ -164,9 +168,16 @@ function _modal(html, opts) {
   let o = document.getElementById('exModalOverlay');
   if (!o) {
     o = document.createElement('div'); o.id = 'exModalOverlay';
-    o.addEventListener('click', e => { if (e.target === o) _exCloseModal(); });
+    o.addEventListener('click', e => { if (e.target === o) _exBackModal(); });
+    // Any typing marks the form as edited, so Back can ask before discarding it.
+    o.addEventListener('input', () => { o.__dirty = true; });
+    o.addEventListener('change', () => { o.__dirty = true; });
+    // Hardware / browser Back closes this form (see mobileShell closeModal).
+    o.__onBack = _exBackModal;
     document.body.appendChild(o);
   }
+  o.__dirty = false;
+  o.classList.remove('hidden');
   // Full-screen forms (e.g. DPR) fill the viewport; standard modals stay centered.
   o.style.cssText = full
     ? 'position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:200000;display:flex;align-items:stretch;justify-content:center;padding:0;'
@@ -177,6 +188,12 @@ function _modal(html, opts) {
   o.style.display = 'flex';
 }
 window._exCloseModal = function () { const o = document.getElementById('exModalOverlay'); if (o) o.style.display = 'none'; _pendingPhoto = null; _pendingPhotoPath = null; };
+/** Back / tap-outside: close the form, confirming first if it has unsaved edits. */
+function _exBackModal() {
+  const o = document.getElementById('exModalOverlay');
+  if (o && o.__dirty && !confirm('Discard unsaved changes?')) return;
+  _exCloseModal();
+}
 const _inp = 'width:100%;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;';
 const _lbl = 'display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px;';
 const _head = (t) => `<div style="padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:800;color:#0f172a;font-size:17px;">${t}</h3><button onclick="_exCloseModal()" style="border:none;background:#f1f5f9;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:16px;">×</button></div>`;

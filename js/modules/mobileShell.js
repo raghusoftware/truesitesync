@@ -101,7 +101,8 @@ function topVisibleModal() {
   let best = null, bestZ = -1;
   nodes.forEach(el => {
     if (el.id === 'mobileOverlay') return;            // handled as the drawer scrim
-    if (el.classList.contains('hidden') || el.classList.contains('hide')) return;
+    // Judge visibility from computed style, not class names: a modal shown with an
+    // inline style can still carry a stale .hidden class and be fully on screen.
     if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
@@ -123,6 +124,17 @@ function closeSidebar() {
   document.getElementById('mobileOverlay')?.classList.remove('active');
 }
 
+/**
+ * Close a modal on Back. A modal can register its own closer as `el.__onBack`
+ * (so it can clean up state or ask before discarding edits); otherwise hide it,
+ * forcing display:none when an inline style keeps it visible despite .hidden.
+ */
+function closeModal(el) {
+  if (typeof el.__onBack === 'function') { el.__onBack(); return; }
+  el.classList.add('hidden');
+  if (getComputedStyle(el).display !== 'none') el.style.display = 'none';
+}
+
 let _lastBack = 0;
 
 /**
@@ -133,10 +145,7 @@ let _lastBack = 0;
 export function handleBack() {
   // 1. Close the top-most open modal
   const modal = topVisibleModal();
-  if (modal) {
-    modal.classList.add('hidden');
-    return true;
-  }
+  if (modal) { closeModal(modal); return true; }
   // 2. Close the slide-in sidebar drawer
   if (sidebarOpen()) { closeSidebar(); return true; }
 

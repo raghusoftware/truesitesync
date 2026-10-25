@@ -495,6 +495,8 @@ export function closeSection() {
   const v = window.__currentViewId;
   const d = SECTIONS[v];
   if (d && openSection(v)) { window[d.fn]?.(null); return true; }
+  // Execution: DPR / Pour Card / Quality / Safety / Staff → back to the Execution menu
+  if (v === 'executionView' && window._exSection?.() !== 'home') { window._exOpen?.('home'); return true; }
   if (v === 'pettyCashView' && window._pcIsOpen?.()) { window._pcOpen?.(null); renderAppBar(v); syncFab(v); return true; }
   if (v === 'partiesLedgerView' && state.currentSelectedParty) { window._partyBack?.(); return true; }
   if (v === 'calcView' && window._calcIsOpen?.()) { window._calcClose?.(); return true; }
