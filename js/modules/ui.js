@@ -1318,6 +1318,49 @@ function _renderMasterDataGrid() {
 // ==========================================
 // VIEW SWITCHING
 // ==========================================
+/**
+ * Full-screen sheet scrolling fix. The measurement sheet is a fixed, scrollable
+ * overlay; left inside <main> (itself a scroll container) the touch gesture can
+ * latch onto <main> — which has nothing to scroll — and the sheet feels frozen
+ * on phones (Android WebView / iOS). While it is open it lives directly under
+ * <body> as the only scroller, and <main> is locked. Closing puts it back.
+ */
+function _sheetDock(el, open) {
+  if (!el) return;
+  if (open) {
+    if (!el.__home) { el.__home = document.createComment('sheet-home'); el.parentNode.insertBefore(el.__home, el); }
+    if (el.parentNode !== document.body) document.body.appendChild(el);
+    document.documentElement.classList.add('sheet-open');
+    _sheetKeyboardWatch();
+  } else {
+    if (el.__home && el.__home.parentNode && el.parentNode !== el.__home.parentNode) el.__home.parentNode.insertBefore(el, el.__home);
+    if (!document.querySelector('.fullscreen-sheet')) document.documentElement.classList.remove('sheet-open');
+  }
+}
+
+/** Keep the sheet above the on-screen keyboard and the field being typed in visible. */
+let _sheetKbOn = false;
+function _sheetKeyboardWatch() {
+  if (_sheetKbOn) return;
+  _sheetKbOn = true;
+  const vv = window.visualViewport;
+  const fit = () => {
+    const sheet = document.querySelector('.fullscreen-sheet'); if (!sheet) return;
+    // Visible height (shrinks while the keyboard is up) — the sheet ends at the keyboard.
+    sheet.style.setProperty('--sheet-h', (vv ? vv.height : window.innerHeight) + 'px');
+  };
+  if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
+  window.addEventListener('resize', fit);
+  document.addEventListener('focusin', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement) || !t.closest('.fullscreen-sheet') || !t.matches('input, textarea, select')) return;
+    fit();
+    // After the keyboard has opened, bring the field to the middle of what is visible.
+    setTimeout(() => { fit(); try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { t.scrollIntoView(); } }, 320);
+  });
+  fit();
+}
+
 export function switchView(viewId) {
   // Shop / Manufacturing have no projects: "Home" is the business dashboard.
   if (viewId === 'projectsHome' && typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction') viewId = 'bizHomeView';
@@ -1333,8 +1376,8 @@ export function switchView(viewId) {
   const overlay = document.getElementById('mobileOverlay');
   if (sidebar) sidebar.classList.remove('mobile-open');
   if (overlay) overlay.classList.remove('active');
-  // Remove fullscreen from any previous sheet
-  document.querySelectorAll('.fullscreen-sheet').forEach(el => el.classList.remove('fullscreen-sheet'));
+  // Remove fullscreen from any previous sheet (and put it back in its place in <main>)
+  document.querySelectorAll('.fullscreen-sheet').forEach(el => { el.classList.remove('fullscreen-sheet'); _sheetDock(el, false); });
   document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));
   const viewEl = document.getElementById(viewId);
   if (!viewEl) { console.warn('View not found:', viewId); return; }
@@ -1355,6 +1398,7 @@ export function switchView(viewId) {
   // Measurement entry opens as full-screen overlay — hide sidebar
   if (viewId === 'entrySheet') {
     viewEl.classList.add('fullscreen-sheet');
+    _sheetDock(viewEl, true);
     if (sidebar) sidebar.style.display = 'none';
   } else {
     if (sidebar) sidebar.style.display = '';
@@ -4629,14 +4673,14 @@ function _absEditRowHTML(d) {
   const esc = (v) => String(v ?? '').replace(/"/g, '&quot;');
   const inp = 'w-full px-1.5 py-1 border border-slate-200 rounded text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200';
   return `<tr class="abs-erow border-b border-slate-100 hover:bg-blue-50/40">
-    <td class="p-1 text-center text-xs text-slate-400 abs-rnum"></td>
-    <td class="p-1"><input type="text" class="abs-code ${inp} font-mono uppercase" value="${esc(d.code)}" placeholder="Code"></td>
-    <td class="p-1"><input type="text" class="abs-desc ${inp}" value="${esc(d.desc)}" placeholder="Description of work"></td>
-    <td class="p-1"><input type="text" class="abs-uom ${inp} text-center" value="${esc(d.uom)}" placeholder="Unit"></td>
-    <td class="p-1"><input type="number" step="any" class="abs-qty ${inp} text-right" value="${d.qty ?? ''}" oninput="calcAbstractEditRow(this)"></td>
-    <td class="p-1"><input type="number" step="any" class="abs-rate ${inp} text-right" value="${d.rate ?? ''}" placeholder="0.00" oninput="calcAbstractEditRow(this)"></td>
-    <td class="p-1 text-right font-bold text-slate-800 abs-amt whitespace-nowrap">0.00</td>
-    <td class="p-1 text-center"><input type="hidden" class="abs-boq" value="${esc(d.boqIndex)}"><input type="hidden" class="abs-ref" value="${esc(d.ref)}"><button onclick="removeAbstractEditRow(this)" class="text-slate-300 hover:text-red-600" title="Remove row">🗑</button></td>
+    <td class="p-1 text-center text-xs text-slate-400 abs-rnum" data-label="#"></td>
+    <td class="p-1" data-label="Code"><input type="text" class="abs-code ${inp} font-mono uppercase" value="${esc(d.code)}" placeholder="Code"></td>
+    <td class="p-1" data-label="Description"><input type="text" class="abs-desc ${inp}" value="${esc(d.desc)}" placeholder="Description of work"></td>
+    <td class="p-1" data-label="Unit"><input type="text" class="abs-uom ${inp} text-center" value="${esc(d.uom)}" placeholder="Unit"></td>
+    <td class="p-1" data-label="Qty"><input type="number" step="any" inputmode="decimal" class="abs-qty ${inp} text-right" value="${d.qty ?? ''}" oninput="calcAbstractEditRow(this)"></td>
+    <td class="p-1" data-label="Rate"><input type="number" step="any" inputmode="decimal" class="abs-rate ${inp} text-right" value="${d.rate ?? ''}" placeholder="0.00" oninput="calcAbstractEditRow(this)"></td>
+    <td class="p-1 text-right font-bold text-slate-800 abs-amt whitespace-nowrap" data-label="Amount">0.00</td>
+    <td class="p-1 text-center abs-del" data-label=""><input type="hidden" class="abs-boq" value="${esc(d.boqIndex)}"><input type="hidden" class="abs-ref" value="${esc(d.ref)}"><button onclick="removeAbstractEditRow(this)" class="text-slate-300 hover:text-red-600" title="Remove row" aria-label="Remove item">🗑</button></td>
   </tr>`;
 }
 
