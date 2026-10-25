@@ -50,3 +50,27 @@ export const pcItem = ({ icon, title, meta = [], right = '', tone = 'slate' }) =
 export const pcList = (items, empty) => items.length
   ? `<div class="pc-list">${items.join('')}</div>`
   : `<div class="pc-empty">${pcEsc(empty)}</div>`;
+
+/**
+ * A record card: title (+ sub line) with a headline figure on the right, then a
+ * 2-column micro-grid of label/value pairs with hairline dividers.
+ *   pcRecord({ title, sub, hero: '60 L', heroLabel: 'Quantity', pill, tone, grid: [['Date', '24 Oct'], …], foot })
+ * tone colours the left edge (green | amber | red | blue | violet | slate).
+ */
+export const pcRecord = ({ title, sub = '', hero = '', heroLabel = '', pill = '', tone = 'slate', grid = [], foot = '' }) =>
+  `<article class="pc-rec ${tone}">
+    <div class="pc-rec-top">
+      <div class="pc-rec-id"><b>${pcEsc(title)}</b>${sub ? `<small>${sub}</small>` : ''}</div>
+      <div class="pc-rec-hero">${pill}${hero ? `${heroLabel ? `<span>${pcEsc(heroLabel)}</span>` : ''}<b>${hero}</b>` : ''}</div>
+    </div>
+    ${grid.length ? `<dl class="pc-rec-grid">${grid.filter(([, v]) => v !== '' && v != null).map(([k, v]) => `<div><dt>${pcEsc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+    ${foot ? `<div class="pc-rec-foot">${foot}</div>` : ''}
+  </article>`;
+
+/** "24 Oct 2026 · 10:42" from a date string and an optional epoch-ms timestamp. */
+export function pcWhen(date, ts) {
+  const d = pcDate(date);
+  if (!ts) return d;
+  const t = new Date(Number(ts));
+  return isNaN(t) ? d : `${d} · ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}

@@ -2,6 +2,7 @@ import { state, saveAllData, saveEquipmentData } from './state.js';
 import { keepOnly } from './state.js';
 import { showToast, getAllLocations, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getPdfCurrency } from './utils.js';
 import { logMetrics, usageTotals, logTone } from './equipmentCalc.js';
+import { pcPage, pcStats, pcCard, pcField, pcForm, pcPill, pcRecord, pcWhen, pcEsc } from './pcKit.js';
 
 // ==========================================
 // LOCATION, ASSETS & MAINTENANCE
@@ -428,10 +429,9 @@ function _fuelStorageBalance(storageId) {
 }
 
 window._fuelTab = function(tab, btn) {
-  if (btn) {
-    document.querySelectorAll('.fuel-tab').forEach(b => { b.classList.remove('bg-white','text-slate-800','shadow-sm'); b.classList.add('text-slate-500'); });
-    btn.classList.add('bg-white','text-slate-800','shadow-sm'); btn.classList.remove('text-slate-500');
-  }
+  const tabs = [...document.querySelectorAll('.fuel-tab')];
+  const order = ['tank', 'issue', 'pump', 'efficiency'];
+  tabs.forEach((b, i) => b.classList.toggle('on', btn ? b === btn : order[i] === tab));
   if (tab === 'tank') _fuelRenderTank();
   else if (tab === 'issue') _fuelRenderIssue();
   else if (tab === 'pump') _fuelRenderPump();
@@ -441,40 +441,37 @@ window._fuelTab = function(tab, btn) {
 /** registerFuelStorage + logBulkFuelReceipt + reconcileStorageDip */
 function _fuelRenderTank() {
   const c = document.getElementById('fuelContent'); if (!c) return;
-  const cur = getCurrencySymbol();
   const tanks = (state.fuelStorages || []).filter(s => s.projectId === state.currentProjectId);
-  const supplierOpts = (state.vendors || []).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
-  const tankCards = tanks.map(t => {
-    const bal = _fuelStorageBalance(t.id);
-    const pct = t.capacity ? Math.min(100, Math.round(bal / t.capacity * 100)) : 0;
-    const lastDip = (state.fuelTxns || []).filter(x => x.storageId === t.id && x.type === 'DIP').sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+  const supplierOpts = (state.vendors || []).map(v => `<option value="${v.id}">${pcEsc(v.name)}</option>`).join('');
+  const lit = (n) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('en-IN')} L`;
+  let inTanks = 0, low = 0;
+  const cards = tanks.map(t => {
+    const bal = _fuelStorageBalance(t.id); inTanks += bal;
+    const pct = t.capacity ? Math.max(0, Math.min(100, Math.round(bal / t.capacity * 100))) : 0;
+    if (pct < 15) low++;
+    const lastDip = (state.fuelTxns || []).filter(x => x.storageId === t.id && x.type === 'DIP').sort((a, b) => new Date(b.date) - new Date(a.date))[0];
     const variance = lastDip ? (parseFloat(lastDip.quantity) - (lastDip.bookBalance ?? 0)) : null;
-    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div><div style="font-weight:800;color:#0f172a;">🛢️ ${t.name}</div><div style="font-size:11px;color:#94a3b8;">Capacity: ${t.capacity}L</div></div>
-        <div style="text-align:right;"><div style="font-size:20px;font-weight:800;color:${pct<15?'#dc2626':'#d6402c'};">${bal.toLocaleString('en-IN')}L</div><div style="font-size:9px;color:#94a3b8;">${pct}% full</div></div>
-      </div>
-      <div style="height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:${pct}%;background:${pct<15?'#ef4444':'#ef8420'};"></div></div>
-      ${variance !== null ? `<div style="font-size:11px;font-weight:600;color:${Math.abs(variance)>5?'#dc2626':'#d6402c'};">Last dip variance: ${variance>0?'+':''}${variance.toFixed(0)}L ${Math.abs(variance)>5?'⚠ DISCREPANCY':'✓'}</div>` : ''}
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <button onclick="_fuelReceipt('${t.id}')" style="background:#fff3ea;color:#d6402c;border:1px solid #f6c9a8;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">+ Tanker Receipt</button>
-        <button onclick="_fuelDip('${t.id}')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">📏 Dip Reconcile</button>
-        <button onclick="_fuelDeleteStorage('${t.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Del</button>
-      </div>
-    </div>`;
-  }).join('') || '<p style="text-align:center;color:#94a3b8;padding:30px;">No fuel tanks/bowsers yet.</p>';
-
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">🛢️ Register Tank / Bowser</h4>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-        <input id="fsName" placeholder="Tank name (e.g. Site Barrel A)" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="fsCapacity" type="number" placeholder="Capacity (L)" class="p-2 border rounded-lg text-sm outline-none">
-        <button onclick="_fuelAddStorage()" class="bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600">Add Tank</button>
-      </div>
-    </div>
-    <div>${tankCards}</div>
-    <input type="hidden" id="fsSupplierOpts" value='${supplierOpts.replace(/'/g,"&#39;")}'>`;
+    const tone = pct < 15 ? 'red' : pct < 35 ? 'amber' : 'green';
+    return pcRecord({ title: '🛢️ ' + t.name, sub: `Capacity ${lit(t.capacity)}`, heroLabel: 'In tank', hero: lit(bal), tone,
+      grid: [['Level', `${pct}% full`], ['Last dip', variance === null ? 'Not checked' : `${variance > 0 ? '+' : ''}${variance.toFixed(0)} L ${Math.abs(variance) > 5 ? '⚠' : '✓'}`]],
+      foot: `<div class="pc-meter ${tone}"><i style="width:${pct}%"></i></div>
+        <div class="pc-rec-acts"><button type="button" class="pc-act" onclick="_fuelReceipt('${t.id}')">+ Tanker receipt</button>
+        <button type="button" class="pc-act" onclick="_fuelDip('${t.id}')">📏 Dip check</button>
+        <button type="button" class="pc-act danger" onclick="_fuelDeleteStorage('${t.id}')" aria-label="Delete tank">Delete</button></div>` });
+  });
+  c.innerHTML = pcPage(
+    pcStats([
+      { label: 'Tanks', value: tanks.length, tone: 'brand', hint: 'on this site' },
+      { label: 'Fuel in tanks', value: lit(inTanks), tone: 'amber', hint: 'book balance' },
+      { label: 'Running low', value: low, tone: low ? 'red' : 'slate', hint: 'under 15%' },
+    ]),
+    pcCard({ icon: '🛢️', title: 'Register a tank or bowser', sub: 'Then log tanker receipts and dip checks against it', tone: 'brand', body:
+      pcForm(
+        pcField('Tank name', `<input id="fsName" class="pc-in" placeholder="e.g. Site Barrel A">`),
+        pcField('Capacity (litres)', `<input id="fsCapacity" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+      ) + `<button type="button" class="pc-btn amber" onclick="_fuelAddStorage()">Add tank</button>` }),
+    cards.length ? `<div class="pc-recs">${cards.join('')}</div>` : `<div class="pc-empty boxed">No fuel tanks or bowsers yet.</div>`,
+  ) + `<input type="hidden" id="fsSupplierOpts" value='${supplierOpts.replace(/'/g, "&#39;")}'>`;
 }
 window._fuelAddStorage = function() {
   const name = document.getElementById('fsName').value.trim();
@@ -534,34 +531,44 @@ window._fuelDip = function(storageId) {
 function _fuelRenderIssue() {
   const c = document.getElementById('fuelContent'); if (!c) return;
   const tanks = (state.fuelStorages || []).filter(s => s.projectId === state.currentProjectId);
-  if (!tanks.length) { c.innerHTML = '<div class="bg-white border rounded-xl p-8 text-center text-slate-400">Register a tank first (Tank / Storage tab).</div>'; return; }
-  const tankOpts = tanks.map(t => `<option value="${t.id}">${t.name} (${_fuelStorageBalance(t.id)}L available)</option>`).join('');
-  const assetOpts = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => `<option value="${e.id}">${e.name} (${e.regNo || 'No Reg'})</option>`).join('');
-  const opOpts = (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId).map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">⛽ Issue Fuel from Tank to Machine</h4>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <select id="fiTank" class="p-2 border rounded-lg text-sm bg-white">${tankOpts}</select>
-        <select id="fiAsset" class="p-2 border rounded-lg text-sm bg-white">${assetOpts || '<option value="">No assets</option>'}</select>
-        <select id="fiOperator" class="p-2 border rounded-lg text-sm bg-white"><option value="">-- Operator --</option>${opOpts}</select>
-        <input id="fiQty" type="number" placeholder="Litres" class="p-2 border rounded-lg text-sm outline-none">
-      </div>
-      <button onclick="_fuelIssue()" class="mt-3 w-full bg-blue-600 text-white p-2.5 rounded-lg font-bold text-sm hover:bg-blue-700">Issue Fuel (deduct tank + log to machine)</button>
-    </div>
-    <div id="fuelIssueList"></div>`;
+  if (!tanks.length) { c.innerHTML = pcPage(`<div class="pc-empty boxed">Register a tank first — open the <b>Tanks</b> tab.</div>`); return; }
+  const tankOpts = tanks.map(t => `<option value="${t.id}">${pcEsc(t.name)} · ${_fuelStorageBalance(t.id)} L available</option>`).join('');
+  const assetOpts = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => `<option value="${e.id}">${pcEsc(e.name)} (${pcEsc(e.regNo || 'No Reg')})</option>`).join('');
+  const opOpts = (state.labourMaster || []).filter(l => l.projectId === state.currentProjectId).map(l => `<option value="${l.id}">${pcEsc(l.name)}</option>`).join('');
+  const issues = (state.fuelTxns || []).filter(t => t.type === 'ISSUE' && t.projectId === state.currentProjectId);
+  const today = new Date().toISOString().split('T')[0], month = today.slice(0, 7);
+  const sum = (list) => list.reduce((s, t) => s + (parseFloat(t.quantity) || 0), 0);
+  c.innerHTML = pcPage(
+    pcStats([
+      { label: 'Issued today', value: `${sum(issues.filter(t => t.date === today)).toLocaleString('en-IN')} L`, tone: 'brand', hint: 'from tanks' },
+      { label: 'This month', value: `${sum(issues.filter(t => String(t.date).startsWith(month))).toLocaleString('en-IN')} L`, tone: 'amber', hint: 'issued' },
+      { label: 'Fills', value: issues.length, tone: 'slate', hint: 'all time' },
+    ]),
+    pcCard({ icon: '⛽', title: 'Fill a machine from a tank', sub: 'Deducts the tank and logs the fill on the machine', tone: 'amber', body:
+      pcForm(
+        pcField('From tank', `<select id="fiTank" class="pc-in">${tankOpts}</select>`, { wide: true }),
+        pcField('Machine', `<select id="fiAsset" class="pc-in">${assetOpts || '<option value="">No machines</option>'}</select>`, { wide: true }),
+        pcField('Litres', `<input id="fiQty" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField('Operator', `<select id="fiOperator" class="pc-in"><option value="">— Optional —</option>${opOpts}</select>`),
+      ) + `<button type="button" class="pc-btn amber" onclick="_fuelIssue()">Issue fuel</button>` }),
+    `<div id="fuelIssueList"></div>`,
+  );
   _fuelIssueList();
 }
+/** Fill history: one card per fill — machine on top, litres as the headline, details in a 2-column grid. */
 function _fuelIssueList() {
   const box = document.getElementById('fuelIssueList'); if (!box) return;
-  const list = (state.fuelTxns || []).filter(t => t.type === 'ISSUE' && t.projectId === state.currentProjectId).slice(-15).reverse();
-  box.innerHTML = `<div class="bg-white border rounded-xl overflow-hidden"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Machine</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Operator</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Litres</th></tr></thead><tbody>
-    ${list.map(t => {
-      const eq = state.equipmentList.find(e => e.id === t.assetId);
-      const op = (state.labourMaster || []).find(l => l.id === t.operatorId);
-      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${t.date}</td><td class="px-3 py-2 font-bold">${eq?.name || '—'}</td><td class="px-3 py-2">${op?.name || '—'}</td><td class="px-3 py-2 text-right font-bold">${t.quantity}L</td></tr>`;
-    }).join('') || '<tr><td colspan="4" class="p-6 text-center text-slate-400">No issues yet.</td></tr>'}
-  </tbody></table></div>`;
+  const list = (state.fuelTxns || []).filter(t => t.type === 'ISSUE' && t.projectId === state.currentProjectId).slice(-30).reverse();
+  const cards = list.map(t => {
+    const eq = state.equipmentList.find(e => e.id === t.assetId);
+    const op = (state.labourMaster || []).find(l => l.id === t.operatorId);
+    const tank = (state.fuelStorages || []).find(x => x.id === t.storageId);
+    return pcRecord({ title: eq?.name || 'Machine', sub: eq?.regNo ? `<span class="pc-tag">${pcEsc(eq.regNo)}</span>` : '', tone: 'amber',
+      heroLabel: 'Quantity', hero: `${(parseFloat(t.quantity) || 0).toLocaleString('en-IN')} L`,
+      grid: [['Date / time', pcWhen(t.date, t.createdAt)], ['Operator', pcEsc(op?.name || '—')], ['From tank', pcEsc(tank?.name || '—')], ['Logged by', t.createdBy ? pcEsc(t.createdBy) : '']] });
+  });
+  box.innerHTML = pcCard({ icon: '🧾', title: 'Fuel fills', sub: 'Most recent first', tone: 'brand', flush: true, action: `<span class="pc-count">${list.length}</span>`,
+    body: cards.length ? `<div class="pc-recs inset">${cards.join('')}</div>` : `<div class="pc-empty">No fuel issued yet.</div>` });
 }
 window._fuelIssue = function() {
   const storageId = document.getElementById('fiTank').value;
@@ -585,33 +592,49 @@ window._fuelIssue = function() {
 function _fuelRenderPump() {
   const c = document.getElementById('fuelContent'); if (!c) return;
   const cur = getCurrencySymbol();
-  const assetOpts = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => `<option value="${e.id}">${e.name} (${e.regNo || 'No Reg'})</option>`).join('');
+  const money = (n) => cur + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const assetOpts = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => `<option value="${e.id}">${pcEsc(e.name)} (${pcEsc(e.regNo || 'No Reg')})</option>`).join('');
+  const fills = (state.fuelTxns || []).filter(t => t.type === 'PUMP' && t.projectId === state.currentProjectId);
   // Pump credit ledger — group by pumpName
   const pumps = {};
-  (state.fuelTxns || []).filter(t => t.type === 'PUMP' && t.projectId === state.currentProjectId).forEach(t => {
-    if (!pumps[t.pumpName]) pumps[t.pumpName] = { qty: 0, amount: 0, count: 0 };
-    pumps[t.pumpName].qty += parseFloat(t.quantity) || 0;
-    pumps[t.pumpName].amount += parseFloat(t.amount) || 0;
-    pumps[t.pumpName].count++;
+  fills.forEach(t => {
+    const k = t.pumpName || '—';
+    if (!pumps[k]) pumps[k] = { qty: 0, amount: 0, count: 0, credit: 0 };
+    pumps[k].qty += parseFloat(t.quantity) || 0;
+    pumps[k].amount += parseFloat(t.amount) || 0;
+    if (t.onCredit) pumps[k].credit += parseFloat(t.amount) || 0;
+    pumps[k].count++;
   });
-  const ledger = Object.entries(pumps).map(([name, p]) => `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2 font-bold">${name || '—'}</td><td class="px-3 py-2 text-center">${p.count}</td><td class="px-3 py-2 text-right">${p.qty.toFixed(0)}L</td><td class="px-3 py-2 text-right font-bold text-red-600">${cur}${p.amount.toLocaleString('en-IN')}</td></tr>`).join('');
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">⛽ Log Pump Fuel Purchase (External)</h4>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <select id="fpAsset" class="p-2 border rounded-lg text-sm bg-white">${assetOpts || '<option value="">No assets</option>'}</select>
-        <input id="fpQty" type="number" placeholder="Litres" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="fpAmount" type="number" placeholder="Total ${getCurrencySymbol().trim()}" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="fpPump" placeholder="Pump name" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="fpReceipt" placeholder="Receipt #" class="p-2 border rounded-lg text-sm outline-none">
-      </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px;color:#475569;"><input type="checkbox" id="fpCredit" style="width:15px;height:15px;"> On credit (khata) — don't deduct cash now</label>
-      <button onclick="_fuelPumpPurchase()" class="mt-2 w-full bg-emerald-600 text-white p-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700">Log Pump Purchase</button>
-    </div>
-    <div class="bg-white border rounded-xl overflow-hidden">
-      <div class="p-3 border-b font-bold text-slate-700 text-sm">📒 Pump Credit Ledger (Monthly Khata)</div>
-      <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Pump</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Fills</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Total L</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Amount</th></tr></thead><tbody>${ledger || '<tr><td colspan="4" class="p-6 text-center text-slate-400">No pump purchases yet.</td></tr>'}</tbody></table>
-    </div>`;
+  const onCredit = Object.values(pumps).reduce((s, p) => s + p.credit, 0);
+  const ledger = Object.entries(pumps).map(([name, p]) => pcRecord({ title: '⛽ ' + name, tone: p.credit ? 'red' : 'green',
+    heroLabel: 'Total', hero: money(p.amount),
+    grid: [['Fills', String(p.count)], ['Litres', `${p.qty.toFixed(0)} L`], ['On credit', p.credit ? money(p.credit) : 'Nil'], ['Avg rate', p.qty ? `${money(p.amount / p.qty)}/L` : '—']] }));
+  const recent = fills.slice(-20).reverse().map(t => {
+    const eq = state.equipmentList.find(e => e.id === t.assetId);
+    return pcRecord({ title: eq?.name || 'Machine', sub: eq?.regNo ? `<span class="pc-tag">${pcEsc(eq.regNo)}</span>` : '', tone: t.onCredit ? 'red' : 'green',
+      pill: t.onCredit ? pcPill('Credit', 'red') : '', heroLabel: 'Quantity', hero: `${(parseFloat(t.quantity) || 0).toLocaleString('en-IN')} L`,
+      grid: [['Date / time', pcWhen(t.date, t.createdAt)], ['Amount', money(t.amount)], ['Pump', pcEsc(t.pumpName || '—')], ['Receipt no.', pcEsc(t.receiptNo || '—')]] });
+  });
+  c.innerHTML = pcPage(
+    pcStats([
+      { label: 'Pump fills', value: fills.length, tone: 'brand', hint: 'all time' },
+      { label: 'Spent', value: money(fills.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)), tone: 'amber', hint: 'at pumps' },
+      { label: 'On credit', value: money(onCredit), tone: onCredit ? 'red' : 'slate', hint: 'khata due' },
+    ]),
+    pcCard({ icon: '⛽', title: 'Log a pump fill', sub: 'Machine filled at an outside petrol pump', tone: 'green', body:
+      pcForm(
+        pcField('Machine', `<select id="fpAsset" class="pc-in">${assetOpts || '<option value="">No machines</option>'}</select>`, { wide: true }),
+        pcField('Litres', `<input id="fpQty" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField(`Total amount (${cur.trim()})`, `<input id="fpAmount" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
+        pcField('Pump name', `<input id="fpPump" class="pc-in" placeholder="e.g. HP Highway">`),
+        pcField('Receipt no.', `<input id="fpReceipt" class="pc-in" placeholder="Optional">`),
+      ) + `<label class="pc-check"><input type="checkbox" id="fpCredit"><span><b>On credit (khata)</b><small>Don't record a cash payment now</small></span></label>
+        <button type="button" class="pc-btn green" onclick="_fuelPumpPurchase()">Log pump fill</button>` }),
+    pcCard({ icon: '🧾', title: 'Recent pump fills', tone: 'brand', flush: true, action: `<span class="pc-count">${recent.length}</span>`,
+      body: recent.length ? `<div class="pc-recs inset">${recent.join('')}</div>` : `<div class="pc-empty">No pump fills yet.</div>` }),
+    ledger.length ? pcCard({ icon: '📒', title: 'Pump khata', sub: 'Totals per pump', tone: 'amber', flush: true,
+      body: `<div class="pc-recs inset">${ledger.join('')}</div>` }) : '',
+  );
 }
 window._fuelPumpPurchase = function() {
   const assetId = document.getElementById('fpAsset').value;
@@ -622,7 +645,7 @@ window._fuelPumpPurchase = function() {
   const onCredit = document.getElementById('fpCredit').checked;
   if (!assetId || quantity <= 0) { showToast('Select machine and litres', 'error'); return; }
   const date = new Date().toISOString().split('T')[0];
-  state.fuelTxns.push({ id: 'ftx_' + Date.now(), type: 'PUMP', assetId, quantity, amount, pumpName, receiptNo, onCredit, date, projectId: state.currentProjectId });
+  state.fuelTxns.push(window.stampCreate({ id: 'ftx_' + Date.now(), type: 'PUMP', assetId, quantity, amount, pumpName, receiptNo, onCredit, date, projectId: state.currentProjectId }));
   // Log to machine for efficiency
   state.equipmentLogs.push({ id: 'eql_' + Date.now(), assetId, date, type: 'Fuel', litres: quantity, source: 'Petrol Pump', amount: onCredit ? 0 : amount, remarks: `${quantity}L @ ${pumpName}${receiptNo ? ' #' + receiptNo : ''}${onCredit ? ' (credit)' : ''}`, projectId: state.currentProjectId });
   if (amount > 0 && !onCredit) state.expenses.push({ id: 'exp_pf_' + Date.now(), date, category: 'Fuel', amount, remarks: `Pump fuel ${quantity}L @ ${pumpName}`, projectId: state.currentProjectId });
@@ -635,25 +658,19 @@ function _fuelRenderEfficiency() {
   const c = document.getElementById('fuelContent'); if (!c) return;
   const cur = getCurrencySymbol();
   const assets = state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId);
-  const rows = assets.map(eq => {
+  const cards = assets.map(eq => {
     const logs = (state.equipmentLogs || []).filter(l => l.assetId === eq.id);
     const hours = logs.filter(l => l.type === 'Runbook').reduce((s, l) => s + (parseFloat(l.hours) || 0), 0);
     const litres = logs.filter(l => l.type === 'Fuel').reduce((s, l) => s + (parseFloat(l.litres) || 0), 0);
     const fuelCost = logs.filter(l => l.type === 'Fuel').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
-    const eff = hours > 0 ? (litres / hours).toFixed(2) : '—';
-    const costPerHr = hours > 0 ? (fuelCost / hours).toFixed(0) : '—';
-    return `<tr style="border-bottom:1px solid #f1f5f9;">
-      <td class="px-3 py-2 font-bold">${eq.name}</td>
-      <td class="px-3 py-2 text-right">${hours.toFixed(1)}</td>
-      <td class="px-3 py-2 text-right">${litres.toFixed(0)}L</td>
-      <td class="px-3 py-2 text-right font-bold ${eff !== '—' && parseFloat(eff) > 6 ? 'text-red-600' : 'text-emerald-700'}">${eff} L/hr</td>
-      <td class="px-3 py-2 text-right">${costPerHr === '—' ? '—' : cur + costPerHr + '/hr'}</td>
-    </tr>`;
-  }).join('');
-  c.innerHTML = `<div class="bg-white border rounded-xl overflow-hidden">
-    <div class="p-3 border-b font-bold text-slate-700 text-sm">📈 Unified Fuel Efficiency (tank + pump ÷ runbook hours)</div>
-    <table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Machine</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Hours</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Total Fuel</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Efficiency</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Cost/Hr</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="p-6 text-center text-slate-400">No data.</td></tr>'}</tbody></table>
-  </div>`;
+    const eff = hours > 0 ? litres / hours : null;
+    const high = eff !== null && eff > 6;
+    return pcRecord({ title: eq.name, sub: eq.regNo ? `<span class="pc-tag">${pcEsc(eq.regNo)}</span>` : '', tone: eff === null ? 'slate' : (high ? 'red' : 'green'),
+      pill: high ? pcPill('High use', 'red') : '', heroLabel: 'Mileage', hero: eff === null ? '—' : `${eff.toFixed(2)} L/hr`,
+      grid: [['Hours run', hours.toFixed(1)], ['Total fuel', `${litres.toFixed(0)} L`], ['Fuel cost', cur + fuelCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })], ['Cost / hour', hours > 0 ? `${cur}${(fuelCost / hours).toFixed(0)}` : '—']] });
+  });
+  c.innerHTML = pcPage(pcCard({ icon: '📈', title: 'Fuel mileage', sub: 'Litres per running hour (tank + pump fuel ÷ runbook hours). Above 6 L/hr is flagged.', tone: 'brand', flush: true,
+    body: cards.length ? `<div class="pc-recs inset">${cards.join('')}</div>` : `<div class="pc-empty">No machines yet.</div>` }));
 }
 
 /** Reusable fuel modal */

@@ -61,8 +61,8 @@
     <link rel="stylesheet" href="css/chat.css?v=1.0.3">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.17">
-    <script type="module" src="js/app.js?v=1.6.213"></script>
+    <link rel="stylesheet" href="css/shell.css?v=1.0.18">
+    <script type="module" src="js/app.js?v=1.6.214"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2128,11 +2128,11 @@
 
   <!-- Section: Fuel Management -->
   <div id="equipSecFuel" class="equip-section hide">
-    <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl" style="max-width:fit-content;">
-      <button onclick="_fuelTab('tank',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-sm">🛢️ Tank / Storage</button>
-      <button onclick="_fuelTab('issue',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">⛽ Issue Fuel</button>
-      <button onclick="_fuelTab('pump',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">⛽ Pump Purchases</button>
-      <button onclick="_fuelTab('efficiency',this)" class="fuel-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">📈 Efficiency</button>
+    <div class="fuel-tabs" role="tablist">
+      <button onclick="_fuelTab('tank',this)" class="fuel-tab on" role="tab">🛢️ Tanks</button>
+      <button onclick="_fuelTab('issue',this)" class="fuel-tab" role="tab">⛽ Issue</button>
+      <button onclick="_fuelTab('pump',this)" class="fuel-tab" role="tab">🏪 Pump</button>
+      <button onclick="_fuelTab('efficiency',this)" class="fuel-tab" role="tab">📈 Mileage</button>
     </div>
     <div id="fuelContent"></div>
   </div>

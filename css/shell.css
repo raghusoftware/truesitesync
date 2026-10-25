@@ -660,7 +660,7 @@ button.gp-row.on { border: 2px solid #2563eb; background: #eff6ff; }
 .pc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .pc-stat { position: relative; background: var(--pc-surface); border: 1px solid var(--pc-line); border-radius: var(--pc-radius); box-shadow: var(--pc-shadow); padding: 14px 14px 12px; min-width: 0; overflow: hidden; }
 .pc-stat::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--pc-tone, #94a3b8); }
-.pc-stat span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--pc-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-stat span { display: block; min-height: 2.4em; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--pc-sub); line-height: 1.2; overflow-wrap: anywhere; }
 .pc-stat b { display: block; margin-top: 6px; font-size: 22px; font-weight: 800; color: var(--pc-ink); letter-spacing: -.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .pc-stat small { display: block; margin-top: 2px; font-size: 11.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc-stat.brand { --pc-tone: var(--ts-blue); } .pc-stat.green { --pc-tone: #16a34a; } .pc-stat.amber { --pc-tone: #f59e0b; }
@@ -806,3 +806,42 @@ button.eu-del { height: 40px; min-height: 0 !important; padding: 0 14px !importa
 .eu-empty { padding: 30px 10px; text-align: center; color: #94a3b8; font-size: 14px; }
 button.eu-moreBtn { display: block; width: 100%; margin-top: 12px; height: 48px; min-height: 0 !important; border: 1.5px dashed #cbd5e1; border-radius: 12px !important; background: #fff; color: #334155; font-weight: 800; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .eu-more, .eu-chev svg { transition: none; } }
+
+/* ── Record cards (pcKit pcRecord) — Fuel fills, tanks, pump khata, efficiency ── */
+.pc-recs { display: flex; flex-direction: column; gap: 14px; }
+.pc-recs.inset { padding: 4px var(--pc-pad) var(--pc-pad); }
+.pc-rec { background: #fff; border: 1px solid var(--pc-line); border-left: 4px solid #94a3b8; border-radius: 14px; box-shadow: var(--pc-shadow); overflow: hidden; min-width: 0; }
+.pc-rec.green { border-left-color: #16a34a; } .pc-rec.amber { border-left-color: #f59e0b; } .pc-rec.red { border-left-color: #dc2626; }
+.pc-rec.blue { border-left-color: #2563eb; } .pc-rec.violet { border-left-color: #7c3aed; }
+.pc-rec-top { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 14px; }
+.pc-rec-id { flex: 1; min-width: 0; }
+.pc-rec-id > b { display: block; font-size: 16.5px; font-weight: 800; color: var(--pc-ink); letter-spacing: -.1px; line-height: 1.25; overflow-wrap: anywhere; }
+.pc-rec-id > small { display: block; margin-top: 4px; font-size: 12.5px; color: var(--pc-sub); }
+.pc-tag { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #f1f5f9; font-size: 11.5px; font-weight: 700; color: #475569; letter-spacing: .3px; }
+.pc-rec-hero { flex-shrink: 0; max-width: 50%; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.pc-rec-hero span { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+.pc-rec-hero b { font-size: 20px; font-weight: 800; color: var(--pc-ink); letter-spacing: -.3px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pc-rec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: 1px solid #eef1f5; }
+.pc-rec-grid > div { padding: 11px 16px; min-width: 0; border-bottom: 1px solid #eef1f5; }
+.pc-rec-grid > div:nth-child(odd) { border-right: 1px solid #eef1f5; }
+.pc-rec-grid > div:nth-last-child(-n+2):nth-child(odd), .pc-rec-grid > div:last-child { border-bottom: none; }
+.pc-rec-grid dt { font-size: 11.5px; font-weight: 600; color: #8a94a6; }
+.pc-rec-grid dd { margin: 3px 0 0; font-size: 14.5px; font-weight: 700; color: #1e293b; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pc-rec-foot { padding: 12px 16px 14px; border-top: 1px solid #eef1f5; }
+.pc-meter { height: 8px; border-radius: 8px; background: #eef1f5; overflow: hidden; }
+.pc-meter i { display: block; height: 100%; border-radius: 8px; background: #16a34a; }
+.pc-meter.amber i { background: #f59e0b; } .pc-meter.red i { background: #dc2626; }
+.pc-rec-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pc-rec-acts .pc-act { flex: 1 1 auto; }
+button.pc-act.danger { flex: 0 0 auto; border-color: #fecaca; background: #fff5f5; color: #dc2626; }
+.pc-empty.boxed { background: #fff; border: 1px dashed #cbd5e1; border-radius: var(--pc-radius); }
+button.pc-btn.amber { --pc-btn: linear-gradient(135deg, #f59e0b, #d97706); --pc-btn-glow: rgba(217, 119, 6, .35); }
+button.pc-btn.green { --pc-btn: linear-gradient(135deg, #16a34a, #15803d); --pc-btn-glow: rgba(21, 128, 61, .3); }
+.pc-check { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--pc-line); border-radius: var(--pc-radius-sm); background: var(--pc-sunk); cursor: pointer; }
+.pc-check input { width: 22px; height: 22px; flex-shrink: 0; accent-color: #dc2626; }
+.pc-check b { display: block; font-size: 14px; color: var(--pc-ink); }
+.pc-check small { display: block; font-size: 12px; color: var(--pc-sub); }
+/* Fuel tabs: full-width segmented control, never wider than the screen */
+.fuel-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0 auto 20px; max-width: 880px; background: #e3e7ee; border-radius: 14px; }
+button.fuel-tab { height: 42px; min-height: 0 !important; padding: 0 4px !important; border: none; border-radius: 10px !important; background: transparent; color: #475569; font-size: 13px !important; font-weight: 700 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.fuel-tab.on { background: #fff; color: var(--pc-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, .15); }
