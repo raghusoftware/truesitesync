@@ -565,11 +565,7 @@ function _renderList(el) {
   _txShown = shown.slice(0, 300);
   const proj = pid ? (state.projects || []).find(p => p.id === pid) : null;
   const chip = (fn, l, on) => `<button type="button" class="ts-chip ${on ? 'on' : ''}" onclick="${fn}">${l}</button>`;
-  const list = _txShown.map((r, i) => `<div class="tx-row" role="button" tabindex="0" onclick="window._pmtTxMenu(${i})">
-      <div class="tx-ic ${r.dir}" data-keep-emoji>${r.icon || (r.dir === 'out' ? '↗' : '↙')}</div>
-      <div class="tx-m"><b>${esc(r.who)}</b><small>${esc([r.via, r.date].filter(Boolean).join(' · '))}</small>${r.ded > 0 ? `<small style="color:#be123c">${money(r.ded)} deducted · bill settled ${money(r.settled)}</small>` : ''}</div>
-      <div class="tx-a ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
-    </div>`).join('');
+  const list = _txShown.map((r, i) => _txCard(r, i)).join('');
   const keepFocus = document.activeElement && document.activeElement.id === 'txSearch';
   el.innerHTML = `<div class="ts-page tx">
     <div class="tsp-sum">
@@ -585,12 +581,96 @@ function _renderList(el) {
     </div>
     ${list ? `<div class="tx-list">${list}</div>` : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No transaction found</h3><p>Record money received or paid with the buttons below.</p></div>`}
     ${shown.length > _txShown.length ? `<p style="text-align:center;color:var(--ts-muted);font-size:13px;margin:12px 0">Showing ${_txShown.length} of ${shown.length} — search to narrow down</p>` : ''}
-    <div class="ts-actbar">
+    <!-- Docked above the bottom tabs on phones (solid bar, never over the list) -->
+    <div class="pmt-dock" role="group" aria-label="New payment">
       <button type="button" class="ts-act in" onclick="window._pmtSetMode('in')">↙ Payment In</button>
       <button type="button" class="ts-act out" onclick="window._pmtSetMode('out')">↗ Payment Out</button>
     </div>
   </div>`;
   if (keepFocus) { const i = document.getElementById('txSearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+}
+
+/* ── Transaction card: tap to expand all its details in place ── */
+const _txOpen = new Set();   // keys (src:id) of expanded cards — kept across re-renders
+const _txKey = (r) => r.src + ':' + r.id;
+const MON = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
+const _day = (d) => { const [y, m, dd] = String(d || '').split('-').map(Number); return y && m ? `${dd} ${MON[m - 1]} ${y}` : (d || ''); };
+
+/** Every useful field of the underlying record, as [label, value] pairs. */
+function _txDetails(r) {
+  const x = r.rec || {};
+  const pick = (...keys) => keys.map(k => x[k]).find(v => v !== undefined && v !== null && String(v).trim() !== '');
+  const proj = x.projectId ? (state.projects || []).find(p => p.id === x.projectId) : null;
+  const when = x.createdAt ? new Date(Number(x.createdAt)) : null;
+  const time = when && !isNaN(when) ? `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}` : '';
+  return [
+    ['Type', r.dir === 'in' ? 'Payment In' : 'Payment Out'],
+    ['Date', [_day(r.date), time].filter(Boolean).join(' · ')],
+    [r.dir === 'in' ? 'From' : 'Paid to', r.who],
+    ['Amount', money(r.amt)],
+    [r.dir === 'in' ? 'Received in' : 'Paid from', r.via],
+    ['Project', proj ? proj.name : ''],
+    ['Mode', pick('mode', 'paymentMode', 'method')],
+    ['Reference', pick('ref', 'refNo', 'reference', 'billNo', 'invoiceNo', 'chequeNo', 'utr', 'receiptNo')],
+    ['Head', [x.head, x.subHead].filter(Boolean).join(' · ') || x.category || ''],
+    ['Deducted', r.ded > 0 ? money(r.ded) : ''],
+    ['Bill settled', r.ded > 0 ? money(r.settled) : ''],
+    ['Recorded by', pick('createdBy', 'updatedBy')],
+    ['Remarks', pick('remarks', 'note', 'notes', 'description', 'narration')],
+  ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+}
+
+/** Buttons for a transaction (same actions the old pop-up menu offered). */
+function _txActions(r, i) {
+  const b = [];
+  if (['paymentsIn', 'vendorPayments', 'labourPayments'].includes(r.src)) b.push(`<button type="button" class="tx-btn" onclick="event.stopPropagation();window._pmtTxAct(${i},'edit')">✏️ Edit</button>`);
+  if (['paymentsIn', 'vendorPayments', 'labourPayments', 'expenses'].includes(r.src)) {
+    b.push(`<button type="button" class="tx-btn" onclick="event.stopPropagation();window._pmtTxAct(${i},'receipt')">🧾 Receipt</button>`);
+    b.push(`<button type="button" class="tx-btn danger" onclick="event.stopPropagation();window._pmtTxAct(${i},'delete')">🗑️ Delete</button>`);
+  }
+  if (r.src === 'pettyCashTxns') b.push(`<button type="button" class="tx-btn" onclick="event.stopPropagation();window._pmtTxAct(${i},'petty')">👛 Open in Petty Cash</button>`);
+  return b.length ? `<div class="tx-acts">${b.join('')}</div>` : '';
+}
+
+function _txCard(r, i) {
+  const open = _txOpen.has(_txKey(r));
+  const rows = _txDetails(r);
+  const wide = (k) => k === 'Remarks' || k === 'Paid to' || k === 'From';
+  return `<div class="tx-card ${r.dir}${open ? ' open' : ''}" data-k="${esc(_txKey(r))}">
+    <div class="tx-row" role="button" tabindex="0" aria-expanded="${open}" onclick="window._pmtTxToggle(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+      <div class="tx-ic ${r.dir}" data-keep-emoji>${r.icon || (r.dir === 'out' ? '↗' : '↙')}</div>
+      <div class="tx-m"><b>${esc(r.who)}</b><small>${esc([r.via, _day(r.date)].filter(Boolean).join(' · '))}</small>${r.ded > 0 ? `<small style="color:#be123c">${money(r.ded)} deducted · bill settled ${money(r.settled)}</small>` : ''}</div>
+      <div class="tx-a ${r.dir}">${r.dir === 'out' ? '−' : '+'}${money(r.amt)}</div>
+      <svg class="tx-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="tx-more"><div class="tx-more-in">
+      <dl class="tx-kv">${rows.map(([k, v]) => `<div class="${wide(k) ? 'wide' : ''}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+      ${_txActions(r, i)}
+    </div></div>
+  </div>`;
+}
+
+/** Tap a transaction: open / close its details right where it is (no pop-up, no navigation). */
+function _pmtTxToggle(i) {
+  const r = _txShown[i]; if (!r) return;
+  const k = _txKey(r);
+  if (_txOpen.has(k)) _txOpen.delete(k); else _txOpen.add(k);
+  const card = document.querySelector(`.tx-card[data-k="${CSS.escape(k)}"]`);
+  if (!card) return renderPaymentsHub();
+  const open = _txOpen.has(k);
+  card.classList.toggle('open', open);
+  card.querySelector('.tx-row')?.setAttribute('aria-expanded', open);
+}
+
+function _pmtTxAct(i, what) {
+  const r = _txShown[i]; if (!r) return;
+  if (what === 'edit') return window._editPartyTx?.(r.src, r.id);
+  if (what === 'receipt') return window._partyReceipt?.(r.src, r.id);
+  if (what === 'petty') return window.switchView?.('pettyCashView');
+  if (what === 'delete') {
+    if (!confirm('Move this entry to the Recycle Bin?')) return;
+    if (window.recycleDelete?.(r.src, r.id, r.dir === 'in' ? 'Payment In' : 'Payment Out', r.who)) { _txOpen.delete(_txKey(r)); renderPaymentsHub(); window.renderPartiesList?.(); }
+  }
 }
 
 function _pmtTxMenu(i) {
@@ -639,7 +719,7 @@ function _pmtStart(mode, opts = {}) {
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     renderPaymentsHub, _pmtSetMode, _pmtSetPayee, _pmtSetSource, _pmtSetPayer, _pmtHeldRefresh, _pmtOpenReport, _pmtExportCA,
-    _pmtHeadChange, _pmtSaveOut, _pmtSaveIn, _pmtStart, _pmtTxMenu, _pmtMore,
+    _pmtHeadChange, _pmtSaveOut, _pmtSaveIn, _pmtStart, _pmtTxMenu, _pmtTxToggle, _pmtTxAct, _pmtMore,
     _pmtShowList: (render = true) => { _ui.screen = 'list'; if (render) renderPaymentsHub(); },
     _pmtIsForm: () => _ui.screen === 'form',
     _pmtFormTitle: () => (_ui.mode === 'in' ? 'Payment In' : 'Payment Out'),

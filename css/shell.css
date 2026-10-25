@@ -845,3 +845,32 @@ button.pc-btn.green { --pc-btn: linear-gradient(135deg, #16a34a, #15803d); --pc-
 .fuel-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0 auto 20px; max-width: 880px; background: #e3e7ee; border-radius: 14px; }
 button.fuel-tab { height: 42px; min-height: 0 !important; padding: 0 4px !important; border: none; border-radius: 10px !important; background: transparent; color: #475569; font-size: 13px !important; font-weight: 700 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button.fuel-tab.on { background: #fff; color: var(--pc-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, .15); }
+
+/* ── Payments: docked In/Out bar + expandable transaction cards (paymentsUI.js) ── */
+.pmt-dock { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 0; }
+@media (max-width: 768px) {
+  /* Solid bar docked right above the bottom tabs — never floats over the list */
+  .pmt-dock { position: fixed; left: 0; right: 0; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); z-index: 30; margin: 0;
+    padding: 10px 14px; background: #fff; border-top: 1px solid #e6e9ef; box-shadow: 0 -6px 16px -10px rgba(15, 23, 42, .25); }
+  .pmt-dock button.ts-act { height: 48px; box-shadow: none; }
+  .ts-page.tx { padding-bottom: 92px; }   /* room so the last transaction is never hidden under the bar */
+}
+.tx-card { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; overflow: hidden; transition: box-shadow .2s, border-color .2s; }
+.tx-card.open { border-color: #d5dce8; box-shadow: 0 2px 4px rgba(16, 24, 40, .05), 0 10px 24px rgba(16, 24, 40, .08); }
+.tx-card > .tx-row { border: none !important; border-radius: 0; background: transparent; }
+.tx-chev { flex-shrink: 0; color: #94a3b8; transition: transform .25s ease; margin-left: -4px; }
+.tx-card.open .tx-chev { transform: rotate(180deg); }
+.tx-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s cubic-bezier(.2, .8, .2, 1); }
+.tx-card.open .tx-more { grid-template-rows: 1fr; }
+.tx-more-in { overflow: hidden; min-height: 0; }
+.tx-card.open .tx-more-in { border-top: 1px solid #eef1f5; }
+.tx-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.tx-kv > div { padding: 9px 14px; border-bottom: 1px solid #f1f3f6; min-width: 0; }
+.tx-kv > div:not(.wide):nth-child(odd) { border-right: 1px solid #f1f3f6; }
+.tx-kv > div.wide { grid-column: 1 / -1; }
+.tx-kv dt { font-size: 11px; font-weight: 600; color: #8a94a6; }
+.tx-kv dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; color: #1e293b; overflow-wrap: anywhere; }
+.tx-acts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 14px; }
+button.tx-btn { flex: 1 1 auto; height: 42px; min-height: 0 !important; padding: 0 14px !important; border: 1px solid #dbe3ee; border-radius: 10px !important; background: #f8fafc; color: #1e293b; font-size: 13.5px !important; font-weight: 700 !important; white-space: nowrap; }
+button.tx-btn.danger { border-color: #fecaca; background: #fff5f5; color: #dc2626; flex: 0 0 auto; }
+@media (prefers-reduced-motion: reduce) { .tx-more, .tx-chev { transition: none; } }

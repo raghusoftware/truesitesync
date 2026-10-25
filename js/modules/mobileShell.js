@@ -73,9 +73,17 @@ const VIEW_PARENT = (() => {
 // Leaves opened straight from a Workspace / Master tile (not via a hub) go back
 // to that tab instead of the hub they nominally sit under.
 let _tabOrigin = null; // { view, tab }
+// Screens reachable from several menus remember which menu opened them, so Back
+// returns there (e.g. Finance → Payments → Back = Finance, not the Business tab).
+// Only menu-like screens are remembered as origins, so Back can never ping-pong.
+const MULTI_ENTRY = new Set(['paymentsHubView']);
+const MENU_ORIGINS = new Set(['workspaceView', 'financeHubView', 'salesHubView', 'purchaseHubView', 'projectDashboard',
+  'partiesLedgerView', 'pettyCashView', 'accountsManagerView', 'bizHomeView', 'projectsHome', 'cashFlowView']);
+const _origin = {};      // view → the menu it was opened from
 function parentOf(viewId) {
   if (!viewId || viewId === HOME_VIEW || viewId === 'bizHomeView') return null;
   if (viewId === 'workspaceView' || viewId === 'masterView') return HOME_VIEW;
+  if (_origin[viewId] && document.getElementById(_origin[viewId])) return _origin[viewId];
   if (_tabOrigin && _tabOrigin.view === viewId) return _tabOrigin.tab;
   // Project modules return to the project's home while a project is open
   if (PROJECT_VIEWS.has(viewId) && viewId !== 'projectDashboard' && window.state?.currentProjectId) return 'projectDashboard';
@@ -84,6 +92,8 @@ function parentOf(viewId) {
 // switchView reports every navigation; remember when a leaf was opened from a tab.
 if (typeof window !== 'undefined') {
   window.__noteNav = function (from, to) {
+    // Remember the menu a multi-entry screen was opened from (not when arriving via Back).
+    if (MULTI_ENTRY.has(to) && from && from !== to && !window.__navBack) _origin[to] = MENU_ORIGINS.has(from) ? from : null;
     if (from === 'workspaceView' || from === 'masterView') {
       if (to !== from && VIEW_PARENT[to] !== from) _tabOrigin = { view: to, tab: from };
     } else if (_tabOrigin && _tabOrigin.view !== to && !window.__navBack) {
