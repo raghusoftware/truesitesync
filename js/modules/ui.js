@@ -1861,6 +1861,7 @@ export function renderLiveInventory() {
     if (tx.type === 'CONSUME') badge = `<span class="text-red-600 font-bold">AUTO-CONSUME (-)</span>`;
     ledgerBody.innerHTML += `<tr><td class="px-3 py-2 border-b whitespace-nowrap">${tx.date}</td><td class="px-3 py-2 border-b truncate">${loc ? loc.name : '-'}</td><td class="px-3 py-2 border-b">${badge}</td><td class="px-3 py-2 border-b font-bold">${rm ? rm.name : '-'}</td><td class="px-3 py-2 border-b text-right font-bold">${tx.qty.toFixed(2)}</td><td class="px-3 py-2 border-b text-slate-500 text-xs">${tx.ref || (tx.refSheetId ? 'Sheet: ' + tx.refSheetId : '-')}</td></tr>`;
   });
+  window.renderInvList?.();   // card list (inventoryList.js)
 }
 
 // ══════════════════════════════════════════
@@ -1924,7 +1925,7 @@ window._openInvSection = function(section) {
   }
   const map = { stock:'invSecStock', stores:'invSecStores', statement:'invSecStatement', grn:'invSecGrn', grnregister:'invSecGrnRegister', gang:'invSecGang', tools:'invSecTools', transfer:'invSecTransfer', audit:'invSecAudit' };
   const el = document.getElementById(map[section]); if (el) el.classList.remove('hide');
-  if (section === 'stock') renderLiveInventory();
+  if (section === 'stock') { document.getElementById('invManageBox')?.classList.add('hide'); renderLiveInventory(); }
   else if (section === 'stores') _renderStores();
   else if (section === 'statement') _renderStockStatement();
   else if (section === 'grn') _renderGRN();

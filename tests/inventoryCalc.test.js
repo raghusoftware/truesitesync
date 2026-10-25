@@ -1,0 +1,65 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { materialLocation, stockStatus, stockMeter, stockRows, statusCounts, filterRows } from '../js/modules/inventoryCalc.js';
+
+const materials = [
+  { id: 'cem', name: 'Portland Cement (Grade 43)', unit: 'Bag', type: 'Cement', minStock: 500, locations: { S1: 'Yard A - Section 3', S2: 'Store B' } },
+  { id: 'tmt', name: 'TMT Steel Rebar (12mm)', unit: 'Kg', type: 'Steel', minStock: 1000 },
+  { id: 'snd', name: 'River Sand', unit: 'Cft', type: 'Aggregate' },
+  { id: 'kap', name: 'Kapchi', unit: 'Ton', type: 'Aggregate', minStock: 10 },
+  { id: 'unused', name: 'Unused item', unit: 'Nos' },
+];
+const tx = [
+  { rawMaterialId: 'cem', siteId: 'S1', type: 'IN', qty: 1500 },
+  { rawMaterialId: 'cem', siteId: 'S1', type: 'CONSUME', qty: 250 },
+  { rawMaterialId: 'cem', siteId: 'S2', type: 'IN', qty: 100 },
+  { rawMaterialId: 'tmt', siteId: 'S1', type: 'IN', qty: 800 },
+  { rawMaterialId: 'snd', siteId: 'S1', type: 'IN', qty: 50 },
+  { rawMaterialId: 'snd', siteId: 'S1', type: 'OUT', qty: 50 },
+];
+const transfers = [{ assetId: 'cem', fromLocId: 'S1', toLocId: 'S2', qty: 100 }];
+
+test('materialLocation: one site, or every distinct location across sites', () => {
+  assert.equal(materialLocation(materials[0], 'S1'), 'Yard A - Section 3');
+  assert.equal(materialLocation(materials[0], 'S9'), '');
+  assert.equal(materialLocation(materials[0], ''), 'Yard A - Section 3 · Store B');
+  assert.equal(materialLocation(materials[1], 'S1'), '');
+});
+
+test('stockStatus and stockMeter', () => {
+  assert.equal(stockStatus(0, 10), 'out');
+  assert.equal(stockStatus(5, 10), 'low');
+  assert.equal(stockStatus(10, 10), 'ok');
+  assert.equal(stockStatus(5, 0), 'ok');
+  assert.equal(stockMeter(0, 10), 0);
+  assert.equal(stockMeter(10, 10), 50);   // minimum sits mid-bar
+  assert.equal(stockMeter(99, 10), 100);
+  assert.equal(stockMeter(3, 0), 100);
+});
+
+test('stockRows for one site counts tx + transfers and keeps out-of-stock items with a minimum', () => {
+  const rows = stockRows({ materials, tx, transfers, siteId: 'S1' });
+  const by = Object.fromEntries(rows.map(r => [r.id, r]));
+  assert.equal(by.cem.stock, 1500 - 250 - 100);
+  assert.equal(by.cem.status, 'ok');
+  assert.equal(by.cem.location, 'Yard A - Section 3');
+  assert.equal(by.tmt.status, 'low');
+  assert.equal(by.snd.status, 'out');
+  assert.equal(by.kap.status, 'out');      // never received, has a minimum
+  assert.equal(by.unused, undefined);       // no movement, no minimum
+});
+
+test('stockRows across all sites ignores transfers', () => {
+  const by = Object.fromEntries(stockRows({ materials, tx, transfers }).map(r => [r.id, r]));
+  assert.equal(by.cem.stock, 1500 - 250 + 100);
+});
+
+test('filterRows: search by location, status chips, sort most urgent first', () => {
+  const rows = stockRows({ materials, tx, transfers, siteId: 'S1' });
+  assert.deepEqual(filterRows(rows, { q: 'yard a' }).map(r => r.id), ['cem']);
+  assert.deepEqual(filterRows(rows, { status: 'low' }).map(r => r.id), ['tmt']);
+  assert.deepEqual(filterRows(rows, { status: 'noloc', sort: 'name' }).map(r => r.id), ['kap', 'snd', 'tmt']);
+  assert.deepEqual(filterRows(rows, { sort: 'low' }).map(r => r.status), ['out', 'out', 'low', 'ok']);
+  assert.deepEqual(filterRows(rows, { type: 'Aggregate', sort: 'name' }).map(r => r.id), ['kap', 'snd']);
+  assert.deepEqual(statusCounts(rows), { all: 4, ok: 1, low: 1, out: 2, noloc: 3 });
+});
