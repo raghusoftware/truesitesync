@@ -19,6 +19,18 @@ export function materialLocation(m, siteId) {
   return [...new Set(Object.values(locs).map(v => String(v || '').trim()).filter(Boolean))].join(' · ');
 }
 
+/**
+ * Kind of stock item, from the material's type in the item master:
+ * 'Tools' → tool · 'Raw Material' → raw · anything else (Miscellaneous…) → consumable.
+ */
+export function materialKind(type) {
+  const t = String(type || '').toLowerCase();
+  if (t.startsWith('tool')) return 'tool';
+  if (t === 'raw material' || t === 'raw') return 'raw';
+  return 'consumable';
+}
+export const KIND_LABEL = { raw: 'Raw material', consumable: 'Consumable', tool: 'Tool' };
+
 /** 'out' (nothing left) · 'low' (below minimum) · 'ok'. */
 export function stockStatus(stock, min) {
   if (stock <= 0.0001) return 'out';
@@ -64,7 +76,7 @@ export function stockRows({ materials = [], tx = [], transfers = [], siteId = ''
     if (!moved && min <= 0) return;
     const stock = Math.round((inQ - out) * 1000) / 1000;
     rows.push({
-      id: m.id, name: m.name || 'Material', unit: m.unit || '', type: m.type || m.category || '',
+      id: m.id, name: m.name || 'Material', unit: m.unit || '', type: m.type || m.category || '', kind: materialKind(m.type),
       in: inQ, out, stock, min, status: stockStatus(stock, min), meter: stockMeter(stock, min),
       location: materialLocation(m, siteId),
     });
@@ -74,23 +86,24 @@ export function stockRows({ materials = [], tx = [], transfers = [], siteId = ''
 
 /** Status chip counts for the filter bar. */
 export function statusCounts(rows) {
-  const c = { all: rows.length, ok: 0, low: 0, out: 0, noloc: 0 };
-  rows.forEach(r => { c[r.status]++; if (!r.location) c.noloc++; });
+  const c = { all: rows.length, ok: 0, low: 0, out: 0, noloc: 0, raw: 0, consumable: 0, tool: 0 };
+  rows.forEach(r => { c[r.status]++; if (!r.location) c.noloc++; c[r.kind]++; });
   return c;
 }
 
 /**
- * Search (name, type, unit, location), filter by status / location / type, sort.
+ * Search (name, type, unit, location), filter by status / location / type / kind, sort.
  * sort: 'name' | 'low' (most urgent first) | 'location' | 'stock' (largest first)
  */
-export function filterRows(rows, { q = '', status = 'all', location = '', type = '', sort = 'low' } = {}) {
+export function filterRows(rows, { q = '', status = 'all', location = '', type = '', kind = '', sort = 'low' } = {}) {
   const needle = q.trim().toLowerCase();
   const rank = { out: 0, low: 1, ok: 2 };
   const out = rows.filter(r => {
     if (status === 'noloc' ? r.location : (status !== 'all' && r.status !== status)) return false;
     if (location && r.location !== location) return false;
     if (type && r.type !== type) return false;
-    return !needle || [r.name, r.type, r.unit, r.location].some(v => String(v || '').toLowerCase().includes(needle));
+    if (kind && r.kind !== kind) return false;
+    return !needle || [r.name, r.type, r.unit, r.location, KIND_LABEL[r.kind]].some(v => String(v || '').toLowerCase().includes(needle));
   });
   const byName = (a, b) => a.name.localeCompare(b.name);
   const sorters = {

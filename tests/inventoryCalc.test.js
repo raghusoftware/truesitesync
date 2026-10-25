@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { materialLocation, stockStatus, stockMeter, stockRows, statusCounts, filterRows } from '../js/modules/inventoryCalc.js';
+import { materialKind, materialLocation, stockStatus, stockMeter, stockRows, statusCounts, filterRows } from '../js/modules/inventoryCalc.js';
 
 const materials = [
   { id: 'cem', name: 'Portland Cement (Grade 43)', unit: 'Bag', type: 'Cement', minStock: 500, locations: { S1: 'Yard A - Section 3', S2: 'Store B' } },
@@ -61,5 +61,26 @@ test('filterRows: search by location, status chips, sort most urgent first', () 
   assert.deepEqual(filterRows(rows, { status: 'noloc', sort: 'name' }).map(r => r.id), ['kap', 'snd', 'tmt']);
   assert.deepEqual(filterRows(rows, { sort: 'low' }).map(r => r.status), ['out', 'out', 'low', 'ok']);
   assert.deepEqual(filterRows(rows, { type: 'Aggregate', sort: 'name' }).map(r => r.id), ['kap', 'snd']);
-  assert.deepEqual(statusCounts(rows), { all: 4, ok: 1, low: 1, out: 2, noloc: 3 });
+  assert.deepEqual(statusCounts(rows), { all: 4, ok: 1, low: 1, out: 2, noloc: 3, raw: 0, consumable: 4, tool: 0 });
+});
+
+test('materialKind: raw material, consumable (miscellaneous / other) or tool', () => {
+  assert.equal(materialKind('Raw Material'), 'raw');
+  assert.equal(materialKind('Tools'), 'tool');
+  assert.equal(materialKind('Miscellaneous'), 'consumable');
+  assert.equal(materialKind(''), 'consumable');
+});
+
+test('filterRows by kind, and search matches the kind label', () => {
+  const mats = [
+    { id: 'a', name: 'Cement', type: 'Raw Material', minStock: 1 },
+    { id: 'b', name: 'Shovel', type: 'Tools', minStock: 1 },
+    { id: 'c', name: 'Cutting disc', type: 'Miscellaneous', minStock: 1 },
+  ];
+  const rows = stockRows({ materials: mats });
+  assert.deepEqual(filterRows(rows, { kind: 'tool' }).map(r => r.id), ['b']);
+  assert.deepEqual(filterRows(rows, { kind: 'consumable' }).map(r => r.id), ['c']);
+  assert.deepEqual(filterRows(rows, { q: 'tool' }).map(r => r.id), ['b']);
+  const c = statusCounts(rows);
+  assert.deepEqual([c.raw, c.consumable, c.tool], [1, 1, 1]);
 });

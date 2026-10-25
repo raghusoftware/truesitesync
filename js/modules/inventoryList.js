@@ -20,7 +20,7 @@ const fmtD = (d) => { const [y, m, dd] = String(d || '').split('-').map(Number);
 
 // Filter state (kept while the app is open)
 let _site = null;           // null = this project's site on first open; '' = all sites
-let _q = '', _status = 'all', _loc = '', _type = '', _sort = 'low';
+let _q = '', _status = 'all', _loc = '', _kind = '', _sort = 'low';
 let _rows = [], _shown = 0, _open = null, _obs = null, _showFilters = false;
 
 const ICON = {
@@ -43,36 +43,38 @@ function computeRows() {
   });
 }
 
-/** How many of site / location / type / sort differ from the defaults. */
+/** How many of site / location / sort differ from the defaults. */
 function activeFilters() {
-  return [_site !== (state.currentProjectId || ''), !!_loc, !!_type, _sort !== 'low'].filter(Boolean).length;
+  return [_site !== (state.currentProjectId || ''), !!_loc, _sort !== 'low'].filter(Boolean).length;
 }
 
 function filtered() {
-  return IC.filterRows(_rows, { q: _q, status: _status, location: _loc, type: _type, sort: _sort });
+  return IC.filterRows(_rows, { q: _q, status: _status, location: _loc, kind: _kind, sort: _sort });
 }
 
-const STATUS_LABEL = { ok: 'In stock', low: 'Low stock', out: 'Out of stock' };
+const STATUS_LABEL = { ok: 'In stock', low: 'Low', out: 'Out' };
 
+const KIND_ICON = { raw: '🧱', consumable: '🧴', tool: '🔧' };
+
+/** Compact card: name + status, kind + 📍 location, stock vs minimum + meter. */
 function cardHtml(r) {
   const open = _open === r.id;
   const loc = r.location
     ? `<button type="button" class="ivc-loc" onclick="event.stopPropagation();window._ivSetLoc('${esc(r.id)}')" title="Change location">${ICON.pin}<span>${esc(r.location)}</span></button>`
-    : `<button type="button" class="ivc-loc none" onclick="event.stopPropagation();window._ivSetLoc('${esc(r.id)}')">${ICON.pin}<span>${_site ? 'Set location' : 'No location set'}</span></button>`;
-  const minTxt = r.min > 0 ? `Min. required: <b>${qty(r.min)} ${esc(r.unit)}</b>` : 'No minimum set';
+    : `<button type="button" class="ivc-loc none" onclick="event.stopPropagation();window._ivSetLoc('${esc(r.id)}')">${ICON.pin}<span>${_site ? 'Set location' : 'No location'}</span></button>`;
   return `<article class="ivc ${r.status}${open ? ' open' : ''}" data-id="${esc(r.id)}" onclick="window._ivToggle('${esc(r.id)}')">
     <div class="ivc-top">
-      <div class="ivc-name"><h3>${esc(r.name)}</h3>${r.type ? `<small>${esc(r.type)}</small>` : ''}</div>
+      <h3 class="ivc-name">${esc(r.name)}</h3>
       <span class="ivc-pill ${r.status}">${STATUS_LABEL[r.status]}</span>
     </div>
-    ${loc}
+    <div class="ivc-tags"><span class="ivc-kind ${r.kind}">${KIND_ICON[r.kind]} ${IC.KIND_LABEL[r.kind]}</span>${loc}</div>
     <div class="ivc-stock">
-      <div><small>In stock</small><b>${qty(r.stock)} <em>${esc(r.unit)}</em></b></div>
-      <div class="ivc-min">${minTxt}</div>
+      <b>${qty(r.stock)} <em>${esc(r.unit)}</em></b>
+      <span class="ivc-min">${r.min > 0 ? `Min ${qty(r.min)} ${esc(r.unit)}` : 'No minimum'}</span>
+      <span class="ivc-chev">${ICON.chev}</span>
     </div>
     <div class="ivc-meter" aria-hidden="true"><i style="width:${r.meter}%"></i>${r.min > 0 ? '<u></u>' : ''}</div>
     ${open ? detailHtml(r) : ''}
-    <div class="ivc-more">${open ? 'Hide details' : 'Details'} ${ICON.chev}</div>
   </article>`;
 }
 
@@ -127,10 +129,14 @@ function renderCards() {
 }
 
 function renderChips() {
-  const c = IC.statusCounts(_rows);
-  const chip = (k, l) => `<button type="button" class="ts-chip ${_status === k ? 'on' : ''}" onclick="window._ivStatus('${k}')">${l}<b>${c[k]}</b></button>`;
+  // Status counts follow the chosen kind (Raw material / Consumable / Tool).
+  const c = IC.statusCounts(_kind ? _rows.filter(r => r.kind === _kind) : _rows);
+  const chip = (key, l) => `<button type="button" class="ts-chip ${_status === key ? 'on' : ''}" onclick="window._ivStatus('${key}')">${l}<b>${c[key]}</b></button>`;
+  const seg = (key, l) => `<button type="button" class="${_kind === key ? 'on' : ''}" onclick="window._ivKind('${key}')" aria-pressed="${_kind === key}">${l}</button>`;
   const el = document.getElementById('ivChips');
   if (el) el.innerHTML = chip('all', 'All') + chip('low', 'Low') + chip('out', 'Out') + chip('ok', 'OK') + chip('noloc', 'No 📍');
+  const ks = document.getElementById('ivKinds');
+  if (ks) ks.innerHTML = seg('', 'All') + seg('raw', 'Raw material') + seg('consumable', 'Consumable') + seg('tool', 'Tool');
 }
 
 export function renderInvList() {
@@ -139,9 +145,7 @@ export function renderInvList() {
   if (_site === null) _site = state.currentProjectId || '';
   _rows = computeRows();
   const locs = [...new Set(_rows.map(r => r.location).filter(Boolean))].sort();
-  const types = [...new Set(_rows.map(r => r.type).filter(Boolean))].sort();
   if (_loc && !locs.includes(_loc)) _loc = '';
-  if (_type && !types.includes(_type)) _type = '';
   const opt = (v, l, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`;
   const sites = getAllLocations().filter(l => l.name);
   const keepFocus = document.activeElement && document.activeElement.id === 'ivSearch';
@@ -158,9 +162,9 @@ export function renderInvList() {
       <div class="iv-sel"${_showFilters ? '' : ' hidden'}>
         <select onchange="window._ivSite(this.value)" aria-label="Site">${opt('', 'All sites', _site)}${sites.map(l => opt(l.id, l.projectName || l.name, _site)).join('')}</select>
         <select onchange="window._ivLoc(this.value)" aria-label="Location">${opt('', 'All locations', _loc)}${locs.map(l => opt(l, '📍 ' + l, _loc)).join('')}</select>
-        <select onchange="window._ivType(this.value)" aria-label="Type">${opt('', 'All types', _type)}${types.map(t => opt(t, t, _type)).join('')}</select>
         <select onchange="window._ivSort(this.value)" aria-label="Sort">${opt('low', 'Sort: Most urgent', _sort)}${opt('name', 'Sort: Name A–Z', _sort)}${opt('location', 'Sort: Location', _sort)}${opt('stock', 'Sort: Most stock', _sort)}</select>
       </div>
+      <div id="ivKinds" class="iv-kinds" role="group" aria-label="Item kind"></div>
       <div id="ivChips" class="iv-chips"></div>
     </div>
     <div id="ivCount" class="iv-count"></div>
@@ -218,7 +222,7 @@ if (typeof window !== 'undefined') {
   window._ivSearch = (v) => { _q = v; renderCards(); };
   window._ivStatus = (s) => { _status = s; renderCards(); };
   window._ivLoc = (v) => { _loc = v; renderInvList(); };
-  window._ivType = (v) => { _type = v; renderInvList(); };
+  window._ivKind = (v) => { _kind = v; renderCards(); };
   window._ivSort = (v) => { _sort = v; renderInvList(); };
   window._ivFilters = () => { _showFilters = !_showFilters; renderInvList(); };
   window._ivSite = (v) => { _site = v; _loc = ''; renderInvList(); };
