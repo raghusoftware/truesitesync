@@ -1,6 +1,7 @@
 import { state, saveAllData, saveEquipmentData } from './state.js';
 import { keepOnly } from './state.js';
 import { showToast, getAllLocations, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getPdfCurrency } from './utils.js';
+import { logMetrics, usageTotals, logTone } from './equipmentCalc.js';
 
 // ==========================================
 // LOCATION, ASSETS & MAINTENANCE
@@ -852,35 +853,84 @@ export function saveEquipmentLog() {
   else showToast('Log Entry Saved', 'success');
 }
 
+let _euLimit = 50;          // cards shown; "Show more" adds 50
+let _euOpen = new Set();     // ids of expanded cards (kept across re-renders)
+
+/** Usage History: one card per log — headline figures on the face, every other
+ *  field in an expandable panel. Vertical list only, nothing scrolls sideways. */
 export function renderEquipmentLog() {
   const filterAsset = document.getElementById('eqFilterAsset')?.value || '';
-  const tbody = document.getElementById('eqLogBody');
-  if (!tbody) return;
-  const allLocs = getAllLocations();
+  const host = document.getElementById('eqLogCards');
+  if (!host) return;
+  const cur = getCurrencySymbol();
   // Only logs for this project's equipment
   const projEquipIds = new Set(state.equipmentList.filter(e => !e.projectId || e.projectId === state.currentProjectId).map(e => e.id));
-  let filtered = (state.equipmentLogs || []).filter(l => projEquipIds.has(l.assetId));
-  if (filterAsset) filtered = filtered.filter(l => l.assetId === filterAsset);
-  filtered = filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50);
+  let all = (state.equipmentLogs || []).filter(l => projEquipIds.has(l.assetId));
+  if (filterAsset) all = all.filter(l => l.assetId === filterAsset);
+  all = all.sort((a, b) => new Date(b.date) - new Date(a.date) || String(b.id).localeCompare(String(a.id)));
+  const shown = all.slice(0, _euLimit);
+  const T = usageTotals(all);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = (v, d = 2) => (Math.round((Number(v) || 0) * 10 ** d) / 10 ** d).toLocaleString('en-IN', { maximumFractionDigits: d });
+  const money = (v) => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const MON = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
+  const day = (d) => { const [y, m, dd] = String(d || '').split('-').map(Number); return y && m ? `${dd} ${MON[m - 1]} ${y}` : (d || '—'); };
+  const fmtMetric = (m) => m.key === 'amount' ? money(m.value) : m.key === 'litres' ? `${num(m.value, 1)} L` : m.key === 'km' ? `${num(m.value, 1)} km` : `${num(m.value)} h`;
+  const person = (id) => (state.labourMaster || []).find(o => o.id === id)?.name || '';
+  const account = (id) => (state.accounts || []).find(a => a.id === id)?.name || '';
 
-  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
-  const woName = (id) => { const g = proj?.boqs?.find(b => b.id === id); if (g) return (g.woNumber ? g.woNumber + ' — ' : '') + (g.name || g.type || 'BOQ'); return allLocs.find(x => x.id === id)?.name; };
-  tbody.innerHTML = filtered.map(l => {
+  const card = (l) => {
     const eq = state.equipmentList.find(e => e.id === l.assetId);
-    const site = { name: woName(l.siteId) };
-    const typeColors = { Fuel: 'text-orange-600 bg-orange-50', Maintenance: 'text-blue-600 bg-blue-50', Assignment: 'text-green-600 bg-green-50', Movement: 'text-purple-600 bg-purple-50' };
-    const tc = typeColors[l.type] || 'text-slate-600 bg-slate-50';
-    return `<tr>
-      <td class="px-3 py-2 text-slate-500">${l.date}</td>
-      <td class="px-3 py-2 font-bold text-slate-700">${eq?.name || 'Unknown'} <span class="text-xs font-normal text-slate-400">(${eq?.regNo || 'No Reg'})</span></td>
-      <td class="px-3 py-2 text-center"><span class="${tc} px-2 py-0.5 rounded text-[10px] font-bold">${l.type}</span></td>
-      <td class="px-3 py-2 text-slate-500">${site?.name || '-'}</td>
-      <td class="px-3 py-2 text-right font-bold ${l.amount > 0 ? 'text-red-600' : 'text-slate-300'}">${l.amount > 0 ? getCurrencySymbol() + l.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '-'}</td>
-      <td class="px-3 py-2 text-slate-500">${l.remarks || '-'}${window.attributionHTML(l, 'Logged')}</td>
-      <td class="px-3 py-2 text-center"><button onclick="deleteEquipmentLog('${l.id}')" class="text-red-400 hover:text-red-600 font-bold">✕</button></td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="7" class="p-4 text-center text-slate-400">No logs yet.</td></tr>';
+    const op = person(l.operatorId);
+    const site = l.siteId ? _eqWoName(l) : '';
+    const metrics = logMetrics(l);
+    const open = _euOpen.has(l.id);
+    // Only what the card face doesn't already show (face: machine, type, date, operator, site, figures).
+    const details = [
+      ['Start time', l.startTime], ['Finish time', l.finishTime],
+      ['Fuel source', l.source], ['Receipt no.', l.receipt],
+      ['Paid from', account(l.accountId)],
+      ['Machine meter', eq?.unit === 'KM' ? 'Kilometres' : (eq ? 'Hour meter' : '')],
+    ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+    return `<article class="eu-card ${logTone(l.type)}${open ? ' open' : ''}" data-id="${esc(l.id)}">
+      <button type="button" class="eu-face" onclick="window._euToggle('${esc(l.id)}')" aria-expanded="${open}">
+        <span class="eu-top">
+          <span class="eu-name"><b>${esc(eq?.name || 'Unknown equipment')}</b>${eq?.regNo ? `<small>${esc(eq.regNo)}</small>` : ''}</span>
+          <span class="eu-type ${logTone(l.type)}">${esc(l.type || 'Log')}</span>
+        </span>
+        <span class="eu-meta">${[day(l.date), op && 'Op: ' + op, site && site !== '-' ? site : ''].filter(Boolean).map(esc).join('&nbsp;<i>·</i> ')}</span>
+        ${metrics.length ? `<span class="eu-grid">${metrics.map(m => `<span class="eu-m"><small>${m.label}</small><b>${fmtMetric(m)}</b></span>`).join('')}</span>` : ''}
+        <span class="eu-chev" aria-hidden="true">${open ? 'Hide details' : 'View details'}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      </button>
+      <div class="eu-more" role="region"><div class="eu-more-in">
+        <dl class="eu-kv">${details.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+        ${l.remarks ? `<div class="eu-note"><span>Remarks</span>${esc(l.remarks)}</div>` : ''}
+        <div class="eu-foot"><span class="eu-by">${window.attributionHTML ? window.attributionHTML(l, 'Logged') : ''}</span>
+          <button type="button" class="eu-del" onclick="deleteEquipmentLog('${esc(l.id)}')">Delete entry</button></div>
+      </div></div>
+    </article>`;
+  };
+
+  host.innerHTML = `<div class="eu-sum">
+      <div><small>Entries</small><b>${T.count}</b></div>
+      <div><small>Hours run</small><b>${num(T.hours, 1)}</b></div>
+      <div><small>Fuel</small><b>${num(T.litres, 0)} L</b></div>
+      <div><small>Spend</small><b>${money(T.amount)}</b></div>
+    </div>
+    ${shown.length ? `<div class="eu-list">${shown.map(card).join('')}</div>` : '<div class="eu-empty">No usage logged yet.</div>'}
+    ${all.length > shown.length ? `<button type="button" class="eu-moreBtn" onclick="window._euMore()">Show ${Math.min(50, all.length - shown.length)} more · ${all.length - shown.length} older</button>` : ''}`;
 }
+const _n = (v) => parseFloat(v) || 0;
+window._euToggle = (id) => {
+  const card = document.querySelector(`.eu-card[data-id="${CSS.escape(id)}"]`);
+  if (_euOpen.has(id)) _euOpen.delete(id); else _euOpen.add(id);
+  if (!card) return renderEquipmentLog();
+  const open = _euOpen.has(id);
+  card.classList.toggle('open', open);            // CSS animates the panel open / closed
+  const face = card.querySelector('.eu-face'); if (face) face.setAttribute('aria-expanded', open);
+  const lbl = card.querySelector('.eu-chev'); if (lbl && lbl.firstChild) lbl.firstChild.textContent = open ? 'Hide details' : 'View details';
+};
+window._euMore = () => { _euLimit += 50; renderEquipmentLog(); };
 
 // ── Equipment PDF reports (Usage + Full) ──────────────────────────────────────
 function _eqWoName(l) {
