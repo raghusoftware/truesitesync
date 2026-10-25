@@ -84,3 +84,27 @@ test('filterRows by kind, and search matches the kind label', () => {
   const c = statusCounts(rows);
   assert.deepEqual([c.raw, c.consumable, c.tool], [1, 1, 1]);
 });
+
+import { materialIcon, pendingOrders } from '../js/modules/inventoryCalc.js';
+
+test('materialIcon picks a category icon from the name', () => {
+  assert.equal(materialIcon({ name: 'Portland Cement (Grade 43)' }), '🧱');
+  assert.equal(materialIcon({ name: 'TMT Steel Rebar 12mm' }), '🏗️');
+  assert.equal(materialIcon({ name: 'Kapchi 20mm' }), '🪨');
+  assert.equal(materialIcon({ name: 'Power drill', type: 'Tools' }), '🔧');
+  assert.equal(materialIcon({ name: 'Something else' }), '📦');
+});
+
+test('pendingOrders: open PO lines minus quantity received against them', () => {
+  const pos = [
+    { id: 'p1', deliveryStatus: 'Pending', items: [{ rawMatId: 'cem', qty: 100 }, { rawMatId: 'snd', qty: 50 }] },
+    { id: 'p2', deliveryStatus: 'Pending', items: [{ rawMatId: 'cem', qty: 20 }] },
+    { id: 'p3', deliveryStatus: 'Delivered', items: [{ rawMatId: 'cem', qty: 999 }] },
+  ];
+  const grns = [
+    { poId: 'p1', matId: 'cem', qty: 70 },
+    { poId: 'p1', matId: 'snd', qty: 60 },     // over-received → nothing pending
+    { matId: 'cem', qty: 5 },                   // not against a PO
+  ];
+  assert.deepEqual(pendingOrders(pos, grns), { cem: 30 + 20 });
+});

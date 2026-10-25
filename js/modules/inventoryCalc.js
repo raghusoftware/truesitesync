@@ -114,3 +114,49 @@ export function filterRows(rows, { q = '', status = 'all', location = '', type =
   };
   return out.sort(sorters[sort] || sorters.low);
 }
+
+/* ── Material picker (Material Received) ── */
+
+const ICON_RULES = [
+  [/cement|mortar|plaster|putty/, '🧱'],
+  [/brick|block|aac/, '🟫'],
+  [/steel|tmt|rebar|\bbar\b|rod|binding wire|angle|channel|beam|girder|sheet/, '🏗️'],
+  [/sand|aggregate|kapchi|gravel|grit|stone|metal|murrum|rubble|dust/, '🪨'],
+  [/tile|marble|granite|kota/, '🔲'],
+  [/paint|primer|emulsion|enamel/, '🎨'],
+  [/pipe|fitting|valve|elbow|tee|pvc|cpvc|gi /, '🚰'],
+  [/wire|cable|switch|mcb|conduit|light/, '🔌'],
+  [/wood|plywood|ply|timber|shutter|door|frame/, '🪵'],
+  [/chemical|admix|waterproof|epoxy|sealant|curing/, '🧪'],
+  [/diesel|petrol|fuel|oil|lubricant|grease/, '⛽'],
+  [/glass|window/, '🪟'],
+];
+
+/** Category icon for a material, from its name (tools always 🔧). */
+export function materialIcon(m) {
+  if (materialKind(m && m.type) === 'tool') return '🔧';
+  const n = ' ' + String((m && m.name) || '').toLowerCase() + ' ';
+  for (const [re, ic] of ICON_RULES) if (re.test(n)) return ic;
+  return '📦';
+}
+
+/**
+ * Quantity still to arrive per material: open purchase-order lines minus what
+ * has been received against those POs. POs marked Delivered / Cancelled are closed.
+ * @returns {Object<string, number>} materialId -> pending qty (only > 0)
+ */
+export function pendingOrders(purchaseOrders = [], grnRecords = []) {
+  const closed = /deliver|cancel|closed/i;
+  const received = {};
+  grnRecords.forEach(g => { if (g.poId && g.matId) { const k = g.poId + '|' + g.matId; received[k] = (received[k] || 0) + _n(g.qty); } });
+  const out = {};
+  purchaseOrders.forEach(po => {
+    if (closed.test(String(po.deliveryStatus || ''))) return;
+    (po.items || []).forEach(it => {
+      if (!it.rawMatId) return;
+      const left = _n(it.qty) - (received[po.id + '|' + it.rawMatId] || 0);
+      if (left > 0) out[it.rawMatId] = (out[it.rawMatId] || 0) + left;
+    });
+  });
+  return out;
+}

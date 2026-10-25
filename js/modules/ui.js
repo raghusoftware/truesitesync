@@ -8,6 +8,8 @@ import { lookupBoqItem } from './abstractCalc.js';
 import { projectBoqRate } from './estimateCalc.js';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
+import { materialIcon } from './inventoryCalc.js';
+import './grnPicker.js';
 import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
@@ -2318,7 +2320,7 @@ function _renderGRN() {
             <button type="button" onclick="_grnBulkSample()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-100">⬇ Sample file</button>
             <button type="button" onclick="_grnBulkToggle(false)" class="ml-auto text-[11px] font-bold text-emerald-700/70 hover:text-emerald-800" aria-label="Close bulk import">✕ Close</button>
           </div>
-          <p class="text-[11px] text-emerald-700 mt-2">Each row = one GRN. Download the sample, fill it in, then upload — imported GRNs appear in the register below.</p>
+          <p class="text-[11px] text-emerald-700 mt-2">Each row = one GRN. Download the sample, fill it in, then upload — imported GRNs appear in Inventory → GRN Register.</p>
         </div>
       </div>`}
 
@@ -2330,29 +2332,16 @@ function _renderGRN() {
           <div><label class="${_lbl}">Source Type <span class="text-rose-400">*</span></label><select id="grnSource" onchange="_grnSourceChanged()" class="${_fld} bg-white"><option value="Supplier">Supplier</option><option value="Rent">Rent</option><option value="STN">STN (Stock Transfer)</option></select></div>
           <div><label class="${_lbl}"><span id="grnSupLabel">Supplier</span> <span id="grnSupStar" class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select —</option>${supplierOpts}</select></div>
           <div><label class="${_lbl}">Mode of Receipt</label><select id="grnMode" class="${_fld} bg-white"><option value="Transport">Transport</option><option value="Self">Self</option><option value="Field">Field</option></select></div>
-          <div><label class="${_lbl}">Purchase Order <span class="text-slate-300 normal-case font-medium">(opt)</span></label><select id="grnPO" onchange="_grnPOChanged()" class="${_fld} bg-white"><option value="">— None —</option></select><div id="grnPOHint" class="text-[10px] text-slate-400 mt-0.5"></div></div>
+          <!-- PO selector removed from this screen; kept hidden so an edited GRN keeps its PO link -->
+          <select id="grnPO" hidden aria-hidden="true"><option value="">— None —</option></select>
           <div><label class="${_lbl}">Challan / Invoice No</label><input id="grnChallan" placeholder="e.g. INV-2045" class="${_fld}"></div>
           <div><label class="${_lbl}">Vehicle No</label><input id="grnVehicle" placeholder="e.g. GJ-01-AB-1234" class="${_fld}"></div>
           <div><label class="${_lbl}">Driver Contact <span class="text-slate-300 normal-case font-medium">(opt)</span></label><input id="grnDriver" placeholder="Phone / name" class="${_fld}"></div>
         </div>
 
         ${_sec('Materials Received')}
-        <div class="overflow-x-auto border border-slate-200 rounded-xl">
-          <table class="w-full text-xs">
-            <thead class="bg-slate-50"><tr>
-              <th class="px-2 py-2 text-center font-bold uppercase text-slate-400 w-8">#</th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Material <span class="text-rose-400">*</span></th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Category</th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Qty <span class="text-rose-400">*</span></th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Unit</th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Exp.</th>
-              <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Rate</th>
-              <th class="px-2 py-2 w-8"></th>
-            </tr></thead>
-            <tbody id="grnItemsBody"></tbody>
-          </table>
-        </div>
-        <button type="button" onclick="_grnAddItemRow()" class="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200">+ Add item</button>
+        <div id="grnItemsBody" class="grn-items"></div>
+        <button type="button" onclick="_grnAddItemRow()" class="grn-add">+ Add another material</button>
 
         ${_sec('Documentation')}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2370,23 +2359,7 @@ function _renderGRN() {
 
         <button onclick="_saveGRN()" class="w-full mt-6 py-3 rounded-xl font-bold text-sm text-white shadow-sm transition ${_grnEdit0 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}">${_grnEdit0 ? '💾 Update GRN' : '✓ Receive Stock'}</button>
       </div>
-    </div>
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center gap-2" style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);">
-        <div class="flex items-center gap-2.5 mr-auto">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm flex-shrink-0" style="background:linear-gradient(135deg,#64748b,#475569);">📋</div>
-          <span class="font-extrabold text-slate-700 text-sm">GRN Register</span>
-        </div>
-        <select id="grnFltSupplier" onchange="_grnSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
-        <select id="grnFltMaterial" onchange="_grnSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
-        <input id="grnFltFrom" type="date" value="${_grnFilters.from}" onchange="_grnSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-        <input id="grnFltTo" type="date" value="${_grnFilters.to}" onchange="_grnSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-        <button onclick="_grnClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
-        <button onclick="_grnPrintList()" class="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition">🖨️ Print</button>
-      </div>
-      <div id="grnListWrap"></div>
     </div>`;
-  _renderGrnList();
   // Build the item rows: one prefilled row when editing a line, else one blank row.
   _grnRowSeq = 0;
   const body = document.getElementById('grnItemsBody'); if (body) body.innerHTML = '';
@@ -2404,25 +2377,30 @@ function _renderGRN() {
   _grnFillPO(document.getElementById('grnSupplier')?.value || '', _grnEdit0?.poId || '');
 }
 
-/** Append one material row to the GRN items table (optionally prefilled). */
+/** Append one material card to the GRN items list (optionally prefilled).
+ *  The material is chosen in a full-screen vertical picker (grnPicker.js) that
+ *  fills the card's hidden <select>, so the save logic reads it unchanged. */
 function _grnAddItemRow(data) {
   const body = document.getElementById('grnItemsBody'); if (!body) return;
   const i = _grnRowSeq++;
-  const inp = 'w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400';
-  const tr = document.createElement('tr');
-  tr.className = 'grn-item-row'; tr.style.borderTop = '1px solid #f1f5f9';
+  const inp = 'grn-in';
+  const tr = document.createElement('div');
+  tr.className = 'grn-item-row';
   tr.innerHTML =
-    `<td class="px-2 py-1 text-center text-slate-400 grn-rn"></td>`
-    + `<td class="px-2 py-1"><select id="grnMat_${i}" class="grn-mat ${inp} bg-white font-bold" onchange="_grnMatPick('grnMat_${i}','grnUnit_${i}')"><option value="">— Select material —</option>${_matOptions()}</select></td>`
-    + `<td class="px-2 py-1"><input class="grn-cat ${inp}" placeholder="Steel / Cement…"></td>`
-    + `<td class="px-2 py-1"><input type="number" class="grn-qty ${inp}" style="min-width:70px" placeholder="0"></td>`
-    + `<td class="px-2 py-1"><select id="grnUnit_${i}" class="grn-unit ${inp} font-bold" style="min-width:70px"></select></td>`
-    + `<td class="px-2 py-1"><input type="number" class="grn-exp ${inp}" style="min-width:60px" placeholder="0"></td>`
-    + `<td class="px-2 py-1"><input type="number" class="grn-rate ${inp}" style="min-width:70px" placeholder="0.00"></td>`
-    + `<td class="px-2 py-1 text-center"><button type="button" onclick="this.closest('tr').remove();_grnRenumberRows();" class="text-rose-400 hover:bg-rose-50 px-1.5 py-1 rounded font-bold">✕</button></td>`;
+    `<div class="grn-card-h"><span>Material <b class="grn-rn"></b></span><button type="button" class="grn-del" onclick="this.closest('.grn-item-row').remove();_grnRenumberRows();" aria-label="Remove material">✕</button></div>`
+    + `<select id="grnMat_${i}" class="grn-mat" hidden onchange="_grnMatPick('grnMat_${i}','grnUnit_${i}');_grnMatShow(this)"><option value="">— Select material —</option>${_matOptions()}</select>`
+    + `<button type="button" class="grn-pick" onclick="_grnOpenPicker('grnMat_${i}')"><span class="grn-pick-ic">📦</span><span class="grn-pick-txt">Tap to select material</span><span class="grn-pick-go">›</span></button>`
+    + `<div class="grn-grid">`
+    +   `<label>Quantity <i>*</i><input type="number" inputmode="decimal" class="grn-qty ${inp}" placeholder="0"></label>`
+    +   `<label>Unit<select id="grnUnit_${i}" class="grn-unit ${inp}"></select></label>`
+    +   `<label>Rate<input type="number" inputmode="decimal" class="grn-rate ${inp}" placeholder="0.00"></label>`
+    +   `<label>Expected qty<input type="number" inputmode="decimal" class="grn-exp ${inp}" placeholder="0"></label>`
+    +   `<label class="grn-wide">Category <small>(optional)</small><input class="grn-cat ${inp}" placeholder="Steel / Cement…"></label>`
+    + `</div>`;
   body.appendChild(tr);
   if (data && data.matId) { const ms = tr.querySelector('.grn-mat'); if (ms) ms.value = data.matId; }
   syncUnitPicker(`grnMat_${i}`, `grnUnit_${i}`);
+  _grnMatShow(tr.querySelector('.grn-mat'));
   if (data) {
     if (data.category != null) tr.querySelector('.grn-cat').value = data.category;
     if (data.enteredQty != null) tr.querySelector('.grn-qty').value = data.enteredQty;
@@ -2434,6 +2412,19 @@ function _grnAddItemRow(data) {
   return tr;
 }
 window._grnAddItemRow = _grnAddItemRow;
+
+/** Show the chosen material (icon + name + unit) on its card's picker button. */
+function _grnMatShow(sel) {
+  const card = sel && sel.closest('.grn-item-row'); if (!card) return;
+  const m = (state.rawMaterials || []).find(r => r.id === sel.value);
+  const btn = card.querySelector('.grn-pick'); if (!btn) return;
+  btn.classList.toggle('set', !!m);
+  btn.querySelector('.grn-pick-ic').textContent = m ? materialIcon(m) : '📦';
+  btn.querySelector('.grn-pick-txt').innerHTML = m
+    ? `<b>${String(m.name).replace(/</g, '&lt;')}</b><small>Base unit: ${String(m.unit || '').replace(/</g, '&lt;')} · tap to change</small>`
+    : 'Tap to select material';
+}
+window._grnMatShow = _grnMatShow;
 
 /** The last rate (and unit) a material was received at, from GRN history — so
  *  re-selecting e.g. "Sand" pre-fills the rate the storekeeper used last time. */
@@ -2455,7 +2446,7 @@ function _grnLastRateFor(matId) {
 window._grnMatPick = function (matSelId, unitSelId) {
   syncUnitPicker(matSelId, unitSelId);
   const matSel = document.getElementById(matSelId); if (!matSel || !matSel.value) return;
-  const tr = matSel.closest('tr'); if (!tr) return;
+  const tr = matSel.closest('.grn-item-row'); if (!tr) return;
   const rateEl = tr.querySelector('.grn-rate');
   if (rateEl && rateEl.value) return;   // never overwrite a rate already typed
 
