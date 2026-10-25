@@ -933,3 +933,155 @@ html.sheet-open #appContainer main { overflow: hidden !important; }
   #abstractEditModal tr.abs-erow input { min-height: 44px; font-size: 16px !important; padding: 8px 10px !important; border-radius: 10px !important; }
   #abstractEditModal tr.abs-erow input.text-right, #abstractEditModal tr.abs-erow input.text-center { text-align: left !important; }
 }
+
+/* ── Touch drag-and-drop (touchDnd.js) ── */
+[draggable="true"] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.tdnd-press { transform: scale(.98); transition: transform .2s ease; }
+.tdnd-source { opacity: .35 !important; }
+.tdnd-ghost { position: fixed !important; z-index: 2147483000 !important; pointer-events: none !important; margin: 0 !important; opacity: .96;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, .28), 0 4px 10px rgba(15, 23, 42, .15) !important; border-radius: 12px; transition: none !important; }
+.tdnd-over { outline: 2px dashed #f97316 !important; outline-offset: 2px; background-color: rgba(249, 115, 22, .06) !important; }
+html.tdnd-active, html.tdnd-active * { cursor: grabbing !important; }
+
+/* ═══ Planning & Scheduling — shared header + phone layouts ═══ */
+.ps-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+button.ps-back { padding: 6px 14px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; font-size: 12px; font-weight: 600 !important; }
+.ps-steps { display: flex; align-items: center; gap: 6px; }
+button.ps-step { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 6px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 12px; font-weight: 700 !important; white-space: nowrap; border-radius: 999px !important; }
+button.ps-step i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+button.ps-step.on { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+button.ps-step.on i { background: rgba(255, 255, 255, .22); color: #fff; }
+.ps-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.ps-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sb-tl-start { font-size: 11px; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 5px; }
+.sb-tl-start input { padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; }
+.sb-task-fields label em { font-style: normal; }
+.sb-task-side { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-self: flex-start; }
+button.sb-task-mv { width: 26px; height: 22px; min-height: 0 !important; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 9px !important; padding: 0; border-radius: 7px !important; }
+button.sb-task-mv:disabled { opacity: .35; cursor: default; }
+.sb-pal-head { display: flex; align-items: center; gap: 8px; }
+.sb-pal-head em { font-style: normal; font-size: 10px; font-weight: 800; color: #0ea5e9; background: #e0f2fe; border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.sb-pal-hint, .sb-pal-tog { display: none; }
+.ps-phone { display: none !important; }
+
+@media (max-width: 768px) {
+  .ps-desk { display: none !important; }
+  .ps-phone { display: flex !important; }
+  button.ps-back { display: none; }
+  .ps-top { margin-bottom: 10px; }
+  /* stepper: three equal segments on one line */
+  .ps-steps { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; background: #f1f5f9; border-radius: 12px; padding: 3px; }
+  button.ps-step { justify-content: center; gap: 5px; padding: 0 4px; min-height: 36px !important; border: none; background: transparent; font-size: 12px !important; border-radius: 9px !important; min-width: 0; }
+  button.ps-step span { overflow: hidden; text-overflow: ellipsis; }
+  button.ps-step i { width: 18px; height: 18px; font-size: 10px; flex-shrink: 0; }
+  button.ps-step.on { box-shadow: 0 2px 6px -2px rgba(124, 58, 237, .6); }
+  button.ps-step:not(.on) i { background: #e2e8f0; }
+  .sb-modes { display: grid !important; grid-template-columns: 1fr 1fr; margin-bottom: 12px !important; }
+  .sb-modes > button { padding: 0 6px !important; white-space: nowrap; }
+  .ps-head { gap: 10px; margin-bottom: 12px; }
+  .ps-head h2 { font-size: 20px !important; line-height: 1.2; }
+  .ps-acts { width: 100%; gap: 8px; }
+  .ps-acts > * { flex: 1 1 auto; min-width: 0; justify-content: center; }
+  .ps-acts > button { padding: 0 10px; white-space: nowrap; }
+  .ps-acts .sb-tl-start { flex-basis: 100%; justify-content: space-between; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 6px 6px 6px 12px; font-size: 12px; }
+  .ps-acts .sb-tl-start input { font-size: 15px; border: none; background: #f8fafc; }
+  .ps-overall { padding: 10px 12px !important; gap: 8px !important; flex-wrap: wrap; }
+
+  /* activity cards (Planning list + Scheduling timeline) */
+  .ps-cards { flex-direction: column; gap: 10px; }
+  .ps-act { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .ps-act:active { background: #fafbff; }
+  .ps-act-top { display: flex; align-items: flex-start; gap: 10px; }
+  .ps-num { width: 24px; height: 24px; border-radius: 8px; background: #0f172a; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .ps-act-nm { flex: 1; min-width: 0; }
+  .ps-act-nm b { display: block; font-size: 14.5px; font-weight: 700; color: #0f172a; line-height: 1.3; overflow-wrap: anywhere; }
+  .ps-act-nm small { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; color: #7c3aed; }
+  .sb-tl .ps-act-nm small { color: #64748b; }
+  button.ps-del { width: 34px; height: 34px; min-height: 0 !important; border: none; background: #fef2f2; font-size: 14px !important; flex-shrink: 0; padding: 0; }
+  .ps-prog { display: flex; align-items: center; gap: 8px; margin: 10px 0 8px; }
+  .ps-bar { flex: 1; height: 7px; background: #eef2f7; border-radius: 99px; overflow: hidden; }
+  .ps-bar i { display: block; height: 100%; border-radius: 99px; }
+  .ps-prog b { font-size: 12px; font-weight: 800; min-width: 34px; text-align: right; }
+  .ps-grid { display: grid; grid-template-columns: 1fr 1fr; margin: 0; border-top: 1px solid #f1f5f9; }
+  .ps-grid > div { padding: 7px 0 0; min-width: 0; }
+  .ps-grid > div:nth-child(n+3) { padding-top: 6px; }
+  .ps-grid dt { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+  .ps-grid dd { margin: 1px 0 0; font-size: 13px; font-weight: 700; color: #334155; }
+  .ps-grid dd.done { color: #0369a1; }
+  .ps-none { background: #fff; border: 1px dashed #cbd5e1; border-radius: 14px; padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 13px; }
+
+  /* Scheduling → Activity timeline cards */
+  .sb-tl-range { font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; }
+  .sb-tl-in { display: grid; grid-template-columns: 1fr 92px; gap: 8px; margin-top: 10px; }
+  .sb-tl-in label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; min-width: 0; }
+  .sb-tl-in input { width: 100%; min-width: 0; height: 42px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; font-weight: 600; color: #0f172a; background: #f8fafc; text-transform: none; }
+  .sb-tl-track { position: relative; height: 8px; background: #f1f5f9; border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .sb-tl-track i { position: absolute; top: 0; bottom: 0; background: #7c3aed; border-radius: 99px; }
+
+  /* Location Planner — palette docks above the bottom tabs as a tray */
+  .sb-head { margin-bottom: 12px; }
+  .sb-head .text-xs { display: none; }
+  .sb-body.sb-has-dock { padding-bottom: 150px; }
+  .sb-palette { position: fixed !important; top: auto !important; left: 0; right: 0; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); z-index: 30; margin: 0;
+    border-radius: 18px 18px 0 0; border: 1px solid #e2e8f0; border-bottom: none; padding: 6px 12px 10px; box-shadow: 0 -10px 24px -14px rgba(15, 23, 42, .35); }
+  .sb-pal-head { min-height: 34px; margin: 0; cursor: pointer; }
+  .sb-pal-head::before { content: ''; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px; border-radius: 4px; background: #e2e8f0; }
+  .sb-pal-hint { display: block; flex: 1; text-align: right; font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-pal-tog { display: block; color: #64748b; transition: transform .2s; }
+  .sb-palette.sb-pal-shut .sb-pal-tog { transform: rotate(180deg); }
+  .sb-palette.sb-pal-shut .sb-pal-body { display: none; }
+  .sb-pal-note { display: none; }
+  /* search sits at the head of the category row, so the tray is just three slim rows */
+  .sb-pal-body { display: grid; grid-template-columns: 116px minmax(0, 1fr); column-gap: 6px; align-items: center; }
+  .sb-search { height: 32px; margin: 0 0 8px; padding: 0 10px; font-size: 16px; border-radius: 999px; }
+  .sb-pal-list { grid-column: 1 / -1; }
+  .sb-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px 8px 0; padding: 0 12px 0 0; }
+  .sb-cats::-webkit-scrollbar, .sb-pal-list::-webkit-scrollbar { display: none; }
+  button.sb-cat { flex-shrink: 0; min-height: 30px !important; font-size: 12px !important; padding: 0 12px; }
+  .sb-pal-list { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden;
+    gap: 6px; margin: 0 -12px; padding: 0 12px 2px; scrollbar-width: none; }
+  .sb-chip { flex: 0 0 auto; max-width: 220px; padding: 9px 11px; touch-action: pan-x; }
+  .sb-chip:hover { transform: none; }
+
+  /* task cards: number + name on top with the ▲▼✕ controls, then compact boxed fields */
+  .sb-zone { padding: 8px; min-height: 140px; }
+  .sb-task { position: relative; display: block; padding: 10px; }
+  .sb-task-seq { position: absolute; top: 10px; left: 10px; }
+  .sb-task-ic { display: none; }
+  .sb-task-nm { font-size: 14px; flex-wrap: wrap; gap: 6px; line-height: 1.3; min-height: 26px; padding: 2px 104px 0 30px; }
+  .sb-task-side { position: absolute; top: 8px; right: 8px; flex-direction: row; }
+  .sb-task-fields { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 6px; margin-top: 8px; }
+  .sb-task-fields label { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; min-width: 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px 8px 2px; }
+  .sb-task-fields label:focus-within { border-color: #0ea5e9; background: #fff; }
+  .sb-task-fields label em { flex-basis: 100%; font-size: 9.5px; }
+  .sb-task-fields label span { font-size: 11px; color: #64748b; }
+  .sb-task-fields label:nth-child(2) span { display: none; }
+  .sb-task-fields label:nth-child(4) { grid-column: span 2; }
+  .sb-task-fields .sb-in { flex: 1; min-width: 0; width: auto !important; height: 26px; padding: 0; border: none; background: transparent; box-shadow: none !important; font-size: 15px; text-align: left; }
+  .sb-task-fields .sb-in-date { font-size: 14px; }
+  .sb-task-fields select.sb-in { max-width: none; font-size: 14px; }
+  .sb-end { align-self: center; text-align: center; }
+  button.sb-task-del, button.sb-task-mv { width: 30px; height: 30px; min-height: 0 !important; font-size: 11px !important; }
+  .sb-res-toggle { width: 100%; gap: 6px 10px; }
+  .sb-res { margin: -6px 0 0; padding: 14px 8px 8px; }
+  .sb-res-row .sb-in { height: 36px; font-size: 15px; }
+  .sb-zonebar { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .sb-startfld { justify-content: space-between; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px 4px 4px 12px; }
+  .sb-startfld input { font-size: 15px; border: none; background: #f8fafc; padding: 6px 8px; }
+  .sb-zone-acts { display: flex; gap: 8px; }
+  .sb-zone-acts > button { flex: 1 1 auto; white-space: nowrap; padding: 0 10px; }
+  .sb-loctabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px 10px; padding: 2px 12px; }
+  .sb-loctab { flex-shrink: 0; }
+
+  /* beat the global phone input rules (48px min-height, 12px padding, all !important) */
+  #scheduleBuilderContent .sb-task-fields input.sb-in, #scheduleBuilderContent .sb-task-fields select.sb-in {
+    min-height: 0 !important; height: 28px; padding: 0 !important; border: none !important; border-radius: 0 !important;
+    background: transparent !important; box-shadow: none !important; font-size: 16px !important; }
+  #scheduleBuilderContent .sb-task-fields select.sb-in { background-position: right 0 center !important; padding-right: 16px !important; }
+  #scheduleBuilderContent input.sb-search { min-height: 0 !important; height: 32px; padding: 0 12px !important; border-radius: 999px !important; }
+  #scheduleBuilderContent .sb-startfld input, #scheduleBuilderContent .sb-tl-start input { min-height: 0 !important; height: 38px; padding: 0 10px !important; }
+  #scheduleBuilderContent .sb-tl-in input { min-height: 0 !important; height: 42px; padding: 0 10px !important; }
+  #scheduleBuilderContent .sb-res-row input.sb-in { min-height: 0 !important; height: 36px; padding: 0 8px !important; }
+  .sb-res-toggle { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+  .sb-res-word { display: none; }
+}

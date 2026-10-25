@@ -171,12 +171,10 @@ function totalCost(a) {
 /** Planning → Scheduling → Execution flow stepper (shared look; `active` marks
  *  the current step). Each step navigates to its module. */
 function _psStepper(active) {
-  const step = (key, label, view) => {
-    const on = active === key;
-    return `<button onclick="window.switchView&&window.switchView('${view}')" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;border:1px solid ${on ? '#7c3aed' : '#e2e8f0'};background:${on ? '#7c3aed' : '#fff'};color:${on ? '#fff' : '#64748b'};white-space:nowrap;">${label}</button>`;
-  };
-  const arr = `<span style="color:#cbd5e1;font-weight:800;">→</span>`;
-  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${step('plan', '① Planning', 'execEngineView')}${arr}${step('sched', '② Scheduling', 'scheduleBuilderView')}${arr}${step('exec', '③ Execution', 'executionView')}</div>`;
+  const step = (key, n, label, view) => `<button class="ps-step${active === key ? ' on' : ''}" onclick="window.switchView&&window.switchView('${view}')"><i>${n}</i><span>${label}</span></button>`;
+  // The phone top bar already has a back arrow, so .ps-back is desktop-only (css/shell.css).
+  return `<div class="ps-top"><button class="ps-back" onclick="window._navBack&&window._navBack()">&larr; Back</button>
+    <nav class="ps-steps">${step('plan', 1, 'Planning', 'execEngineView')}${step('sched', 2, 'Scheduling', 'scheduleBuilderView')}${step('exec', 3, 'Execution', 'executionView')}</nav></div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -209,6 +207,7 @@ export function renderExecEngine() {
   const list = acts();
   const seedable = ((p.boqItems) || []).length;
   let totPct = 0;
+  const cards = [];   // phone layout: one card per activity (the table is desktop-only)
   const rows = list.map((a, i) => {
     const pq = num(a.qty && a.qty.plannedQty), dq = actDoneQty(a);
     const pct = pq > 0 ? Math.min(100, Math.round(dq / pq * 100)) : 0;
@@ -217,6 +216,16 @@ export function renderExecEngine() {
     const dur = num(a.schedule && a.schedule.duration);
     const fin = (a.schedule && a.schedule.plannedFinish) || _eeAddDays(start, dur);
     const barC = pct >= 100 ? '#c2401c' : (pct > 0 ? '#f59e0b' : '#cbd5e1');
+    const unit = esc((a.qty && a.qty.unit) || '');
+    cards.push(`<article class="ps-act" onclick="window._execActForm('${a.id}')">
+      <div class="ps-act-top"><span class="ps-num">${i + 1}</span>
+        <div class="ps-act-nm"><b>${esc(a.name || 'Untitled')}</b>${a.boqRef ? `<small>${esc(a.boqRef)}</small>` : ''}</div>
+        <button class="ps-del" onclick="event.stopPropagation();window._execDelActivity('${a.id}')" aria-label="Delete">🗑️</button></div>
+      <div class="ps-prog"><div class="ps-bar"><i style="width:${pct}%;background:${barC}"></i></div><b style="color:${pct ? barC : '#94a3b8'}">${pct}%</b></div>
+      <dl class="ps-grid">
+        <div><dt>Planned</dt><dd>${fmtN(pq)} ${unit}</dd></div><div><dt>Done</dt><dd class="done">${fmtN(dq)} ${unit}</dd></div>
+        <div><dt>Start</dt><dd>${_eeDMY(start)}</dd></div><div><dt>Finish${dur ? ` · ${dur}d` : ''}</dt><dd>${_eeDMY(fin)}</dd></div>
+      </dl></article>`);
     return `<tr style="border-top:1px solid #f1f5f9;">
       <td style="padding:8px 10px;color:#94a3b8;">${i + 1}</td>
       <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${esc(a.name || 'Untitled')}${a.boqRef ? ` <span style="font-size:9px;color:#7c3aed;background:#f5f3ff;border-radius:5px;padding:1px 5px;">${esc(a.boqRef)}</span>` : ''}</td>
@@ -233,25 +242,25 @@ export function renderExecEngine() {
   const overall = list.length ? Math.round(totPct / list.length) : 0;
   host.innerHTML = `
     <div class="ee-wrap">
-      <button onclick="window._navBack&&window._navBack()" style="margin-bottom:8px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
       ${_psStepper('plan')}
-      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px;">
+      <div class="ps-head">
         <div>
           <h2 class="text-2xl font-extrabold text-slate-800">Planning</h2>
           <p class="text-xs text-slate-400 mt-0.5">${esc(p.name || 'Project')} · list the work with quantity &amp; duration — then Schedule it and track daily via DPR.</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="ps-acts">
           ${seedable ? `<button class="ee-btn-ghost" onclick="window._execAddFromBOQ()">+ From BOQ (${seedable})</button>` : ''}
           <button class="ee-btn-primary" onclick="window._execActForm()">+ Add Activity</button>
         </div>
       </div>
-      ${list.length ? `<div style="margin-bottom:12px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+      ${list.length ? `<div class="ps-overall" style="margin-bottom:12px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:12px;font-weight:700;color:#64748b;">Overall progress</span>
         <div style="flex:1;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div style="width:${overall}%;height:100%;background:${overall >= 100 ? '#c2401c' : '#7c3aed'};"></div></div>
         <span style="font-size:14px;font-weight:800;color:#0f172a;">${overall}%</span>
         <span style="font-size:11px;color:#94a3b8;">${list.length} activit${list.length === 1 ? 'y' : 'ies'}</span>
       </div>` : ''}
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+      <div class="ps-cards ps-phone">${cards.join('') || `<div class="ps-none">No activities yet. Tap <b>+ Add Activity</b> or <b>+ From BOQ</b>.</div>`}</div>
+      <div class="ps-desk" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
         <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px;">
           <thead><tr style="background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;letter-spacing:.03em;">
             <th style="padding:8px 10px;text-align:left;">#</th><th style="padding:8px 10px;text-align:left;">Activity</th><th style="padding:8px 10px;text-align:center;">Unit</th><th style="padding:8px 10px;text-align:right;">Planned</th><th style="padding:8px 10px;text-align:right;">Done</th><th style="padding:8px 10px;text-align:left;">Progress</th><th style="padding:8px 10px;text-align:left;">Start</th><th style="padding:8px 10px;text-align:center;">Days</th><th style="padding:8px 10px;text-align:left;">Finish</th><th style="padding:8px 10px;"></th>

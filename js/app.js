@@ -95,13 +95,14 @@ import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.1.9';
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.6';
-import './modules/executionEngine.js?v=1.6.90';
-import './modules/scheduleBuilder.js?v=1.6.89';
+import './modules/executionEngine.js?v=1.6.91';
+import './modules/scheduleBuilder.js?v=1.6.90';
 import { renderClientHub, openClientModal, saveClient, renderClientTable, editClient, deleteClient } from './modules/clientHub.js?v=1.6.55';
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
 import './modules/inventoryList.js?v=1.0.1';
+import './modules/touchDnd.js?v=1.0.1';
 import './modules/unitConverter.js?v=1.0.0';
 import './modules/itemsMaster.js?v=1.1.5';
 import './modules/projectDocs.js?v=1.0.0';
