@@ -272,9 +272,10 @@ export function renderWorkspace() {
   if (!el) return;
   const shop = isShop();
   el.innerHTML = `<div class="ts-page">${sectionsHTML([
+    // Sales & Purchase hold documents only (invoices, orders, bills). Money in/out
+    // is recorded in Finance → Payments; the old Payment In/Out screens redirect there.
     ['Sales', [
       { icon: '🧾', label: 'Sale Invoices', view: 'salesLedgerView' },
-      { icon: '⬇️', label: 'Payment In', view: 'paymentInView' },
       { icon: '📝', label: 'Estimates / Quotation', view: 'estimatesView' },
       { icon: '📄', label: 'Proforma Invoice', view: 'proformaInvoiceView' },
       { icon: '📋', label: 'Sale Orders', view: 'saleOrderView' },
@@ -285,7 +286,6 @@ export function renderWorkspace() {
     ]],
     ['Purchase', [
       { icon: '🛒', label: 'Purchase Bills', view: 'purchaseBillsView' },
-      { icon: '⬆️', label: 'Payment Out', view: 'paymentOutView' },
       { icon: '📋', label: 'Purchase Orders', view: 'purchaseOrderView' },
       { icon: '💳', label: 'Expenses', view: 'expensesView' },
       { icon: '↩️', label: 'Purchase Returns', view: 'purchaseReturnView' },

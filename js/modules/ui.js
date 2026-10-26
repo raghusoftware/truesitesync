@@ -1362,6 +1362,16 @@ function _sheetKeyboardWatch() {
 }
 
 export function switchView(viewId) {
+  // Payments live only in Finance → Payments. The old Sales "Payment In" and
+  // Purchase "Payment Out" screens are retired; any link still pointing at them
+  // (bookmarks, older buttons, saved roles) opens Payments in the matching mode.
+  // Same records (state.paymentsIn / state.vendorPayments), so nothing is lost.
+  if (viewId === 'paymentInView' || viewId === 'paymentOutView') {
+    const mode = viewId === 'paymentInView' ? 'in' : 'out';
+    switchView('paymentsHubView');
+    window._pmtSetMode?.(mode);
+    return;
+  }
   // Shop / Manufacturing have no projects: "Home" is the business dashboard.
   if (viewId === 'projectsHome' && typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction') viewId = 'bizHomeView';
   // RBAC access check
@@ -1491,9 +1501,9 @@ export function switchView(viewId) {
   // entry highlighted while inside a hub sub-view, and show a "← Back to <hub>"
   // bar so every hub module has a way home.
   const _HUBS = {
-    salesHubView:    { label: 'Sales',    subs: ['salesLedgerView','saleOrderView','proformaInvoiceView','deliveryChallanView','estimatesView','estimationView','paymentInView','saleReturnView','otherIncomeView','saleFixedAssetsView'] },
-    purchaseHubView: { label: 'Purchase', subs: ['purchaseBillsView','paymentOutView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView'] },
-    financeHubView:  { label: 'Finance',  subs: ['partiesLedgerView','accountsManagerView','cashFlowView','costProfitView'] },
+    salesHubView:    { label: 'Sales',    subs: ['salesLedgerView','saleOrderView','proformaInvoiceView','deliveryChallanView','estimatesView','estimationView','saleReturnView','otherIncomeView','saleFixedAssetsView'] },
+    purchaseHubView: { label: 'Purchase', subs: ['purchaseBillsView','expensesView','purchaseOrderView','purchaseReturnView','purchaseAssetsView'] },
+    financeHubView:  { label: 'Finance',  subs: ['paymentsHubView','partiesLedgerView','accountsManagerView','cashFlowView','costProfitView'] },
     systemHubView:   { label: 'System',   subs: ['itemsMasterView','masterData','planBillingView','settingsView','recycleBinView'] },
   };
   let _parentHub = null;
@@ -1516,7 +1526,7 @@ export function switchView(viewId) {
   }
   // Sale modules now live under a single "Sales" hub — keep that sidebar entry
   // highlighted while the user is in any sale sub-view.
-  const saleViews = ['salesHubView','salesLedgerView','estimatesView','proformaInvoiceView','paymentInView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','estimationView'];
+  const saleViews = ['salesHubView','salesLedgerView','estimatesView','proformaInvoiceView','saleOrderView','deliveryChallanView','saleReturnView','saleFixedAssetsView','otherIncomeView','estimationView'];
   if (saleViews.includes(viewId)) {
     const saleBtn = document.querySelector('[data-target="salesHubView"]');
     if (saleBtn) saleBtn.classList.add('active');

@@ -35,13 +35,11 @@ export const ACCESS_MODULES = [
   { id: 'proformaInvoiceView', label: 'Proforma Invoices', group: 'Sale' },
   { id: 'deliveryChallanView', label: 'Delivery Challans', group: 'Sale' },
   { id: 'estimatesView', label: 'Estimates', group: 'Sale' },
-  { id: 'paymentInView', label: 'Payment In', group: 'Sale' },
   { id: 'saleReturnView', label: 'Sale Returns', group: 'Sale' },
   { id: 'otherIncomeView', label: 'Other Income', group: 'Sale' },
   { id: 'saleFixedAssetsView', label: 'Sale Fixed Assets', group: 'Sale' },
   { id: 'purchaseBillsView', label: 'Purchase Bills', group: 'Purchase' },
   { id: 'purchaseOrderView', label: 'Purchase Orders', group: 'Purchase' },
-  { id: 'paymentOutView', label: 'Payment Out', group: 'Purchase' },
   { id: 'purchaseReturnView', label: 'Purchase Returns', group: 'Purchase' },
   { id: 'expensesView', label: 'Expenses', group: 'Purchase' },
   { id: 'purchaseAssetsView', label: 'Fixed Assets', group: 'Purchase' },
@@ -267,6 +265,18 @@ export function initRBAC() {
       }
     });
     state.rbacFlags.paymentsHubGrantV1 = true;
+    _rolesChanged = true;
+  }
+  // One-time: Payment In / Payment Out left Sales & Purchase and now open the
+  // Payments hub — a role that could use either keeps that ability there.
+  if (!state.rbacFlags.paymentsMoveGrantV1) {
+    Object.values(state.rbacRoles || {}).forEach(r => {
+      if (r && Array.isArray(r.permissions) && !r.permissions.includes('paymentsHubView') &&
+          (r.permissions.includes('paymentInView') || r.permissions.includes('paymentOutView'))) {
+        r.permissions.push('paymentsHubView');
+      }
+    });
+    state.rbacFlags.paymentsMoveGrantV1 = true;
     _rolesChanged = true;
   }
   // Repair: consolidate duplicate rbacUsers entries for the same email. A

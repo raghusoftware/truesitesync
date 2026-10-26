@@ -1139,3 +1139,14 @@ button.rcp-del { width: 48px; height: 48px; min-height: 48px !important; border:
 #recipeEditorModal > .rcp-modal { width: min(560px, 100%) !important; max-width: 100% !important; max-height: 70vh !important; max-height: min(70dvh, 100%) !important;
   border-radius: 24px !important; margin: 0 !important; animation: rcpIn .24s cubic-bezier(.2, .9, .3, 1.15) !important; }
 #recipeEditorModal.out > .rcp-modal { animation: rcpIn .18s ease reverse forwards !important; }
+
+/* Business tab (phones): a short last row fills the width instead of leaving holes —
+   6-column grid, tiles span 2; two leftovers span 3 each, a single leftover spans the
+   row and lays out horizontally. */
+@media (max-width: 768px) {
+  #workspaceView .ts-tiles { grid-template-columns: repeat(6, 1fr); }
+  #workspaceView .ts-tile { grid-column: span 2; }
+  #workspaceView .ts-tile:nth-child(3n+1):nth-last-child(2),
+  #workspaceView .ts-tile:nth-child(3n+2):last-child { grid-column: span 3; }
+  #workspaceView .ts-tile:nth-child(3n+1):last-child { grid-column: span 6; flex-direction: row; min-height: 72px; gap: 14px; }
+}
