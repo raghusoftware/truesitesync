@@ -1085,3 +1085,57 @@ button.sb-task-mv:disabled { opacity: .35; cursor: default; }
   .sb-res-toggle { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
   .sb-res-word { display: none; }
 }
+
+/* ═══ Recipe editor — centred modal, clear of the phone's navigation bar ═══
+   Tokens: backdrop rgba(10,15,26,.55) + 6 px blur · card radius 24 · padding 20/16
+   · close & action targets ≥ 44 px · card max-height 70% of the screen, so at
+   least 15% stays free above and below (plus the safe-area insets). */
+.rcp-ov { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+  background: rgba(10, 15, 26, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: rcpFade .2s ease; overscroll-behavior: contain; touch-action: none; }
+.rcp-ov.out { animation: rcpFade .18s ease reverse forwards; }
+.rcp-ov.out .rcp-modal { animation: rcpIn .18s ease reverse forwards; }
+@keyframes rcpFade { from { opacity: 0; } }
+@keyframes rcpIn { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+.rcp-modal { width: min(560px, 100%); max-height: 70vh; max-height: min(70dvh, 100%); display: flex; flex-direction: column; overflow: hidden; touch-action: auto;
+  background: #fff; border-radius: 24px; box-shadow: 0 24px 60px -12px rgba(10, 15, 26, .45), 0 2px 8px rgba(10, 15, 26, .12);
+  animation: rcpIn .24s cubic-bezier(.2, .9, .3, 1.15); }
+.rcp-head { display: flex; align-items: flex-start; gap: 12px; padding: 20px 12px 14px 20px; border-bottom: 1px solid #e8edf3; flex-shrink: 0; }
+.rcp-head-txt { flex: 1; min-width: 0; }
+.rcp-code { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .03em; color: #1d4ed8; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 8px; padding: 2px 8px; margin-bottom: 6px; }
+.rcp-head h3 { margin: 0; font-size: 18px !important; font-weight: 800 !important; line-height: 1.3; color: #0a0f1a; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.rcp-head p { margin: 4px 0 0; font-size: 13.5px; color: #4a5568; }
+.rcp-head p b { color: #0a0f1a; }
+button.rcp-x { width: 44px; height: 44px; min-height: 44px !important; flex-shrink: 0; margin-top: -6px; border: none; border-radius: 50% !important; background: #f1f5f9; color: #334155; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+button.rcp-x:hover { background: #e2e8f0; }
+.rcp-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.rcp-list { display: flex; flex-direction: column; gap: 10px; }
+.rcp-row { border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; background: #fafbfd; display: flex; flex-direction: column; gap: 10px; }
+.rcp-row-top { display: flex; gap: 8px; align-items: center; }
+.rcp-row-top select { flex: 1; min-width: 0; }
+button.rcp-row-x { width: 44px; height: 44px; min-height: 44px !important; flex-shrink: 0; border: none; border-radius: 12px !important; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.rcp-row-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rcp-row-nums label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rcp-row-nums span { font-size: 12px; font-weight: 700; color: #4a5568; }
+#recipeEditorModal .rcp-in { width: 100%; height: 48px; min-height: 48px !important; padding: 0 12px !important; border: 1.5px solid #d3dbe6 !important; border-radius: 12px !important; background-color: #fff !important; font-size: 16px !important; font-weight: 600; color: #0a0f1a !important; }
+#recipeEditorModal .rcp-in:focus { border-color: var(--ts-blue, #d9481f) !important; box-shadow: 0 0 0 4px rgba(217, 72, 31, .15) !important; outline: none; }
+#recipeEditorModal select.rcp-in { padding-right: 36px !important; text-overflow: ellipsis; }
+.rcp-need { font-size: 12.5px; font-weight: 600; color: #15803d; min-height: 0; }
+.rcp-need:empty { display: none; }
+button.rcp-add { height: 48px; min-height: 48px !important; border: 1.5px dashed #93c5fd; border-radius: 14px !important; background: #eff6ff; color: #1d4ed8; font-size: 15px !important; font-weight: 700 !important; cursor: pointer; flex-shrink: 0; }
+.rcp-foot { display: flex; align-items: center; gap: 8px; padding: 12px 16px 16px; border-top: 1px solid #e8edf3; background: #fff; flex-shrink: 0; }
+button.rcp-btn { height: 48px; min-height: 48px !important; padding: 0 18px; border-radius: 14px !important; font-size: 15px !important; font-weight: 700 !important; cursor: pointer; border: none; }
+button.rcp-btn.ghost { margin-left: auto; background: #f1f5f9; color: #334155; }
+button.rcp-btn.primary { background: var(--ts-blue, #d9481f); color: #fff; box-shadow: 0 6px 16px -6px rgba(217, 72, 31, .6); }
+button.rcp-del { width: 48px; height: 48px; min-height: 48px !important; border: none; border-radius: 14px !important; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.rcp-foot > :first-child.rcp-btn.ghost { margin-left: auto; }
+@media (max-width: 380px) { .rcp-foot button.rcp-btn { padding: 0 14px; } }
+@media (prefers-reduced-motion: reduce) { .rcp-ov, .rcp-modal { animation: none !important; } }
+/* style.css turns every [id$="Modal"] into a bottom sheet on phones (align-items:flex-end,
+   padding:0, full-width card, 92vh) — keep the Recipe editor centred instead. */
+#recipeEditorModal.rcp-ov { align-items: center !important;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)) !important; }
+#recipeEditorModal > .rcp-modal { width: min(560px, 100%) !important; max-width: 100% !important; max-height: 70vh !important; max-height: min(70dvh, 100%) !important;
+  border-radius: 24px !important; margin: 0 !important; animation: rcpIn .24s cubic-bezier(.2, .9, .3, 1.15) !important; }
+#recipeEditorModal.out > .rcp-modal { animation: rcpIn .18s ease reverse forwards !important; }

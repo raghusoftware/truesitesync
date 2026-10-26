@@ -124,13 +124,26 @@ function _renderRecipeItemCards(items, cId) {
 }
 
 export function recipeFilterList() {
+  // Same item source as the list itself (BOQ groups + legacy item master).
   const pid = state.currentProjectId || state.projects?.[0]?.id;
-  const client = (state.clients || []).find(c => c.projectId === pid);
-  const cId = client?.id;
-  const items = cId ? Object.values(state.items[cId] || {}) : [];
   const grid = document.getElementById('recipeItemsGrid');
-  if (grid) grid.innerHTML = _renderRecipeItemCards(items, cId);
+  if (grid) grid.innerHTML = _renderRecipeItemCards(Object.values(_recipeItemsMap(pid)), _recipeKey(pid));
 }
+
+/* ═══════════════════════════════════════════════════════════
+ *  RECIPE EDITOR — a centred modal (not a bottom sheet), so nothing sits near
+ *  the phone's own Back / navigation bar:
+ *    • overlay = flex centre + safe-area padding; the card is capped at 70% of
+ *      the screen height, so ≥15% stays clear above and below;
+ *    • header (title + 44×44 close) and footer (actions) stay put, the body scrolls;
+ *    • tap the dimmed backdrop, the ✕, Esc or Android Back to close — with a
+ *      "discard changes?" check once something was edited.
+ *  Styles: css/shell.css "Recipe editor".
+ * ═══════════════════════════════════════════════════════════ */
+const _rEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _X = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const _TRASH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+let _recipeMats = [];
 
 export function recipeOpenEditor(itemCode) {
   const pid = state.currentProjectId || state.projects?.[0]?.id;
@@ -139,116 +152,95 @@ export function recipeOpenEditor(itemCode) {
   if (!item) { showToast('Item not found', 'error'); return; }
 
   const recipe = state.recipes[cId]?.[itemCode] || { ingredients: [] };
-  
-  // Try to filter out 'Tools', but if it results in an empty array, 
-  // fallback to showing ALL raw materials so the dropdown doesn't break.
-  let projectMaterials = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
-  if (projectMaterials.length === 0) {
-      projectMaterials = state.rawMaterials || []; 
-  }
+  // Tools are not consumed — leave them out, unless that would empty the list.
+  _recipeMats = (state.rawMaterials || []).filter(r => r.type !== 'Tools');
+  if (!_recipeMats.length) _recipeMats = state.rawMaterials || [];
 
-  // Build ingredient rows
-  let ingredientRows = '';
-  if (recipe.ingredients.length) {
-    recipe.ingredients.forEach((ing, idx) => {
-      ingredientRows += _buildIngredientRow(ing, projectMaterials, idx);
-    });
-  } else {
-    ingredientRows = _buildIngredientRow(null, projectMaterials, 0);
-  }
-
+  const rows = (recipe.ingredients.length ? recipe.ingredients : [null]).map(_buildIngredientRow).join('');
   const html = `
-    <div id="recipeEditorModal" class="ef-overlay" onclick="if(event.target===this)window._recipeCloseEditor()">
-      <div class="ef-modal" style="max-width:640px;">
-        <div class="ef-header">
-          <div>
-            <h3 class="ef-title flex items-center gap-2">
-              <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">${item.code}</span>
-              ${item.description}
-            </h3>
-            <p class="text-xs text-blue-500 font-bold mt-1">Recipe per 1 ${item.uom} &middot; Rate: &#8377;${(item.rate || 0).toLocaleString('en-IN')}</p>
+    <div id="recipeEditorModal" class="rcp-ov" role="presentation">
+      <div class="rcp-modal" role="dialog" aria-modal="true" aria-labelledby="rcpTitle">
+        <header class="rcp-head">
+          <div class="rcp-head-txt">
+            <span class="rcp-code">${_rEsc(item.code)}</span>
+            <h3 id="rcpTitle">${_rEsc(item.description)}</h3>
+            <p>Materials for <b>1 ${_rEsc(item.uom || 'unit')}</b> · Rate ₹${(item.rate || 0).toLocaleString('en-IN')}</p>
           </div>
-          <button onclick="window._recipeCloseEditor()" class="ef-close">&times;</button>
+          <button class="rcp-x" onclick="window._recipeRequestClose()" aria-label="Close">${_X}</button>
+        </header>
+        <div class="rcp-body" id="rcpBody">
+          <div class="rcp-list" id="recipeTableBody">${rows}</div>
+          <button class="rcp-add" onclick="window._recipeAddRow()">+ Add material</button>
         </div>
-        <div class="ef-body">
-          <p class="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded border">Define the raw materials consumed to execute <span class="font-bold">1 ${item.uom}</span> of <span class="font-bold">${item.description}</span>.</p>
-          <div class="overflow-x-auto border rounded-lg mb-3">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-50">
-                <tr class="text-left text-slate-500 uppercase font-bold text-[10px]">
-                  <th class="p-2.5 w-[45%]">Raw Material</th>
-                  <th class="p-2.5 w-[22%]">Qty Per Unit</th>
-                  <th class="p-2.5 w-[18%]">Wastage %</th>
-                  <th class="p-2.5 w-[15%] text-center">Del</th>
-                </tr>
-              </thead>
-              <tbody id="recipeTableBody" class="bg-white">${ingredientRows}</tbody>
-            </table>
-          </div>
-          <button onclick="window._recipeAddRow()" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition">+ Add Material</button>
-        </div>
-        <div class="ef-footer">
-          <div class="flex items-center gap-3">
-            ${recipe.ingredients.length ? '<button onclick="window._recipeDelete()" class="text-red-500 font-bold text-xs hover:underline">Delete Recipe</button>' : '<span></span>'}
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="window._recipeCloseEditor()" class="ef-btn-cancel">Cancel</button>
-            <button onclick="window._recipeSave()" class="ef-btn-save">Save Recipe</button>
-          </div>
-        </div>
+        <footer class="rcp-foot">
+          ${recipe.ingredients.length ? `<button class="rcp-del" onclick="window._recipeDelete()" aria-label="Delete recipe" title="Delete recipe">${_TRASH}</button>` : ''}
+          <button class="rcp-btn ghost" onclick="window._recipeRequestClose()">Cancel</button>
+          <button class="rcp-btn primary" onclick="window._recipeSave()">Save recipe</button>
+        </footer>
       </div>
     </div>`;
 
   document.getElementById('recipeEditorModal')?.remove();
   document.body.insertAdjacentHTML('beforeend', html);
+  const ov = document.getElementById('recipeEditorModal');
+  // Backdrop tap closes; a press that STARTS inside the card (e.g. selecting text
+  // and releasing outside) does not.
+  let downOnBackdrop = false;
+  ov.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === ov; });
+  ov.addEventListener('click', (e) => { if (e.target === ov && downOnBackdrop) window._recipeRequestClose(); });
+  ov.addEventListener('input', () => { ov.dataset.dirty = '1'; });
+  ov.addEventListener('change', () => { ov.dataset.dirty = '1'; });
+  ov.addEventListener('input', _recipeUpdateTotals);
+  ov.addEventListener('change', _recipeUpdateTotals);
+  // Keep a focused field in view when the phone keyboard shrinks the screen.
+  ov.addEventListener('focusin', (e) => { if (e.target.matches('input, select')) setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250); });
+  // Android Back (mobileShell → topVisibleModal → __onBack) asks before discarding.
+  ov.__onBack = () => window._recipeRequestClose();
+  document.addEventListener('keydown', _recipeEsc);
+  _recipeUpdateTotals();
 
-  // Store current context
   window._recipeCtx = { cId, itemCode };
 }
 
-function _buildIngredientRow(data, materials, idx) {
-  let rmOptions = '<option value="">-- Select Material --</option>';
-  materials.forEach(rm => {
-    rmOptions += `<option value="${rm.id}" ${data && data.rawMatId === rm.id ? 'selected' : ''}>${rm.name} (${rm.unit})</option>`;
-  });
-  
-  return `<tr class="border-t border-slate-100 hover:bg-slate-50">
-    <td class="p-2"><select class="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium rm-select">${rmOptions}</select></td>
-    <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg font-bold text-blue-700 ing-qty" value="${data ? data.qty : ''}" placeholder="0" step="0.01" min="0"></td>
-    <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg ing-wastage" value="${data && data.wastage ? data.wastage : '0'}" placeholder="0" min="0" max="100"></td>
-    <td class="p-2 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded-lg font-bold text-xs transition">&times;</button></td>
-  </tr>`;
+function _recipeEsc(e) { if (e.key === 'Escape' && document.getElementById('recipeEditorModal')) window._recipeRequestClose(); }
+
+/** One material: picker on top, qty + wastage below, live "needs X incl. wastage". */
+function _buildIngredientRow(data) {
+  const opts = '<option value="">Select material…</option>' + _recipeMats.map(rm =>
+    `<option value="${rm.id}" data-unit="${_rEsc(rm.unit || '')}" ${data && data.rawMatId === rm.id ? 'selected' : ''}>${_rEsc(rm.name)}${rm.unit ? ` (${_rEsc(rm.unit)})` : ''}</option>`).join('');
+  return `<div class="rcp-row">
+    <div class="rcp-row-top">
+      <select class="rcp-in rm-select" aria-label="Material">${opts}</select>
+      <button class="rcp-row-x" onclick="this.closest('.rcp-row').remove();window._recipeMarkDirty()" aria-label="Remove material">${_X}</button>
+    </div>
+    <div class="rcp-row-nums">
+      <label><span>Qty per unit</span><input type="number" inputmode="decimal" class="rcp-in ing-qty" value="${data ? data.qty : ''}" placeholder="0" step="0.01" min="0"></label>
+      <label><span>Wastage %</span><input type="number" inputmode="decimal" class="rcp-in ing-wastage" value="${data && data.wastage ? data.wastage : '0'}" placeholder="0" min="0" max="100"></label>
+    </div>
+    <div class="rcp-need"></div>
+  </div>`;
 }
 
+function _recipeUpdateTotals() {
+  document.querySelectorAll('#recipeTableBody .rcp-row').forEach(row => {
+    const sel = row.querySelector('.rm-select');
+    const qty = parseFloat(row.querySelector('.ing-qty')?.value) || 0;
+    const w = parseFloat(row.querySelector('.ing-wastage')?.value) || 0;
+    const unit = sel?.selectedOptions[0]?.dataset.unit || '';
+    const out = row.querySelector('.rcp-need');
+    if (out) out.textContent = sel?.value && qty > 0 ? `Issue ${+(qty * (1 + w / 100)).toFixed(3)} ${unit} per unit incl. wastage` : '';
+  });
+}
+window._recipeMarkDirty = () => { const ov = document.getElementById('recipeEditorModal'); if (ov) ov.dataset.dirty = '1'; };
+
 export function recipeAddRow() {
-  const tbody = document.getElementById('recipeTableBody');
-  if (!tbody) return;
-
-  // 🔥 BULLETPROOF TRICK: Grab the exact options from the very first dropdown in the table.
-  // This completely bypasses state filtering and guarantees the new row gets the exact same list!
-  let optionsHtml = '<option value="">-- Select Material --</option>';
-  const firstSelect = tbody.querySelector('.rm-select');
-  
-  if (firstSelect && firstSelect.innerHTML) {
-    // Copy the HTML of the options, but remove the 'selected' attribute so the new row defaults to blank
-    optionsHtml = firstSelect.innerHTML.replace(/selected(="[^"]*")?/g, '');
-  } else {
-    // Fallback just in case
-    const projectMaterials = state.rawMaterials || [];
-    projectMaterials.forEach(rm => {
-      optionsHtml += `<option value="${rm.id}">${rm.name} (${rm.unit})</option>`;
-    });
-  }
-
-  const newRow = `
-    <tr class="border-t border-slate-100 hover:bg-slate-50">
-      <td class="p-2"><select class="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium rm-select">${optionsHtml}</select></td>
-      <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg font-bold text-blue-700 ing-qty" value="" placeholder="0" step="0.01" min="0"></td>
-      <td class="p-2"><input type="number" class="w-full p-1.5 text-xs border border-slate-300 rounded-lg ing-wastage" value="0" placeholder="0" min="0" max="100"></td>
-      <td class="p-2 text-center"><button onclick="this.closest('tr').remove()" class="text-red-400 hover:bg-red-50 p-1 rounded-lg font-bold text-xs transition">&times;</button></td>
-    </tr>`;
-    
-  tbody.insertAdjacentHTML('beforeend', newRow);
+  const list = document.getElementById('recipeTableBody');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', _buildIngredientRow(null));
+  window._recipeMarkDirty();
+  const row = list.lastElementChild;
+  row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  setTimeout(() => row?.querySelector('select')?.focus({ preventScroll: true }), 200);
 }
 
 export function recipeSave() {
@@ -257,7 +249,7 @@ export function recipeSave() {
   const { cId, itemCode } = ctx;
 
   const ingredients = [];
-  document.querySelectorAll('#recipeTableBody tr').forEach(tr => {
+  document.querySelectorAll('#recipeTableBody .rcp-row').forEach(tr => {
     const rawMatId = tr.querySelector('.rm-select')?.value;
     const qty = parseFloat(tr.querySelector('.ing-qty')?.value) || 0;
     const wastage = parseFloat(tr.querySelector('.ing-wastage')?.value) || 0;
@@ -290,9 +282,19 @@ export function recipeDelete() {
 }
 
 export function recipeCloseEditor() {
-  document.getElementById('recipeEditorModal')?.remove();
+  const ov = document.getElementById('recipeEditorModal');
+  document.removeEventListener('keydown', _recipeEsc);
   window._recipeCtx = null;
+  if (!ov) return;
+  ov.classList.add('out');
+  setTimeout(() => ov.remove(), 180);
 }
+/** Close from ✕ / backdrop / Back / Esc — confirm first if something was edited. */
+window._recipeRequestClose = () => {
+  const ov = document.getElementById('recipeEditorModal');
+  if (ov?.dataset.dirty && !confirm('Discard your changes to this recipe?')) return;
+  recipeCloseEditor();
+};
 
 // Legacy compat stubs
 export function loadRecipeItemsDropdown() { renderRecipeView(); }
