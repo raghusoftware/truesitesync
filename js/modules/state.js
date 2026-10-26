@@ -96,6 +96,7 @@ const STORAGE_KEYS = {
   grnRecords: 'mes_grn_records',
   materialIssues: 'mes_material_issues',
   toolIssues: 'mes_tool_issues',
+  toolRegister: 'mes_tool_register',   // Tools register: one record per tool (status, holder, history)
   stockAudits: 'mes_stock_audits',
   savedPlans: 'mes_saved_plans',
   pettyCashCustodians: 'mes_petty_cash_custodians',
@@ -295,6 +296,7 @@ export const state = {
   grnRecords: load(STORAGE_KEYS.grnRecords, []),
   materialIssues: load(STORAGE_KEYS.materialIssues, []),
   toolIssues: load(STORAGE_KEYS.toolIssues, []),
+  toolRegister: load(STORAGE_KEYS.toolRegister, []),
   stockAudits: load(STORAGE_KEYS.stockAudits, []),
   savedPlans: load(STORAGE_KEYS.savedPlans, []),
   pettyCashCustodians: load(STORAGE_KEYS.pettyCashCustodians, []),
@@ -785,6 +787,8 @@ function _renderForKeys(keys) {
     execActuals: ['renderExecEngine'],
     execAssignments: ['renderExecEngine'],
     scheduleLocations: ['renderScheduleBuilder'],
+    toolRegister: ['renderToolsModule'],
+    toolIssues: ['renderToolsModule'],
     currencySettings: ['hideRestrictedSidebar'],
   };
   const seen = new Set();

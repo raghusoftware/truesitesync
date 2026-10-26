@@ -3888,56 +3888,9 @@ window._calcWastage=function(){
   </div>`;
 };
 
-// ─── 3. Tools (issued to workers, tracked until returned) ───
-function _renderTools() {
-  const c=document.getElementById('toolsContent'); if(!c) return;
-  const cur=getCurrencySymbol();
-  const labOpts=_projectLabour().map(l=>`<option value="${l.id}">${pcEsc(l.name)}</option>`).join('')||'<option value="">No workers yet</option>';
-  const mine=(state.toolIssues||[]).filter(t=>t.projectId===state.currentProjectId);
-  const held=mine.filter(t=>!t.returned).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-  const returned=mine.filter(t=>t.returned).sort((a,b)=>String(b.returnedDate||b.date).localeCompare(String(a.returnedDate||a.date))).slice(0,15);
-  const atRisk=held.reduce((s,t)=>s+(Number(t.value)||0),0);
-  const worker=(id)=>(state.labourMaster||[]).find(x=>x.id===id)?.name||'—';
-  const money=(n)=>cur+(Number(n)||0).toLocaleString('en-IN');
-  c.innerHTML=pcPage(
-    pcStats([
-      { label:'Out now', value:held.length, tone:'brand', hint:'with workers' },
-      { label:'Value out', value:money(atRisk), tone:'amber', hint:'if not returned' },
-      { label:'Returned', value:mine.length-held.length, tone:'green', hint:'all time' },
-    ]),
-    pcCard({ icon:'🔧', title:'Issue a tool', sub:'Hand a tool or scaffolding to a worker — tracked until it comes back', tone:'violet', body:
-      pcForm(
-        pcField('Worker', `<select id="tiLabour" class="pc-in">${labOpts}</select>`),
-        pcField(`Value (${cur.trim()})`, `<input id="tiValue" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
-        pcField('Tool', `<input id="tiTool" class="pc-in" placeholder="e.g. Drill, 50 scaffold tubes">`, { wide:true, hint:'Value is charged to the worker if the tool is lost or damaged' }),
-      )+`<button type="button" class="pc-btn violet" onclick="_saveToolIssue()">Issue tool</button>` }),
-    pcCard({ icon:'👷', title:'With workers now', sub:'Tap Return when a tool comes back', tone:'brand', flush:true,
-      action:`<span class="pc-count">${held.length}</span>`,
-      body:pcList(held.map(t=>pcItem({ icon:'🔧', tone:'violet', title:t.tool,
-        meta:[pcEsc(worker(t.labourId)), 'Issued '+pcDate(t.date), money(t.value)],
-        right:`<button type="button" class="pc-act" onclick="_returnTool('${t.id}')">Return</button>` })), 'No tools are out with workers.') }),
-    returned.length ? pcCard({ icon:'✅', title:'Recently returned', tone:'green', flush:true,
-      body:pcList(returned.map(t=>pcItem({ icon:'✓', tone:'green', title:t.tool,
-        meta:[pcEsc(worker(t.labourId)), 'Returned '+pcDate(t.returnedDate||t.date)], right:pcPill('Returned','green') })), '') }) : '',
-  );
-}
-window._saveToolIssue=function(){
-  const labourId=document.getElementById('tiLabour').value, tool=document.getElementById('tiTool').value.trim();
-  const value=parseFloat(document.getElementById('tiValue').value)||0;
-  if(!labourId||!tool){showToast('Select worker and tool','error');return;}
-  state.toolIssues.push({id:'tool_'+Date.now(),date:new Date().toISOString().split('T')[0],labourId,tool,value,returned:false,projectId:state.currentProjectId});
-  saveAllData(); _renderTools();
-  showToast('Tool issued — tracked to worker','success');
-};
-window._returnTool=function(id){
-  const t=(state.toolIssues||[]).find(x=>x.id===id); if(!t) return;
-  const dmg=confirm('Returned in good condition? OK = good, Cancel = damaged/penalty');
-  if(!dmg){const pen=parseFloat(prompt('Penalty amount to deduct from wages (' + getCurrencySymbol().trim() + '):','0'))||0;
-    if(pen>0){state.labourDeductions.push({id:'ded_'+Date.now(),labourId:t.labourId,deductionType:'Damaged Tool',amount:pen,date:new Date().toISOString().split('T')[0],note:t.tool,settled:false});showToast(`Penalty ${getCurrencySymbol()}${pen} added to worker deductions`,'warning');}}
-  t.returned=true; t.returnedDate=new Date().toISOString().split('T')[0];
-  saveAllData(); _renderTools();
-  showToast('Tool returned','success');
-};
+// ─── 3. Tools — the register UI lives in toolsUI.js (cards, swipe actions, bottom sheets) ───
+function _renderTools() { if (typeof window.renderToolsModule === 'function') window.renderToolsModule(); }
+window._projectLabour = () => _projectLabour();
 
 // ─── 4. Inter-Site Transfer ───
 function _renderInvTransfer() {
