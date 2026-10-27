@@ -173,6 +173,16 @@ jobs:
                  if ! grep -q 'android.hardware.camera' "$MANIFEST"; then
             sed -i '0,/<manifest[^>]*>/s##&\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.camera.any" android:required="false" />\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />\n    <uses-feature android:name="android.hardware.microphone" android:required="false" />\n    <uses-feature android:name="android.hardware.location" android:required="false" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />#' "$MANIFEST"
           fi
+          # No advertising ID: the app shows no ads. Firebase Analytics' Play-services
+          # library merges in com.google.android.gms.permission.AD_ID — strip it at merge
+          # time and turn off ad-ID collection, so the Play "Advertising ID" declaration
+          # can truthfully be "No".
+          grep -q 'xmlns:tools' "$MANIFEST" || sed -i '0,/<manifest /s##<manifest xmlns:tools="http://schemas.android.com/tools" #' "$MANIFEST"
+          sed -i '0,/<manifest[^>]*>/s##&\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />#' "$MANIFEST"
+          sed -i 's#</application>#    <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />\n    </application>#' "$MANIFEST"
+          grep -q 'google_analytics_adid_collection_enabled' "$MANIFEST" || { echo '::error::ad-ID collection flag not applied'; exit 1; }
+          grep -q 'gms.permission.AD_ID" tools:node="remove"' "$MANIFEST" || { echo '::error::AD_ID removal not applied'; exit 1; }
+          grep -q 'xmlns:tools' "$MANIFEST" || { echo '::error::tools namespace missing'; exit 1; }
           echo "----- manifest permissions -----"; grep 'uses-permission' "$MANIFEST" || true
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           mkdir -p android/app/src/main/java/com/truesitesync/app
@@ -290,6 +300,14 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew bundleRelease
+
+      - name: Verify no advertising ID in the final manifest
+        working-directory: android
+        run: |
+          # Play's "Advertising ID" declaration is "No" — fail the build if any library still merges AD_ID in.
+          FOUND=$(grep -rl 'com.google.android.gms.permission.AD_ID' app/build/intermediates --include=AndroidManifest.xml | grep -i release || true)
+          if [ -n "$FOUND" ]; then echo "::error::AD_ID permission still present in: $FOUND"; exit 1; fi
+          echo "OK — no AD_ID permission in the release manifests"
 
       - name: Sign the bundle
         working-directory: android
