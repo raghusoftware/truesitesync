@@ -104,17 +104,19 @@ jobs:
       - name: Set version code & name
         run: |
           # Capacitor hardcodes versionCode 1; Play needs it to strictly increase.
-          # Derive it from the version so it always climbs with releases, plus 1000
-          # because Play already holds code 10771 (release 1.6.171):
-          #   1.6.174 -> 11674,  1.7.0 -> 11700,  2.0.0 -> 21000
+          # major*1,000,000 + minor*1,000 + patch, so a patch above 99 can never spill
+          # into the minor digits (the old *10000/*100 scheme made 1.6.171 -> 10771, and
+          # 1.7.0 would have gone DOWN to 10700):
+          #   1.6.174 -> 1006174,  1.7.0 -> 1007000,  2.0.0 -> 2000000
+          # (all above every code Play holds so far; the highest was 11774).
           # Prefer package.json (works on manual dispatch too); fall back to the tag.
           VN="$(node -p "require('./package.json').version" 2>/dev/null || echo "${GITHUB_REF_NAME#v}")"
           if echo "$VN" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             IFS='.' read -r MA MI PA <<< "$VN"
-            CODE=$(( MA * 10000 + MI * 100 + PA + 1000 ))
+            CODE=$(( MA * 1000000 + MI * 1000 + PA ))
           else
             VN="1.0.${GITHUB_RUN_NUMBER}"
-            CODE=$(( 100000 + GITHUB_RUN_NUMBER ))
+            CODE=$(( 1000000 + GITHUB_RUN_NUMBER ))
           fi
           if [ -n "${{ github.event.inputs.version_code }}" ]; then CODE="${{ github.event.inputs.version_code }}"; fi
           sed -i -E "s/versionCode [0-9]+/versionCode ${CODE}/" android/app/build.gradle
