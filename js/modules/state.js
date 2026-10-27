@@ -96,7 +96,8 @@ const STORAGE_KEYS = {
   grnRecords: 'mes_grn_records',
   materialIssues: 'mes_material_issues',
   toolIssues: 'mes_tool_issues',
-  toolRegister: 'mes_tool_register',   // Tools register: one record per tool (status, holder, history)
+  toolRegister: 'mes_tool_register',
+  termsPresets: 'mes_terms_presets',   // saved Terms & Conditions sets for estimates   // Tools register: one record per tool (status, holder, history)
   stockAudits: 'mes_stock_audits',
   savedPlans: 'mes_saved_plans',
   pettyCashCustodians: 'mes_petty_cash_custodians',
@@ -297,6 +298,7 @@ export const state = {
   materialIssues: load(STORAGE_KEYS.materialIssues, []),
   toolIssues: load(STORAGE_KEYS.toolIssues, []),
   toolRegister: load(STORAGE_KEYS.toolRegister, []),
+  termsPresets: load(STORAGE_KEYS.termsPresets, []),
   stockAudits: load(STORAGE_KEYS.stockAudits, []),
   savedPlans: load(STORAGE_KEYS.savedPlans, []),
   pettyCashCustodians: load(STORAGE_KEYS.pettyCashCustodians, []),

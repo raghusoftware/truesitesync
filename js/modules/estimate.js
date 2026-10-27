@@ -11,6 +11,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
 import { estimateTotals } from './estimateCalc.js';
+import { setupEstimateEditor, readEstimateDocFields } from './estimateDocUI.js?v=1.0.0';
 
 /** Fill the discount inputs (blank for a new estimate). */
 function _setDiscountInputs(type, value) {
@@ -60,6 +61,7 @@ export function createNewEstimate() {
   const t = document.getElementById('estEditorTitle'); if (t) t.textContent = 'Draft Estimate';
   addEstimateRow();
   if (window.calcEstimateTotal) window.calcEstimateTotal();
+  setupEstimateEditor(null);   // style picker + saved T&C (default preset goes in)
   document.getElementById('estimateEditor').classList.remove('hide');
   _estFullscreen(true);
 }
@@ -88,6 +90,7 @@ export function openEstimate(id) {
   });
   if (!(e.items || []).length) addEstimateRow();
   const t = document.getElementById('estEditorTitle'); if (t) t.textContent = 'Edit Estimate — ' + (e.estNum || '');
+  setupEstimateEditor(e);
   document.getElementById('estimateEditor').classList.remove('hide');
   _estFullscreen(true);
   if (window.calcEstimateTotal) window.calcEstimateTotal();
@@ -122,6 +125,7 @@ export function saveEstimate() {
   // Preserve downstream links (Sale Order / Project / already-ordered materials) across edits.
   const prev = state.currentEstimateId ? state.estimates.find(e => e.id === state.currentEstimateId) : null;
   const data = { id: state.currentEstimateId || 'est_' + Date.now(), estNum: document.getElementById('estNum').value, clientId: cId, date: document.getElementById('estDate').value, items: estItems, subTotal, discountType, discountValue, discountAmount, total, terms: document.getElementById('estTerms').value, notes: document.getElementById('estNotes').value,
+    ...readEstimateDocFields(),   // template ('classic' | 'modern') + termsPresetId
     saleOrderId: prev?.saleOrderId || null, projectId: prev?.projectId || null, orderedMaterials: prev?.orderedMaterials || [], recipeMap: prev?.recipeMap || {},
     // Link back to the measurement it was converted from (source of truth for the
     // sheet's "Converted to Estimate" status). Preserved across edits.
@@ -153,6 +157,6 @@ export function renderEstimatesList() {
     const soBtn = e.saleOrderId
       ? `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-50 text-blue-700 border border-blue-200 py-1.5 rounded font-bold text-xs" title="Already created — click to create another">SO ✓</button>`
       : `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-600 text-white py-1.5 rounded font-bold text-xs">→ Sale Order + Project</button>`;
-    container.innerHTML += `<div class="bg-white border rounded-xl shadow-sm p-5 border-l-4 border-l-emerald-500"><div class="flex justify-between mb-2"><h3 class="font-extrabold text-slate-800">${e.estNum}</h3><span class="text-xs font-bold text-slate-500">${e.date}</span></div><p class="font-bold text-slate-700 mb-1">${c ? c.name : 'Unknown'}</p><div class="flex flex-wrap gap-1 mb-2">${soBadge}${matBadge}</div><p class="text-xl font-extrabold text-emerald-600 mb-3">${getCurrencySymbol()}${e.total.toLocaleString()}</p>${window.attributionHTML(e, 'Created')}<div class="flex flex-col gap-2"><div class="flex gap-2">${soBtn}<button onclick="window.openEstimateMaterials('${e.id}')" class="flex-1 bg-purple-600 text-white py-1.5 rounded font-bold text-xs">⚙ Materials / PO</button></div><div class="flex gap-2"><button onclick="window.openEstimate('${e.id}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded font-bold text-xs hover:bg-emerald-100">✏ Edit</button><button onclick="exportEstimatePDF('${e.id}')" class="flex-1 bg-slate-800 text-white py-1.5 rounded font-bold text-xs">Print PDF</button><button onclick="window.recycleDelete&&window.recycleDelete('estimates','${e.id}','Estimate','${(e.estNum||'').replace(/'/g,"")}');renderEstimatesList();" class="px-3 bg-red-50 text-red-600 rounded font-bold text-xs">Del</button></div></div></div>`;
+    container.innerHTML += `<div class="bg-white border rounded-xl shadow-sm p-5 border-l-4 border-l-emerald-500"><div class="flex justify-between mb-2"><h3 class="font-extrabold text-slate-800">${e.estNum}</h3><span class="text-xs font-bold text-slate-500">${e.date}</span></div><p class="font-bold text-slate-700 mb-1">${c ? c.name : 'Unknown'}</p><div class="flex flex-wrap gap-1 mb-2">${soBadge}${matBadge}</div><p class="text-xl font-extrabold text-emerald-600 mb-3">${getCurrencySymbol()}${e.total.toLocaleString()}</p>${window.attributionHTML(e, 'Created')}<div class="flex flex-col gap-2"><div class="flex gap-2">${soBtn}<button onclick="window.openEstimateMaterials('${e.id}')" class="flex-1 bg-purple-600 text-white py-1.5 rounded font-bold text-xs">⚙ Materials / PO</button></div><div class="flex gap-2"><button onclick="window.openEstimate('${e.id}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded font-bold text-xs hover:bg-emerald-100">✏ Edit</button><button onclick="exportEstimatePDF('${e.id}')" class="flex-1 bg-slate-800 text-white py-1.5 rounded font-bold text-xs" title="${e.template === 'modern' ? 'Modern' : 'Classic'} design">PDF</button><button onclick="window.exportEstimateExcel('${e.id}')" class="flex-1 bg-green-50 text-green-700 border border-green-200 py-1.5 rounded font-bold text-xs">Excel</button><button onclick="window.recycleDelete&&window.recycleDelete('estimates','${e.id}','Estimate','${(e.estNum||'').replace(/'/g,"")}');renderEstimatesList();" class="px-3 bg-red-50 text-red-600 rounded font-bold text-xs">Del</button></div></div></div>`;
   });
 }

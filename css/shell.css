@@ -1196,3 +1196,63 @@ button.pb-row:active { transform: scale(.98) !important; background: #f8fafc; }
 .pb-page .pb-hero.pay ~ .pb-list .pb-amt { color: #b91c1c; }
 .pb-chev { display: flex; color: #94a3b8; }
 @media (max-width: 380px) { .pt-kpi-t b:not(.long):not(.xlong) { font-size: 17px; } button.pb-row { gap: 10px; padding-left: 12px; } .pb-amt { font-size: 15px; } }
+
+/* ═══ Estimate editor: document style + saved T&C ═══ */
+.ed-tc-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 8px; }
+#estimateEditor select.ed-tc-sel { flex: 1 1 200px; min-width: 0; height: 44px; min-height: 44px !important; padding: 0 36px 0 12px !important; border: 1.5px solid #d3dbe6 !important; border-radius: 12px !important; background-color: #fff !important; font-size: 15px !important; font-weight: 600; color: #0f172a !important; }
+#estimateEditor button.ed-tc-btn { height: 44px; min-height: 44px !important; padding: 0 14px; border: none; border-radius: 12px !important; background: #0f1b2d; color: #fff; font-size: 13.5px !important; font-weight: 700 !important; white-space: nowrap; cursor: pointer; }
+#estimateEditor button.ed-tc-btn.ghost { background: #eef2f7; color: #334155; }
+#estimateEditor textarea.ed-tc-text { min-height: 140px; line-height: 1.55; font-size: 14px !important; background: #fff !important; border: 1.5px solid #d3dbe6 !important; border-radius: 12px !important; padding: 10px 12px !important; }
+#estimateEditor textarea.ed-tc-text.ed-flash { animation: edFlash .9s ease; }
+@keyframes edFlash { 0% { box-shadow: 0 0 0 0 rgba(217, 72, 31, .45); background: #fff7f3 !important; } 100% { box-shadow: 0 0 0 10px rgba(217, 72, 31, 0); } }
+.ed-doc { margin-top: 16px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 16px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px; }
+.ed-doc-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ed-doc-h b { font-size: 14px; color: #0f172a; }
+.ed-doc-h span { font-size: 12px; color: #64748b; }
+.ed-tpls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#estimateEditor button.ed-tpl { display: flex; align-items: center; gap: 12px; padding: 10px; min-height: 84px !important; border: 2px solid #e2e8f0; border-radius: 14px !important; background: #fff; text-align: left; cursor: pointer; font-weight: 400 !important; transition: border-color .15s, box-shadow .15s !important; }
+#estimateEditor button.ed-tpl.on { border-color: #d9481f; box-shadow: 0 0 0 3px rgba(217, 72, 31, .14); }
+.ed-tpl-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ed-tpl-t b { font-size: 14.5px; color: #0f172a; }
+.ed-tpl-t small { font-size: 12px; color: #64748b; line-height: 1.3; }
+/* miniature page thumbnails */
+.ed-thumb { position: relative; flex-shrink: 0; width: 48px; height: 62px; border-radius: 4px; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .25); overflow: hidden; display: flex; flex-direction: column; gap: 4px; padding: 6px 5px; }
+.ed-thumb i { display: block; height: 3px; border-radius: 2px; background: #cbd5e1; }
+.ed-thumb.classic .h { height: 5px; width: 60%; background: #111827; }
+.ed-thumb.classic .r { height: 1px; background: #111827; box-shadow: 0 2px 0 -0.5px #d9481f; width: 100%; }
+.ed-thumb.modern { padding-top: 0; }
+.ed-thumb.modern .h { height: 15px; margin: 0 -5px 2px; border-radius: 0; background: linear-gradient(115deg, #0f1b2d 68%, #d9481f 68%); }
+.ed-thumb.modern .c { height: 7px; background: #fcece5; }
+.ed-thumb .s { width: 55%; align-self: flex-end; background: #d9481f; }
+#estimateEditor button.ed-preview { height: 48px; min-height: 48px !important; border: 1.5px solid #0f1b2d; border-radius: 12px !important; background: #fff; color: #0f1b2d; font-size: 14.5px !important; font-weight: 700 !important; cursor: pointer; }
+@media (max-width: 520px) { .ed-tpls { grid-template-columns: 1fr; } }
+
+/* Saved-T&C manager + desktop preview (centred windows) */
+#termsPresetOverlay .rcp-in { width: 100%; height: 48px; padding: 0 12px !important; border: 1.5px solid #d3dbe6 !important; border-radius: 12px !important; background: #fff !important; font-size: 16px !important; }
+#termsPresetOverlay .rcp-head h3 { font-size: 18px !important; }
+.ed-f { display: flex; flex-direction: column; gap: 6px; }
+.ed-f > span { font-size: 13px; font-weight: 700; color: #475569; }
+#termsPresetOverlay textarea.ed-tp-body { min-height: 200px; padding: 10px 12px !important; border: 1.5px solid #d3dbe6 !important; border-radius: 12px !important; background: #fff !important; font-size: 15px !important; line-height: 1.5; resize: vertical; }
+.ed-chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; font-weight: 600; color: #334155; }
+.ed-chk input { width: 22px; height: 22px; }
+.ed-tp { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fafbfd; }
+.ed-tp-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ed-tp-t b { font-size: 15px; color: #0f172a; }
+.ed-tp-t b em { font-style: normal; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #d9481f; background: #fcece5; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+.ed-tp-t small { font-size: 12.5px; color: #64748b; line-height: 1.35; }
+.ed-tp-a { display: flex; gap: 6px; flex-shrink: 0; }
+#termsPresetOverlay .ed-tp-a button { min-width: 44px; height: 44px; min-height: 44px !important; padding: 0 10px; border: none; border-radius: 12px !important; background: #eef2f7; color: #334155; font-size: 13px !important; font-weight: 700 !important; cursor: pointer; }
+#termsPresetOverlay .ed-tp-a button.del { background: #fef2f2; color: #dc2626; }
+.ed-empty { font-size: 14px; color: #64748b; line-height: 1.5; text-align: center; padding: 16px 8px; }
+.ed-pv { width: min(960px, 100%); height: min(92vh, 100%); background: #fff; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 60px -12px rgba(10, 15, 26, .5); }
+.ed-pv header { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; border-bottom: 1px solid #e8edf3; }
+.ed-pv header b { font-size: 15px; }
+.ed-pv header span { flex: 1; font-size: 12.5px; color: #64748b; }
+.ed-pv header button { width: 44px; height: 44px; border: none; border-radius: 50% !important; background: #f1f5f9; cursor: pointer; font-size: 16px; }
+.ed-pv iframe { flex: 1; width: 100%; border: 0; background: #525659; }
+/* The estimate editor is a full-screen layer at z-index 99999 — its windows go above it. */
+#termsPresetOverlay.rcp-ov, #estPreviewOverlay.rcp-ov { z-index: 100010; }
+@media (max-width: 640px) {
+  #estimateEditor select.ed-tc-sel { flex-basis: 100%; }
+  #estimateEditor button.ed-tc-btn { flex: 1; }
+}

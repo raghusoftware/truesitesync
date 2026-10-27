@@ -18,6 +18,7 @@ const _isGstMode = () => getTaxConfig().mode === 'gst';
 /** Label for the single (non-split) tax line, e.g. VAT / GST/HST / Sales Tax. */
 const _singleTaxLabel = () => getTaxConfig().singleLabel;
 import { getActiveThemeId, THEMES, renderWithTheme } from './pdfThemes.js?v=1.0.2';
+import { exportEstimatePDF as _exportEstimate } from './estimatePdf.js?v=1.0.0';
 
 const _num2 = formatNumber2;
 
@@ -94,75 +95,5 @@ export function exportInvoicePDF(id) {
   mobileSavePDF(doc,`${inv.invoiceNum}.pdf`);
 }
 
-export function exportEstimatePDF(id) {
-  const e = state.estimates.find(x => x.id === id);
-  if (!e) return showToast('Estimate not found', 'error');
-  const c = state.clients.find(x => x.id === e.clientId);
-  const proj = state.projects.find(p => p.id === e.projectId || p.id === c?.projectId);
-  const clientName = c?.name || proj?.clientName || e.clientName || '—';
-  const projectName = c?.projectName || proj?.name || e.projectName || '—';
-  const sym = getPdfCurrency().trim();
-
-  // Generate the estimate in the SAME premium layout as a tax invoice, just
-  // relabelled "ESTIMATE / QUOTATION" — reuse whichever invoice template the
-  // company picked in Print settings.
-  const themeId = getActiveThemeId('invoice');
-  if (themeId && THEMES.invoice && THEMES.invoice[themeId]) {
-    const doc = new window.jspdf.jsPDF();
-    // Round qty to a clean 3 decimals (estimate quantities can carry
-    // floating-point noise like 233.4999999997).
-    const _q = n => Math.round((Number(n) || 0) * 1000) / 1000;
-    const items = (e.items || []).map((i, idx) => ({
-      sn: idx + 1, code: '', hsn: '', desc: i.desc, qty: _q(i.qty), uom: i.unit, unit: i.unit, rate: i.rate, amount: i.amount,
-    }));
-    const sub = e.subTotal ?? (e.total + (e.discountAmount || 0));
-    const data = {
-      invoiceNum: e.estNum, date: e.date, clientName, projectName, status: '',
-      items, subtotal: sub, taxAmount: 0, gstType: '', taxPct: 0,
-      totalAmount: e.total, total: e.total, isEstimate: true,
-    };
-    // Swap invoice wording → estimate wording while this template renders.
-    const origText = doc.text.bind(doc);
-    doc.text = function (txt, ...rest) {
-      if (typeof txt === 'string') {
-        txt = txt.replace(/TAX\s+INVOICE(\s*\(CANCELLED\))?/gi, 'ESTIMATE / QUOTATION')
-                 .replace(/\bInvoice\s*No\b/gi, 'Estimate No')
-                 .replace(/\bInvoice\b/g, 'Estimate');
-      }
-      return origText(txt, ...rest);
-    };
-    try { renderWithTheme('invoice', themeId, doc, data); }
-    catch (err) { console.warn('Estimate theme render failed, using plain layout:', err); doc.text = origText; return _estimatePlainPDF(e, clientName, projectName, sym); }
-    finally { doc.text = origText; }
-    mobileSavePDF(doc, `${e.estNum}.pdf`);
-    return;
-  }
-  // No premium invoice template selected → plain layout (styled like the invoice).
-  return _estimatePlainPDF(e, clientName, projectName, sym);
-}
-
-function _estimatePlainPDF(e, clientName, projectName, sym) {
-  const doc = new window.jspdf.jsPDF();
-  let y = getCompanyHeaderForPDF(doc);
-  doc.setFontSize(14); doc.setTextColor(0);
-  doc.text("ESTIMATE / QUOTATION", 105, y + 5, null, null, "center");
-  doc.setFontSize(10); doc.setFont("helvetica", "normal");
-  doc.text(`Estimate No: ${e.estNum}`, 14, y + 15); doc.text(`Date: ${e.date}`, 14, y + 20);
-  doc.text(`Client: ${clientName}`, 14, y + 28); doc.text(`Project: ${projectName}`, 14, y + 33);
-  let rows = [];
-  (e.items || []).forEach((i, idx) => rows.push([idx + 1, i.desc, i.qty, i.unit, _num2(i.rate), _num2(i.amount)]));
-  doc.autoTable({ startY: y + 40, head: [['#', 'Description', 'Qty', 'Unit', `Rate (${sym})`, `Amount (${sym})`]], body: rows, theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 9 }, styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 70 }, 2: { halign: 'right', cellWidth: 18 }, 3: { cellWidth: 15 }, 4: { halign: 'right', cellWidth: 30 }, 5: { halign: 'right', cellWidth: 30 } } });
-  let tY = doc.lastAutoTable.finalY + 10;
-  if (e.discountAmount > 0) {
-    const sub = e.subTotal ?? (e.total + e.discountAmount);
-    const pct = e.discountType === 'pct' ? ` (${e.discountValue}%)` : '';
-    doc.setFontSize(10); doc.setFont("helvetica", "normal");
-    doc.text(`Subtotal: ${sym} ${_num2(sub)}`, 14, tY);
-    doc.text(`Less Discount${pct}: ${sym} ${_num2(e.discountAmount)}`, 14, tY + 6);
-    tY += 14;
-  }
-  doc.setFontSize(12); doc.setFont("helvetica", "bold");
-  doc.text(`Total Estimate Value: ${sym} ${_num2(e.total)}`, 14, tY);
-  if (e.terms) { tY += 15; doc.setFontSize(10); doc.text("Terms & Conditions:", 14, tY); doc.setFont("helvetica", "normal"); doc.text(e.terms, 14, tY + 6, { maxWidth: 180 }); }
-  mobileSavePDF(doc,`${e.estNum}.pdf`);
-}
+/** Estimates have their own Classic / Modern designs (estimatePdf.js). */
+export function exportEstimatePDF(id) { return _exportEstimate(id); }
