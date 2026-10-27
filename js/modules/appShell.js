@@ -90,6 +90,7 @@ export function renderAppBar(viewId) {
   if (sec) title = sec;
   if (viewId === 'paymentsHubView' && window._pmtIsForm?.()) title = window._pmtFormTitle?.() || title;
   if (viewId === 'calcView' && window._calcTitle?.()) title = window._calcTitle();
+  if (viewId === 'partiesLedgerView' && !state.currentSelectedParty && window._partyDrillTitle?.()) title = window._partyDrillTitle();
   if (viewId === 'projectDashboard' && proj) { title = proj.name || 'Project'; sub = ['Project Home', proj.location].filter(Boolean).join(' · '); }
   else if (proj && SC.tabOf(viewId) === 'projects') sub = proj.name || sub;
   left.innerHTML = `<button type="button" class="tsb-ic tsb-back" onclick="window._navBack()" aria-label="Back">${svg.back}</button>
@@ -449,7 +450,7 @@ export function onView(viewId) {
   wrapSections();
   if (viewId === 'equipmentView') renderEquipSummary();
   // Party / Payments open on their list unless a caller asks for a detail / form right after.
-  if (viewId === 'partiesLedgerView' && !window.__navBack) state.currentSelectedParty = null;
+  if (viewId === 'partiesLedgerView' && !window.__navBack) { state.currentSelectedParty = null; window._partyDrillReset?.(); }
   if (viewId === 'paymentsHubView' && !window.__navBack) window._pmtShowList?.(false);
   syncFab(viewId);
   const lbl = document.getElementById('sbProjectsLbl');
@@ -499,6 +500,8 @@ export function closeSection() {
   if (v === 'executionView' && window._exSection?.() !== 'home') { window._exOpen?.('home'); return true; }
   if (v === 'pettyCashView' && window._pcIsOpen?.()) { window._pcOpen?.(null); renderAppBar(v); syncFab(v); return true; }
   if (v === 'partiesLedgerView' && state.currentSelectedParty) { window._partyBack?.(); return true; }
+  // Receivable / Payable drill-down list → back to the party list
+  if (v === 'partiesLedgerView' && window._partyDrillOpen?.()) { window._partyDrill(null); return true; }
   if (v === 'calcView' && window._calcIsOpen?.()) { window._calcClose?.(); return true; }
   if (v === 'paymentsHubView' && window._pmtIsForm?.()) { window._pmtShowList?.(); renderAppBar(v); return true; }
   return false;
@@ -512,7 +515,7 @@ const FAB = {
   inventoryView: () => !openSection('inventoryView') && invSheet,
   equipmentView: () => !openSection('equipmentView') && eqAddSheet,
   pettyCashView: () => !window._pcIsOpen?.() && (() => window.pettyOptionsSheet?.()),
-  partiesLedgerView: () => !state.currentSelectedParty && (() => window._addPartyChooser?.()),
+  partiesLedgerView: () => !state.currentSelectedParty && !window._partyDrillOpen?.() && (() => window._addPartyChooser?.()),
 };
 let _fabRun = null;
 function syncFab(viewId) {

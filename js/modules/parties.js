@@ -9,7 +9,7 @@
  */
 
 import { state, saveAllData, keepOnly } from './state.js';
-import { partyRows, partyEntries, partyTotals, balanceSide, filterParties, TYPE_LABEL } from './partyCalc.js';
+import { partyRows, partyEntries, partyTotals, balanceSide, filterParties, balanceList, TYPE_LABEL } from './partyCalc.js';
 import { deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol, pdfMoney, getCompanyHeaderForPDF, mobileSavePDF, populateDropdowns, getTerm, getTaxConfig, printReport } from './utils.js';
 
@@ -22,12 +22,26 @@ const _pm = (n) => getCurrencySymbol() + (Math.abs(Number(n) || 0)).toLocaleStri
 const _SEARCH_IC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
 const _SIDE = { receivable: ['Receivable', 'var(--ts-green)'], payable: ['Payable', 'var(--ts-red)'], settled: ['Settled', 'var(--ts-muted)'] };
 
+// Receivable / Payable drill-down: null = the normal party list.
+let _drill = null, _dq = '';
+const _CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+const _DRILL = {
+  receivable: { title: 'Receivable', total: 'Total to receive', who: (n) => `${n} part${n === 1 ? 'y owes' : 'ies owe'} you`, empty: 'Nobody owes you money right now.', tone: 'rec' },
+  payable: { title: 'Payable', total: 'Total to pay', who: (n) => `You owe ${n} part${n === 1 ? 'y' : 'ies'}`, empty: 'You don\'t owe anyone right now.', tone: 'pay' },
+};
+
+/** Smaller figures for long totals so the full amount always shows in a half-width card. */
+const _kpiFit = (n) => { const l = _pm(n).length; return l > 15 ? 'xlong' : l > 12 ? 'long' : ''; };
+
 export function renderPartiesList() {
   const root = document.getElementById('partyRoot');
   if (!root) return;
   if (state.currentSelectedParty) { renderPartyTransactions(); return; }
+  if (_drill) { renderPartyBalanceList(); return; }
   const rows = partyRows(state);
   const tot = partyTotals(rows);
+  const nRec = rows.filter(r => balanceSide(r) === 'receivable').length;
+  const nPay = rows.filter(r => balanceSide(r) === 'payable').length;
   const list = filterParties(rows, { q: _pq, type: _pchip });
   const count = (t) => t === 'All' ? rows.length : rows.filter(r => r.type === t).length;
   const chips = [['All', 'All'], ['Client', 'Clients'], ['Vendor', 'Suppliers'], ['Labour', 'Labour'], ['Contractor', 'Contractors']]
@@ -43,9 +57,11 @@ export function renderPartiesList() {
   }).join('');
   const keepFocus = document.activeElement && document.activeElement.id === 'partySearch';
   root.innerHTML = `<div class="ts-page">
-    <div class="tsp-sum" style="grid-template-columns:repeat(2,1fr)">
-      <div style="text-align:left;padding-left:16px !important"><small>Receivable</small><b style="color:var(--ts-green)">${_pm(tot.receivable)}</b></div>
-      <div style="text-align:right;padding-right:16px !important"><small>Payable</small><b style="color:var(--ts-red)">${_pm(tot.payable)}</b></div>
+    <div class="pt-kpis">
+      <button type="button" class="pt-kpi rec" onclick="window._partyDrill('receivable')" aria-label="Receivable ${_pm(tot.receivable)} — see who owes you">
+        <span class="pt-kpi-t"><small>Receivable</small><b class="${_kpiFit(tot.receivable)}">${_pm(tot.receivable)}</b><em>${_DRILL.receivable.who(nRec)}</em></span><span class="pt-kpi-go">${_CHEV}</span></button>
+      <button type="button" class="pt-kpi pay" onclick="window._partyDrill('payable')" aria-label="Payable ${_pm(tot.payable)} — see who you owe">
+        <span class="pt-kpi-t"><small>Payable</small><b class="${_kpiFit(tot.payable)}">${_pm(tot.payable)}</b><em>${_DRILL.payable.who(nPay)}</em></span><span class="pt-kpi-go">${_CHEV}</span></button>
     </div>
     <div class="ts-search">${_SEARCH_IC}<input id="partySearch" type="search" placeholder="Search party" value="${_pe(_pq)}" oninput="window._partySearch(this.value)" autocomplete="off"></div>
     <div class="ts-chips">${chips}</div>
@@ -54,6 +70,43 @@ export function renderPartiesList() {
   </div>`;
   if (keepFocus) { const i = document.getElementById('partySearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
+
+/**
+ * One reusable list for both drill-downs: the side ('receivable' | 'payable')
+ * decides which parties show. Tapping a party opens its ledger; Back from the
+ * ledger returns here, Back again returns to the party list.
+ */
+export function renderPartyBalanceList() {
+  const root = document.getElementById('partyRoot');
+  if (!root || !_drill) return;
+  const d = _DRILL[_drill];
+  const all = balanceList(partyRows(state), _drill);
+  const { rows } = balanceList(partyRows(state), _drill, _dq);
+  const ini = (n) => String(n || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const items = rows.map(r => `<button type="button" class="pb-row" onclick="selectParty('${_pe(r.id)}','${r.type}')">
+      <span class="pb-av">${_pe(ini(r.name))}</span>
+      <span class="pb-name"><b>${_pe(r.name)}</b><small>${_pe(TYPE_LABEL[r.type] || r.type)}${r.trade ? ' · ' + _pe(r.trade) : ''}${r.phone ? ' · ' + _pe(r.phone) : ''}</small></span>
+      <span class="pb-amt">${_pm(r.amount)}</span><span class="pb-chev">${_CHEV}</span></button>`).join('');
+  const keepFocus = document.activeElement && document.activeElement.id === 'partyBalSearch';
+  const bar = document.getElementById('breadcrumbBar');   // search sticks just under the (sticky) app bar
+  const stick = bar && bar.offsetParent && getComputedStyle(bar).position !== 'static' ? bar.offsetHeight : 0;
+  root.innerHTML = `<div class="ts-page pb-page" style="--pb-stick:${stick}px">
+    <div class="pb-hero ${d.tone}"><small>${d.total}</small><b>${_pm(all.total)}</b><span>${d.who(all.rows.length)}</span></div>
+    ${all.rows.length > 1 ? `<div class="ts-search pb-search">${_SEARCH_IC}<input id="partyBalSearch" type="search" placeholder="Search party" value="${_pe(_dq)}" oninput="window._partyBalSearch(this.value)" autocomplete="off"></div>` : ''}
+    ${rows.length ? `<div class="pb-list">${items}</div>`
+      : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>${all.rows.length ? '🔍' : '✅'}</div><h3>${all.rows.length ? 'No party found' : 'All settled'}</h3><p>${all.rows.length ? 'Try another name.' : d.empty}</p></div>`}
+  </div>`;
+  if (keepFocus) { const i = document.getElementById('partyBalSearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+}
+window._partyDrill = (side) => {
+  _drill = _DRILL[side] ? side : null; _dq = '';
+  renderPartiesList(); window.shellSectionChanged?.();
+  document.querySelector('main')?.scrollTo?.(0, 0);
+};
+window._partyDrillOpen = () => !!_drill;
+window._partyDrillTitle = () => (_drill ? _DRILL[_drill].title : '');
+window._partyDrillReset = () => { _drill = null; _dq = ''; };
+window._partyBalSearch = (q) => { _dq = q; renderPartyBalanceList(); };
 
 function _findPartyName(id, type) {
   const list = type === 'Client' ? state.clients : type === 'Vendor' ? state.vendors : type === 'Labour' ? state.labourMaster : state.labourContractors;

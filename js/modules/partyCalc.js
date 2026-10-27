@@ -123,3 +123,15 @@ export function partyEntries(S, id, type) {
   });
   return t;
 }
+
+/**
+ * Drill-down for the summary cards: the parties on one side ('receivable' or
+ * 'payable') with the amount as a positive number, biggest first, optionally
+ * narrowed by search text. Returns { rows: [{...row, amount}], total }.
+ */
+export function balanceList(rows, side, q = '') {
+  const list = filterParties((rows || []).filter(r => balanceSide(r) === side), { q })
+    .map(r => ({ ...r, amount: Math.round(Math.abs(_n(r.balance)) * 100) / 100 }))
+    .sort((a, b) => b.amount - a.amount || String(a.name).localeCompare(String(b.name)));
+  return { rows: list, total: Math.round(list.reduce((s, r) => s + r.amount, 0) * 100) / 100 };
+}

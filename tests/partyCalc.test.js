@@ -51,3 +51,21 @@ test('partyEntries running balance', () => {
   assert.equal(g[0].type, 'Labour Wages');
   assert.equal(g[0].running, 300);
 });
+
+test('balanceList: one side only, biggest first, searchable', async () => {
+  const { balanceList } = await import('../js/modules/partyCalc.js');
+  const rows = [
+    { id: 'c1', name: 'Nexcel', type: 'Client', balance: 50000 },
+    { id: 'c2', name: 'Poicha', type: 'Client', balance: 120000.456 },
+    { id: 'c3', name: 'Advance Co', type: 'Client', balance: -2000 },   // client paid in advance → we owe
+    { id: 'v1', name: 'Shree Cement', type: 'Vendor', balance: 30000 },
+    { id: 'v2', name: 'Steel Mart', type: 'Vendor', balance: 0 },
+  ];
+  const rec = balanceList(rows, 'receivable');
+  assert.deepEqual(rec.rows.map(r => r.id), ['c2', 'c1']);
+  assert.equal(rec.rows[0].amount, 120000.46);
+  assert.equal(rec.total, 170000.46);
+  const pay = balanceList(rows, 'payable');
+  assert.deepEqual(pay.rows.map(r => [r.id, r.amount]), [['v1', 30000], ['c3', 2000]]);
+  assert.deepEqual(balanceList(rows, 'payable', 'shree').rows.map(r => r.id), ['v1']);
+});
