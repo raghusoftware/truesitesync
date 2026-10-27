@@ -13,6 +13,11 @@ name: Build Android AAB (Play Store)
 
 on:
   workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Override the Play version code (leave empty for the automatic one)'
+        required: false
+        default: ''
   push:
     tags: ['v*']
     branches:
@@ -48,7 +53,7 @@ jobs:
           cp -r assets www/
 
       - name: Install Capacitor
-        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor-community/file-opener@6 @capacitor/app@6 @capacitor/status-bar@6 @capacitor/geolocation@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4 capacitor-voice-recorder@5 --legacy-peer-deps
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor-community/file-opener@6 @capacitor/app@6 @capacitor/geolocation@6 @codetrix-studio/capacitor-google-auth@3.4.0-rc.4 capacitor-voice-recorder@5 --legacy-peer-deps
 
       - name: Confirm Google Sign-In client ID
         run: grep -A3 '"GoogleAuth"' capacitor.config.json
@@ -63,6 +68,10 @@ jobs:
           # which it auto-embeds in the .aab so Play can de-obfuscate crashes/ANRs.
           sed -i -E 's/minifyEnabled false/minifyEnabled true/' android/app/build.gradle
           grep -n 'minifyEnabled' android/app/build.gradle || echo "::warning::minifyEnabled line not found — R8 may not be enabled"
+          # Full R8 optimisation (Play: "Improve memory and performance with R8 optimization"):
+          # the template's proguard-android.txt carries -dontoptimize; the -optimize file does not.
+          sed -i "s/proguard-android.txt/proguard-android-optimize.txt/" android/app/build.gradle
+          grep -q 'proguard-android-optimize.txt' android/app/build.gradle || { echo '::error::R8 optimize rules not applied'; exit 1; }
           # Keep rules so R8 never strips/renames the reflection-instantiated
           # Capacitor bridge, its plugins, or the JS<->native interface.
           cat >> android/app/proguard-rules.pro << 'PROGUARD'
@@ -95,17 +104,19 @@ jobs:
       - name: Set version code & name
         run: |
           # Capacitor hardcodes versionCode 1; Play needs it to strictly increase.
-          # Derive it from the version so it always climbs with releases:
-          #   1.5.63 -> 10563,  1.5.64 -> 10564,  2.0.0 -> 20000
+          # Derive it from the version so it always climbs with releases, plus 1000
+          # because Play already holds code 10771 (release 1.6.171):
+          #   1.6.174 -> 11674,  1.7.0 -> 11700,  2.0.0 -> 21000
           # Prefer package.json (works on manual dispatch too); fall back to the tag.
           VN="$(node -p "require('./package.json').version" 2>/dev/null || echo "${GITHUB_REF_NAME#v}")"
           if echo "$VN" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             IFS='.' read -r MA MI PA <<< "$VN"
-            CODE=$(( MA * 10000 + MI * 100 + PA ))
+            CODE=$(( MA * 10000 + MI * 100 + PA + 1000 ))
           else
             VN="1.0.${GITHUB_RUN_NUMBER}"
             CODE=$(( 100000 + GITHUB_RUN_NUMBER ))
           fi
+          if [ -n "${{ github.event.inputs.version_code }}" ]; then CODE="${{ github.event.inputs.version_code }}"; fi
           sed -i -E "s/versionCode [0-9]+/versionCode ${CODE}/" android/app/build.gradle
           sed -i -E "s/versionName \"[^\"]*\"/versionName \"${VN}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
@@ -163,16 +174,65 @@ jobs:
           echo "----- manifest permissions -----"; grep 'uses-permission' "$MANIFEST" || true
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           mkdir -p android/app/src/main/java/com/truesitesync/app
+          # Edge-to-edge done natively (Play: required for targetSdk 35+, and the StatusBar
+          # plugin's colour APIs are deprecated): the WebView keeps clear of the status bar,
+          # navigation bar, display cut-out and the keyboard (Android 15+ no longer resizes
+          # the window for the keyboard on its own), and the strips behind the bars are
+          # painted here — dark behind the status bar, white behind the navigation bar.
           cat > android/app/src/main/java/com/truesitesync/app/MainActivity.java << 'JAVAEOF'
           package com.truesitesync.app;
+          import android.graphics.Color;
+          import android.graphics.drawable.ColorDrawable;
+          import android.graphics.drawable.Drawable;
+          import android.graphics.drawable.LayerDrawable;
           import android.os.Bundle;
-          import android.webkit.WebView;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.ViewGroup;
           import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import androidx.activity.EdgeToEdge;
+          import androidx.activity.SystemBarStyle;
+          import androidx.core.graphics.Insets;
+          import androidx.core.view.ViewCompat;
+          import androidx.core.view.WindowInsetsCompat;
           import com.getcapacitor.BridgeActivity;
           public class MainActivity extends BridgeActivity {
-              @Override protected void onCreate(Bundle savedInstanceState) { super.onCreate(savedInstanceState); }
+              private static final int STATUS_STRIP = Color.parseColor("#0f172a");
+              private static final int NAV_STRIP = Color.WHITE;
+              private boolean insetsReady = false;
+              @Override protected void onCreate(Bundle savedInstanceState) {
+                  // Light icons on the dark status strip, dark icons on the white navigation strip.
+                  EdgeToEdge.enable(this, SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT));
+                  super.onCreate(savedInstanceState);
+                  setupInsets();
+              }
+              private void setupInsets() {
+                  if (insetsReady || getBridge() == null) return;
+                  final WebView webView = getBridge().getWebView();
+                  if (webView == null || !(webView.getParent() instanceof View)) return;
+                  insetsReady = true;
+                  final View parent = (View) webView.getParent();
+                  ViewCompat.setOnApplyWindowInsetsListener(parent, (p, insets) -> {
+                      Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                      Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+                      ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) webView.getLayoutParams();
+                      lp.topMargin = bars.top;
+                      lp.leftMargin = bars.left;
+                      lp.rightMargin = bars.right;
+                      lp.bottomMargin = Math.max(bars.bottom, ime.bottom);
+                      webView.setLayoutParams(lp);
+                      LayerDrawable bg = new LayerDrawable(new Drawable[] { new ColorDrawable(NAV_STRIP), new ColorDrawable(STATUS_STRIP) });
+                      bg.setLayerGravity(1, Gravity.TOP | Gravity.FILL_HORIZONTAL);
+                      bg.setLayerHeight(1, Math.max(1, bars.top));
+                      p.setBackground(bg);
+                      return WindowInsetsCompat.CONSUMED;
+                  });
+                  ViewCompat.requestApplyInsets(parent);
+              }
               @Override public void onStart() {
                   super.onStart();
+                  setupInsets();
                   WebView webView = getBridge().getWebView();
                   if (webView != null) {
                       WebSettings settings = webView.getSettings();
@@ -186,6 +246,13 @@ jobs:
               }
           }
           JAVAEOF
+          # EdgeToEdge / SystemBarStyle need androidx.activity 1.8+.
+          cat >> android/app/build.gradle << 'GRADLE'
+
+          dependencies {
+              implementation 'androidx.activity:activity:1.9.3'
+          }
+          GRADLE
           mkdir -p android/app/src/main/res/xml
           cat > android/app/src/main/res/xml/network_security_config.xml << 'XMLEOF'
           <?xml version="1.0" encoding="utf-8"?>
