@@ -231,8 +231,14 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 /* Inner scrollers keep their momentum to themselves — reaching the end of a
-   list or a wide table never nudges the page or fires the back gesture. */
-.overflow-y-auto, .overflow-auto, .overflow-x-auto { overscroll-behavior: contain; }
+   list never nudges the page or fires the back gesture. */
+.overflow-y-auto, .overflow-auto { overscroll-behavior: contain; }
+/* Wide tables (horizontal scrollers) contain only SIDEWAYS overscroll (the back-
+   gesture guard). Vertically they must hand the wheel / swipe to the page: an
+   overflow-x box is also a y scroll container, and 'contain' on both axes trapped
+   the mouse wheel over the measurement + BBS tables on desktop (page stuck until
+   the cursor left the table). */
+.overflow-x-auto:not(.overflow-y-auto):not(.overflow-auto) { overscroll-behavior-x: contain; overscroll-behavior-y: auto; }
 
 /* Controls & chrome: no long-press callout / selection magnifier. Data cells,
    inputs and anything marked .selectable stay copyable so figures can be grabbed. */
