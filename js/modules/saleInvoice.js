@@ -15,6 +15,8 @@ import { toBaseQty } from './units.js';
 import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 import { GST_STATE } from './constants.js?v=1.1.0';
+import { groupByMonth } from './pendingGroups.js?v=1.0.0';
+import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.0';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
 
@@ -384,6 +386,10 @@ export function searchSIPO() {
 export function onSIClientChange() {
   const clientId = document.getElementById('siFormClient')?.value;
   const client = state.clients.find(c => c.id === clientId);
+  if (getTaxConfig().mode === 'gst') {
+    autoTaxScope(document.getElementById('siFormDefType'), state.companyProfile?.GST, client?.gst, 'Client',
+      { editing: !!document.getElementById('saleInvoiceFormPanel')?.dataset.editId });
+  }
   // ── Buyer (Bill-To) info chip: GSTIN / state / address ──
   const info = document.getElementById('siFormBuyerInfo');
   if (info) {
@@ -437,7 +443,7 @@ export function loadSIPendingItems() {
   }).forEach(a => {
     const totalAmt = (a.items || []).reduce((s, item) => s + ((item.totalQty || item.qty || 0) * (item.rate || 0)), 0);
     const _ref = a.abstractNum || a.id;
-    rows.push({ source: _ref, desc: `Civil Work as per Annexure (Ref: ${_ref})`, hsn: '', qty: 1, rate: totalAmt, unit: 'LS', abstractId: a.id, abstractNum: _ref });
+    rows.push({ source: _ref, desc: `Civil Work as per Annexure (Ref: ${_ref})`, hsn: '', qty: 1, rate: totalAmt, unit: 'LS', abstractId: a.id, abstractNum: _ref, date: a.date || '' });
   });
   if (!rows.length) { panel.classList.add('hidden'); tbody.innerHTML = ''; return; }
   // Check which abstracts are already added to the invoice
@@ -445,23 +451,35 @@ export function loadSIPendingItems() {
   const siTbody = document.getElementById('siFormTableBody');
   if (siTbody) Array.from(siTbody.rows).forEach(r => { if (r.dataset.abstractId) addedAbstracts.add(r.dataset.abstractId); });
   panel.classList.remove('hidden');
-  tbody.innerHTML = rows.map((r, i) => {
-    const alreadyAdded = addedAbstracts.has(r.abstractId);
-    return `<tr class="hover:bg-blue-50/60 text-xs ${alreadyAdded ? 'opacity-50' : ''}">
-    <td class="px-3 py-2 text-blue-600 font-bold whitespace-nowrap">${r.source}</td>
-    <td class="px-3 py-2 font-medium text-slate-700">${r.desc}</td>
-    <td class="px-3 py-2 text-slate-400 font-mono text-[10px]">${r.hsn}</td>
-    <td class="px-3 py-2 text-right font-bold">${r.qty}</td>
-    <td class="px-3 py-2 text-right">${getCurrencySymbol()}${parseFloat(r.rate).toLocaleString('en-IN')}</td>
-    <td class="px-3 py-2 text-right font-bold text-slate-800">${getCurrencySymbol()}${(r.qty * r.rate).toLocaleString('en-IN')}</td>
-    <td class="px-3 py-2 text-center">${alreadyAdded
-      ? '<span class="text-green-600 font-bold text-[10px]">✓ Added</span>'
-      : `<button onclick="addSIPendingItem(${i})" class="bg-blue-500 text-white px-2.5 py-1 rounded text-[10px] font-bold hover:bg-blue-600 transition">+ Add</button>`
-    }</td>
-  </tr>`;
-  }).join('');
-  window._siPendingRows = rows;
+  // Oldest first under month headers (same component as the purchase GRN picker).
+  const groups = groupByMonth(rows, r => r.date);
+  const sorted = groups.flatMap(g => g.items);          // addSIPendingItem(i) indexes this order
+  const cur = getCurrencySymbol();
+  const money = n => cur + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const _dmy = d => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : (d || '—'); };
+  tbody.innerHTML = pendingMonthsHTML('siPending', groups, {
+    money, sum: r => r.qty * r.rate,
+    rowHTML: r => {
+      const i = sorted.indexOf(r);
+      const added = addedAbstracts.has(r.abstractId);
+      return `<div class="pg-row${added ? ' done' : ''}">
+        <span class="pg-date">${_dmy(r.date)}</span>
+        <span class="pg-main"><b>${r.desc}</b><small><span class="pg-no">${r.source}</span>${r.hsn ? ' · ' + r.hsn : ''}</small></span>
+        <span class="pg-amt">${money(r.qty * r.rate)}</span>
+        ${added ? '<span class="pg-added">✓ Added</span>'
+          : `<button type="button" class="pg-add" onclick="addSIPendingItem(${i})">+ Add</button>`}
+      </div>`;
+    },
+  });
+  window._siPendingRows = sorted;
 }
+
+/** Header tax scope → every line, then re-total. */
+window._siApplyTaxScope = function () {
+  const v = document.getElementById('siFormDefType')?.value; if (!v) return;
+  document.querySelectorAll('#siFormTableBody .si-item-taxtype').forEach(el => { el.value = v; });
+  calcSIFormTotal();
+};
 
 export function addSIPendingItem(idx) {
   const rows = window._siPendingRows || [];
@@ -523,7 +541,7 @@ function _siRowHTML(num, data = {}) {
   const units = ['Nos','M3','M2','RMT','SqFt','CuFt','Bag','KG','Ton','Ltr','Set','Lot','LS','Box','Pair','Trip','Day','Hour'];
   const unitOpts = units.map(u => `<option value="${u}" ${u === (data.unit || 'Nos') ? 'selected' : ''}>${u}</option>`).join('');
   const _tx = getTaxConfig();
-  const taxType = data.taxType || _tx.defaultType;
+  const taxType = data.taxType || document.getElementById('siFormDefType')?.value || _tx.defaultType;
   const taxTypeOpts = _tx.types
     .map(o => `<option value="${o.v}" ${o.v === taxType ? 'selected' : ''}>${o.l}</option>`).join('');
   const s = 'border:1px solid #e2e8f0;border-radius:4px;outline:none;';
@@ -590,6 +608,15 @@ export function openSaleInvoiceForm(editId) {
   // Stash the editing id on the panel so saveSaleInvoiceForm can detect edit mode.
   const panelEl = document.getElementById('saleInvoiceFormPanel');
   if (panelEl) panelEl.dataset.editId = editId || '';
+  // Tax scope for all lines (options follow the country's tax rules).
+  const typeSel = document.getElementById('siFormDefType');
+  if (typeSel) {
+    const _tx = getTaxConfig();
+    typeSel.innerHTML = _tx.types.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+    typeSel.value = _tx.defaultType;
+    delete typeSel.dataset.userPicked; delete typeSel.dataset.mixed;
+    mountTaxScope(typeSel, { label: getTaxConfig().mode === 'gst' ? 'GST' : 'Tax' });
+  }
 
   // If editing, prefill EVERY field from the existing invoice. Otherwise defaults.
   const existing = editId ? (state.saleInvoices || []).find(i => i.id === editId) : null;
@@ -700,6 +727,7 @@ export function addSIFormRow(count = 1) {
 }
 
 export function calcSIFormTotal() {
+  syncTaxScopeFromLines(document.getElementById('siFormDefType'), [...document.querySelectorAll('#siFormTableBody .si-item-taxtype')].map(e => e.value));
   const tbody = document.getElementById('siFormTableBody');
   if (!tbody) return;
   let grossTotal = 0, totalQty = 0, totalDiscount = 0, totalLineTax = 0, rowCount = 0;

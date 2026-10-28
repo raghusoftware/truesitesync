@@ -13,6 +13,8 @@ import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
+import { groupByMonth } from './pendingGroups.js?v=1.0.0';
+import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.0';
 
 /** Display a stored ISO date (yyyy-mm-dd) as dd/mm/yyyy. */
 function _purFmtDate(iso) {
@@ -260,7 +262,11 @@ export function openPurchaseFormPanel(editId) {
   vendorSel.onchange = () => {
     window._purRefreshGrnPicker && window._purRefreshGrnPicker();
     window._purFillPO && window._purFillPO(vendorSel.value, '');
+    _purAutoScope();
   };
+  // Tax scope: segmented control over #plFormDefType; a new bill starts on the default.
+  const typeSel = document.getElementById('plFormDefType');
+  if (typeSel) { delete typeSel.dataset.userPicked; delete typeSel.dataset.mixed; if (!editId) typeSel.value = 'CGST_SGST'; mountTaxScope(typeSel, { label: 'Tax' }); }
 
   // Populate site dropdown
   const siteSel = document.getElementById('plFormSite');
@@ -295,6 +301,7 @@ export function openPurchaseFormPanel(editId) {
     addPurchaseRowToPanel(3);
   }
   calcPanelPurchaseTotal();
+  _purAutoScope();
   // Show any GRNs already received from this vendor that haven't been billed yet.
   if (window._purRefreshGrnPicker) window._purRefreshGrnPicker();
   // Populate the Purchase Order dropdown for the (existing) vendor.
@@ -438,18 +445,21 @@ window._purRefreshGrnPicker = function() {
   section.classList.remove('hidden');
   if (countEl) countEl.textContent = `${pending.length} pending`;
   const cur = getCurrencySymbol();
-  list.innerHTML = pending.map(g => {
-    const m = (state.rawMaterials || []).find(r => r.id === g.matId);
-    const amt = g.amount || (g.qty * (g.rate || 0));
-    return `<label class="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-amber-50">
-      <input type="checkbox" class="pur-grn-chk" value="${g.id}" style="width:15px;height:15px;">
-      <span class="font-mono text-[11px] text-amber-700 font-bold">${g.grnNo || '—'}</span>
-      <span class="text-xs font-bold text-slate-700">${m ? m.name : (g.category || 'Material')}</span>
-      <span class="text-[11px] text-slate-500">${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}</span>
-      <span class="ml-auto text-[11px] text-slate-400">${_purFmtDate(g.date)}</span>
-      <span class="text-xs font-bold text-slate-800">${cur}${amt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-    </label>`;
-  }).join('');
+  const money = n => cur + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const amtOf = g => g.amount || (g.qty * (g.rate || 0));
+  // Oldest first under month headers — the order GRNs are billed in.
+  list.innerHTML = pendingMonthsHTML('purGrn', groupByMonth(pending, g => g.date), {
+    selectable: true, money, sum: amtOf,
+    rowHTML: g => {
+      const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+      return `<label class="pg-row">
+        <input type="checkbox" class="pur-grn-chk" value="${g.id}">
+        <span class="pg-date">${_purFmtDate(g.date) || '—'}</span>
+        <span class="pg-main"><b>${m ? m.name : (g.category || 'Material')}</b><small><span class="pg-no">${g.grnNo || '—'}</span> · ${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}</small></span>
+        <span class="pg-amt">${money(amtOf(g))}</span>
+      </label>`;
+    },
+  });
 };
 
 window._purToggleAllGrns = function(on) {
@@ -486,15 +496,24 @@ window._purAddSelectedGrns = function() {
 };
 
 /** Apply the default GST % / type to every line. */
-window._purApplyDefaults = function() {
+/** Header defaults → every line. 'type' / 'rate' apply just that one, so picking a
+ *  tax scope never resets per-line GST rates (and vice versa). No arg = both. */
+window._purApplyDefaults = function(which) {
   const defGst = document.getElementById('plFormDefGst')?.value || '18';
   const defType = document.getElementById('plFormDefType')?.value || 'CGST_SGST';
   document.querySelectorAll('#plFormTableBody tr').forEach(tr => {
-    const taxEl = tr.querySelector('.pur-tax'); if (taxEl) taxEl.value = defGst;
-    const typeEl = tr.querySelector('.pur-taxtype'); if (typeEl) typeEl.value = defType;
+    if (which !== 'type') { const taxEl = tr.querySelector('.pur-tax'); if (taxEl) taxEl.value = defGst; }
+    if (which !== 'rate') { const typeEl = tr.querySelector('.pur-taxtype'); if (typeEl) typeEl.value = defType; }
   });
   calcPanelPurchaseTotal();
 };
+/** Suggest Intra/Inter-state from your GSTIN vs the supplier's (see billPickers). */
+function _purAutoScope() {
+  const sel = document.getElementById('plFormDefType'); if (!sel) return;
+  const v = (state.vendors || []).find(x => x.id === document.getElementById('plFormVendor')?.value);
+  const editing = !!document.getElementById('purchaseFormPanel')?.dataset.editId;
+  autoTaxScope(sel, state.companyProfile?.GST, v && (v.gst || v.GST), 'Supplier', { editing });
+}
 
 export function updatePanelRowNums() {
   document.querySelectorAll('#plFormTableBody tr').forEach((tr, idx) => {
@@ -525,6 +544,8 @@ function _purLineCalc(tr, taxIncl) {
 }
 
 export function calcPanelPurchaseTotal() {
+  // Header tax scope mirrors the lines (one shared type, or "mixed" after a per-line edit).
+  syncTaxScopeFromLines(document.getElementById('plFormDefType'), [...document.querySelectorAll('#plFormTableBody .pur-taxtype')].map(e => e.value));
   const taxIncl = document.getElementById('plFormTaxIncl')?.checked;
   let gross = 0, discount = 0, taxable = 0, cgst = 0, sgst = 0, igst = 0;
   document.querySelectorAll('#plFormTableBody tr').forEach(tr => {

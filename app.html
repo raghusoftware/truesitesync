@@ -61,9 +61,9 @@
     <link rel="stylesheet" href="css/chat.css?v=1.1.1">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.30">
+    <link rel="stylesheet" href="css/shell.css?v=1.0.31">
     <link rel="stylesheet" href="css/tools.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.229"></script>
+    <script type="module" src="js/app.js?v=1.6.230"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -2651,7 +2651,7 @@
                   <button type="button" onclick="window._purAddSelectedGrns && window._purAddSelectedGrns()" class="bg-amber-600 text-white px-3 py-1.5 rounded font-bold text-xs hover:bg-amber-700">+ Add selected to bill</button>
                 </div>
               </div>
-              <div id="plFormGrnList" class="p-3 max-h-52 overflow-y-auto space-y-1.5"></div>
+              <div id="plFormGrnList" class="pg-list"></div>
             </div>
 
             <!-- Line items table -->
@@ -2660,12 +2660,13 @@
                 <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded flex items-center justify-center text-xs font-extrabold">2</span>
                 <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wider">Line Items</h3>
                 <div class="ml-auto flex items-center gap-3">
-                  <label class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">Default GST %
-                    <input type="number" id="plFormDefGst" value="18" min="0" max="28" class="w-14 p-1 border rounded text-right text-xs" onchange="window._purApplyDefaults && window._purApplyDefaults()"></label>
-                  <label class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">Type
-                    <select id="plFormDefType" class="p-1 border rounded text-xs" onchange="window._purApplyDefaults && window._purApplyDefaults()">
+                  <!-- Tax scope: segmented control mounted over this select (billPickers.js) -->
+                  <div class="tx-host">
+                    <select id="plFormDefType" class="p-1 border rounded text-xs" aria-label="Tax type for all lines" onchange="window._purApplyDefaults && window._purApplyDefaults('type')">
                       <option value="CGST_SGST">CGST+SGST</option><option value="IGST">IGST</option><option value="NONE">No Tax</option>
-                    </select></label>
+                    </select></div>
+                  <label class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">Default GST %
+                    <input type="number" id="plFormDefGst" value="18" min="0" max="28" class="w-14 p-1 border rounded text-right text-xs" onchange="window._purApplyDefaults && window._purApplyDefaults('rate')"></label>
                   <label class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" id="plFormTaxIncl" onchange="calcPanelPurchaseTotal()"> Rates incl. GST</label>
                 </div>
@@ -3044,17 +3045,17 @@
                   </h4>
                   <button onclick="document.getElementById('siPendingItemsPanel').classList.add('hidden')" style="font-size:10px;font-weight:700;color:#93c5fd;cursor:pointer;background:none;border:none;text-transform:uppercase;">Dismiss</button>
                 </div>
-                <div style="overflow-x:auto;max-height:140px;overflow-y:auto;border-radius:6px;border:1px solid #dbeafe;">
-                  <table style="width:100%;font-size:11px;border-collapse:collapse;">
-                    <thead style="background:#dbeafe;position:sticky;top:0;"><tr style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1e40af;"><th style="padding:6px 10px;text-align:left;">Abstract</th><th style="padding:6px 10px;text-align:left;">Description</th><th style="padding:6px 10px;text-align:left;">HSN</th><th style="padding:6px 10px;text-align:right;">Qty</th><th style="padding:6px 10px;text-align:right;">Amount</th><th style="padding:6px 10px;text-align:center;width:70px;">Action</th></tr></thead>
-                    <tbody id="siPendingItemsBody" style="background:#fff;"></tbody>
-                  </table>
-                </div>
+                <!-- Pending abstracts, oldest first under collapsible month headers (billPickers.js) -->
+                <div id="siPendingItemsBody" class="pg-list"></div>
               </div>
             </div>
 
             <!-- ── Line Items Table ── -->
             <div class="lxcard" style="padding:0;overflow:hidden;margin-bottom:12px;">
+              <div class="li-head">
+                <h3>Line items</h3>
+                <div class="tx-host"><select id="siFormDefType" aria-label="Tax type for all lines" onchange="window._siApplyTaxScope && window._siApplyTaxScope()"></select></div>
+              </div>
               <div style="overflow-x:auto;max-height:400px;overflow-y:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:12px;">
                   <thead class="si-tbl-head">
