@@ -1569,3 +1569,105 @@ button.tx-hint-use { min-height: 0 !important; height: auto; padding: 0 0 0 6px 
 .inv-ctx.central { background: #f0fdfa; border-color: #99f6e4; }
 .inv-ctx-note { margin-left: auto; font-size: 12px; color: #64748b; }
 @media (max-width: 640px) { .inv-ctx-note { margin-left: 0; flex-basis: 100%; } }
+
+/* ═══ Bill forms (Purchase · Sale): action bar, tax bar, phone layout ══════════
+   Tokens shared by both: 12px field radius, 46px controls, 14px card radius,
+   11px uppercase micro-labels; accent = --lxf-accent (orange purchase / blue sale). */
+.pf-foot { flex-shrink: 0; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 12px 24px;
+  background: #fff; border-top: 1px solid #ece7e1; box-shadow: 0 -8px 22px -16px rgba(120, 60, 20, .35); }
+.pf-save-short { display: none; }
+button.pf-cancel { height: 48px; min-height: 0 !important; padding: 0 22px !important; border: 1px solid #e2e8f0; border-radius: 12px !important;
+  background: #fff; color: #334155; font-size: 15px !important; font-weight: 700 !important; }
+/* "Rates incl. GST" → a real toggle switch (any width) */
+.tgl input[type="checkbox"] { -webkit-appearance: none; appearance: none; position: relative; width: 38px !important; height: 22px !important;
+  min-height: 0 !important; padding: 0 !important; margin: 0; border: none !important; border-radius: 999px !important; background: #cbd5e1 !important;
+  cursor: pointer; transition: background .18s; flex-shrink: 0; }
+.tgl input[type="checkbox"]::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .3); transition: transform .18s; }
+.tgl input[type="checkbox"]:checked { background: var(--lxf-accent, #2563eb) !important; }
+.tgl input[type="checkbox"]:checked::after { transform: translateX(16px); }
+.tgl input[type="checkbox"]:focus-visible { outline: 2px solid var(--lxf-accent, #2563eb); outline-offset: 2px; }
+
+@media (max-width: 768px) {
+  /* ── Compact header: one line, actions live in the bottom bar ── */
+  .lxform .lxform-head { padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px !important; min-height: 0 !important; gap: 8px; flex-wrap: nowrap; }
+  .lxform .lxform-head .sub, .lxform .lxform-head .lxform-ic { display: none !important; }
+  .lxform .lxform-head h2 { font-size: 17px !important; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lxform .lxform-head > div:first-child { min-width: 0; flex: 1; gap: 10px !important; }
+  .lxform .lxform-head > div:first-child > div { min-width: 0; }
+  #saleInvoiceFormPanel .lxseg { margin-left: auto !important; flex-shrink: 0; }
+  #saleInvoiceFormPanel .lxseg button { padding: 6px 12px !important; min-height: 0 !important; font-size: 13px !important; }
+  #saleInvoiceFormPanel .lxform-head .lxbtn-primary { display: none !important; }           /* Save is in the bottom bar */
+  button.si-head-cancel { width: 36px; height: 36px; min-height: 0 !important; padding: 0 !important; font-size: 0 !important; border-radius: 10px !important; }
+  button.si-head-cancel::after { content: '✕'; font-size: 16px; font-weight: 700; }
+
+  /* ── Purchase: bottom action bar, form scrolls above it ── */
+  #purchaseFormPanel > div > div:nth-child(2) { padding: 12px !important; }
+  .pf-foot { padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
+  button.pf-cancel { flex: 0 0 auto; }
+  .pf-save-long { display: none; } .pf-save-short { display: inline; }
+  .pf-foot > * { min-width: 0; }
+  .pf-foot .pf-save { flex: 1; justify-content: center; padding: 0 12px !important; height: 48px; font-size: 15px !important; white-space: nowrap; }
+
+  /* ── Tax bar: segmented scope full width, then GST % + incl. toggle on one row ── */
+  #purchaseFormPanel .pf-taxbar { margin-left: 0 !important; width: 100%; display: grid !important; grid-template-columns: 1fr auto; gap: 10px 12px !important; align-items: center; }
+  #purchaseFormPanel .pf-taxbar .tx-host { grid-column: 1 / -1; }
+  #purchaseFormPanel .pf-taxbar .tx-scope-wrap { width: 100%; }
+  .pf-gst { font-size: 11px !important; letter-spacing: .04em; }
+  .pf-gst input { width: 64px !important; height: 38px !important; min-height: 0 !important; padding: 0 10px !important; font-size: 15px !important;
+    border-radius: 10px !important; text-align: center !important; }
+  .tgl { font-size: 11px !important; letter-spacing: .04em; justify-self: end; }
+
+  /* ── Purchase line items: one card per line, 2-column micro-grid, no sideways scroll ──
+     Material (full) · Qty | Unit · Rate | Disc % · GST % | Type · Ref (GRN) | HSN · Amount (full) */
+  #purchaseFormPanel .overflow-x-auto:has(#plFormTableBody) { overflow: visible !important; }
+  table:has(#plFormTableBody) { display: block !important; min-width: 0 !important; width: 100% !important; }
+  table:has(#plFormTableBody) thead { display: none !important; }
+  #plFormTableBody { display: flex !important; flex-direction: column; gap: 12px; padding: 12px; background: #faf7f4; }
+  #plFormTableBody > tr { position: relative; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 10px;
+    padding: 14px; background: #fff; border: 1px solid #efe6dc; border-radius: 14px; box-shadow: 0 6px 16px -12px rgba(120, 60, 20, .4); }
+  #plFormTableBody > tr > td { display: flex !important; flex-direction: column; min-width: 0; padding: 0 !important; border: none !important; background: transparent !important; }
+  #plFormTableBody > tr > td::before { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a94a6; margin-bottom: 4px; }
+  #plFormTableBody td :is(input, select) { width: 100% !important; height: 46px; min-height: 0 !important; padding: 0 12px !important; font-size: 15px !important;
+    border: 1px solid #e6e0d8 !important; border-radius: 12px !important; background: #fdfbf9 !important; }
+  #plFormTableBody .pr-num { position: absolute; top: 12px; left: 14px; width: auto; flex-direction: row !important; align-items: baseline; gap: 4px;
+    font-size: 12px !important; font-weight: 800 !important; color: #b45309 !important; }
+  #plFormTableBody .pr-num::before { content: 'Line'; margin: 0; color: #b45309; }
+  #plFormTableBody .pr-mat::before { margin-top: 2px; }
+  #plFormTableBody .pr-mat { grid-column: 1 / -1; padding-top: 18px !important; }
+  #plFormTableBody .pr-mat::before { content: 'Material / Tool'; }
+  #plFormTableBody .pr-qty { order: 1; } #plFormTableBody .pr-qty::before { content: 'Qty'; }
+  #plFormTableBody .pr-unit { order: 2; } #plFormTableBody .pr-unit::before { content: 'Unit'; }
+  #plFormTableBody .pr-rate { order: 3; } #plFormTableBody .pr-rate::before { content: 'Rate (₹)'; }
+  #plFormTableBody .pr-disc { order: 4; } #plFormTableBody .pr-disc::before { content: 'Disc %'; }
+  #plFormTableBody .pr-tax { order: 5; } #plFormTableBody .pr-tax::before { content: 'GST %'; }
+  #plFormTableBody .pr-type { order: 6; } #plFormTableBody .pr-type::before { content: 'Tax type'; }
+  #plFormTableBody .pr-ref { order: 7; } #plFormTableBody .pr-ref::before { content: 'Ref (GRN)'; }
+  #plFormTableBody .pr-hsn { order: 8; } #plFormTableBody .pr-hsn::before { content: 'HSN / SAC'; }
+  #plFormTableBody .pr-amt { order: 9; grid-column: 1 / -1; flex-direction: row !important; align-items: center; justify-content: space-between;
+    padding-top: 10px !important; border-top: 1px dashed #eadfd2 !important; }
+  #plFormTableBody .pr-amt::before { content: 'Amount'; margin: 0; }
+  #plFormTableBody .pr-amt input { width: auto !important; max-width: 60%; height: auto; border: none !important; background: transparent !important;
+    padding: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: #0f172a !important; text-align: right; }
+  #plFormTableBody .pr-del { position: absolute; top: 8px; right: 8px; }
+  #plFormTableBody .pr-del-btn { width: 32px; height: 32px; min-height: 0 !important; padding: 0 !important; border-radius: 9px !important; background: #fef2f2 !important; color: #dc2626 !important; }
+
+  /* ── Sale line items: tighten the existing cards (Disc % beside Amount, small × instead of a red bar) ── */
+  #siFormTableBody > tr { position: relative; padding-top: 18px !important; }
+  #siFormTableBody > tr > td:nth-child(9) { grid-column: auto !important; order: 1; justify-content: flex-end; }
+  #siFormTableBody > tr > td:nth-child(8) { order: 2; }
+  #siFormTableBody > tr > td:nth-child(10) { position: absolute; top: 8px; right: 8px; grid-column: auto !important; }
+  #siFormTableBody > tr > td:last-child button { width: 32px !important; height: 32px !important; min-height: 0 !important; border-radius: 9px !important; }
+  #siFormTableBody > tr > td:nth-child(2) { padding-right: 34px !important; }
+  #siFormTableBody .si-amt-total { font-size: 18px !important; }
+
+  /* ── Sale: Notes first, Totals card under it — never side by side ── */
+  #saleInvoiceFormPanel .si-sum-grid { grid-template-columns: 1fr !important; }
+  #saleInvoiceFormPanel .si-sum-grid > * { min-width: 0; }
+  #saleInvoiceFormPanel .lxtotals { width: 100%; }
+}
+@media (max-width: 768px) {
+  /* Sale bottom bar: Cancel · Save & New · Save (same order as the purchase bar) */
+  .si-mobile-savebar button.sc { flex: 0 0 auto; padding: 18px 16px; background: #fff; color: #64748b; border-right: 1px solid #eef0f4; }
+  button.si-head-cancel { display: none !important; }        /* Cancel now lives in the bottom bar */
+}

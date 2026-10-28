@@ -382,18 +382,18 @@ function _addPurRow(data) {
   const tOpt = (v) => `<option value="${v}" ${type === v ? 'selected' : ''}>`;
   const tr = document.createElement('tr');
   tr.innerHTML =
-    `<td class="p-1 border text-center text-xs font-bold text-slate-400 plf-row-num"></td>`
-    + `<td class="p-1 border"><select class="table-input pur-mat font-bold" onchange="window._purMatChanged(this)">${_rmOptionsHtml()}</select></td>`
-    + `<td class="p-1 border"><input type="text" class="table-input pur-ref" value="${(data?.ref || '').replace(/"/g, '&quot;')}" placeholder="—" title="Source reference — auto-filled with the GRN no. (editable)"></td>`
-    + `<td class="p-1 border"><input type="text" class="table-input pur-hsn" value="${data?.hsn || ''}"></td>`
-    + `<td class="p-1 border"><input type="number" class="table-input pur-qty" value="${data?.qty ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
-    + `<td class="p-1 border"><select class="table-input pur-unit" title="Purchase unit — stock stores in the base unit">${_purUnitOptions(data?.rawMatId, data?.unit)}</select></td>`
-    + `<td class="p-1 border"><input type="number" class="table-input pur-rate" value="${data?.rate ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
-    + `<td class="p-1 border"><input type="number" class="table-input pur-disc" value="${data?.discPct ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
-    + `<td class="p-1 border"><input type="number" class="table-input pur-tax" value="${tax}" oninput="calcPanelPurchaseTotal()"></td>`
-    + `<td class="p-1 border"><select class="table-input pur-taxtype" onchange="calcPanelPurchaseTotal()">${tOpt('CGST_SGST')}CGST+SGST</option>${tOpt('IGST')}IGST</option>${tOpt('NONE')}No Tax</option></select></td>`
-    + `<td class="p-1 border bg-slate-50"><input type="text" class="table-input pur-amt font-bold text-blue-800 text-right" readonly></td>`
-    + `<td class="p-1 border text-center"><button onclick="this.closest('tr').remove(); updatePanelRowNums(); calcPanelPurchaseTotal();" class="text-red-400 hover:bg-red-50 p-1 rounded font-bold">✕</button></td>`;
+    `<td class="pr-num p-1 border text-center text-xs font-bold text-slate-400 plf-row-num"></td>`
+    + `<td class="pr-mat p-1 border"><select class="table-input pur-mat font-bold" onchange="window._purMatChanged(this)">${_rmOptionsHtml()}</select></td>`
+    + `<td class="pr-ref p-1 border"><input type="text" class="table-input pur-ref" value="${(data?.ref || '').replace(/"/g, '&quot;')}" placeholder="—" title="Source reference — auto-filled with the GRN no. (editable)"></td>`
+    + `<td class="pr-hsn p-1 border"><input type="text" class="table-input pur-hsn" value="${data?.hsn || ''}"></td>`
+    + `<td class="pr-qty p-1 border"><input type="number" class="table-input pur-qty" value="${data?.qty ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
+    + `<td class="pr-unit p-1 border"><select class="table-input pur-unit" title="Purchase unit — stock stores in the base unit">${_purUnitOptions(data?.rawMatId, data?.unit)}</select></td>`
+    + `<td class="pr-rate p-1 border"><input type="number" class="table-input pur-rate" value="${data?.rate ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
+    + `<td class="pr-disc p-1 border"><input type="number" class="table-input pur-disc" value="${data?.discPct ?? ''}" oninput="calcPanelPurchaseTotal()"></td>`
+    + `<td class="pr-tax p-1 border"><input type="number" class="table-input pur-tax" value="${tax}" oninput="calcPanelPurchaseTotal()"></td>`
+    + `<td class="pr-type p-1 border"><select class="table-input pur-taxtype" onchange="calcPanelPurchaseTotal()">${tOpt('CGST_SGST')}CGST+SGST</option>${tOpt('IGST')}IGST</option>${tOpt('NONE')}No Tax</option></select></td>`
+    + `<td class="pr-amt p-1 border bg-slate-50"><input type="text" class="table-input pur-amt font-bold text-blue-800 text-right" readonly></td>`
+    + `<td class="pr-del p-1 border text-center"><button onclick="this.closest('tr').remove(); updatePanelRowNums(); calcPanelPurchaseTotal();" class="pr-del-btn text-red-400 hover:bg-red-50 p-1 rounded font-bold" aria-label="Remove line" title="Remove line">✕</button></td>`;
   // Tag the row with the originating GRN id (if this line came from a received
   // GRN) so save() links to that GRN instead of creating a duplicate.
   if (data && data.grnId) tr.dataset.grnId = data.grnId;
