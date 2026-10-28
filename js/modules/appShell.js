@@ -293,9 +293,6 @@ export function renderWorkspace() {
       { icon: '🧾', label: 'Sale Invoices', view: 'salesLedgerView' },
       { icon: '📝', label: 'Estimates / Quotation', view: 'estimatesView' },
       { icon: '📄', label: 'Proforma Invoice', view: 'proformaInvoiceView' },
-      { icon: '📋', label: 'Sale Orders', view: 'saleOrderView' },
-      { icon: '🚚', label: 'Delivery Challan', view: 'deliveryChallanView' },
-      { icon: '🔄', label: 'Sale Returns', view: 'saleReturnView' },
       { icon: '💰', label: 'Other Income', view: 'otherIncomeView' },
       { icon: '📒', label: 'Udhaar Book', view: 'creditBookView', when: () => shop },
     ]],
@@ -306,7 +303,6 @@ export function renderWorkspace() {
       { icon: '📋', label: 'Purchase Orders', view: 'purchaseOrderView' },
       { icon: '💳', label: 'Expenses', view: 'expensesView' },
       { icon: '↩️', label: 'Purchase Returns', view: 'purchaseReturnView' },
-      { icon: '🏗️', label: 'Fixed Assets', view: 'purchaseAssetsView' },
     ]],
     ['Finance', [
       { icon: '💸', label: 'Payments', view: 'paymentsHubView' },
