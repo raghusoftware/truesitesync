@@ -464,6 +464,15 @@ export function saveAllData() {
     // Always push to cloud regardless of local success.
     syncPush(key, state[key]);
   }
+  notifySaved();
+}
+
+/** Tell live views (e.g. the cash forecast) that the books changed. One event per task. */
+let _savedQueued = false;
+export function notifySaved() {
+  if (_savedQueued || typeof window === 'undefined') return;
+  _savedQueued = true;
+  queueMicrotask(() => { _savedQueued = false; try { window.dispatchEvent(new CustomEvent('tss:data-saved')); } catch {} });
 }
 
 /** Persist ONE key locally + normal (union-merge) cloud push. */
@@ -474,6 +483,7 @@ export function saveKey(key) {
   try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
   setLocalKeyTs(key, Date.now());
   syncPush(key, state[key]);
+  notifySaved();
 }
 
 /** Record permanent deletions ({key,id}[]) as lasting server-side tombstones so
@@ -621,6 +631,7 @@ export async function loadFromCloud() {
     // If login booted the app before this slow cloud pull finished, the current
     // view was rendered from empty state (the "Add Client" screen). Now that the
     // real data is in, refresh the view so it appears without the user navigating.
+    if (merged > 0) notifySaved();
     if (merged > 0 && typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') {
       try { window.refreshCurrentView(); } catch {}
     }

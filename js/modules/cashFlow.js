@@ -7,7 +7,7 @@
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { getCurrencySymbol, showToast } from './utils.js';
-import { renderWorkingCF } from './cashForecastUI.js?v=1.0.1';
+import { renderWorkingCF } from './cashForecastUI.js?v=2.0.0';
 
 const N = (v) => parseFloat(v) || 0;
 const _days = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; };
@@ -1164,10 +1164,7 @@ export function renderCashFlow() {
   const root = document.getElementById('cashFlowRoot');
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#d6402c,#ef8420)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
-  const body = _cfTab === 'working' ? renderWorkingCF({
-      cashDerived: cashPosition(), weeklyWagesAuto: _labourBilled(28) / 4, reserve: survival().targetReserve,
-      pnl: () => (typeof window.computeProjectPnL === 'function' ? (state.projects || []).map(p => window.computeProjectPnL(p.id)) : []),
-    }) : _cfTab === 'cashflow' ? _renderConstructionCF() : _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
+  const body = _cfTab === 'working' ? renderWorkingCF({ cashDerived: cashPosition() }) : _cfTab === 'cashflow' ? _renderConstructionCF() : _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div>
@@ -1177,7 +1174,7 @@ export function renderCashFlow() {
       <button onclick="window.renderCashFlow()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">↻ Refresh</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      ${tab('working', 'Working Cash Flow', '📈')}${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
+      ${tab('working', 'Cash Forecast', '📈')}${tab('cockpit', 'Owner Cockpit', '👑')}${tab('overview', 'Overview', '🎯')}${tab('survival', 'Survival', '🛡️')}${tab('targets', 'Targets', '🏆')}${tab('profitfirst', 'Profit-First', '💰')}${tab('commitments', 'Commitments', '📌')}${tab('clients', 'Client Scorecard', '⭐')}${tab('leaks', 'Leak Detector', '💧')}${tab('forecast', 'Forecast & Planner', '🔮')}${tab('tools', 'Vendors & Tools', '🛠️')}
     </div>
     ${body}
     <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;">A complete cash-flow operating system — Health Score · Clients · Leaks · Forecast · Vendors &amp; Simulator.</p>`;
