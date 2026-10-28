@@ -210,11 +210,18 @@ jobs:
           import androidx.core.view.WindowInsetsCompat;
           import com.getcapacitor.BridgeActivity;
           public class MainActivity extends BridgeActivity {
-              private static final int STATUS_STRIP = Color.parseColor("#0f172a");
+              // Same red the app bar starts with, so the status-bar band reads as part of the header.
+              private static final int STATUS_STRIP = Color.parseColor("#c2321f");
               private static final int NAV_STRIP = Color.WHITE;
               private boolean insetsReady = false;
               @Override protected void onCreate(Bundle savedInstanceState) {
-                  // Light icons on the dark status strip, dark icons on the white navigation strip.
+                  // EdgeToEdge.enable() creates the window decor, so the no-title-bar theme must be in
+                  // place first. The activity starts on the splash theme (title bar + splash logo as
+                  // the view background); Capacitor only swaps themes after super.onCreate(), which
+                  // left a "True Site Sync" title bar with a squashed logo above the app.
+                  getApplication().setTheme(com.getcapacitor.android.R.style.AppTheme_NoActionBar);
+                  setTheme(com.getcapacitor.android.R.style.AppTheme_NoActionBar);
+                  // Light icons on the red status strip, dark icons on the white navigation strip.
                   EdgeToEdge.enable(this, SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT));
                   super.onCreate(savedInstanceState);
                   setupInsets();
