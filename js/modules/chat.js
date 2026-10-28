@@ -609,7 +609,11 @@ function messageHTML(m, chan, g = { pos: 'single', showName: true, showAvatar: t
   const imgs = atts.filter(a => a.type === 'image' && a.url);
   const others = atts.filter(a => !(a.type === 'image' && a.url));
   const mediaOnly = !m.body && imgs.length && !others.length && !m.location && !reply;
-  const metaIn = `<span class="cm-meta${mediaOnly ? ' on-media' : ''}">${m.edited_at ? 'edited · ' : ''}${hhmm(m.created_at)}${mine ? tickHTML(m) : ''}</span>`;
+  // Time + ticks. With text it floats at the end of the text block (shares the last
+  // line when there's room, else drops to its own line) — it takes real space, so it
+  // can never sit on top of the words. Photos-only: a pill over the image. Else a row.
+  const metaCls = mediaOnly ? ' on-media' : m.body ? ' in-text' : ' block';
+  const metaIn = `<span class="cm-meta${metaCls}">${m.edited_at ? 'edited · ' : ''}${hhmm(m.created_at)}${mine ? tickHTML(m) : ''}</span>`;
   const fresh = C.seenIds.size && !C.seenIds.has(m.id) ? ' enter' : '';
   const nameColor = avatarColor(m.user_id);
   return `
@@ -624,8 +628,7 @@ function messageHTML(m, chan, g = { pos: 'single', showName: true, showAvatar: t
         ${others.map((a, i) => attachmentHTML(a, m, i)).join('')}
         ${m.location ? locationHTML(m.location) : ''}
         ${m.linked_record ? `<div class="cm-linked">🔗 ${esc(m.linked_record.module)} · ${esc(m.linked_record.title || '')}</div>` : ''}
-        ${m.body ? `<div class="cm-text" data-keep-emoji>${highlightBody(m.body, m.mentions)}<span class="cm-meta-sp${mine ? ' mine' : ''}"></span></div>` : ''}
-        ${metaIn}
+        ${m.body ? `<div class="cm-text" data-keep-emoji>${highlightBody(m.body, m.mentions)}${metaIn}</div>` : metaIn}
       </div>
       ${replies.length ? `<button class="cm-thread-chip" onclick="chatOpenThread('${m.id}')">💬 ${replies.length} repl${replies.length > 1 ? 'ies' : 'y'}</button>` : ''}
     </div>

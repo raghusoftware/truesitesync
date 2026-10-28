@@ -1149,7 +1149,7 @@ export function renderPaymentsHub() { window._openPaymentsSection(null); }
 // ANALYTICS / EXECUTIVE MIS DASHBOARD
 // ==========================================
 let _analyticsSite = '';
-window._setAnalyticsSite = function (v) { _analyticsSite = v || ''; renderAnalyticsDashboard(); };
+window._setAnalyticsSite = function (v, opt) { _analyticsSite = v || ''; if (!(opt && opt.silent)) renderAnalyticsDashboard(); };
 
 export function renderAnalyticsDashboard() {
   const c = document.getElementById('analyticsContent');

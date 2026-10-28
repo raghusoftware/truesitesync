@@ -76,7 +76,7 @@ let _tabOrigin = null; // { view, tab }
 // Screens reachable from several menus remember which menu opened them, so Back
 // returns there (e.g. Finance → Payments → Back = Finance, not the Business tab).
 // Only menu-like screens are remembered as origins, so Back can never ping-pong.
-const MULTI_ENTRY = new Set(['paymentsHubView']);
+const MULTI_ENTRY = new Set(['paymentsHubView', 'analyticsView']);   // Dashboard: Business tab or a project's money strip
 const MENU_ORIGINS = new Set(['workspaceView', 'financeHubView', 'salesHubView', 'purchaseHubView', 'projectDashboard',
   'partiesLedgerView', 'pettyCashView', 'accountsManagerView', 'bizHomeView', 'projectsHome', 'cashFlowView']);
 const _origin = {};      // view → the menu it was opened from

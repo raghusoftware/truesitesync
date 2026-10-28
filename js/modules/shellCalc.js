@@ -118,7 +118,7 @@ export const VIEW_TITLES = {
   planningView: 'Planning', microPlanView: 'Micro Plan', wpsView: 'WPS Salary', guaranteesView: 'Guarantees',
   subcontractorsView: 'Subcontractors', savedSheets: 'Saved Sheets', billingView: 'Billing', clientDashboardView: 'Client',
   salesHubView: 'Sales', purchaseHubView: 'Purchase', financeHubView: 'Finance', systemHubView: 'System', paymentsHubView: 'Payments',
-  analyticsView: 'Charts & Performance', reportsView: 'Reports', salesLedgerView: 'Sale Invoices', saleOrderView: 'Sale Orders',
+  analyticsView: 'Dashboard', reportsView: 'Reports', salesLedgerView: 'Sale Invoices', saleOrderView: 'Sale Orders',
   proformaInvoiceView: 'Proforma Invoices', deliveryChallanView: 'Delivery Challans', estimatesView: 'Estimates',
   estimationView: 'Estimation', paymentInView: 'Payment In', saleReturnView: 'Sale Returns', otherIncomeView: 'Other Income',
   saleFixedAssetsView: 'Sale Fixed Assets', purchaseBillsView: 'Purchase Bills', purchaseOrderView: 'Purchase Orders',

@@ -14,14 +14,15 @@ import { keepOnly } from './state.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia } from './execMedia.js';
-
-const PC_CATEGORIES = ['Site Materials', 'Travel / Transport', 'Food / Refreshments', 'Daily Wages', 'Tools / Hardware', 'Miscellaneous'];
+import { isAccepted, walletStats, ownerSummary, runningBalances, afterSpend } from './pettyCashCalc.js';
 
 // ── helpers ────────────────────────────────────────────────
 function _pid() { return state.currentProjectId || null; }
 /** Shop / Manufacturing have no projects — petty cash runs at business level (projectId null). */
 function _bizLevel() { return typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction'; }
-function _fmt(n) { return getCurrencySymbol() + (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function _fmt(n) { return (n < 0 ? '−' : '') + getCurrencySymbol() + Math.abs(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+/** Whole-rupee amounts for the small stat tiles (paise would wrap on a phone). */
+function _fmt0(n) { return (n < 0 ? '−' : '') + getCurrencySymbol() + Math.round(Math.abs(n || 0)).toLocaleString('en-IN'); }
 function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ── role / wallet visibility ───────────────────────────────
@@ -48,22 +49,11 @@ function _accountBalanceFor(accId) {
   if (typeof window._getAccountBalancePublic === 'function') return window._getAccountBalancePublic(accId);
   return null;
 }
-// A transfer with no status is a legacy record (created before acceptance existed) —
-// treat it as already accepted so historical balances don't reset.
-const _accepted = t => t.status == null || t.status === 'accepted';
-/** Effect of a txn on the custodian's USABLE balance. Pending/disputed transfers don't count yet. */
-function _txnEffect(t) {
-  if (t.type === 'TRANSFER') return _accepted(t) ? (t.amount || 0) : 0;
-  return -(t.amount || 0);   // EXPENSE and RETURN both reduce the wallet
-}
-function _balance(custId) {
-  return _txns().filter(t => t.custodianId === custId).reduce((b, t) => b + _txnEffect(t), 0);
-}
+const _accepted = isAccepted;
+/** Usable wallet balance (accepted transfers − expenses − returns). */
+function _balance(custId) { return walletStats(_txns(), custId).balance; }
 /** Amount transferred to this custodian but not yet confirmed as received. */
-function _pendingIn(custId) {
-  return _txns().filter(t => t.custodianId === custId && t.type === 'TRANSFER' && t.status === 'pending')
-    .reduce((s, t) => s + (t.amount || 0), 0);
-}
+function _pendingIn(custId) { return walletStats(_txns(), custId).pending; }
 function _custName(id) { return (state.pettyCashCustodians || []).find(c => c.id === id)?.name || '—'; }
 // Resolve a notification recipient (userId / auth uid / email / name) from a custodian.
 function _custRecipient(c) {
@@ -136,35 +126,52 @@ window._pcOpen = function (section) { _pcSection = section; renderPettyCash(); t
 // ══════════════════════════════════════════════════════════
 function _renderHome(root) {
   const custs = _custodians();
-  const totalInField = custs.reduce((s, c) => s + _balance(c.id), 0);
-  const totalPending = custs.reduce((s, c) => s + _pendingIn(c.id), 0);
+  // A site engineer with one wallet lands straight in it — balance + Log Expense, nothing to pick.
+  if (!_isPettyAdmin() && custs.length === 1) return _renderCustodian(root, custs[0].id, true);
+  const txns = _txns();
+  const sum = ownerSummary(txns, custs.map(c => c.id));
   const q = _pcQuery.trim().toLowerCase();
   const shown = custs.filter(c => !q || [c.name, c.role, c.phone].some(v => String(v || '').toLowerCase().includes(q)));
   const cards = shown.map(c => {
-    const bal = _balance(c.id), pend = _pendingIn(c.id);
-    return `<div class="pc-acct" role="button" tabindex="0" onclick="_pcOpen('cust:${c.id}')" onkeydown="if(event.key==='Enter')this.click()">
-      <div style="min-width:0;flex:1">
-        <div class="pc-acct-n">${_esc(c.name)}</div>
-        <div class="pc-acct-l">Petty Cash Balance${c.role ? ' · ' + _esc(c.role) : ''}</div>
-        <div class="pc-acct-b ${bal < 0 ? 'neg' : ''}">${_fmt(bal)}</div>
-        ${pend > 0 ? `<div class="pc-acct-p">⏳ ${_fmt(pend)} to confirm</div>` : ''}
+    const s = walletStats(txns, c.id);
+    const pct = s.confirmed > 0 ? Math.max(0, Math.min(100, Math.round(s.reconciled / s.confirmed * 100))) : 0;
+    return `<div class="pcw-sup" role="button" tabindex="0" onclick="_pcOpen('cust:${c.id}')" onkeydown="if(event.key==='Enter')this.click()">
+      <div class="pcw-sup-top">
+        <span class="pcw-av">${_esc((c.name || '?').charAt(0).toUpperCase())}</span>
+        <div class="pcw-sup-id"><b>${_esc(c.name)}</b><small>${_esc(c.role || 'Custodian')}</small></div>
+        <div class="pcw-sup-bal ${s.balance < 0 ? 'neg' : ''}"><small>In hand</small><b>${_fmt(s.balance)}</b></div>
       </div>
-      <span class="pc-acct-go">→</span>
+      <div class="pcw-bar" title="${pct}% reconciled"><i style="width:${pct}%"></i></div>
+      <div class="pcw-sup-foot"><span>Given <b>${_fmt0(s.issued)}</b></span><span>Reconciled <b>${_fmt0(s.reconciled)}</b></span></div>
+      ${s.pending > 0 ? `<div class="pcw-chip amber">⏳ ${_fmt(s.pending)} awaiting confirmation</div>` : ''}
+      ${s.disputed > 0 ? `<div class="pcw-chip red">⚠ ${_fmt(s.disputed)} disputed</div>` : ''}
     </div>`;
   }).join('');
+  const isAdm = _isPettyAdmin();
   const keepFocus = document.activeElement && document.activeElement.id === 'pcSearch';
-  root.innerHTML = `<div class="ts-page">
-    <div class="tsp-sum" style="grid-template-columns:repeat(2,1fr)">
-      <div><b style="color:var(--ts-green)">${_fmt(totalInField)}</b><small>Cash in field</small></div>
-      <div><b style="color:${totalPending > 0 ? '#b45309' : 'inherit'}">${_fmt(totalPending)}</b><small>Awaiting confirmation</small></div>
-    </div>
-    <div class="ts-search">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'}
-      <input id="pcSearch" type="search" placeholder="Search account" value="${_esc(_pcQuery)}" oninput="window._pcSearch(this.value)" autocomplete="off"></div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+  root.innerHTML = `<div class="ts-page pcw">
+    <section class="pcw-hero">
+      <div class="pcw-hero-l">Cash in the field</div>
+      <div class="pcw-hero-v">${_fmt(sum.inField)}</div>
+      <div class="pcw-bar light"><i style="width:${sum.pct}%"></i></div>
+      <div class="pcw-split">
+        <div><span>Funds given</span><b>${_fmt0(sum.given)}</b></div>
+        <div><span>Funds reconciled</span><b>${_fmt0(sum.reconciled)}</b></div>
+      </div>
+      ${sum.pending > 0 ? `<div class="pcw-hero-note">⏳ ${_fmt(sum.pending)} sent, waiting for the supervisor to confirm</div>` : ''}
+    </section>
+    ${isAdm ? `<div class="pcw-acts">
+      <button type="button" class="pcw-btn green" onclick="_pcTransferModal()" ${custs.length ? '' : 'disabled'}>＋ Send funds</button>
+      <button type="button" class="pcw-btn dark" onclick="_pcOpen('expense')" ${custs.length ? '' : 'disabled'}>🧾 Log expense</button>
+    </div>` : ''}
+    ${custs.length > 3 ? `<div class="ts-search">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'}
+      <input id="pcSearch" type="search" placeholder="Search supervisor" value="${_esc(_pcQuery)}" oninput="window._pcSearch(this.value)" autocomplete="off"></div>` : ''}
+    <div class="pcw-h">Supervisors <span>${custs.length}</span></div>
+    <div class="pcw-list">
       ${cards || (custs.length
-        ? '<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No account found</h3></div>'
-        : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>👛</div><h3>No petty cash accounts yet</h3><p style="margin-bottom:18px">Add the site person who holds cash, then top them up.</p>
-           <button type="button" class="ts-btn" onclick="_pcCustodianModal()">+ Add custodian</button></div>`)}
+        ? '<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No supervisor found</h3></div>'
+        : `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>👛</div><h3>No petty cash wallets yet</h3><p style="margin-bottom:18px">${isAdm ? 'Add the site person who holds cash, then send them funds.' : 'Ask your admin to set up your wallet.'}</p>
+           ${isAdm ? '<button type="button" class="ts-btn" onclick="_pcCustodianModal()">+ Add supervisor</button>' : ''}</div>`)}
     </div>
   </div>`;
   if (keepFocus) { const i = document.getElementById('pcSearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
@@ -175,14 +182,18 @@ window._pcSearch = function (q) { _pcQuery = q; renderPettyCash(); };
 window._pcIsOpen = function () { return !!_pcSection; };
 /** + on the Petty Cash home (appShell's floating button). */
 window.pettyOptionsSheet = function () {
+  const custs = _custodians();
+  // Supervisor with one wallet: the + is simply "Log expense".
+  if (!_isPettyAdmin() && custs.length === 1) return window._pcExpenseModal(custs[0].id);
+  const adm = _isPettyAdmin();
   window.shellSheet?.('Petty Cash Options', [
-    { icon: '🧾', title: 'Add expense voucher', desc: 'Deduct a field spend from a custodian', run: () => _pcOpen('expense') },
-    { icon: '💸', title: 'Top up / transfer', desc: 'Send cash from the bank to a custodian', run: () => window._pcTransferModal?.() },
-    { icon: '👤', title: 'Add custodian', desc: 'A site person who holds petty cash', run: () => window._pcCustodianModal?.() },
-    { icon: '👛', title: 'Wallets', desc: 'All custodians, pending confirmations', run: () => _pcOpen('wallets') },
+    { icon: '🧾', title: 'Log expense', desc: 'Record where field cash went', run: () => _pcOpen('expense') },
+    adm && { icon: '💸', title: 'Send funds', desc: 'Give cash to a supervisor', run: () => window._pcTransferModal?.() },
+    adm && { icon: '👤', title: 'Add supervisor', desc: 'A site person who holds petty cash', run: () => window._pcCustodianModal?.() },
+    { icon: '👛', title: 'Wallets', desc: 'All supervisors, pending confirmations', run: () => _pcOpen('wallets') },
     { icon: '📜', title: 'Petty cash report', desc: 'Every transfer and voucher', run: () => _pcOpen('ledger') },
-    { icon: '📊', title: 'Reconciliation', desc: 'Issued vs spent vs returned', run: () => _pcOpen('recon') },
-  ]);
+    { icon: '📊', title: 'Reconciliation', desc: 'Given vs spent vs returned', run: () => _pcOpen('recon') },
+  ].filter(Boolean));
 };
 
 function _backBar(title) {
@@ -230,40 +241,45 @@ function _renderWallets(root) {
 // ══════════════════════════════════════════════════════════
 //  CUSTODIAN (FIELD VIEW) — big balance + history + quick expense
 // ══════════════════════════════════════════════════════════
-function _renderCustodian(root, custId) {
+function _renderCustodian(root, custId, self) {
   const c = (state.pettyCashCustodians || []).find(x => x.id === custId);
   if (!c || !_canSeeCustodian(c)) { _pcSection = 'wallets'; return renderPettyCash(); }
-  const bal = _balance(custId);
-  const pending = _pendingIn(custId);
+  const all = _txns();
+  const s = walletStats(all, custId);
+  const run = runningBalances(all);
   const isAdm = _isPettyAdmin();
-  const hist = _txns().filter(t => t.custodianId === custId).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
-  const histRows = hist.map(t => _txnRow(t)).join('');
+  const hist = all.filter(t => t.custodianId === custId).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
   const pendingList = hist.filter(t => t.type === 'TRANSFER' && t.status === 'pending');
-  const pendingBanner = pending > 0 ? `
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:14px 16px;margin-bottom:16px;">
-      <div style="font-weight:800;color:#b45309;font-size:14px;">⏳ ${_fmt(pending)} awaiting your confirmation</div>
-      <div style="font-size:12px;color:#92400e;margin-top:2px;">Confirm each amount below once you've actually received it — only then does it count in your wallet.</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">${pendingList.map(t => _txnRow(t)).join('')}</div>
-    </div>` : '';
-
-  root.innerHTML = `
-    <button onclick="_pcOpen('wallets')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">← Wallets</button>
-    <div style="background:linear-gradient(135deg,#0f766e,#ef8420);border-radius:20px;padding:24px;color:#fff;margin-bottom:18px;box-shadow:0 10px 30px rgba(239,132,32,.25);">
-      <div style="font-size:13px;opacity:.85;">${_esc(c.name)} · ${_esc(c.role || 'Custodian')}</div>
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;margin-top:10px;">Live Balance</div>
-      <div style="font-size:40px;font-weight:800;">${_fmt(bal)}</div>
-      ${pending > 0 ? `<div style="font-size:12px;opacity:.9;margin-top:4px;">+ ${_fmt(pending)} pending confirmation</div>` : ''}
+  const settled = hist.filter(t => !(t.type === 'TRANSFER' && t.status === 'pending'));
+  root.innerHTML = `<div class="ts-page pcw">
+    ${self ? '' : `<button type="button" class="pcw-back" onclick="_pcOpen(null)">← All wallets</button>`}
+    <section class="pcw-hero pcw-sticky">
+      <div class="pcw-hero-l">${_esc(c.name)} · ${_esc(c.role || 'Custodian')}</div>
+      <div class="pcw-hero-cap">Current wallet balance</div>
+      <div class="pcw-hero-v ${s.balance < 0 ? 'neg' : ''}" id="pcwBal">${_fmt(s.balance)}</div>
+    </section>
+    <div class="pcw-stats">
+      <div class="in"><span>Received</span><b>${_fmt0(s.confirmed)}</b></div>
+      <div class="out"><span>Spent</span><b>${_fmt0(s.spent)}</b></div>
+      <div class="ret"><span>Returned</span><b>${_fmt0(s.returned)}</b></div>
     </div>
-    ${pendingBanner}
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-      <button onclick="_pcExpenseModal('${custId}')" style="padding:9px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🧾 Log Expense</button>
-      <button onclick="_pcReturnModal('${custId}')" style="padding:9px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">↩ Return Funds</button>
-      ${isAdm ? `<button onclick="_pcTransferModal('${custId}')" style="padding:9px 16px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⇪ Add Funds</button>
-      <button onclick="_pcCustodianModal('${custId}')" style="padding:9px 16px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>` : ''}
+    <button type="button" class="pcw-log" onclick="_pcExpenseModal('${custId}')"><span data-keep-emoji>🧾</span> Log Expense</button>
+    <div class="pcw-acts sm">
+      <button type="button" class="pcw-btn ghost" onclick="_pcReturnModal('${custId}')">↩ Return cash</button>
+      ${isAdm ? `<button type="button" class="pcw-btn green" onclick="_pcTransferModal('${custId}')">＋ Send funds</button>
+      <button type="button" class="pcw-btn ghost" onclick="_pcCustodianModal('${custId}')">✎ Edit</button>` : ''}
     </div>
-    <h3 style="font-weight:800;color:#334155;margin-bottom:10px;">History</h3>
-    <div style="display:flex;flex-direction:column;gap:8px;">${histRows || `<div style="color:#94a3b8;padding:20px;text-align:center;">No transactions yet.</div>`}</div>`;
+    ${pendingList.length ? `<div class="pcw-pend">
+      <b>⏳ ${_fmt(s.pending)} waiting for confirmation</b>
+      <small>${isAdm && !self ? 'It counts in the wallet once the supervisor confirms receipt.' : "Confirm each amount once you've actually received it — only then does it count in your wallet."}</small>
+      <div class="pcw-list">${pendingList.map(t => _txnRow(t, false, run)).join('')}</div>
+    </div>` : ''}
+    <div class="pcw-h">Transactions <span>${settled.length}</span></div>
+    <div class="pcw-list">${settled.map(t => _txnRow(t, false, run)).join('') || `<div class="pcw-empty">No transactions yet.</div>`}</div>
+  </div>`;
+  if (_pcFlashId) { const el = document.getElementById('pctx_' + _pcFlashId); _pcFlashId = null; if (el) el.classList.add('flash'); }
 }
+let _pcFlashId = null;   // the txn just logged — its card pulses once
 
 // ══════════════════════════════════════════════════════════
 //  LEDGER — global feed (within project), filter by custodian
@@ -287,7 +303,7 @@ function _renderLedger(root) {
       <span style="font-size:12px;color:#f59e0b;font-weight:700;">Out: ${_fmt(totOut)}</span>
       ${totReturned > 0 ? `<span style="font-size:12px;color:#2563eb;font-weight:700;">Returned: ${_fmt(totReturned)}</span>` : ''}
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px;">${list.map(t => _txnRow(t, true)).join('') || `<div style="color:#94a3b8;padding:24px;text-align:center;">No transactions.</div>`}</div>`;
+    <div style="display:flex;flex-direction:column;gap:8px;">${list.map(t => _txnRow(t, true, runningBalances(_txns()))).join('') || `<div style="color:#94a3b8;padding:24px;text-align:center;">No transactions.</div>`}</div>`;
 }
 window._pcSetLedgerFilter = function (v) { _pcLedgerFilter = v; renderPettyCash(); };
 
@@ -295,15 +311,8 @@ window._pcSetLedgerFilter = function (v) { _pcLedgerFilter = v; renderPettyCash(
 //  RECONCILIATION — issued vs confirmed vs spent vs returned
 // ══════════════════════════════════════════════════════════
 function _custStats(custId) {
-  const ts = _txns().filter(t => t.custodianId === custId);
-  const issued = ts.filter(t => t.type === 'TRANSFER').reduce((s, t) => s + (t.amount || 0), 0);
-  const confirmed = ts.filter(t => t.type === 'TRANSFER' && _accepted(t)).reduce((s, t) => s + (t.amount || 0), 0);
-  const pending = ts.filter(t => t.type === 'TRANSFER' && t.status === 'pending').reduce((s, t) => s + (t.amount || 0), 0);
-  const disputed = ts.filter(t => t.type === 'TRANSFER' && t.status === 'disputed').reduce((s, t) => s + (t.amount || 0), 0);
-  const spent = ts.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + (t.amount || 0), 0);
-  const returned = ts.filter(t => t.type === 'RETURN').reduce((s, t) => s + (t.amount || 0), 0);
-  const inHand = confirmed - spent - returned;
-  return { issued, confirmed, pending, disputed, spent, returned, inHand };
+  const s = walletStats(_txns(), custId);
+  return { ...s, inHand: s.balance };
 }
 function _renderRecon(root) {
   const custs = _custodians();
@@ -340,51 +349,47 @@ function _renderRecon(root) {
     </div>`;
 }
 
-function _txnRow(t, showName) {
+const _CAT_ICON = { 'Daily Wages': '👷', 'Labour Payment': '👷', Contractor: '👷', 'Site Materials': '🧱', 'Material / Vendor': '🧱',
+  'Travel / Transport': '🚚', 'Food / Refreshments': '🍱', 'Tools / Hardware': '🔧', Miscellaneous: '📌' };
+/** One ledger card: incoming green, expenses dark with a red edge, returns blue, unconfirmed amber. */
+function _txnRow(t, showName, run) {
   const isIn = t.type === 'TRANSFER';
   const isReturn = t.type === 'RETURN';
-  const accent = isIn ? '#ef8420' : (isReturn ? '#2563eb' : '#f59e0b');
+  const st = isIn ? (t.status || 'accepted') : '';
+  const kind = isIn ? (st === 'pending' ? 'pend' : st === 'disputed' ? 'disp' : 'in') : isReturn ? 'ret' : 'out';
   const sign = isIn ? '+' : '−';
-  const title = isIn ? 'Transfer In' : (isReturn ? 'Returned to ' + _esc(t.toAccountName || 'account') : _esc(t.category || 'Expense'));
-  const photo = (t.photo || t.photoPath) ? `<button onclick="_pcLightbox('${t.id}')" title="View receipt" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;font-size:14px;">🖼️</button>` : '';
+  const icon = isIn ? '💵' : isReturn ? '↩️' : (_CAT_ICON[t.category] || '🧾');
+  const title = isIn ? 'Funds received' : isReturn ? 'Returned to ' + _esc(t.toAccountName || 'account') : (t.payeeName ? _esc(t.payeeName) : _esc(t.category || 'Expense'));
   const c = (state.pettyCashCustodians || []).find(x => x.id === t.custodianId);
   const canAct = !!(c && _canSeeCustodian(c));
+  const photo = (t.photo || t.photoPath) ? `<button type="button" class="pcw-mini" onclick="_pcLightbox('${t.id}')">🖼 Receipt</button>` : '';
 
-  // Status chip + confirmation line for transfers (acceptance flow).
   let chip = '', subLine = '', actions = '';
   if (isIn) {
-    const st = t.status || 'accepted';   // legacy transfers (no status) show as received
     if (st === 'pending') {
-      chip = `<span style="font-size:9px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:1px 7px;margin-left:6px;">⏳ Awaiting confirmation</span>`;
-      if (canAct) actions = `<div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#ef8420;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Yes, I received this</button>
-        <button onclick="_pcDisputeTransfer('${t.id}')" style="padding:6px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Dispute</button>
-      </div>`;
+      chip = '<span class="pcw-chip amber">⏳ Awaiting confirmation</span>';
+      if (canAct) actions = `<div class="pcw-tx-acts">
+        <button type="button" class="pcw-btn green" onclick="_pcAcceptTransfer('${t.id}')">✓ Yes, I received this</button>
+        <button type="button" class="pcw-btn ghost red" onclick="_pcDisputeTransfer('${t.id}')">Dispute</button></div>`;
       else subLine = `Waiting for ${_esc(_custName(t.custodianId))} to confirm`;
     } else if (st === 'disputed') {
-      chip = `<span style="font-size:9px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:1px 7px;margin-left:6px;">⚠ Disputed</span>`;
+      chip = '<span class="pcw-chip red">⚠ Disputed</span>';
       subLine = (t.disputeNote ? '“' + _esc(t.disputeNote) + '” — ' : '') + 'raised by ' + _esc(t.acceptedBy || 'recipient');
-      if (canAct) actions = `<div style="margin-top:8px;"><button onclick="_pcAcceptTransfer('${t.id}')" style="padding:6px 14px;background:#ef8420;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve &amp; confirm receipt</button></div>`;
-    } else {
-      chip = `<span style="font-size:9px;font-weight:800;color:#c2321f;background:#fff3ea;border:1px solid #f6c9a8;border-radius:8px;padding:1px 7px;margin-left:6px;">✓ Received</span>`;
-      if (t.acceptedBy) subLine = 'Confirmed by ' + _esc(t.acceptedBy);
-    }
+      if (canAct) actions = `<div class="pcw-tx-acts"><button type="button" class="pcw-btn green" onclick="_pcAcceptTransfer('${t.id}')">✓ Resolve &amp; confirm receipt</button></div>`;
+    } else if (t.acceptedBy) subLine = 'Confirmed by ' + _esc(t.acceptedBy);
   }
-
-  const meta = `${_esc(t.description || t.note || '')}${t.date ? ' · ' + _esc(t.date) : ''}`;
-  return `<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${accent};border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-    <div style="min-width:0;flex:1;">
-      <div style="font-weight:700;color:#0f172a;font-size:13px;">${title}${showName ? ' · ' + _esc(_custName(t.custodianId)) : ''}${chip}</div>
-      <div style="font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meta}</div>
-      ${subLine ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">${subLine}</div>` : ''}
-      ${actions}
+  const what = !isIn && !isReturn && t.payeeName ? _esc(t.category || '') : (isIn ? _esc(t.fromAccountName ? 'From ' + t.fromAccountName : '') : '');
+  const meta = [showName ? _esc(_custName(t.custodianId)) : '', what, _esc(t.description || t.note || ''), _esc(t.date || '')].filter(Boolean).join(' · ');
+  const bal = run && run[t.id] != null && kind !== 'pend' && kind !== 'disp' ? `<small>Bal ${_fmt(run[t.id])}</small>` : (kind === 'pend' ? '<small>Not counted yet</small>' : '');
+  return `<article class="pcw-tx ${kind}" id="pctx_${t.id}">
+    <div class="pcw-tx-row">
+      <span class="pcw-tx-ic" data-keep-emoji>${icon}</span>
+      <div class="pcw-tx-main"><b>${title}</b><small>${meta}</small>${subLine ? `<small>${subLine}</small>` : ''}${chip}
+        ${photo ? `<div class="pcw-tx-foot">${photo}</div>` : ''}</div>
+      <div class="pcw-tx-amt"><b>${sign}${_fmt(t.amount)}</b>${bal}${canAct ? `<button type="button" class="pcw-mini del" onclick="_pcDeleteTxn('${t.id}')" aria-label="Delete" title="Delete">🗑</button>` : ''}</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-      ${photo}
-      <div style="font-weight:800;color:${accent};font-size:15px;">${sign}${_fmt(t.amount)}</div>
-      <button onclick="_pcDeleteTxn('${t.id}')" title="Delete" style="border:none;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px;">🗑️</button>
-    </div>
-  </div>`;
+    ${actions}
+  </article>`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -485,18 +490,18 @@ window._pcTransferModal = function (presetCust) {
   const accOpts = accs.length
     ? accs.map(a => { const b = _accountBalanceFor(a.id); return `<option value="${_esc(a.id)}">${_esc(a.name)} (${_esc(a.type || 'Account')})${b == null ? '' : ' — ' + _fmt(b)}</option>`; }).join('')
     : '';
-  _modal(`${_modalHead('Transfer Funds')}
+  _modal(`${_modalHead('Send Funds')}
     <div style="padding:20px;">
       <label style="font-size:12px;font-weight:700;color:#64748b;">From account (Bank / Cash)</label>
       ${accs.length
         ? `<select id="pcTrFromAcc" style="${_inp}margin-top:4px;">${accOpts}</select>`
         : `<div style="${_inp}margin-top:4px;color:#dc2626;background:#fef2f2;border-color:#fecaca;">No Bank/Cash accounts yet. Add one in Finance → Accounts first.</div>`}
-      <label style="font-size:12px;font-weight:700;color:#64748b;">To custodian</label>
+      <label style="font-size:12px;font-weight:700;color:#64748b;">To supervisor</label>
       <select id="pcTrCust" style="${_inp}margin-top:4px;">${opts}</select>
       <input id="pcTrAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
       <input id="pcTrDate" type="date" value="${new Date().toISOString().split('T')[0]}" style="${_inp}">
       <input id="pcTrNote" placeholder="Note (e.g. Weekly site expenses)" style="${_inp}">
-      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#ef8420;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;" ${accs.length ? '' : 'disabled'}>⇪ Transfer</button>
+      <button onclick="_pcDoTransfer()" style="width:100%;padding:11px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;" ${accs.length ? '' : 'disabled'}>＋ Send funds</button>
     </div>`);
 };
 window._pcDoTransfer = function () {
@@ -627,31 +632,70 @@ window._pcDoReturn = function () {
 };
 
 // ── Log expense (with photo receipt) ──
+// Quick-pick chips → stored category (older vouchers keep their category names).
+const PC_CHIPS = [
+  { k: 'labour', label: 'Labour Payment', icon: '👷', cat: 'Daily Wages' },
+  { k: 'materials', label: 'Materials', icon: '🧱', cat: 'Site Materials' },
+  { k: 'transport', label: 'Transport', icon: '🚚', cat: 'Travel / Transport' },
+  { k: 'food', label: 'Food / Tea', icon: '🍱', cat: 'Food / Refreshments' },
+  { k: 'tools', label: 'Tools', icon: '🔧', cat: 'Tools / Hardware' },
+  { k: 'misc', label: 'Other', icon: '📌', cat: 'Miscellaneous' },
+];
+let _pcxChip = 'labour';
+let _pcxCust = null;
 window._pcExpenseModal = function (custId) {
   const c = (state.pettyCashCustodians || []).find(x => x.id === custId);
   if (!c) return;
-  _pcPendingPhoto = null; _pcPendingPhotoPath = null;
-  const cats = PC_CATEGORIES.map(x => `<option>${x}</option>`).join('');
+  _pcPendingPhoto = null; _pcPendingPhotoPath = null; _pcxCust = custId; _pcxChip = 'labour';
+  const bal = _balance(custId);
   _modal(`${_modalHead('Log Expense')}
-    <div style="padding:20px;">
-      <div style="background:#fff3ea;border:1px solid #f6c9a8;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#c2321f;">${_esc(c.name)} · Balance ${_fmt(_balance(custId))}</div>
-      <input id="pcExAmount" type="number" inputmode="decimal" placeholder="Amount *" style="${_inp}font-size:20px;font-weight:700;">
-      <select id="pcExCat" style="${_inp}">${cats}</select>
-      <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin:6px 0 4px;">Paid to (optional)</label>
-      <select id="pcExPayeeType" onchange="_pcPayeeTypeChange()" style="${_inp}">
-        <option value="">— not a party payment —</option>
-        <option value="labour">Labour</option>
-        <option value="vendor">Vendor / Supplier</option>
-        <option value="contractor">Contractor / Gang</option>
-      </select>
-      <select id="pcExPayee" style="${_inp}display:none;"></select>
-      <input id="pcExDesc" placeholder="Description (what was bought)" style="${_inp}">
-      <input id="pcExDate" type="date" value="${new Date().toISOString().split('T')[0]}" style="${_inp}">
-      <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px;">Receipt photo (optional)</label>
-      <input id="pcExPhoto" type="file" accept="image/*" capture="environment" onchange="_pcCapturePhoto(this)" style="font-size:12px;margin-bottom:6px;">
-      <div id="pcExPhotoPreview" style="margin-bottom:12px;"></div>
-      <button onclick="_pcDoExpense('${custId}')" style="width:100%;padding:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Save Expense</button>
+    <div class="pcx">
+      <div class="pcx-wallet">
+        <div><span>${_esc(c.name)} · wallet</span><b>${_fmt(bal)}</b></div>
+        <div class="pcx-arrow">→</div>
+        <div class="pcx-after" id="pcxAfterBox"><span>After this expense</span><b id="pcxAfter">${_fmt(bal)}</b></div>
+      </div>
+      <div class="pcx-l">What was it for?</div>
+      <div class="pcx-chips" role="radiogroup">${PC_CHIPS.map(ch => `<button type="button" role="radio" class="pcx-chip${ch.k === _pcxChip ? ' on' : ''}" data-k="${ch.k}" aria-checked="${ch.k === _pcxChip}" onclick="_pcxPick('${ch.k}')"><span data-keep-emoji>${ch.icon}</span>${ch.label}</button>`).join('')}</div>
+      <div id="pcxPayeeWrap"></div>
+      <div class="pcx-l">Amount</div>
+      <div class="pcx-amt"><span>${_esc(getCurrencySymbol())}</span><input id="pcExAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" oninput="_pcxPreview()" autocomplete="off"></div>
+      <input id="pcExDesc" class="pcx-in" placeholder="Quick note (e.g. 4 helpers, slab day)" autocomplete="off">
+      <div class="pcx-row">
+        <label class="pcx-photo"><span data-keep-emoji>📷</span> Receipt photo<input id="pcExPhoto" type="file" accept="image/*" capture="environment" onchange="_pcCapturePhoto(this)" hidden></label>
+        <input id="pcExDate" class="pcx-in" type="date" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+      <div id="pcExPhotoPreview"></div>
+      <button type="button" class="pcw-log" id="pcxSave" onclick="_pcDoExpense('${custId}')">Save &amp; deduct</button>
     </div>`);
+  _pcxPick(_pcxChip);
+  setTimeout(() => document.getElementById('pcExAmount')?.focus(), 60);
+};
+/** Choose a chip; Labour / Materials offer an optional "paid to" party so it lands on that party's ledger. */
+window._pcxPick = function (k) {
+  _pcxChip = k;
+  document.querySelectorAll('.pcx-chip').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  const wrap = document.getElementById('pcxPayeeWrap'); if (!wrap) return;
+  const opt = (type, x) => `<option value="${type}:${_esc(x.id)}">${_esc(x.name)}${x.trade ? ' (' + _esc(x.trade) + ')' : ''}</option>`;
+  if (k === 'labour') {
+    const w = _pcPartyList('labour'), g = _pcPartyList('contractor');
+    wrap.innerHTML = `<div class="pcx-l">Paid to <i>optional</i></div><select id="pcExPayee" class="pcx-in">
+      <option value="">General labour (no worker ledger)</option>
+      ${w.length ? `<optgroup label="Workers">${w.map(x => opt('labour', x)).join('')}</optgroup>` : ''}
+      ${g.length ? `<optgroup label="Gangs / contractors">${g.map(x => opt('contractor', x)).join('')}</optgroup>` : ''}</select>`;
+  } else if (k === 'materials') {
+    const v = _pcPartyList('vendor');
+    wrap.innerHTML = v.length ? `<div class="pcx-l">Supplier <i>optional</i></div><select id="pcExPayee" class="pcx-in">
+      <option value="">Local purchase (no supplier ledger)</option>${v.map(x => opt('vendor', x)).join('')}</select>` : '';
+  } else wrap.innerHTML = '';
+};
+/** Live deduction preview: wallet → balance after this expense (red when it overdraws). */
+window._pcxPreview = function () {
+  if (!_pcxCust) return;
+  const p = afterSpend(_balance(_pcxCust), document.getElementById('pcExAmount')?.value);
+  const b = document.getElementById('pcxAfter'), box = document.getElementById('pcxAfterBox');
+  if (b) b.textContent = _fmt(p.after);
+  if (box) box.classList.toggle('neg', p.after < 0);
 };
 window._pcCapturePhoto = async function (input) {
   const file = input.files && input.files[0];
@@ -692,16 +736,20 @@ window._pcDoExpense = function (custId) {
   const amount = parseFloat(document.getElementById('pcExAmount').value);
   if (!(amount > 0)) return showToast('Enter a valid amount', 'error');
   const date = document.getElementById('pcExDate').value || new Date().toISOString().split('T')[0];
-  const payeeType = document.getElementById('pcExPayeeType')?.value || '';
-  const payeeId = payeeType ? (document.getElementById('pcExPayee')?.value || '') : '';
+  const pick = document.getElementById('pcExPayee')?.value || '';
+  const [payeeType, payeeId] = pick ? pick.split(':') : ['', ''];
   const payee = (payeeType && payeeId) ? _pcPartyList(payeeType).find(x => x.id === payeeId) : null;
+  const chip = PC_CHIPS.find(x => x.k === _pcxChip) || PC_CHIPS[PC_CHIPS.length - 1];
   const paymentId = 'pmt_' + Date.now();
   const catFor = { labour: 'Daily Wages', vendor: 'Material / Vendor', contractor: 'Contractor' };
+  const before = _balance(custId);
+  if (amount > before && !confirm(`Wallet holds only ${_fmt(before)}. Log ${_fmt(amount)} anyway (wallet goes negative)?`)) return;
 
   // Cash-out leg: reduce the custodian wallet (attributed to this custodian).
+  const txnId = 'pcx_' + Date.now();
   state.pettyCashTxns.push(window.stampCreate({
-    id: 'pcx_' + Date.now(), type: 'EXPENSE', custodianId: custId, amount,
-    category: payee ? (catFor[payeeType] || 'Payment') : document.getElementById('pcExCat').value,
+    id: txnId, type: 'EXPENSE', custodianId: custId, amount,
+    category: payee ? (catFor[payeeType] || chip.cat) : chip.cat,
     description: document.getElementById('pcExDesc').value.trim(),
     payeeType: payee ? payeeType : undefined,
     payeeId: payee ? payeeId : undefined,
@@ -721,10 +769,12 @@ window._pcDoExpense = function (custId) {
     else if (payeeType === 'vendor') { if (!state.vendorPayments) state.vendorPayments = []; state.vendorPayments.push(window.stampCreate({ id: 'vp_' + Date.now(), vendorId: payeeId, ...leg })); }
     else if (payeeType === 'contractor') { if (!state.expenses) state.expenses = []; state.expenses.push(window.stampCreate({ id: 'exp_' + Date.now(), category: 'Piece-Rate Gang Payout', gangId: payeeId, ...leg })); }
   }
-
+  _pcFlashId = txnId;
+  // Open the wallet the money came out of so the new card + balance are right there.
+  if (_pcSection !== 'cust:' + custId && (_isPettyAdmin() || _custodians().length > 1)) _pcSection = 'cust:' + custId;
   _pcPendingPhoto = null; _pcPendingPhotoPath = null;
   saveAllData(); _pcCloseModal();
-  showToast(payee ? `Paid ${_fmt(amount)} to ${payee.name}` : `Expense ${_fmt(amount)} logged`, 'success');
+  showToast(`${payee ? 'Paid ' + payee.name + ' · ' : ''}${_fmt(amount)} deducted — balance ${_fmt(_balance(custId))}`, 'success');
   renderPettyCash();
 };
 

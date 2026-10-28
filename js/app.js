@@ -62,28 +62,28 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.47';
+} from './modules/ui.js?v=1.7.48';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.74';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.7.4';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.29';
 import { exportSaleInvoicePDF, printSaleInvoice, shareSaleInvoice, exportSalesLedgerPDF, exportSalesLedgerExcel, shareSalesLedger } from './modules/saleExports.js?v=1.3.26';
-import { renderPettyCash } from './modules/pettyCash.js?v=1.0.8';
+import { renderPettyCash } from './modules/pettyCash.js?v=1.1.0';
 import { renderNotifications } from './modules/notifications.js?v=1.0.5';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
 import { renderExecution } from './modules/execution.js?v=1.6.120';
-import './modules/chat.js?v=1.1.0';
+import './modules/chat.js?v=1.1.1';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.41';
 import './modules/ledgerReports.js?v=1.0.1';
-import './modules/mobileShell.js?v=1.6.93';
+import './modules/mobileShell.js?v=1.6.94';
 import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
 import './modules/labourHome.js?v=1.0.2';
 import './modules/calcTools.js?v=1.0.1';
-import './modules/appShell.js?v=1.0.12';
+import './modules/appShell.js?v=1.0.13';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';

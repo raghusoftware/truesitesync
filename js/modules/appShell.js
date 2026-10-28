@@ -8,11 +8,17 @@
  * Pure rules (titles, tabs, filters, progress) live in shellCalc.js.
  */
 import { state } from './state.js';
-import * as SC from './shellCalc.js';
+import * as SC from './shellCalc.js?v=1.0.1';
 import { computeAnalytics } from './analyticsCalc.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const go = (v) => window.switchView?.(v);
+/** Business → Dashboard, scoped to one site ('' = all sites). The site is set before the
+ *  view renders, so the first paint is already the right slice. */
+function openDashboard(siteId) {
+  window._setAnalyticsSite?.(siteId || '', { silent: true });
+  go('analyticsView');
+}
 const isShop = () => typeof window.activeBusinessMode === 'function' && window.activeBusinessMode() !== 'construction';
 const cur = () => (typeof window.getCurrencySymbol === 'function' ? window.getCurrencySymbol() : '₹');
 const money = (n) => cur() + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -273,6 +279,12 @@ export function renderWorkspace() {
   if (!el) return;
   const shop = isShop();
   el.innerHTML = `<div class="ts-page">${sectionsHTML([
+    // The Dashboard lives here (the analytics hub for the whole business); it opens on
+    // All sites and a site can be picked inside it. Project Home links in pre-filtered.
+    ['Insights', [
+      { icon: '📊', label: 'Dashboard', view: 'analyticsView', cls: 'hl', run: () => openDashboard('') },
+      { icon: '📑', label: 'Reports', view: 'reportsView' },
+    ]],
     // Sales & Purchase hold documents only (invoices, orders, bills). Money in/out
     // is recorded in Finance → Payments; the old Payment In/Out screens redirect there.
     ['Sales', [
@@ -308,10 +320,6 @@ export function renderWorkspace() {
       { icon: '🔧', label: 'Tools', view: 'assetsView', when: () => shop },
       { icon: '🚜', label: 'Machines', view: 'equipmentView', when: () => shop },
     ]],
-    ['Reports & insights', [
-      { icon: '📈', label: 'Charts & Performance', view: 'analyticsView' },
-      { icon: '📊', label: 'Reports', view: 'reportsView' },
-    ]],
     ['Tools', [
       { icon: '🧮', label: 'Engineer Tools', view: 'calcView' },
       { icon: '📏', label: 'Unit Converter', run: () => window.openUnitConverter?.() },
@@ -342,7 +350,6 @@ export function renderMaster() {
 /* ── Project home ─────────────────────────────────────────────────────────── */
 
 const PROJECT_TILES = [
-  { icon: '📊', label: 'Dashboard', view: 'analyticsView', cls: 'hl', run: () => { go('analyticsView'); window._setAnalyticsSite?.(state.currentProjectId); } },
   { icon: '📝', label: 'Daily Progress', view: 'executionView' },
   { icon: '👷', label: 'Attendance', view: 'labourView' },
   { icon: '📦', label: 'Manage Materials', view: 'inventoryView' },
@@ -374,9 +381,13 @@ export function renderProjectHome() {
     let a = null;
     try { a = computeAnalytics(state, proj.id); } catch {}
     const spent = a ? a.purchases + a.labour + a.expenses : 0;
+    sum.onclick = a ? () => openDashboard(proj.id) : null;
+    sum.classList.toggle('ts-link', !!a);
+    sum.title = a ? 'Open this site in the Business dashboard' : '';
     sum.innerHTML = a ? `<div title="${money(a.received)}"><b style="color:var(--ts-green)">${moneyShort(a.received)}</b><small>Received</small></div>
       <div title="${money(spent)}"><b style="color:var(--ts-red)">${moneyShort(spent)}</b><small>Spent</small></div>
-      <div title="${money(a.outstanding)}"><b>${moneyShort(a.outstanding)}</b><small>To receive</small></div>` : '';
+      <div title="${money(a.outstanding)}"><b>${moneyShort(a.outstanding)}</b><small>To receive</small></div>
+      <span class="ts-dash-link">📊 Site dashboard <i>›</i></span>` : '';
   }
   const tiles = PROJECT_TILES.map(t => ({ ...t, count: t.count ? t.count(proj.id) : 0 }));
   host.innerHTML = sectionsHTML([['', tiles]]);
