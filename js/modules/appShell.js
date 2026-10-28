@@ -13,6 +13,8 @@ import { computeAnalytics } from './analyticsCalc.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const go = (v) => window.switchView?.(v);
+/** Bottom tab for a view. Manage Materials opened from Business → Central Store belongs to Business. */
+const tabOf = (v) => (v === 'inventoryView' && window._invIsCentral?.()) ? 'workspace' : SC.tabOf(v);
 /** Business → Dashboard, scoped to one site ('' = all sites). The site is set before the
  *  view renders, so the first paint is already the right slice. */
 function openDashboard(siteId) {
@@ -98,7 +100,7 @@ export function renderAppBar(viewId) {
   if (viewId === 'calcView' && window._calcTitle?.()) title = window._calcTitle();
   if (viewId === 'partiesLedgerView' && !state.currentSelectedParty && window._partyDrillTitle?.()) title = window._partyDrillTitle();
   if (viewId === 'projectDashboard' && proj) { title = proj.name || 'Project'; sub = ['Project Home', proj.location].filter(Boolean).join(' · '); }
-  else if (proj && SC.tabOf(viewId) === 'projects') sub = proj.name || sub;
+  else if (proj && tabOf(viewId) === 'projects') sub = proj.name || sub;
   left.innerHTML = `<button type="button" class="tsb-ic tsb-back" onclick="window._navBack()" aria-label="Back">${svg.back}</button>
     <div class="tsb-txt"><div class="tsb-title">${esc(title)}</div><div class="tsb-sub">${esc(sub)}</div></div>`;
 }
@@ -299,6 +301,8 @@ export function renderWorkspace() {
     ]],
     ['Purchase', [
       { icon: '🛒', label: 'Purchase Bills', view: 'purchaseBillsView' },
+      // Business-level store management: every store, with a store picker in each form.
+      { icon: '🏬', label: 'Central Store', view: 'inventoryView', when: () => !shop, run: () => window._openCentralStore?.() },
       { icon: '📋', label: 'Purchase Orders', view: 'purchaseOrderView' },
       { icon: '💳', label: 'Expenses', view: 'expensesView' },
       { icon: '↩️', label: 'Purchase Returns', view: 'purchaseReturnView' },
@@ -352,7 +356,8 @@ export function renderMaster() {
 const PROJECT_TILES = [
   { icon: '📝', label: 'Daily Progress', view: 'executionView' },
   { icon: '👷', label: 'Attendance', view: 'labourView' },
-  { icon: '📦', label: 'Manage Materials', view: 'inventoryView' },
+  // Inside a project the project's own store is used — no store picker (see ui.js _invLockedStore).
+  { icon: '📦', label: 'Manage Materials', view: 'inventoryView', run: () => { window._invOpenFrom?.('project'); go('inventoryView'); } },
   { icon: '🚜', label: 'Equipment Usage', view: 'equipmentView' },
   { icon: '💸', label: 'Payments', view: 'paymentsHubView' },
   { icon: '👛', label: 'Petty Cash', view: 'pettyCashView' },
@@ -364,7 +369,6 @@ const PROJECT_TILES = [
   { icon: '📁', label: 'Drawings & Docs', view: 'documentsView' },
   { icon: '💬', label: 'Chat', view: 'chatView' },
   { icon: '🤝', label: 'Subcontractors', view: 'subcontractorsView' },
-  { icon: '🔧', label: 'Tools & Assets', view: 'assetsView' },
   { icon: '🧪', label: 'Mix Design', view: 'recipeView' },
   { icon: '🏛️', label: 'Guarantees', view: 'guaranteesView' },
   { icon: '💳', label: 'WPS Salary', view: 'wpsView' },
@@ -584,7 +588,7 @@ if (typeof window !== 'undefined') {
   window._shellFab = () => { try { _fabRun?.(); } catch (e) { console.warn(e); } };
   window._eqAddSheet = eqAddSheet;
   window.shellOnView = onView;
-  window.shellTabOf = SC.tabOf;
+  window.shellTabOf = tabOf;
   window.renderShellProjects = renderProjectList;
   window.renderShellProjectHome = renderProjectHome;
   window._shellCloseSheet = closeSheet;

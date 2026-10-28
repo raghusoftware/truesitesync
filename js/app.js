@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.48';
+} from './modules/ui.js?v=1.7.49';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.75';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.8.0';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.29';
@@ -83,7 +83,7 @@ import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
 import './modules/labourHome.js?v=1.0.2';
 import './modules/calcTools.js?v=1.0.1';
-import './modules/appShell.js?v=1.0.13';
+import './modules/appShell.js?v=1.0.14';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';
@@ -101,7 +101,7 @@ import { renderClientHub, openClientModal, saveClient, renderClientTable, editCl
 import { loadCompanyProfile, saveCompanyProfile, handleLogoUpload, removeCompanyLogo, updateProfilePreview } from './modules/companyProfile.js';
 import { openItemModal, renderItemMasterTable, editItem, renderRawMaterialTable, editRawMaterial, deleteRawMaterial } from './modules/masterData.js';
 import './modules/units.js?v=1.2.1';
-import './modules/inventoryList.js?v=1.0.1';
+import './modules/inventoryList.js?v=1.0.2';
 import './modules/toolsUI.js?v=1.0.0';
 import './modules/touchDnd.js?v=1.0.1';
 import './modules/unitConverter.js?v=1.0.0';

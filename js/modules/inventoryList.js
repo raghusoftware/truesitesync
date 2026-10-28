@@ -142,7 +142,10 @@ function renderChips() {
 export function renderInvList() {
   const host = document.getElementById('invList');
   if (!host) return;
-  if (_site === null) _site = state.currentProjectId || '';
+  // Inside a project the store is fixed to that project (Manage Materials store context).
+  const _locked = (typeof window._invLockedStore === 'function') ? window._invLockedStore() : '';
+  if (_locked) _site = _locked;
+  else if (_site === null) _site = state.currentProjectId || '';
   _rows = computeRows();
   const locs = [...new Set(_rows.map(r => r.location).filter(Boolean))].sort();
   if (_loc && !locs.includes(_loc)) _loc = '';
@@ -160,7 +163,7 @@ export function renderInvList() {
         <button type="button" class="iv-fbtn${_showFilters ? ' on' : ''}" onclick="window._ivFilters()" aria-expanded="${_showFilters}" aria-label="Filter and sort">${ICON.filter}${activeFilters() ? `<b>${activeFilters()}</b>` : ''}</button>
       </div>
       <div class="iv-sel"${_showFilters ? '' : ' hidden'}>
-        <select onchange="window._ivSite(this.value)" aria-label="Site">${opt('', 'All sites', _site)}${sites.map(l => opt(l.id, l.projectName || l.name, _site)).join('')}</select>
+        ${_locked ? '' : `<select onchange="window._ivSite(this.value)" aria-label="Site">${opt('', 'All sites', _site)}${sites.map(l => opt(l.id, l.projectName || l.name, _site)).join('')}</select>`}
         <select onchange="window._ivLoc(this.value)" aria-label="Location">${opt('', 'All locations', _loc)}${locs.map(l => opt(l, '📍 ' + l, _loc)).join('')}</select>
         <select onchange="window._ivSort(this.value)" aria-label="Sort">${opt('low', 'Sort: Most urgent', _sort)}${opt('name', 'Sort: Name A–Z', _sort)}${opt('location', 'Sort: Location', _sort)}${opt('stock', 'Sort: Most stock', _sort)}</select>
       </div>

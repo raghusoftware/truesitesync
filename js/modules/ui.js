@@ -1448,6 +1448,8 @@ export function switchView(viewId) {
   if (viewId === 'recycleBinView') window.renderRecycleBin?.();
   if (viewId === 'itemsMasterView') window.renderItemsMasterView?.();
   if (viewId === 'documentsView') window.renderProjectDocs?.();
+  // Leaving Manage Materials ends a Business → Central Store visit (next project entry is project-scoped).
+  if (viewId !== 'inventoryView' && _invEntry === 'central') { _invEntry = null; _invInStores = false; }
   if (viewId === 'inventoryView') { renderLiveInventory(); if (typeof window._openInvSection === 'function') window._openInvSection(null); }
   if (viewId === 'pettyCashView') { if (typeof window.renderPettyCash === 'function') window.renderPettyCash(); }
   if (viewId === 'issuesView') { if (typeof window.renderIssues === 'function') window.renderIssues(); }
@@ -1947,6 +1949,59 @@ function _materialSOH(matId, siteId) {
 // they are intentionally gone, since getAllLocations() already lists the project
 // under its client. _invSiteName() still resolves BOQ ids so older records that
 // were booked against a work order keep displaying correctly.
+// ── Store context for Manage Materials ──────────────────────────────────────
+// Opened from a project, the project IS the store: every form uses it and no
+// store picker is shown. Opened from Business → Central Store (or inside the
+// Central Store screen), the user works across stores, so pickers come back.
+let _invEntry = null;        // 'project' | 'central' — how Manage Materials was opened
+let _invInStores = false;    // inside the Central Store screen, or an action started from it
+/** The store every form is locked to ('' = the user picks one). */
+function _invLockedStore() {
+  if (_invEntry === 'central' || _invInStores) return '';
+  const pid = state.currentProjectId;
+  return pid && getAllLocations().some(l => l.id === pid) ? pid : '';
+}
+window._invLockedStore = _invLockedStore;
+window._invIsCentral = () => _invEntry === 'central';
+/** Entry points: project tile → 'project'; Business → Central Store → 'central'. */
+window._invOpenFrom = function (entry) { _invEntry = entry; _invInStores = false; };
+window._openCentralStore = function () {
+  _invEntry = 'central'; _invInStores = true;
+  window.switchView('inventoryView');
+  window._openInvSection('stores');
+};
+/**
+ * A store field: the usual <select> when the user must choose, or — inside a
+ * project — a read-only chip plus a hidden input with the same id, so the
+ * existing code that reads / sets .value keeps working unchanged.
+ */
+function _invStoreField(id, selectHTML) {
+  const locked = _invLockedStore();
+  if (!locked) return selectHTML;
+  return `<input type="hidden" id="${id}" value="${locked}"><div class="inv-store-lock" data-for="${id}">${_invStoreChip(locked)}</div>`;
+}
+function _invStoreChip(siteId) {
+  const l = getAllLocations().find(x => x.id === siteId);
+  const name = l ? (l.projectName || l.name) : (siteId || '—');
+  return `<span class="isl-ic" aria-hidden="true">📍</span><span class="isl-tx"><b>${name}</b><small>${siteId === state.currentProjectId ? "This project's store" : 'Store'}</small></span>`;
+}
+/** One line above the Manage Materials menu saying which store everything applies to. */
+function _invPaintContext() {
+  const grid = document.getElementById('invTiles'); if (!grid) return;
+  let bar = document.getElementById('invCtx');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'invCtx'; grid.parentElement.insertBefore(bar, grid); }
+  const locked = _invLockedStore();
+  bar.className = 'inv-ctx' + (locked ? '' : ' central');
+  bar.innerHTML = locked
+    ? `${_invStoreChip(locked)}<span class="inv-ctx-note">Receive, issue, count and transfer from this store</span>`
+    : `<span class="isl-ic" aria-hidden="true">🏬</span><span class="isl-tx"><b>Central Store</b><small>All stores — choose the store in each form</small></span>`;
+}
+/** After code sets a locked store field's value (e.g. editing an old GRN), repaint its chip. */
+function _invStoreSync(id) {
+  const el = document.getElementById(id), chip = document.querySelector(`.inv-store-lock[data-for="${id}"]`);
+  if (el && chip) chip.innerHTML = _invStoreChip(el.value);
+}
+
 function _invSiteOptions(selId) {
   let opts = '';
   getAllLocations().forEach(l => {
@@ -1971,6 +2026,14 @@ function _unitPicker(id) {
 }
 
 window._openInvSection = function(section) {
+  // Opened from Business → Central Store: Back walks Stores → Business, never into a project's menu.
+  if (!section && _invEntry === 'central') {
+    if (!_invInStores || !document.getElementById('invSecStores')?.classList.contains('hide')) { _invEntry = null; _invInStores = false; window.switchView('workspaceView'); return; }
+    section = 'stores';
+  }
+  if (section === 'stores') _invInStores = true;
+  else if (!section) _invInStores = false;
+  _invPaintContext();
   const grid = document.getElementById('invTiles');
   const back = document.getElementById('invBackBtn');
   document.querySelectorAll('.inv-section').forEach(s => s.classList.add('hide'));
@@ -2168,7 +2231,7 @@ function _renderStockStatement() {
         <div><label class="${lbl}">Material Type</label><select id="stmtType" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All types</option><option value="Raw Material">Raw Material</option><option value="Tools">Tools</option><option value="Miscellaneous">Miscellaneous</option></select></div>
         <div><label class="${lbl}">Material</label><select id="stmtMat" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All materials</option>${matOpts}</select></div>
         <div><label class="${lbl}">Party / Supplier</label><select id="stmtParty" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All parties</option>${partyOpts}</select></div>
-        <div><label class="${lbl}">Site / Store</label><select id="stmtSite" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All sites</option>${_invSiteOptions()}</select></div>
+        <div><label class="${lbl}">Site / Store</label>${_invStoreField('stmtSite', `<select id="stmtSite" class="${fld} w-full" onchange="window._genStockStatement()"><option value="">All sites</option>${_invSiteOptions()}</select>`)}</div>
       </div>
       <div id="stmtResult"></div>
     </div>`;
@@ -2406,7 +2469,7 @@ function _renderGRN() {
         ${_sec('Receipt Details')}
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div><label class="${_lbl}">Receipt Date <span class="text-rose-400">*</span></label>${_dateFieldHTML('grnDate', _grnDateVal, '_grnDateChanged', _fld)}</div>
-          <div><label class="${_lbl}">Store / Site <span class="text-rose-400">*</span></label><select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select></div>
+          <div><label class="${_lbl}">Store / Site <span class="text-rose-400">*</span></label>${_invStoreField('grnSite', `<select id="grnSite" class="${_fld} bg-white">${_invSiteOptions()}</select>`)}</div>
           <div><label class="${_lbl}">Source Type <span class="text-rose-400">*</span></label><select id="grnSource" onchange="_grnSourceChanged()" class="${_fld} bg-white"><option value="Supplier">Supplier</option><option value="Rent">Rent</option><option value="STN">STN (Stock Transfer)</option></select></div>
           <div><label class="${_lbl}"><span id="grnSupLabel">Supplier</span> <span id="grnSupStar" class="text-rose-400">*</span></label><select id="grnSupplier" onchange="_grnSupplierChanged()" class="${_fld} bg-white"><option value="">— Select —</option>${supplierOpts}</select></div>
           <div><label class="${_lbl}">Mode of Receipt</label><select id="grnMode" class="${_fld} bg-white"><option value="Transport">Transport</option><option value="Self">Self</option><option value="Field">Field</option></select></div>
@@ -2821,10 +2884,11 @@ function _grnDispRate(g, m) {
 /** Current-project GRNs after applying the register filters, newest first. */
 function _grnRegFiltered() {
   const f = _grnRegFilters;
-  let list = (state.grnRecords || []).filter(g => g.projectId === state.currentProjectId);
+  const central = !_invLockedStore() && (_invEntry === 'central' || _invInStores);
+  let list = (state.grnRecords || []).filter(g => central || g.projectId === state.currentProjectId);
   if (f.supplier) list = list.filter(g => g.supplierId === f.supplier);
   if (f.material) list = list.filter(g => g.matId === f.material);
-  if (f.site) list = list.filter(g => g.siteId === f.site);
+  if (f.site && !_invLockedStore()) list = list.filter(g => g.siteId === f.site);
   if (f.from) list = list.filter(g => (g.date || '') >= f.from);
   if (f.to) list = list.filter(g => (g.date || '') <= f.to);
   if (f.bill === 'billed') list = list.filter(g => _grnIsBilled(g));
@@ -2871,7 +2935,7 @@ function _renderGrnRegister() {
       <div class="grn-flt px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
         <select id="grnRegFltSupplier" onchange="_grnRegSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnRegFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
         <select id="grnRegFltMaterial" onchange="_grnRegSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnRegFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
-        <select id="grnRegFltSite" onchange="_grnRegSetFilter('site',this.value)" title="Store / Site" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Sites</option>${_invSiteOptions(_grnRegFilters.site)}</select>
+        ${_invLockedStore() ? '' : `<select id="grnRegFltSite" onchange="_grnRegSetFilter('site',this.value)" title="Store / Site" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Sites</option>${_invSiteOptions(_grnRegFilters.site)}</select>`}
         <input id="grnRegFltFrom" type="date" value="${_grnRegFilters.from}" onchange="_grnRegSetFilter('from',this.value)" title="From date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
@@ -3312,7 +3376,8 @@ window._grnEdit = function (id) {
   // Header + the single editable item row are rebuilt by _renderGRN() from the
   // editing record; here we only set the header inputs it doesn't default.
   window._dpSet('grnDate', g.date || '');
-  document.getElementById('grnSite').value = g.siteId || '';
+  document.getElementById('grnSite').value = g.siteId || _invLockedStore() || '';
+  _invStoreSync('grnSite');
   document.getElementById('grnSupplier').value = g.supplierId || '';
   const src = document.getElementById('grnSource'); if (src) src.value = g.sourceType || 'Supplier';
   const mode = document.getElementById('grnMode'); if (mode) mode.value = g.modeOfReceipt || 'Transport';
@@ -3727,7 +3792,7 @@ function _renderGangMaterial() {
           <div><label class="${lbl}">Type</label><select id="miType" class="${fld}"><option value="ISSUE">Issue (− stock)</option><option value="RETURN">Return (+ stock)</option></select></div>
           <div><label class="${lbl}">Requested By <span class="text-rose-400">*</span></label><input id="miReqBy" list="miReqList" placeholder="Name / indenter" class="${fld}"><datalist id="miReqList">${_miRequesterNames().map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('')}</datalist></div>
           <div><label class="${lbl}">Department / Work</label><input id="miDept" list="miDeptList" placeholder="e.g. RCC" class="${fld}"><datalist id="miDeptList">${_DEPTS.map(d => `<option value="${d}">`).join('')}</datalist></div>
-          <div><label class="${lbl}">Issue From (Store) <span class="text-rose-400">*</span></label><select id="miFrom" onchange="_miRefreshAvail()" class="${fld}"><option value="">— Select store —</option>${_invSiteOptions()}</select></div>
+          <div><label class="${lbl}">Issue From (Store) <span class="text-rose-400">*</span></label>${_invStoreField('miFrom', `<select id="miFrom" onchange="_miRefreshAvail()" class="${fld}"><option value="">— Select store —</option>${_invSiteOptions()}</select>`)}</div>
           <div><label class="${lbl}">Issue To (Location)</label><select id="miTo" class="${fld}"><option value="">—</option>${_invSiteOptions()}</select></div>
           <div><label class="${lbl}">Gang / Sub-contractor</label><select id="miGang" class="${fld}"><option value="">—</option>${gangOpts}</select></div>
           <div><label class="${lbl}">Receiver Name</label><input id="miReceiver" placeholder="Who received it" class="${fld}"></div>
@@ -3964,8 +4029,8 @@ function _renderInvTransfer() {
     ]),
     pcCard({ icon:'🔄', title:'Dispatch material', sub:'Send stock from one site or store to another', tone:'cyan', body:
       pcForm(
-        pcField('From', `<select id="itFrom" class="pc-in">${_invSiteOptions()}</select>`),
-        pcField('To', `<select id="itTo" class="pc-in">${_invSiteOptions()}</select>`),
+        pcField('From', _invStoreField('itFrom', `<select id="itFrom" class="pc-in">${_invSiteOptions()}</select>`)),
+        pcField('To', `<select id="itTo" class="pc-in">${_invLockedStore() ? '<option value="">— Send to —</option>' + _invSiteOptions().replace(new RegExp(`<option value="${_invLockedStore()}"[^>]*>[^<]*</option>`), '') : _invSiteOptions()}</select>`),
         pcField('Material', `<select id="itMat" class="pc-in" onchange="syncUnitPicker('itMat','itQtyUnit')">${_matOptions()}</select>`, { wide:true }),
         pcField('Quantity', `<input id="itQty" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
         pcField('Unit', `<select id="itQtyUnit" class="pc-in"></select>`),
@@ -4022,7 +4087,7 @@ function _renderInvAudit() {
     ]),
     pcCard({ icon:'🔍', title:'Count stock', sub:'Enter what is physically on site — stock is corrected to your count', tone:'red', body:
       pcForm(
-        pcField('Site / store', `<select id="auSite" class="pc-in" onchange="_auShowBook()">${_invSiteOptions()}</select>`, { wide:true }),
+        pcField('Site / store', _invStoreField('auSite', `<select id="auSite" class="pc-in" onchange="_auShowBook()">${_invSiteOptions()}</select>`), { wide:true }),
         pcField('Material', `<select id="auMat" class="pc-in" onchange="syncUnitPicker('auMat','auQtyUnit');_auShowBook()">${_matOptions()}</select>`, { wide:true }),
         pcField('Physical count', `<input id="auActual" type="number" inputmode="decimal" class="pc-in" placeholder="0">`),
         pcField('Unit', `<select id="auQtyUnit" class="pc-in"></select>`),
