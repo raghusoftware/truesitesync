@@ -353,7 +353,7 @@ const PROJECT_TILES = [
   { icon: '📝', label: 'Daily Progress', view: 'executionView' },
   { icon: '👷', label: 'Attendance', view: 'labourView' },
   // Piece-rate labour groups / petty contractors: work orders on BOQ items, labour bills, BOQ labour cost (pieceRate.js).
-  { icon: '📏', label: 'Labour Contracts', view: 'labourView', run: () => { go('labourView'); window._openLabourSection?.('piecerate'); } },
+  { icon: '📏', label: 'Sub Contractor', view: 'labourView', run: () => { go('labourView'); window._openLabourSection?.('piecerate'); } },
   // Inside a project the project's own store is used — no store picker (see ui.js _invLockedStore).
   { icon: '📦', label: 'Manage Materials', view: 'inventoryView', run: () => { window._invOpenFrom?.('project'); go('inventoryView'); } },
   { icon: '🚜', label: 'Equipment Usage', view: 'equipmentView' },
@@ -475,7 +475,7 @@ export function onView(viewId) {
 // Each module opens its sections in place; the app bar shows the section name
 // and Back closes the section before leaving the module.
 const SECTIONS = {
-  labourView: { grid: 'labHomeWrap', fn: '_openLabourSection', titles: { markAtt: 'Mark Attendance', sheet: 'Monthly Attendance', master: 'All Labour', contractors: 'Contractors / Gangs', piecerate: 'Labour Contracts' } },
+  labourView: { grid: 'labHomeWrap', fn: '_openLabourSection', titles: { markAtt: 'Mark Attendance', sheet: 'Monthly Attendance', master: 'All Labour', contractors: 'Contractors / Gangs', piecerate: 'Sub Contractor' } },
   inventoryView: { grid: 'invTiles', fn: '_openInvSection', titles: { stock: 'Current Inventory', stores: 'Central Store', grn: 'Material Received', grnregister: 'GRN Register', gang: 'Material Issue', tools: 'Tools', transfer: 'Material Transfer', audit: 'Physical Audit', statement: 'Stock Register' } },
   equipmentView: { grid: 'eqTiles', fn: '_openEquipSection', titles: { fleet: 'Equipment List', log: 'Usage Entry', activity: 'Usage History', fuel: 'Fuel' } },
 };

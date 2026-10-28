@@ -561,7 +561,7 @@ window._exDprForm = function (id) {
         <div style="font-weight:800;font-size:13px;color:#7a1f14;">📐 Measurement — Work Done Today</div>
         <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#ffeede;color:#7a1f14;border:1px solid #fdd9be;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. Pick who did it under <b>Done by</b> to bill a piece-rate labour group. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. Pick who did it under <b>Done by</b> to bill a sub contractor at piece rates. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
       <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-meas-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
         <th style="padding:3px;">Location</th><th style="padding:3px;">BOQ item</th><th style="padding:3px;">Nos</th><th style="padding:3px;">L</th><th style="padding:3px;">B</th><th style="padding:3px;">H</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;">Done by</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprMeasBody">${measRows}</tbody></table></div>

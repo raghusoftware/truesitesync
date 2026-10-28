@@ -29,7 +29,7 @@ const proj = () => (state.projects || []).find(p => p.id === pid()) || {};
 const arr = k => (state[k] || (state[k] = []));
 const mine = k => arr(k).filter(x => x.projectId === pid());
 const gangs = () => (state.labourContractors || []).filter(c => !c.projectId || c.projectId === pid());
-const gangName = id => (state.labourContractors || []).find(g => g.id === id)?.name || 'Labour group';
+const gangName = id => (state.labourContractors || []).find(g => g.id === id)?.name || 'Sub contractor';
 const payDay = () => (state.cashFlowSettings?.labourPayDay != null ? N(state.cashFlowSettings.labourPayDay) : 6);
 const who = () => { try { const u = window.getCurrentUser?.(); return u?.name || u?.email || 'Engineer'; } catch { return 'Engineer'; } };
 
@@ -67,7 +67,7 @@ function _ordersView() {
   const groups = {};
   rs.forEach(r => { (groups[r.gangId || ''] = groups[r.gangId || ''] || []).push(r); });
   const card = (gid, list) => `<section class="prw-card">
-    <header><div><b>${gid ? esc(gangName(gid)) : 'Any group (general rates)'}</b><small>${[...new Set(list.map(r => r.woNo).filter(Boolean))].join(', ') || 'Rate card'}</small></div>
+    <header><div><b>${gid ? esc(gangName(gid)) : 'Any sub contractor (general rates)'}</b><small>${[...new Set(list.map(r => r.woNo).filter(Boolean))].join(', ') || 'Rate card'}</small></div>
       ${gid ? `<button type="button" class="prw-btn sm" onclick="window._prWoForm('${gid}')">+ Item</button>` : ''}</header>
     <div class="prw-rows">${list.map(r => {
       const code = r.boqCode || r.itemCode || '', done = doneBy[r.id] || 0;
@@ -78,18 +78,18 @@ function _ordersView() {
       </div>`;
     }).join('')}</div></section>`;
   const order = Object.keys(groups).sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || gangName(a).localeCompare(gangName(b)));
-  return `<div class="prw-bar"><p>Give a labour group BOQ items at an agreed rate. Work they do is then tagged in the Daily Progress Report.</p>
+  return `<div class="prw-bar"><p>Give a sub contractor BOQ items at an agreed rate. Work they do is then tagged in the Daily Progress Report.</p>
       <button type="button" class="prw-btn" onclick="window._prWoForm()">+ New work order</button></div>
-    ${order.map(g => card(g, groups[g])).join('') || `<div class="prw-empty"><b>No work orders yet</b><span>Create one: pick a labour group, pull items from the BOQ, set the rate per unit.</span></div>`}`;
+    ${order.map(g => card(g, groups[g])).join('') || `<div class="prw-empty"><b>No work orders yet</b><span>Create one: pick a sub contractor, pull items from the BOQ, set the rate per unit.</span></div>`}`;
 }
 
 window._prWoForm = function (gangId) {
   const boq = boqItems();
   if (!boq.length) { showToast('This project has no BOQ items yet — add the BOQ first', 'error'); return; }
   const gs = gangs();
-  const gangSel = `<select id="prwGang" style="${FS_INPUT}"><option value="">— Select labour group —</option>${gs.map(g => `<option value="${g.id}" ${g.id === gangId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>`;
+  const gangSel = `<select id="prwGang" style="${FS_INPUT}"><option value="">— Select sub contractor —</option>${gs.map(g => `<option value="${g.id}" ${g.id === gangId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>`;
   openFormModal('Labour work order', `
-    <div><label style="${FS_LABEL}">Labour group / petty contractor <span style="color:#dc2626">*</span></label>
+    <div><label style="${FS_LABEL}">Sub contractor <span style="color:#dc2626">*</span></label>
       <div style="display:flex;gap:8px;">${gangSel}<button type="button" class="prw-btn ghost" onclick="window._prQuickGang()">+ New</button></div></div>
     <div><label style="${FS_LABEL}">BOQ items and agreed labour rates</label>
       <div id="prwLines">${_woLine(boq)}</div>
@@ -116,7 +116,7 @@ window._prWoPick = function (sel) {
   const b = line.querySelector('.wl-budget'); if (b && !b.value && o?.dataset.budget) b.value = o.dataset.budget;
 };
 window._prQuickGang = function () {
-  const name = prompt('Labour group / petty contractor name:'); if (!name || !name.trim()) return;
+  const name = prompt('Sub contractor name:'); if (!name || !name.trim()) return;
   const phone = prompt('Phone (optional):') || '';
   const g = { id: 'ctr_' + Date.now(), name: name.trim(), phone: phone.trim(), projectId: pid() };
   arr('labourContractors').push(g); saveAllData();
@@ -125,7 +125,7 @@ window._prQuickGang = function () {
 };
 window._prWoSave = function () {
   const gangId = document.getElementById('prwGang')?.value;
-  if (!gangId) { showToast('Pick the labour group', 'error'); return; }
+  if (!gangId) { showToast('Pick the sub contractor', 'error'); return; }
   const lines = [...document.querySelectorAll('#prwLines .prw-line')].map(l => {
     const sel = l.querySelector('.wl-boq'), o = sel.selectedOptions[0];
     return { code: sel.value, desc: (o?.textContent || '').split(' — ').slice(1).join(' — ').replace(/ \([^)]*\)$/, ''), uom: o?.dataset.uom || '', rate: N(l.querySelector('.wl-rate').value), scope: N(l.querySelector('.wl-scope').value), budget: l.querySelector('.wl-budget').value };
@@ -169,22 +169,22 @@ function _logsView() {
     const r = rById[m.rateId];
     return `<div class="prw-row">
       <div class="prw-main"><b>${esc(gangName(m.gangId))}</b> · ${esc(m.boqCode || r?.boqCode || '')} ${esc(r?.workCategory || '')}
-        <small>${m.src === 'dpr' ? `From ${esc(dprNo(m.dprId))}` : 'Entered here'}${m.location ? ' · ' + esc(m.location) : ''}${r ? '' : ' · <em class="warn">no rate for this group — add a work order</em>'}</small></div>
+        <small>${m.src === 'dpr' ? `From ${esc(dprNo(m.dprId))}` : 'Entered here'}${m.location ? ' · ' + esc(m.location) : ''}${r ? '' : ' · <em class="warn">no rate for this sub contractor — add a work order</em>'}</small></div>
       <div class="prw-num"><b>${qtyF(m.quantity)} ${esc(r?.uom || '')}</b><small>${r ? money(N(m.quantity) * N(r.rate)) : '—'}</small></div>
       <span class="prw-chip ${m.billId ? 'ok' : m.paid ? 'ok' : ''}">${m.billId ? esc(billNo(m.billId)) : m.paid ? 'Paid' : 'Unbilled'}</span>
       ${!m.billId && !m.paid && m.src !== 'dpr' ? `<button type="button" class="prw-icon" aria-label="Delete" onclick="window._prDelLog('${m.id}')">✕</button>` : ''}
     </div>`;
   }).join('')}</div>`).join('');
-  return `<div class="prw-bar"><p>Every row of work a labour group did. Most come from the Daily Progress Report ("Done by" on each measurement row).</p>
+  return `<div class="prw-bar"><p>Every row of work a sub contractor did. Most come from the Daily Progress Report ("Done by" on each measurement row).</p>
       <button type="button" class="prw-btn" onclick="window._prLogForm()">+ Log work</button></div>
     ${rows || `<div class="prw-empty"><b>No work logged yet</b><span>In the DPR, pick who did each measurement row — it appears here, ready to bill.</span></div>`}`;
 }
 window._prLogForm = function () {
-  const gs = gangs(); if (!gs.length) { showToast('Add a labour group first (Work Orders → New work order)', 'error'); return; }
+  const gs = gangs(); if (!gs.length) { showToast('Add a sub contractor first (Work Orders → New work order)', 'error'); return; }
   const boq = boqItems();
   openFormModal('Log piece-rate work', `
     <div><label style="${FS_LABEL}">Date</label><input id="prlDate" type="date" value="${today()}" style="${FS_INPUT}"></div>
-    <div><label style="${FS_LABEL}">Done by <span style="color:#dc2626">*</span></label><select id="prlGang" style="${FS_INPUT}"><option value="">— Labour group —</option>${gs.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select></div>
+    <div><label style="${FS_LABEL}">Done by <span style="color:#dc2626">*</span></label><select id="prlGang" style="${FS_INPUT}"><option value="">— Sub contractor —</option>${gs.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select></div>
     <div style="grid-column:1/-1"><label style="${FS_LABEL}">BOQ item <span style="color:#dc2626">*</span></label><select id="prlBoq" style="${FS_INPUT}"><option value="">— BOQ item —</option>${boq.map(b => `<option value="${esc(b.code)}">${esc(b.code)} — ${esc(b.description)} (${esc(b.uom)})</option>`).join('')}</select></div>
     <div><label style="${FS_LABEL}">Quantity <span style="color:#dc2626">*</span></label><input id="prlQty" type="number" inputmode="decimal" min="0" step="any" style="${FS_INPUT}"></div>
     <div><label style="${FS_LABEL}">Location</label><input id="prlLoc" placeholder="e.g. 2nd floor, Flat 203" style="${FS_INPUT}"></div>`,
@@ -193,7 +193,7 @@ window._prLogForm = function () {
 window._prLogSave = function () {
   const v = id => (document.getElementById(id)?.value || '').trim();
   const gangId = v('prlGang'), boqCode = v('prlBoq'), quantity = N(v('prlQty'));
-  if (!gangId || !boqCode || !(quantity > 0)) { showToast('Pick the group, the BOQ item and a quantity', 'error'); return; }
+  if (!gangId || !boqCode || !(quantity > 0)) { showToast('Pick the sub contractor, the BOQ item and a quantity', 'error'); return; }
   const r = rateFor(rates(), gangId, boqCode);
   arr('workMeasurements').push(window.stampCreate({ id: 'meas_' + Date.now(), date: v('prlDate') || today(), gangId, boqCode, rateId: r?.id || '', quantity, location: v('prlLoc'), src: 'manual', approved: false, projectId: pid() }));
   saveAllData(); closeFormModal();
@@ -221,7 +221,7 @@ window.prSyncDprLogs = function (dprId, date, rows) {
     r.labourLogId = m.id; keep.add(m.id);
   });
   keepOnly('workMeasurements', x => !(x.dprId === dprId && x.src === 'dpr' && !x.billId && !keep.has(x.id)));
-  if (unpriced) showToast(`${unpriced} row${unpriced === 1 ? '' : 's'} tagged to a group with no rate for that item — add it to a work order to bill`, 'warning');
+  if (unpriced) showToast(`${unpriced} row${unpriced === 1 ? '' : 's'} tagged to a sub contractor with no rate for that item — add it to a work order to bill`, 'warning');
   if (locked) showToast(`${locked} row${locked === 1 ? ' is' : 's are'} already on a labour bill — the bill keeps the original quantity`, 'warning');
 };
 /** Options for the DPR "Done by" picker. */
@@ -240,7 +240,7 @@ function _billsView() {
     const s = settled[b.id];
     return s?.state === 'paid' ? '<span class="prw-chip ok">Paid</span>' : s?.state === 'part' ? `<span class="prw-chip warn">Part paid · ${money(s.open)} due</span>` : `<span class="prw-chip warn">Approved · due ${esc(b.dueDate || '')}</span>`;
   };
-  return `<div class="prw-bar"><p>Turn a group's logged work into a bill. Approved bills show in Cash Forecast; paying from Payments or Petty Cash settles them.</p>
+  return `<div class="prw-bar"><p>Turn a sub contractor's logged work into a bill. Approved bills show in Cash Forecast; paying from Payments or Petty Cash settles them.</p>
       <button type="button" class="prw-btn" onclick="window._prBillForm()">+ Generate bill</button></div>
     ${ready.length ? `<div class="prw-ready">${ready.map(([g, v]) => `<button type="button" onclick="window._prBillForm('${g}')"><b>${esc(gangName(g))}</b><span>${money(v)} unbilled work</span></button>`).join('')}</div>` : ''}
     ${bills.map(b => `<section class="prw-card bill">
@@ -250,14 +250,14 @@ function _billsView() {
         ${b.status === 'approved' && settled[b.id]?.open > 0 ? `<button type="button" class="prw-btn sm" onclick="window._prBillPay('${b.id}')">Pay ${money(settled[b.id].open)}</button>` : ''}
         <button type="button" class="prw-btn sm ghost" onclick="window._prBillPdf('${b.id}')">PDF</button>
         ${b.status !== 'cancelled' && !(settled[b.id]?.paid > 0) ? `<button type="button" class="prw-btn sm ghost" onclick="window._prBillCancel('${b.id}')">Cancel</button>` : ''}
-      </span></div></section>`).join('') || `<div class="prw-empty"><b>No labour bills yet</b><span>Generate one from a group's logged work.</span></div>`}`;
+      </span></div></section>`).join('') || `<div class="prw-empty"><b>No labour bills yet</b><span>Generate one from a sub contractor's logged work.</span></div>`}`;
 }
 window._prBillForm = function (gangId) {
-  const gs = gangs(); if (!gs.length) { showToast('No labour groups yet', 'error'); return; }
+  const gs = gangs(); if (!gs.length) { showToast('No sub contractors yet', 'error'); return; }
   const last = gid => mine('labourBills').filter(b => b.gangId === gid && b.status !== 'cancelled').map(b => b.to).sort().pop();
   const from = gangId && last(gangId) ? addDays(last(gangId), 1) : addDays(today(), -6);
   openFormModal('Generate labour bill', `
-    <div style="grid-column:1/-1"><label style="${FS_LABEL}">Labour group</label><select id="prbGang" style="${FS_INPUT}" onchange="window._prBillPreview()">${gs.map(g => `<option value="${g.id}" ${g.id === gangId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
+    <div style="grid-column:1/-1"><label style="${FS_LABEL}">Sub contractor</label><select id="prbGang" style="${FS_INPUT}" onchange="window._prBillPreview()">${gs.map(g => `<option value="${g.id}" ${g.id === gangId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
     <div><label style="${FS_LABEL}">From</label><input id="prbFrom" type="date" value="${from}" style="${FS_INPUT}" onchange="window._prBillPreview()"></div>
     <div><label style="${FS_LABEL}">To</label><input id="prbTo" type="date" value="${today()}" style="${FS_INPUT}" onchange="window._prBillPreview()"></div>
     <div id="prbPreview" style="grid-column:1/-1"></div>`,
@@ -276,9 +276,9 @@ window._prBillPreview = function () {
   box.innerHTML = d.lines.length ? `<table class="prw-table"><thead><tr><th>BOQ item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>
       ${d.lines.map(l => `<tr><td><b>${esc(l.boqCode)}</b> ${esc(l.description)}<small>${l.logIds.length} log${l.logIds.length === 1 ? '' : 's'}</small></td><td>${qtyF(l.qty)} ${esc(l.uom)}</td><td>${money(l.rate)}</td><td><b>${money(l.amount)}</b></td></tr>`).join('')}
       </tbody><tfoot><tr><td colspan="3">Bill total</td><td><b>${money(gross)}</b></td></tr></tfoot></table>
-      ${d.unpriced.length ? `<p class="prw-hint warn">${d.unpriced.length} log${d.unpriced.length === 1 ? ' has' : 's have'} no rate for this group and ${d.unpriced.length === 1 ? 'is' : 'are'} left out — add the item to a work order.</p>` : ''}
+      ${d.unpriced.length ? `<p class="prw-hint warn">${d.unpriced.length} log${d.unpriced.length === 1 ? ' has' : 's have'} no rate for this sub contractor and ${d.unpriced.length === 1 ? 'is' : 'are'} left out — add the item to a work order.</p>` : ''}
       <p class="prw-hint">Approving makes it payable on ${esc(nextPayDay(today(), payDay()))} (your labour pay day) and locks these logs. <button type="button" class="prw-link" onclick="window._prBillSave(true)">Save as draft instead</button></p>`
-    : `<div class="prw-empty"><b>Nothing to bill</b><span>No unbilled, priced work for this group in these dates.</span></div>`;
+    : `<div class="prw-empty"><b>Nothing to bill</b><span>No unbilled, priced work for this sub contractor in these dates.</span></div>`;
 };
 window._prBillSave = function (asDraft) {
   const d = _billDraft();
@@ -335,13 +335,13 @@ function _reportView() {
       <div><span>${t.variance >= 0 ? 'Labour saving' : 'Labour overrun'}</span><b class="${vcls(t.variance)}">${money(Math.abs(t.variance))}</b><small>budget − cost, budgeted items</small></div>
     </div>
     <div class="prw-scroll"><table class="prw-table rep"><thead><tr>
-      <th>BOQ item</th><th>BOQ qty</th><th>Labour budget</th><th>Done</th><th>Labour groups</th><th>Labour cost</th><th>Paid</th><th>Variance</th></tr></thead><tbody>
+      <th>BOQ item</th><th>BOQ qty</th><th>Labour budget</th><th>Done</th><th>Sub contractors</th><th>Labour cost</th><th>Paid</th><th>Variance</th></tr></thead><tbody>
       ${rows.map(r => `<tr>
         <td class="rep-item"><b>${esc(r.code)}</b> ${esc(r.description)}<small>BOQ value ${money(r.boqValue)}</small></td>
         <td data-l="BOQ qty">${qtyF(r.boqQty)} ${esc(r.uom)}</td>
         <td data-l="Labour budget"><label class="prw-bud">${getCurrencySymbol()}<input type="number" inputmode="decimal" min="0" step="any" value="${r.budgetRate || ''}" placeholder="—" aria-label="Labour budget per ${esc(r.uom)} for ${esc(r.code)}" onchange="window._prSetBudget('${esc(r.code)}', this.value)">/${esc(r.uom)}</label><small>${r.budget != null ? money(r.budget) + ' total' : 'set a rate'}</small></td>
         <td data-l="Done">${qtyF(r.done)} ${esc(r.uom)}<small>${r.pctDone != null ? r.pctDone + '% of BOQ' : ''}${r.untagged ? ` · ${qtyF(r.untagged)} measured, no group` : ''}</small></td>
-        <td data-l="Labour groups">${r.gangs.map(g => `<div class="prw-g">${esc(g.name)} <small>${qtyF(g.qty)} @ ${money(g.rate)}</small></div>`).join('') || '<small>—</small>'}</td>
+        <td data-l="Sub contractors">${r.gangs.map(g => `<div class="prw-g">${esc(g.name)} <small>${qtyF(g.qty)} @ ${money(g.rate)}</small></div>`).join('') || '<small>—</small>'}</td>
         <td data-l="Labour cost"><b>${money(r.cost)}</b>${r.avgRate ? `<small>${money(r.avgRate)} / ${esc(r.uom)}</small>` : ''}</td>
         <td data-l="Paid">${money(r.paid)}${r.billed > r.paid ? `<small>${money(r.billed - r.paid)} due</small>` : ''}</td>
         <td data-l="Variance" class="${vcls(r.variance)}">${r.variance == null ? '<small>no budget</small>' : `<b>${r.variance < 0 ? '−' : '+'}${money(Math.abs(r.variance))}</b><small>${r.variance < 0 ? 'loss' : 'profit'}</small>`}</td>
@@ -371,7 +371,7 @@ window._prReportPdf = function () {
     doc.text(`Project: ${proj().name || '—'}    As on: ${today()}    Labour cost ${m(t.cost)} · Paid ${m(t.paid)} · Budget for work done ${m(t.budgetDone)} · Variance ${m(t.variance)}`, ml, y); y += 4;
     doc.autoTable({
       startY: y + 2, theme: 'grid', margin: { left: ml, right: ml },
-      head: [['BOQ item', 'BOQ qty', 'BOQ value', 'Labour budget', 'Done', 'Labour groups', 'Labour cost', 'Paid', 'Variance']],
+      head: [['BOQ item', 'BOQ qty', 'BOQ value', 'Labour budget', 'Done', 'Sub contractors', 'Labour cost', 'Paid', 'Variance']],
       body: rows.map(r => [`${r.code} ${r.description}`, `${qtyF(r.boqQty)} ${r.uom}`, m(r.boqValue), r.budget != null ? `${m(r.budget)}\n@ ${m(r.budgetRate)}/${r.uom}` : '—',
         `${qtyF(r.done)} ${r.uom}${r.pctDone != null ? `\n${r.pctDone}%` : ''}`, r.gangs.map(g => `${g.name}: ${qtyF(g.qty)} @ ${m(g.rate)}`).join('\n') || '—',
         m(r.cost), m(r.paid), r.variance == null ? 'no budget' : (r.variance < 0 ? 'Loss ' : 'Profit ') + m(Math.abs(r.variance))]),
@@ -401,7 +401,7 @@ window._prBillPdf = function (id) {
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('LABOUR BILL (PIECE-RATE)', pw / 2, y + 6, { align: 'center' });
     y += 14; doc.setTextColor(0); doc.setFontSize(9);
-    [[`Bill No: ${b.billNo}`, `Date: ${b.date}`], [`Labour group: ${gangName(b.gangId)}`, `Period: ${b.from} to ${b.to}`], [`Project: ${proj().name || '—'}`, `Status: ${b.status === 'approved' ? (s?.state === 'paid' ? 'Paid' : 'Approved') : b.status}`]]
+    [[`Bill No: ${b.billNo}`, `Date: ${b.date}`], [`Sub contractor: ${gangName(b.gangId)}`, `Period: ${b.from} to ${b.to}`], [`Project: ${proj().name || '—'}`, `Status: ${b.status === 'approved' ? (s?.state === 'paid' ? 'Paid' : 'Approved') : b.status}`]]
       .forEach(([l, r]) => { doc.text(l, ml, y); doc.text(r, pw - ml, y, { align: 'right' }); y += 5; });
     doc.autoTable({
       startY: y + 2, theme: 'grid', margin: { left: ml, right: ml },
@@ -414,7 +414,7 @@ window._prBillPdf = function (id) {
     });
     y = doc.lastAutoTable.finalY + 18;
     doc.setFontSize(8.5); doc.line(ml, y, ml + 60, y); doc.line(pw - ml - 60, y, pw - ml, y);
-    doc.text(`Approved by${b.approvedBy ? ': ' + b.approvedBy : ''}`, ml, y + 4); doc.text('Received by (labour group)', pw - ml - 60, y + 4);
+    doc.text(`Approved by${b.approvedBy ? ': ' + b.approvedBy : ''}`, ml, y + 4); doc.text('Received by (sub contractor)', pw - ml - 60, y + 4);
     mobileSavePDF(doc, `${b.billNo}-${gangName(b.gangId).replace(/[\\/]/g, '-')}.pdf`);
   } catch (e) { console.error('Labour bill PDF failed:', e); showToast('PDF error: ' + (e.message || e), 'error'); }
 };
