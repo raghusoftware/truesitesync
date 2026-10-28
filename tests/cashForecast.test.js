@@ -39,6 +39,9 @@ const S = () => ({
   ],
   vendorPayments: [{ vendorId: 'v1', amount: 10000 }],
   subcontracts: [{ id: 'sc1', name: 'Ravi Shuttering' }],
+  labourContractors: [{ id: 'gA', name: 'Group A' }],
+  labourBills: [{ id: 'lb1', billNo: 'LB-001', gangId: 'gA', date: '2026-11-03', status: 'approved', gross: 10000 }, { id: 'lb2', billNo: 'LB-002', gangId: 'gA', date: '2026-11-03', status: 'draft', gross: 800 }],
+  expenses: [{ gangId: 'gA', category: 'Piece-Rate Gang Payout', amount: 4000 }],
   subPayments: [{ id: 'sp1', subcontractId: 'sc1', no: 'SPC-2', net: 75000, date: '2026-10-31', paid: false }, { id: 'sp2', subcontractId: 'sc1', no: 'SPC-1', net: 50000, date: '2026-10-01', paid: true }],
 });
 
@@ -53,6 +56,7 @@ test('forecastItems: formal documents only, dated by terms, net of payments', ()
   assert.equal(by('bill:b3').date, '2026-11-07');                                                 // weekly supplier → Saturday
   assert.equal(by('bill:b4'), undefined);
   assert.deepEqual([by('sub:sp1').amount, by('sub:sp1').date, by('sub:sp2')], [75000, '2026-11-30', undefined]);
+  assert.deepEqual([by('lbill:lb1').amount, by('lbill:lb1').date, by('lbill:lb1').party, by('lbill:lb2')], [6000, '2026-11-07', 'Group A', undefined]);   // approved, part-paid, due Saturday
   // the owner delays a bill
   const moved = forecastItems(S(), { today: TODAY, weeklyPayroll: 0, payOn: { 'bill:b1': '2026-11-20' } });
   assert.deepEqual([moved.find(e => e.key === 'bill:b1').date, moved.find(e => e.key === 'bill:b1').moved], ['2026-11-20', '2026-11-20']);
@@ -81,13 +85,13 @@ test('bucketize: 7- and 30-day buckets, cash rolls forward, first shortfall', ()
   const w = bucketize(items, { today: TODAY, ...VIEWS['4w'], openingCash: 150000 });
   assert.deepEqual(w.map(b => b.name), ['Week 1', 'Week 2', 'Week 3', 'Week 4']);
   assert.equal(w[0].range, '2 Nov – 8 Nov');
-  assert.deepEqual(w.map(b => [b.in, b.out]), [[0, 209500], [837000, 50000], [70000, 0], [0, 0]]);
-  assert.deepEqual(w.map(b => b.endCash), [-59500, 727500, 797500, 797500]);
+  assert.deepEqual(w.map(b => [b.in, b.out]), [[0, 215500], [837000, 50000], [70000, 0], [0, 0]]);
+  assert.deepEqual(w.map(b => b.endCash), [-65500, 721500, 791500, 791500]);
   assert.equal(w[1].startCash, w[0].endCash);
   const s = forecastSummary(w);
-  assert.equal(s.shortfall.name, 'Week 1'); assert.equal(s.lowest, -59500);
+  assert.equal(s.shortfall.name, 'Week 1'); assert.equal(s.lowest, -65500);
   const m = bucketize(items, { today: TODAY, ...VIEWS['3m'], openingCash: 0 });
   assert.deepEqual(m.map(b => b.name), ['Next 30 days', 'Days 31–60', 'Days 61–90']);
-  assert.equal(m[0].out, 334500); assert.equal(m[0].outItems.length, 4);
+  assert.equal(m[0].out, 340500); assert.equal(m[0].outItems.length, 5);
   assert.equal(forecastSummary(bucketize([], { today: TODAY, ...VIEWS.week, openingCash: 10 })).shortfall, null);
 });

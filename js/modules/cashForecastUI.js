@@ -16,13 +16,13 @@
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { getCurrencySymbol } from './utils.js';
-import { forecastItems, bucketize, forecastSummary, wageRunRate, addDays, shortDate, VIEWS } from './cashForecast.js?v=2.0.0';
+import { forecastItems, bucketize, forecastSummary, wageRunRate, addDays, shortDate, VIEWS } from './cashForecast.js?v=2.0.1';
 
 const N = v => parseFloat(v) || 0;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = v => (N(v) < 0 ? '−' : '') + getCurrencySymbol() + Math.round(Math.abs(N(v))).toLocaleString('en-IN');
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SRC = { sale: 'Sale invoice', ra: 'RA bill', bill: 'Purchase bill', subcon: 'Subcontractor', payroll: 'Payroll' };
+const SRC = { sale: 'Sale invoice', ra: 'RA bill', bill: 'Purchase bill', subcon: 'Subcontractor', labour: 'Labour bill', payroll: 'Payroll' };
 let _drill = null;     // { key: bucket start, dir: 'in'|'out' } — the open sheet
 let _last = null;      // last computed buckets (the sheet reads from them)
 
@@ -94,10 +94,10 @@ export function renderWorkingCF(ctx) {
     ${banner}
     <div class="xcf-timeline n${buckets.length}">${cards}</div>
     <details class="xcf-set">
-      <summary>How this is worked out <small>approved invoices, bills, subcontractor certificates and payroll — nothing else</small></summary>
+      <summary>How this is worked out <small>approved invoices, bills, subcontractor certificates, labour bills and payroll — nothing else</small></summary>
       <ul class="xcf-how">
         <li><b class="in">Inflow</b> — unpaid sale invoices and RA bills (net of retention &amp; TDS), due on the client's payment terms.</li>
-        <li><b class="out">Outflow</b> — unpaid purchase bills on the supplier's terms, unpaid subcontractor certificates, and payroll on pay day (wages earned + the weekly run-rate).</li>
+        <li><b class="out">Outflow</b> — unpaid purchase bills on the supplier's terms, unpaid subcontractor certificates, approved piece-rate labour bills, and payroll on pay day (wages earned + the weekly run-rate).</li>
         <li>Drafts and cancelled documents are ignored. Every receipt or payment you record clears the oldest open document of that party at once. Anything overdue counts today.</li>
       </ul>
       <div class="xcf-form">
@@ -117,7 +117,7 @@ function _sheetHTML() {
   const isIn = _drill.dir === 'in', list = isIn ? b.inItems : b.outItems, total = isIn ? b.in : b.out;
   const s = cfg();
   const row = e => {
-    const canDelay = !isIn && (e.src === 'bill' || e.src === 'subcon');
+    const canDelay = !isIn && (e.src === 'bill' || e.src === 'subcon' || e.src === 'labour');
     const late = e.overdue || (e.src === 'payroll' && e.detail.overdue > 0);
     const tag = late ? '<em class="od">Overdue</em>' : e.moved ? '<em class="mv">Delayed</em>' : '';
     const pay = e.src === 'payroll' && e.detail;

@@ -8,6 +8,7 @@
  *              due = invoice due date, else invoice date + client terms
  *   MONEY OUT  purchase bills ........ due date, else vendor terms (bill or GRN date, or weekly)
  *              subcontractor certificates (unpaid SPCs) .. certificate date + default terms
+ *              labour bills (piece-rate, approved) ....... due date (the pay day after approval)
  *              payroll ............... one total per pay day: wages earned and still unpaid
  *                                      (attendance, cleared by wage payments) + the weekly
  *                                      run-rate for days not yet worked
@@ -22,6 +23,8 @@
  *   bucketize(items, o)            → 7-day or 30-day buckets: start · in · out · end
  *   forecastSummary(buckets)       → lowest point + first shortfall
  */
+
+import { billSettlement } from './pieceRateCalc.js?v=1.0.0';
 
 const N = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
 const r2 = (v) => Math.round(N(v) * 100) / 100;
@@ -82,7 +85,7 @@ export function wageRunRate(S, today) {
  * @param {object} S  app state
  * @param {{ today:string, defaultTermsDays?:number, payDay?:number, weeklyPayroll?:number|'',
  *           payOn?:Object<string,string>, settled?:(p)=>number }} o
- * @returns {Array<{ key, dir:'in'|'out', src:'sale'|'ra'|'bill'|'subcon'|'payroll', party, ref,
+ * @returns {Array<{ key, dir:'in'|'out', src:'sale'|'ra'|'bill'|'subcon'|'labour'|'payroll', party, ref,
  *                   docDate, due, date, amount, overdue, moved, detail? }>}
  */
 export function forecastItems(S, o) {
@@ -138,6 +141,12 @@ export function forecastItems(S, o) {
     add({ key: 'sub:' + p.id, dir: 'out', src: 'subcon', party: sc.name || 'Subcontractor', ref: p.no || 'Certificate',
       docDate: p.date, due: dueDate(p.date, defDays), amount: N(p.net) });
   });
+
+  // ── MONEY OUT: approved piece-rate labour bills, less what the gang has been paid ──
+  billSettlement(S.labourBills || [], S).forEach(b => add({
+    key: 'lbill:' + b.id, dir: 'out', src: 'labour', party: byId(S.labourContractors, b.gangId).name || 'Labour group',
+    ref: b.billNo || 'Labour bill', docDate: b.date, due: b.dueDate || nextPayDay(b.date, payDay), amount: b.open,
+  }));
 
   // ── MONEY OUT: payroll, one total per pay day ──
   const rate = {}; (S.labourMaster || []).forEach(l => { rate[l.id] = N(l.dayRate); });

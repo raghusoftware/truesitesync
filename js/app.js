@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.52';
+} from './modules/ui.js?v=1.7.53';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.75';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.8.0';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.29';
@@ -71,7 +71,7 @@ import { renderPettyCash } from './modules/pettyCash.js?v=1.1.0';
 import { renderNotifications } from './modules/notifications.js?v=1.0.5';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.120';
+import { renderExecution } from './modules/execution.js?v=1.6.121';
 import './modules/chat.js?v=1.1.1';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.41';
@@ -81,15 +81,16 @@ import './modules/onboarding.js?v=1.0.2';
 import './modules/payApplication.js?v=1.0.1';
 import './modules/businessMode.js';
 import './modules/bizHome.js?v=1.0.0';
-import './modules/labourHome.js?v=1.0.2';
+import './modules/labourHome.js?v=1.0.3';
 import './modules/calcTools.js?v=1.0.1';
 import './modules/appShell.js?v=1.0.15';
 import './modules/wps.js?v=1.0.2';
 import './modules/ipc.js?v=1.0.1';
 import './modules/guarantees.js?v=1.0.3';
 import './modules/subcontractors.js?v=1.0.3';
+import './modules/pieceRate.js?v=1.0.0';
 import './modules/orgTeam.js?v=1.4.10';
-import './modules/cashFlow.js?v=1.6.59';
+import './modules/cashFlow.js?v=1.6.60';
 import './modules/recycleBin.js?v=1.6.64';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js?v=1.1.1';
 import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.3.0';

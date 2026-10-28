@@ -226,6 +226,8 @@ function _delRow(key, id, re) {
   const _r = (state[key] || []).find(x => x.id === id);
   if (_r && _r.photoPath) removeExecMedia({ path: _r.photoPath });   // clean up the Storage file
   state[key] = (state[key] || []).filter(x => x.id !== id);
+  // A deleted DPR takes its unbilled labour logs with it (billed ones stay on their bill).
+  if (key === 'dailyProgress') window.prSyncDprLogs?.(id, '', []);
   saveAllData(); showToast('Deleted'); re();
 }
 window._exDel = function (key, id) { _delRow(key, id, renderExecution); };
@@ -286,6 +288,7 @@ window._dprMeasRow = function (loc, code, d) {
     ${dim('dm-nos', d.nos, 'Nos')}${dim('dm-l', d.l, 'L')}${dim('dm-b', d.b, 'B')}${dim('dm-h', d.h, 'H')}
     <td class="dpr-half" data-l="Qty" style="padding:4px;"><input class="dm-qty" type="number" min="0" step="0.001" value="${d.qty != null && d.qty !== '' ? _esc(d.qty) : ''}" placeholder="0" style="${_DPR_INP}width:78px;text-align:right;font-weight:800;color:#1d4ed8;background:#f8fafc;"></td>
     <td class="dpr-half" data-l="Unit" style="padding:4px;"><input class="dm-uom" value="${_esc(d.uom || '')}" ${isOther ? '' : 'readonly'} style="${_DPR_INP}width:56px;background:${isOther ? '#fff' : '#f8fafc'};"></td>
+    <td class="dpr-wide" data-l="Done by — who executed this work?" style="padding:4px;"><select class="dm-gang" aria-label="Done by" style="${_DPR_INP}width:150px;">${window.prGangOptions ? window.prGangOptions(d.gangId) : '<option value="">Own labour</option>'}</select><input type="hidden" class="dm-logid" value="${_esc(d.labourLogId || '')}"></td>
     <td class="dpr-del" style="padding:4px;text-align:center;"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:16px;">✕</button></td>
   </tr>`;
 };
@@ -558,9 +561,9 @@ window._exDprForm = function (id) {
         <div style="font-weight:800;font-size:13px;color:#7a1f14;">📐 Measurement — Work Done Today</div>
         <button onclick="window._dprAddMeas()" style="font-size:11px;font-weight:700;background:#ffeede;color:#7a1f14;border:1px solid #fdd9be;border-radius:7px;padding:4px 10px;cursor:pointer;">+ Add row</button>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Measure executed work per location. Pick the BOQ item and enter Nos × L × B × H (Qty auto-calculates) — or type Qty directly. Pick who did it under <b>Done by</b> to bill a piece-rate labour group. It flows to the measurement sheet → abstract → RA bill → invoice → sales, and Cost &amp; Profit.</div>
       <div style="overflow-x:auto;"><table class="dpr-entry-table dpr-meas-table" style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;">
-        <th style="padding:3px;">Location</th><th style="padding:3px;">BOQ item</th><th style="padding:3px;">Nos</th><th style="padding:3px;">L</th><th style="padding:3px;">B</th><th style="padding:3px;">H</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;"></th></tr></thead>
+        <th style="padding:3px;">Location</th><th style="padding:3px;">BOQ item</th><th style="padding:3px;">Nos</th><th style="padding:3px;">L</th><th style="padding:3px;">B</th><th style="padding:3px;">H</th><th style="padding:3px;">Qty</th><th style="padding:3px;">Unit</th><th style="padding:3px;">Done by</th><th style="padding:3px;"></th></tr></thead>
         <tbody id="dprMeasBody">${measRows}</tbody></table></div>
     </div>
 
@@ -610,7 +613,8 @@ window._exDprSave = function (id) {
       const o = sel.selectedOptions[0];
       description = o?.dataset.desc; uom = o?.dataset.uom; rate = parseFloat(o?.dataset.rate) || 0;
     }
-    measurements.push({ location: (tr.querySelector('.dm-loc')?.value || v('dpArea') || 'General').trim() || 'General', code, description, uom, rate, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h'), isNonBoq });
+    measurements.push({ location: (tr.querySelector('.dm-loc')?.value || v('dpArea') || 'General').trim() || 'General', code, description, uom, rate, qty, nos: dv('.dm-nos'), l: dv('.dm-l'), b: dv('.dm-b'), h: dv('.dm-h'), isNonBoq,
+      gangId: dv('.dm-gang'), labourLogId: dv('.dm-logid') });
   });
   const overheads = [];
   document.querySelectorAll('#dprOhBody tr').forEach(tr => {
@@ -629,6 +633,8 @@ window._exDprSave = function (id) {
   const attendance = Array.isArray(window.__dprAtt) ? window.__dprAtt : _dprAttForDate(date);
   const equipmentUsed = Array.isArray(window.__dprEquip) ? window.__dprEquip : _dprEquipForProject();
   const data = { date, weather: v('dpWeather'), area: v('dpArea'), workDone: v('dpWork'), manpowerSkilled: _num(v('dpSkilled')), manpowerUnskilled: _num(v('dpUnskilled')), equipment: v('dpEquip'), hindrance: v('dpHindrance'), safety: v('dpSafety'), quality: v('dpQuality'), materialsReceived: v('dpMatRecv'), instructions: v('dpInstr'), taskId: v('dpTask'), boqRef: v('dpBoq'), photo: _pendingPhoto || null, photoPath: _pendingPhotoPath || null, measurements, overheads, attendance, equipmentUsed, showProgress: (document.getElementById('dpShowProgress') ? !!document.getElementById('dpShowProgress').checked : true) };
+  // "Done by" rows become piece-rate labour logs (Labour → Piece-Rate Work), linked to this DPR.
+  window.prSyncDprLogs?.(dprId, date, measurements);
   if (!state.dailyProgress) state.dailyProgress = [];
   if (id) { const r = state.dailyProgress.find(x => x.id === id); if (r) Object.assign(r, data); }
   else {
