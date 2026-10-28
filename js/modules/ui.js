@@ -1695,9 +1695,22 @@ export function openVendorModal() {
   document.getElementById('modalVenName').value = '';
   document.getElementById('modalVenContact').value = '';
   document.getElementById('modalVenGST').value = '';
-  const vt = document.getElementById('modalVenTerms'); if (vt) vt.value = '';
+  const vt = document.getElementById('modalVenTerms'); if (vt) { vt.value = ''; window._syncTermsChips?.('modalVenTerms'); }
+  const vb = document.getElementById('modalVenTermsBasis'); if (vb) vb.value = 'bill';
   document.getElementById('modalVenAddress').value = '';
 }
+
+// ── Payment-terms presets (Immediate / Net 7 … Net 60) under any credit-days box ──
+const _TERM_CHIPS = [[0, 'Immediate'], [7, 'Net 7'], [15, 'Net 15'], [30, 'Net 30'], [45, 'Net 45'], [60, 'Net 60']];
+window._termsChipsHTML = (id, cur) => _TERM_CHIPS.map(([n, l]) => `<button type="button" class="terms-chip${cur !== '' && cur != null && +cur === n ? ' on' : ''}" data-v="${n}" onclick="window._pickTerms('${id}',${n})">${l}</button>`).join('');
+window._syncTermsChips = (id) => {
+  const el = document.getElementById(id), box = document.querySelector(`.terms-chips[data-for="${id}"]`); if (!el || !box) return;
+  if (!box.children.length) box.innerHTML = window._termsChipsHTML(id, el.value);
+  box.querySelectorAll('.terms-chip').forEach(b => b.classList.toggle('on', el.value !== '' && +el.value === +b.dataset.v));
+};
+window._pickTerms = (id, n) => { const el = document.getElementById(id); if (!el) return; el.value = n; window._syncTermsChips(id); };
+document.addEventListener('input', e => { const id = e.target && e.target.id; if (id && document.querySelector(`.terms-chips[data-for="${id}"]`)) window._syncTermsChips(id); }, true);
+document.querySelectorAll('.terms-chips[data-for]').forEach(b => window._syncTermsChips(b.dataset.for));
 
 export function saveVendor() {
   const name = document.getElementById('modalVenName').value;
@@ -1710,6 +1723,7 @@ export function saveVendor() {
     gst: document.getElementById('modalVenGST').value.toUpperCase(),
     address: document.getElementById('modalVenAddress').value,
     paymentTermsDays: _vTerms,
+    termsBasis: document.getElementById('modalVenTermsBasis')?.value === 'delivery' ? 'delivery' : 'bill',
     termsHistory: _vTerms != null ? [{ date: new Date().toISOString(), from: null, to: _vTerms, reason: 'Initial terms at registration' }] : [],
     projectId: state.currentProjectId || undefined
   };

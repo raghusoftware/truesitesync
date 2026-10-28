@@ -644,8 +644,16 @@ export function savePanelPurchaseBill() {
 
   const poId = document.getElementById('plFormPO')?.value || '';
   const poNo = (state.purchaseOrders || []).find(o => o.id === poId)?.poNo || '';
+  // Projected settlement date from the vendor's terms (Net days from the bill, or from
+  // the earliest linked GRN when the vendor's terms start at delivery). Cash Flow reads it.
+  const _v = (state.vendors || []).find(v => v.id === vendorId) || {};
+  const _days = _v.paymentTermsDays != null && _v.paymentTermsDays !== '' ? +_v.paymentTermsDays : (+state.cashFlowSettings?.creditDays || 30);
+  const _grnDates = purItems.map(it => it.grnId && (state.grnRecords || []).find(g => g.id === it.grnId)?.date).filter(Boolean).sort();
+  const _basis = _v.termsBasis === 'delivery' && _grnDates.length ? _grnDates[0] : date;
+  const _due = new Date(_basis + 'T00:00:00Z'); _due.setUTCDate(_due.getUTCDate() + _days);
   const rec = {
     id: billId, vendorId, siteId, billNo, date, poId, poNo, items: purItems,
+    dueDate: isNaN(_due) ? '' : _due.toISOString().slice(0, 10), termsDays: _days,
     grossTotal: Math.round(gross * 100) / 100, totalDiscount: Math.round(discount * 100) / 100,
     taxableAmount: Math.round(taxable * 100) / 100, cgst: Math.round(cgst * 100) / 100,
     sgst: Math.round(sgst * 100) / 100, igst: Math.round(igst * 100) / 100,

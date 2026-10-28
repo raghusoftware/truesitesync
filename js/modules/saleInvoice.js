@@ -383,9 +383,27 @@ export function searchSIPO() {
 }
 
 // ── Client change handler ──
+/** New invoice: due date = invoice date + the client's payment terms (Net days), until the user edits it. */
+function _siAutoDue() {
+  const dueEl = document.getElementById('siFormDueDate'), dateEl = document.getElementById('siFormDate');
+  if (!dueEl || dueEl.dataset.manual || document.getElementById('saleInvoiceFormPanel')?.dataset.editId) return;
+  if (!dueEl.dataset.wired) {
+    dueEl.dataset.wired = '1';
+    dueEl.addEventListener('input', () => { dueEl.dataset.manual = '1'; });
+    dateEl?.addEventListener('change', _siAutoDue);
+  }
+  const client = state.clients.find(c => c.id === document.getElementById('siFormClient')?.value);
+  const days = client && client.paymentTermsDays != null && client.paymentTermsDays !== '' ? +client.paymentTermsDays : (+state.cashFlowSettings?.creditDays || 30);
+  const d = new Date((dateEl?.value || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  dueEl.value = d.toISOString().slice(0, 10);
+  dueEl.title = client && client.paymentTermsDays != null ? `${client.name}: ${days ? 'Net ' + days : 'Immediate'}` : `Default ${days} days`;
+}
+
 export function onSIClientChange() {
   const clientId = document.getElementById('siFormClient')?.value;
   const client = state.clients.find(c => c.id === clientId);
+  _siAutoDue();
   if (getTaxConfig().mode === 'gst') {
     autoTaxScope(document.getElementById('siFormDefType'), state.companyProfile?.GST, client?.gst, 'Client',
       { editing: !!document.getElementById('saleInvoiceFormPanel')?.dataset.editId });
@@ -651,7 +669,7 @@ export function openSaleInvoiceForm(editId) {
     document.getElementById('siFormDate').value = today;
     document.getElementById('siFormNo').value = nextInvoiceNumber();
     const dueEl = document.getElementById('siFormDueDate');
-    if (dueEl) { const d = new Date(); d.setDate(d.getDate() + 30); dueEl.value = d.toISOString().split('T')[0]; }
+    if (dueEl) { delete dueEl.dataset.manual; _siAutoDue(); }
     ['siFormPO','siFormPODate','siFormDelivery','siFormNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const projSel = document.getElementById('siFormProject'); if (projSel) projSel.value = '';
     const idEl = document.getElementById('siFormPOId'); if (idEl) idEl.value = '';

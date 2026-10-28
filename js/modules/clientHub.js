@@ -51,6 +51,7 @@ export function openClientModal(editId) {
   _setCf('modalClientGst', c ? c.gst : '');
   _setCf('modalClientPan', c ? c.pan : '');
   _setCf('modalClientTerms', c && c.paymentTermsDays != null ? c.paymentTermsDays : '');
+  window._syncTermsChips?.('modalClientTerms');
   _setCf('modalClientCreditLimit', c && c.creditLimit ? c.creditLimit : '');
   _setCf('modalClientAddr', c ? c.address : '');
   const t = document.getElementById('clientModalTitle'); if (t) t.textContent = c ? 'Edit Client' : 'Add Client';

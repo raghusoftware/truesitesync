@@ -361,6 +361,7 @@ export function _editParty(id, type) {
       _peField(getTerm('taxId'), 'pe_gst', rec.gst, { mono: true, ph: getTaxConfig().mode === 'gst' ? '22AAAAA0000A1Z5' : '' }),
       _peField('PAN', 'pe_pan', rec.pan, { mono: true, ph: 'ABCDE1234F' }),
       _peField('Payment Terms — Credit Days', 'pe_terms', rec.paymentTermsDays, { type: 'number', min: 0, ph: 'e.g. 30' }),
+      `<div class="terms-chips" data-for="pe_terms" style="grid-column:1/-1;margin-top:-4px">${window._termsChipsHTML ? window._termsChipsHTML('pe_terms', rec.paymentTermsDays) : ''}</div>`,
       isClient ? '' : `<div>
         <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Terms Start From</label>
         <select id="pe_termsbasis" class="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
