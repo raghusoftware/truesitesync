@@ -2054,7 +2054,7 @@ function _renderStores() {
       <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg,#FDF1ED,#FBE7DF);">
         <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-lg">🏬</div>
         <div class="flex-1 min-w-0"><h4 class="font-extrabold text-slate-800">Stores &amp; Sites</h4><p class="text-[11px] text-slate-500">${locs.length} location${locs.length === 1 ? '' : 's'}${canTx ? '' : ' · transfer locked for your role'}</p></div>
-        <div class="flex items-center gap-2">
+        <div class="st-add">
           <input id="newStoreName" placeholder="New store name…" class="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-teal-400" onkeydown="if(event.key==='Enter')_addStore()">
           <button onclick="_addStore()" class="px-3 py-2 rounded-lg text-xs font-bold text-white bg-teal-600 hover:bg-teal-700">+ Add Store</button>
         </div>
@@ -2868,7 +2868,7 @@ function _renderGrnRegister() {
       </div>
 
       <!-- Filter bar -->
-      <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
+      <div class="grn-flt px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
         <select id="grnRegFltSupplier" onchange="_grnRegSetFilter('supplier',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Suppliers</option>${(state.vendors||[]).map(v=>`<option value="${v.id}" ${_grnRegFilters.supplier===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
         <select id="grnRegFltMaterial" onchange="_grnRegSetFilter('material',this.value)" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Materials</option>${(state.rawMaterials||[]).map(r=>`<option value="${r.id}" ${_grnRegFilters.material===r.id?'selected':''}>${r.name}</option>`).join('')}</select>
         <select id="grnRegFltSite" onchange="_grnRegSetFilter('site',this.value)" title="Store / Site" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="">All Sites</option>${_invSiteOptions(_grnRegFilters.site)}</select>
@@ -2876,7 +2876,7 @@ function _renderGrnRegister() {
         <input id="grnRegFltTo" type="date" value="${_grnRegFilters.to}" onchange="_grnRegSetFilter('to',this.value)" title="To date" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
         <select id="grnRegFltBill" onchange="_grnRegSetFilter('bill',this.value)" title="Bill status" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"><option value="" ${_grnRegFilters.bill===''?'selected':''}>All bills</option><option value="billed" ${_grnRegFilters.bill==='billed'?'selected':''}>Billed</option><option value="unbilled" ${_grnRegFilters.bill==='unbilled'?'selected':''}>Unbilled</option></select>
         <button onclick="_grnRegClearFilter()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition">Clear</button>
-        <div class="flex items-center gap-2 ml-auto">
+        <div class="grn-flt-acts flex items-center gap-2 ml-auto">
           <button onclick="_grnRegExportXLSX()" class="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">⬇ Excel</button>
           <button onclick="_grnRegExportPDF()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">⬇ PDF</button>
           <button onclick="_grnRegPrint()" class="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">🖨️ Print</button>
@@ -2884,7 +2884,7 @@ function _renderGrnRegister() {
       </div>
 
       <!-- Bulk-select action bar (shown when GRNs are ticked) -->
-      <div id="grnRegSelBar" class="hide px-5 py-2.5 border-b border-rose-100 bg-rose-50 flex items-center gap-3">
+      <div id="grnRegSelBar" class="hide px-5 py-2.5 border-b border-rose-100 bg-rose-50 flex flex-wrap items-center gap-3">
         <span class="text-xs font-bold text-rose-700"><b id="grnRegSelCount">0</b> selected</span>
         <button onclick="_grnRegEditRateSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition">✏️ Edit rate</button>
         <button onclick="_grnRegDeleteSelected()" class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition">🗑 Delete selected</button>
@@ -2899,8 +2899,11 @@ function _renderGrnRegister() {
         ${active ? '<span class="text-indigo-500 font-semibold">Filtered</span>' : ''}
       </div>
 
-      <!-- Table -->
-      <div class="overflow-x-auto"><table class="w-full text-xs">
+      <!-- Phones: one card per GRN (same card kit as the Stock Register) -->
+      ${_grnRegCards(rows, cur, active)}
+
+      <!-- Table (tablet / desktop) -->
+      <div class="grn-table overflow-x-auto"><table class="w-full text-xs">
         <thead class="bg-slate-50"><tr>
           <th class="px-3 py-2.5 text-center w-8"><input type="checkbox" id="grnRegSelAll" onchange="_grnRegSelAll(this.checked)" title="Select all unbilled on this page" class="align-middle cursor-pointer"></th>
           <th class="px-3 py-2.5 text-left font-bold uppercase text-slate-500">GRN No</th>
@@ -2936,7 +2939,7 @@ function _renderGrnRegister() {
       </table></div>
 
       <!-- Pagination footer -->
-      <div class="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50/60">
+      <div class="grn-pager px-5 py-3 border-t border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50/60">
         <div class="flex items-center gap-2 text-xs text-slate-500">
           <span>Rows per page</span>
           <select id="grnRegSize" onchange="_grnRegSetSize(this.value)" class="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:border-indigo-400">
@@ -2953,6 +2956,48 @@ function _renderGrnRegister() {
       </div>
     </div>`;
   _grnRegUpdateSelBar();   // re-sync the bulk-select bar after every repaint
+}
+
+/** Phone layout of the GRN register: one card per GRN — header (tick, GRN No,
+ *  date, amount), material, a 2-column micro-grid, then the row actions. */
+function _grnRegCards(rows, cur, active) {
+  const n2 = v => Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const kv = (label, val) => `<div class="rc-kv"><span>${label}</span><b>${val}</b></div>`;
+  const cards = rows.map(g => {
+    const m = state.rawMaterials.find(r => r.id === g.matId);
+    const sup = state.vendors.find(v => v.id === g.supplierId);
+    const billed = _grnIsBilled(g);
+    const qcPending = g.qcStatus === 'Pending Inspection';
+    const short = g.expectedQty && g.qty < g.expectedQty ? ` <small class="grn-short">short ${(g.expectedQty - g.qty).toFixed(0)}</small>` : '';
+    const tick = billed ? '' : `<input type="checkbox" class="grn-sel grn-card-tick" data-id="${g.id}" ${_grnRegSel.has(g.id) ? 'checked' : ''} onchange="_grnRegToggleSel('${g.id}',this.checked)" aria-label="Select GRN ${g.grnNo || ''}">`;
+    const photo = g.challanPhoto || g.condPhoto ? `<button onclick="_grnViewPhoto('${g.id}')" class="grn-act">📷 Photo</button>` : '';
+    const acts = billed
+      ? `<span class="grn-locked">🔒 Billed — unbill to edit</span>`
+      : `<button onclick="_grnRegEdit('${g.id}')" class="grn-act">Edit</button><button onclick="_grnRegDelete('${g.id}')" class="grn-act danger">Delete</button>`;
+    return `<article class="rc-card grn-card ${billed ? 'billed' : 'unbilled'}">
+      <div class="rc-top">
+        ${tick}
+        <div class="rc-id"><b class="grn-no">${g.grnNo || '—'}</b><small>${_grnFmtDate(g.date)}<i>·</i>${billed ? '<span class="grn-pill ok">Billed</span>' : '<span class="grn-pill no">Unbilled</span>'}</small></div>
+        <div class="rc-right"><div class="rc-hero"><span>Amount</span><b>${g.amount ? cur + n2(g.amount) : '—'}</b></div></div>
+      </div>
+      <div class="grn-mat">${m?.name || g.category || '—'}</div>
+      <div class="rc-grid">
+        ${kv('Supplier', sup?.name || '—')}
+        ${kv('Challan', g.challanNo || '—')}
+        ${kv('Qty', _grnDispQty(g, m) + short)}
+        ${kv('Rate', g.amount ? cur + _grnDispRate(g, m).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '/' + _grnDispUnit(g, m) : '—')}
+      </div>
+      <div class="grn-foot">
+        ${qcPending ? `<span class="grn-qc pend">⏳ QC pending</span><button onclick="_grnApproveQc('${g.id}')" class="grn-act ok">Approve</button>` : '<span class="grn-qc">✓ QC OK</span>'}
+        <div class="grn-acts">${photo}${acts}</div>
+      </div>
+    </article>`;
+  }).join('');
+  const anyTick = rows.some(g => !_grnIsBilled(g));
+  return `<div class="rpt-cards grn-cards">
+    ${anyTick ? `<label class="grn-selall"><input type="checkbox" id="grnRegSelAllM" onchange="_grnRegSelAll(this.checked)"> Select all unbilled on this page</label>` : ''}
+    ${cards || `<div class="grn-empty">${active ? 'No GRNs match these filters.' : 'No GRNs received yet.'}</div>`}
+  </div>`;
 }
 
 window._grnRegSetFilter = function (key, val) { _grnRegFilters[key] = val || ''; _grnRegPage = 1; _renderGrnRegister(); };
@@ -3063,6 +3108,7 @@ window._grnRegDelete = function (id) { _grnDelete(id); _renderGrnRegister(); };
 /** Tick / untick one GRN, keep the action bar + select-all in sync. */
 window._grnRegToggleSel = function (id, on) {
   if (on) _grnRegSel.add(id); else _grnRegSel.delete(id);
+  document.querySelectorAll(`.grn-sel[data-id="${id}"]`).forEach(cb => { cb.checked = on; });   // card + table twin
   _grnRegUpdateSelBar();
 };
 /** Select-all ticks every UNBILLED GRN on the current page. */
@@ -3082,12 +3128,12 @@ function _grnRegUpdateSelBar() {
   if (cnt) cnt.textContent = _grnRegSel.size;
   if (bar) bar.classList.toggle('hide', _grnRegSel.size === 0);
   const boxes = Array.from(document.querySelectorAll('.grn-sel'));
-  const all = document.getElementById('grnRegSelAll');
-  if (all) {
-    const checked = boxes.filter(b => b.checked).length;
+  const checked = boxes.filter(b => b.checked).length;
+  ['grnRegSelAll', 'grnRegSelAllM'].forEach(id => {
+    const all = document.getElementById(id); if (!all) return;
     all.checked = boxes.length > 0 && checked === boxes.length;
     all.indeterminate = checked > 0 && checked < boxes.length;
-  }
+  });
 }
 /** The selected, still-unbillable GRNs (billed ones can never be in the set). */
 function _grnRegSelVictims() {

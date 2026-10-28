@@ -99,7 +99,7 @@ function _renderRecipeItemCards(items, cId) {
     return `<div class="bg-white rounded-xl border ${hasRecipe ? 'border-green-200' : 'border-slate-200'} shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden" onclick="window._recipeOpenEditor('${item.code}')">
       <div class="flex items-stretch">
         <div style="width:4px;background:${hasRecipe ? '#ef8420' : '#e2e8f0'};flex-shrink:0;"></div>
-        <div class="flex-1 p-4">
+        <div class="flex-1 min-w-0 p-4">
           <div class="flex items-start justify-between gap-2 mb-2">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
@@ -108,10 +108,11 @@ function _renderRecipeItemCards(items, cId) {
                   ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">&#10003; Recipe</span>'
                   : '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200">No Recipe</span>'}
               </div>
-              <h4 class="text-sm font-bold text-slate-800 truncate">${item.description}</h4>
+              <h4 class="rcp-title text-sm font-bold text-slate-800">${item.description}</h4>
+              ${String(item.description || '').length > 60 ? `<button type="button" class="rcp-more" aria-expanded="false" onclick="event.stopPropagation();window._recipeToggleTitle(this)">Read more</button>` : ''}
             </div>
           </div>
-          <div class="flex items-center gap-3 text-[10px] text-slate-400">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
             <span class="font-medium">Unit: <span class="font-bold text-slate-600">${item.uom}</span></span>
             <span class="font-medium">Rate: <span class="font-bold text-slate-600">&#8377;${(item.rate || 0).toLocaleString('en-IN')}</span></span>
             ${hasRecipe ? `<span class="font-bold text-green-600">${ingredientCount} material${ingredientCount !== 1 ? 's' : ''}</span>` : ''}
@@ -122,6 +123,15 @@ function _renderRecipeItemCards(items, cId) {
     </div>`;
   }).join('');
 }
+
+/** "Read more" on a long BOQ title: expand / collapse the 2-line clamp in place
+ *  (stopPropagation in the button keeps the card from opening the editor). */
+window._recipeToggleTitle = function (btn) {
+  const h = btn.previousElementSibling;
+  const open = h.classList.toggle('open');
+  btn.textContent = open ? 'Show less' : 'Read more';
+  btn.setAttribute('aria-expanded', String(open));
+};
 
 export function recipeFilterList() {
   // Same item source as the list itself (BOQ groups + legacy item master).

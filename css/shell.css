@@ -1256,3 +1256,51 @@ button.pb-row:active { transform: scale(.98) !important; background: #f8fafc; }
   #estimateEditor select.ed-tc-sel { flex-basis: 100%; }
   #estimateEditor button.ed-tc-btn { flex: 1; }
 }
+
+/* ── Mix Design: long BOQ titles wrap, clamp to 2 lines, "Read more" expands ── */
+.rcp-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+.rcp-title.open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+button.rcp-more { display: inline-block; margin-top: 2px; padding: 2px 0 !important; min-height: 0 !important; background: none; border: none;
+  border-radius: 0 !important; color: #2563eb; font-size: 11.5px !important; font-weight: 700 !important; cursor: pointer; }
+
+/* ── Central Store: the add-store row can never push the button off-screen ── */
+.st-add { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.st-add input { flex: 1 1 auto; min-width: 0; width: 100%; }
+.st-add button { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 640px) {
+  .st-add { flex: 1 1 100%; width: 100%; }            /* drops onto its own full-width line */
+  .st-add input { min-height: 44px !important; }
+  .st-add button { min-height: 44px !important; padding: 0 14px !important; font-size: 13px !important; }
+}
+
+/* ── GRN Register: table on ≥769px, one card per GRN on phones (Stock Register card kit) ── */
+@media (max-width: 768px) {
+  #grnRegisterContent { max-width: 100%; overflow-x: hidden; }
+  .grn-table { display: none !important; }
+  .grn-cards { padding: 12px; background: #f6f7f9; }
+  .grn-flt { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px !important; }
+  .grn-flt > select, .grn-flt > input, .grn-flt > button { width: 100%; min-width: 0; }
+  .grn-flt-acts { grid-column: 1 / -1; margin-left: 0 !important; display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grn-pager { padding: 12px !important; }
+  .grn-pager > div:last-child { margin-left: 0 !important; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+}
+.grn-card { border-left: 4px solid #dc2626; }
+.grn-card.billed { border-left-color: #16a34a; }
+.grn-card .rc-top { align-items: flex-start; }
+input.grn-card-tick, .grn-selall input { width: 22px; height: 22px; min-height: 0 !important; padding: 0 !important; margin: 2px 0 0; flex-shrink: 0; accent-color: #dc2626; }
+.grn-no { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #4338ca !important; }
+.grn-pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.grn-pill.ok { background: #dcfce7; color: #15803d; } .grn-pill.no { background: #fee2e2; color: #b91c1c; }
+.grn-mat { padding: 0 14px 10px; font-size: 14px; font-weight: 800; color: #334155; overflow-wrap: anywhere; }
+.grn-short { color: #e11d48; font-size: 11px; }
+.grn-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px 12px; border-top: 1px solid #eef1f5; }
+.grn-qc { font-size: 12px; font-weight: 700; color: #16a34a; } .grn-qc.pend { color: #d97706; }
+.grn-acts { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+button.grn-act { height: 36px; min-height: 0 !important; padding: 0 12px !important; border: 1px solid #c7d7fe; border-radius: 10px !important; background: #eef4ff;
+  color: #1d4ed8; font-size: 12.5px !important; font-weight: 800 !important; white-space: nowrap; }
+button.grn-act.danger { border-color: #fecaca; background: #fff5f5; color: #dc2626; }
+button.grn-act.ok { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.grn-locked { font-size: 12px; color: #94a3b8; font-weight: 600; }
+.grn-selall { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #475569; padding: 2px 2px 0; }
+.grn-empty { padding: 30px 10px; text-align: center; color: #94a3b8; font-size: 14px; }
