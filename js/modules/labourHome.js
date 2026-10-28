@@ -113,7 +113,7 @@ function optionsSheet() {
     { icon: '🗓️', title: 'Monthly attendance sheet', desc: 'Days present, half days & wages per worker', run: () => window._openLabourSection?.('sheet') },
     { icon: '👥', title: `All ${T} list`, desc: 'Details, rates, documents & PPE', run: () => window._openLabourSection?.('master') },
     { icon: '🧑‍🔧', title: 'Contractors / gangs', desc: 'Mukadam & gang payouts', run: () => window._openLabourSection?.('contractors') },
-    { icon: '📏', title: 'Piece-rate work', desc: 'Work orders, labour bills & BOQ labour cost', run: () => window._openLabourSection?.('piecerate') },
+    { icon: '📏', title: 'Labour Contracts', desc: 'Piece-rate work orders, labour bills & BOQ labour cost', run: () => window._openLabourSection?.('piecerate') },
     { icon: '💰', title: `Pay multiple ${T.toLowerCase()}`, desc: 'Bulk wage payment', run: () => window._bulkLabourPayment?.() },
     { icon: '🪙', title: 'Advance (kharchi)', desc: 'Mid-week cash advance', run: () => window._recordAdvance?.() },
     { icon: '➖', title: 'Deduction', desc: 'Lost tools, PPE, penalty', run: () => window._recordDeduction?.() },
