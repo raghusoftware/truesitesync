@@ -81,3 +81,17 @@ export function defaultPreset(list) { return (list || []).find(p => p.isDefault)
 export function sortedPresets(list) {
   return (list || []).slice().sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0) || String(a.title).localeCompare(String(b.title)));
 }
+
+/* ── List status + duplicate ── */
+export const STATUSES = { draft: 'Draft', sent: 'Sent', approved: 'Approved', rejected: 'Rejected' };
+/** An estimate's status: the one set by the user, else Approved once it became a project/order, else Draft. */
+export function estimateStatus(e) {
+  if (e && STATUSES[e.status]) return e.status;
+  return e && e.saleOrderId ? 'approved' : 'draft';
+}
+/** A fresh copy to edit: new id + number, today's date, back to Draft, no order / PO links. */
+export function duplicateEstimate(e, { id, estNum, date }) {
+  const copy = JSON.parse(JSON.stringify(e || {}));
+  ['saleOrderId', 'projectId', 'orderedMaterials', 'status', 'statusAt', 'createdAt', 'createdBy', 'createdById', 'updatedAt', 'updatedBy', 'updatedById'].forEach(k => delete copy[k]);
+  return { ...copy, id, estNum, date, status: 'draft', duplicatedFrom: e?.id || null };
+}

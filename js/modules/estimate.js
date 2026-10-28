@@ -11,7 +11,19 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
 import { estimateTotals } from './estimateCalc.js';
-import { setupEstimateEditor, readEstimateDocFields } from './estimateDocUI.js?v=1.0.0';
+import { setupEstimateEditor, readEstimateDocFields } from './estimateDocUI.js?v=1.0.1';
+import { nextDocNo } from './docNumbering.js?v=1.0.0';
+import { estimateStatus, duplicateEstimate, STATUSES } from './estimateDoc.js?v=1.1.0';
+
+// Estimate numbers follow Settings → Auto-Numbering (prefix + padded counter), never reusing one.
+function _estSeqCfg() { const c = (state.autoNumbering || {}).estimate || {}; return { prefix: c.prefix ?? 'EST-', nextNum: c.nextNum ?? 1, digits: c.digits ?? 4 }; }
+function _estPeekNo() { return nextDocNo(_estSeqCfg(), (state.estimates || []).map(e => e.estNum)).no; }
+function _estTakeNo() {
+  const cfg = _estSeqCfg();
+  const { no, n } = nextDocNo(cfg, (state.estimates || []).map(e => e.estNum));
+  state.autoNumbering = { ...(state.autoNumbering || {}), estimate: { ...cfg, nextNum: n + 1 } };
+  return no;
+}
 
 /** Fill the discount inputs (blank for a new estimate). */
 function _setDiscountInputs(type, value) {
@@ -53,7 +65,7 @@ export function createNewEstimate() {
   populateDropdowns();   // fill the client dropdown with the latest clients
   document.getElementById('estClient').value = '';
   document.getElementById('estDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('estNum').value = `EST-${Date.now().toString().slice(-4)}`;
+  document.getElementById('estNum').value = _estPeekNo();     // final number is issued on save
   document.getElementById('estTerms').value = '';
   document.getElementById('estNotes').value = '';
   document.getElementById('estTableBody').innerHTML = '';
@@ -141,22 +153,125 @@ export function saveEstimate() {
   // findIndex can be -1 if a cloud pull replaced state.estimates mid-edit;
   // assigning to [-1] would silently discard the save. Re-add instead.
   const idx = state.currentEstimateId ? state.estimates.findIndex(e => e.id === state.currentEstimateId) : -1;
-  if (idx >= 0) state.estimates[idx] = data;
-  else state.estimates.push(data);
+  if (idx >= 0) state.estimates[idx] = { ...state.estimates[idx], ...data };   // keep status / links set from the list
+  else { data.estNum = _estTakeNo(); data.status = 'draft'; state.estimates.push(data); }
   saveAllData(); showToast('Estimate Saved'); closeEstimateEditor(); renderEstimatesList();
 }
 
+/* ── Estimates list: one dense row per estimate ──────────────────────────────
+   Left: number + date · centre: client + project · right: amount + status.
+   Tap = preview PDF · swipe left = Duplicate / Delete · swipe right = Share PDF / Excel
+   · ⋯ = every action (desktop and keyboard users). */
+const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _fmtD = iso => { const d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
+
 export function renderEstimatesList() {
   const container = document.getElementById('estimatesListContainer');
-  container.innerHTML = '';
-  state.estimates.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(e => {
-    const c = state.clients.find(x => x.id === e.clientId);
-    const soBadge = e.saleOrderId ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">SO + Project ✓</span>' : '';
-    const ordered = (e.orderedMaterials || []).length;
-    const matBadge = ordered ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">${ordered} material(s) ordered</span>` : '';
-    const soBtn = e.saleOrderId
-      ? `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-50 text-blue-700 border border-blue-200 py-1.5 rounded font-bold text-xs" title="Already created — click to create another">SO ✓</button>`
-      : `<button onclick="window.estimateToSaleOrder('${e.id}')" class="flex-1 bg-blue-600 text-white py-1.5 rounded font-bold text-xs">→ Sale Order + Project</button>`;
-    container.innerHTML += `<div class="bg-white border rounded-xl shadow-sm p-5 border-l-4 border-l-emerald-500"><div class="flex justify-between mb-2"><h3 class="font-extrabold text-slate-800">${e.estNum}</h3><span class="text-xs font-bold text-slate-500">${e.date}</span></div><p class="font-bold text-slate-700 mb-1">${c ? c.name : 'Unknown'}</p><div class="flex flex-wrap gap-1 mb-2">${soBadge}${matBadge}</div><p class="text-xl font-extrabold text-emerald-600 mb-3">${getCurrencySymbol()}${e.total.toLocaleString()}</p>${window.attributionHTML(e, 'Created')}<div class="flex flex-col gap-2"><div class="flex gap-2">${soBtn}<button onclick="window.openEstimateMaterials('${e.id}')" class="flex-1 bg-purple-600 text-white py-1.5 rounded font-bold text-xs">⚙ Materials / PO</button></div><div class="flex gap-2"><button onclick="window.openEstimate('${e.id}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded font-bold text-xs hover:bg-emerald-100">✏ Edit</button><button onclick="exportEstimatePDF('${e.id}')" class="flex-1 bg-slate-800 text-white py-1.5 rounded font-bold text-xs" title="${e.template === 'modern' ? 'Modern' : 'Classic'} design">PDF</button><button onclick="window.exportEstimateExcel('${e.id}')" class="flex-1 bg-green-50 text-green-700 border border-green-200 py-1.5 rounded font-bold text-xs">Excel</button><button onclick="window.recycleDelete&&window.recycleDelete('estimates','${e.id}','Estimate','${(e.estNum||'').replace(/'/g,"")}');renderEstimatesList();" class="px-3 bg-red-50 text-red-600 rounded font-bold text-xs">Del</button></div></div></div>`;
+  if (!container) return;
+  const cur = getCurrencySymbol();
+  const list = (state.estimates || []).slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.estNum || '').localeCompare(String(a.estNum || '')));
+  if (!list.length) {
+    container.innerHTML = `<div class="esl-empty"><b>No estimates yet</b><span>Tap “New Estimate” to quote your first client.</span></div>`;
+    return;
+  }
+  const total = list.reduce((s, e) => s + (Number(e.total) || 0), 0);
+  container.innerHTML = `<div class="esl-sum"><span>${list.length} estimate${list.length === 1 ? '' : 's'}</span><b>${cur}${total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</b></div>`
+    + list.map(e => {
+      const c = (state.clients || []).find(x => x.id === e.clientId);
+      const proj = (state.projects || []).find(p => p.id === e.projectId);
+      const st = estimateStatus(e);
+      const ordered = (e.orderedMaterials || []).length;
+      const sub = [proj ? proj.name : '', ordered ? `${ordered} material${ordered === 1 ? '' : 's'} ordered` : ''].filter(Boolean).join(' · ');
+      return `<div class="esl" data-id="${_esc(e.id)}">
+        <div class="esl-tray left" aria-hidden="true"><button type="button" class="share" onclick="exportEstimatePDF('${e.id}')">Share PDF</button><button type="button" class="xls" onclick="window.exportEstimateExcel('${e.id}')">Excel</button></div>
+        <div class="esl-tray right" aria-hidden="true"><button type="button" class="dup" onclick="window._estDuplicate('${e.id}')">Duplicate</button><button type="button" class="del" onclick="window._estDelete('${e.id}')">Delete</button></div>
+        <div class="esl-row" role="button" tabindex="0" aria-label="Estimate ${_esc(e.estNum)} — open preview"
+             onclick="window._estRowTap('${e.id}')" onkeydown="if(event.key==='Enter')window._estRowTap('${e.id}')">
+          <div class="esl-id"><b>${_esc(e.estNum || '—')}</b><small>${_fmtD(e.date)}</small></div>
+          <div class="esl-who"><b>${_esc(c ? c.name : 'Unknown client')}</b>${sub ? `<small>${_esc(sub)}</small>` : ''}</div>
+          <div class="esl-amt"><b>${cur}${(Number(e.total) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</b><span class="esl-badge ${st}">${STATUSES[st]}</span></div>
+          <button type="button" class="esl-more" aria-label="More actions" onclick="event.stopPropagation();window._estMenu('${e.id}')">⋯</button>
+        </div>
+      </div>`;
+    }).join('');
+  _estAttachSwipe(container);
+}
+
+/* swipe: horizontal drag on touch / pen reveals a tray; one row open at a time */
+const TRAY = 168;
+let _estOpen = null;      // { el, dir }
+function _estClose() { if (_estOpen) { _estOpen.el.querySelector('.esl-row').style.transform = ''; _estOpen.el.classList.remove('open-left', 'open-right'); _estOpen = null; } }
+function _estAttachSwipe(root) {
+  root.querySelectorAll('.esl').forEach(el => {
+    const row = el.querySelector('.esl-row');
+    let x0 = 0, y0 = 0, dx = 0, drag = false, axis = '';
+    row.addEventListener('pointerdown', ev => {
+      if (ev.pointerType === 'mouse' || ev.target.closest('.esl-more')) return;
+      x0 = ev.clientX; y0 = ev.clientY; dx = 0; drag = true; axis = '';
+    });
+    row.addEventListener('pointermove', ev => {
+      if (!drag) return;
+      const mx = ev.clientX - x0, my = ev.clientY - y0;
+      if (!axis) { if (Math.abs(mx) < 8 && Math.abs(my) < 8) return; axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'; if (axis === 'x') { try { row.setPointerCapture(ev.pointerId); } catch {} } }
+      if (axis !== 'x') return;
+      ev.preventDefault();
+      if (_estOpen && _estOpen.el !== el) _estClose();
+      const base = el.classList.contains('open-left') ? -TRAY : el.classList.contains('open-right') ? TRAY : 0;
+      dx = Math.max(-TRAY - 24, Math.min(TRAY + 24, base + mx));
+      row.style.transition = 'none'; row.style.transform = `translateX(${dx}px)`;
+      el.classList.toggle('show-left', dx > 0); el.classList.toggle('show-right', dx < 0);
+    }, { passive: false });
+    const end = () => {
+      if (!drag) return; drag = false; row.style.transition = '';
+      if (axis !== 'x') return;
+      row.dataset.swiped = '1'; setTimeout(() => delete row.dataset.swiped, 80);   // the click after a drag is not a tap
+      el.classList.remove('open-left', 'open-right');
+      if (dx < -TRAY / 2) { el.classList.add('open-left'); row.style.transform = `translateX(${-TRAY}px)`; _estOpen = { el }; }
+      else if (dx > TRAY / 2) { el.classList.add('open-right'); row.style.transform = `translateX(${TRAY}px)`; _estOpen = { el }; }
+      else { row.style.transform = ''; if (_estOpen?.el === el) _estOpen = null; }
+      try { navigator.vibrate?.(8); } catch {}
+    };
+    row.addEventListener('pointerup', end); row.addEventListener('pointercancel', end);
   });
 }
+
+window._estRowTap = function (id) {
+  const el = document.querySelector(`.esl[data-id="${id}"]`);
+  if (el?.querySelector('.esl-row')?.dataset.swiped) return;
+  if (_estOpen) { _estClose(); return; }                        // a tap on an open row just closes it
+  window._estPreviewById?.(id);
+};
+window._estMenu = function (id) {
+  const e = (state.estimates || []).find(x => x.id === id); if (!e) return;
+  const st = estimateStatus(e);
+  const statusOpts = ['draft', 'sent', 'approved', 'rejected'].filter(k => k !== st)
+    .map(k => ({ icon: { draft: '📝', sent: '📤', approved: '✅', rejected: '⛔' }[k], title: 'Mark as ' + STATUSES[k], run: () => window._estSetStatus(id, k) }));
+  window.shellSheet?.(`${e.estNum || 'Estimate'}`, [
+    { icon: '👁', title: 'Preview', desc: 'The PDF your client receives', run: () => window._estPreviewById?.(id) },
+    { icon: '✏️', title: 'Edit', run: () => window.openEstimate(id) },
+    { icon: '📄', title: 'Share PDF', run: () => window.exportEstimatePDF(id) },
+    { icon: '📊', title: 'Excel', run: () => window.exportEstimateExcel(id) },
+    { icon: '🏗️', title: e.saleOrderId ? 'Convert again (order + project)' : 'Convert to order + project', run: () => window.estimateToSaleOrder(id) },
+    { icon: '⚙️', title: 'Materials / PO', run: () => window.openEstimateMaterials(id) },
+    ...statusOpts,
+    { icon: '⧉', title: 'Duplicate', run: () => window._estDuplicate(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => window._estDelete(id) },
+  ]);
+};
+window._estSetStatus = function (id, st) {
+  const e = (state.estimates || []).find(x => x.id === id); if (!e || !STATUSES[st]) return;
+  e.status = st; e.statusAt = Date.now();
+  saveAllData(); renderEstimatesList(); showToast(`${e.estNum} marked ${STATUSES[st]}`, 'success');
+};
+window._estDuplicate = function (id) {
+  const e = (state.estimates || []).find(x => x.id === id); if (!e) return;
+  const copy = duplicateEstimate(e, { id: 'est_' + Date.now(), estNum: _estTakeNo(), date: new Date().toISOString().split('T')[0] });
+  state.estimates.push(window.stampCreate ? window.stampCreate(copy) : copy);
+  saveAllData(); _estOpen = null; renderEstimatesList(); showToast(`Duplicated as ${copy.estNum}`, 'success');
+};
+window._estDelete = function (id) {
+  const e = (state.estimates || []).find(x => x.id === id); if (!e) return;
+  if (!confirm(`Delete estimate ${e.estNum || ''}?`)) return;
+  window.recycleDelete && window.recycleDelete('estimates', id, 'Estimate', String(e.estNum || '').replace(/'/g, ''));
+  _estOpen = null; renderEstimatesList();
+};

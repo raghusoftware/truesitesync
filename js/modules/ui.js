@@ -15,6 +15,7 @@ import './grnPicker.js';
 import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _populateAccountSelect, _populateClientSelect, _addGenericFormRow, _calcGenericFormTotal } from './formHelpers.js';
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
+import { nextDocNo } from './docNumbering.js?v=1.0.0';
 
 // ══════════════════════════════════════════
 // PROJECT MANAGEMENT
@@ -2408,12 +2409,22 @@ function _grnFmtDate(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '');
 }
 /** Auto sequential GRN no — GRN-<PROJCODE>-<YYYYMMDD>-### */
-function _grnNextNumber(date) {
-  const ymd = (date || '').replace(/-/g, '');
-  const proj = (state.projects || []).find(p => p.id === state.currentProjectId);
-  const code = ((proj && proj.code) || 'GEN').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN';
-  const seq = (state.grnRecords || []).filter(g => g.date === date && g.projectId === state.currentProjectId).length + 1;
-  return `GRN-${code}-${ymd}-${String(seq).padStart(3, '0')}`;
+/** GRN number from Settings → Auto-Numbering (prefix + padded counter). Skips past any
+ *  number already used under that prefix, so a stale counter or a GRN synced in from
+ *  another device can never be issued twice. (Arg kept for old callers; unused.) */
+function _grnSeqCfg() {
+  const c = (state.autoNumbering || {}).grn || {};
+  return { prefix: c.prefix ?? 'GRN-', nextNum: c.nextNum ?? 1, digits: c.digits ?? 4 };
+}
+function _grnNextNumber() {
+  return nextDocNo(_grnSeqCfg(), (state.grnRecords || []).map(g => g.grnNo)).no;
+}
+/** Issue the next GRN number and move the counter past it. */
+function _grnTakeNumber() {
+  const cfg = _grnSeqCfg();
+  const { no, n } = nextDocNo(cfg, (state.grnRecords || []).map(g => g.grnNo));
+  state.autoNumbering = { ...(state.autoNumbering || {}), grn: { ...cfg, nextNum: n + 1 } };
+  return no;
 }
 function _grnIsTestable(text) { return /steel|cement|tmt|concrete|aggregate|admixture/i.test(text || ''); }
 
@@ -3502,7 +3513,7 @@ window._saveGRN = function() {
 
   // ── New receipt: one GRN record per item line, sharing the header + grnNo ──
   const receiptId = 'rcpt_' + Date.now();
-  const grnNo = _grnNextNumber(date);
+  const grnNo = _grnTakeNumber();
   const qcStatusDefault = qcRequired ? 'Pending Inspection' : 'Accepted';
   const stamp = Date.now();
   items.forEach((it, idx) => {
@@ -3642,7 +3653,7 @@ function _grnCommitDraft(draft) {
     const dup = (challanNo && existing.find(g => g.supplierId === supplierId && _grnEqName(g.challanNo, challanNo)))
       || existing.find(g => g.supplierId === supplierId && g.matId === mat.id && (g.date || '') === d.date && Math.abs((Number(g.qty) || 0) - qtyBase) < 1e-6);
     if (dup) { skipped++; errors.push(`${ref}: duplicate of ${dup.grnNo} — skipped`); return; }
-    const grnNo = _grnNextNumber(d.date);
+    const grnNo = _grnTakeNumber();
     const stamp = Date.now() + '_' + i, grnId = 'grn_' + stamp;
     state.grnRecords.push({ id: grnId, grnNo, receiptId: 'rcpt_imp_' + stamp, line: 1, date: d.date, receivedAt: new Date().toISOString(), siteId, matId: mat.id, category: d.category || '', qty: qtyBase, expectedQty, rate: baseRate, amount, enteredQty: qty, entryUnit, challanNo, supplierId, poId: '', poNo: '', sourceType: d.sourceType || 'Supplier', modeOfReceipt: d.mode || 'Transport', vehicleNo: d.vehicle || '', driver: d.driver || '', projectId: state.currentProjectId, challanPhoto: null, condPhoto: null, billed: false, qcStatus: qcRequired ? 'Pending Inspection' : 'Accepted', importedAt: new Date().toISOString() });
     state.inventoryTx.push({ id: 'tx_grn_' + stamp, grnId, date: d.date, siteId, rawMaterialId: mat.id, type: 'IN', qty: qtyBase, rate: baseRate, ref: `${grnNo} ${challanNo || ''}`.trim() });

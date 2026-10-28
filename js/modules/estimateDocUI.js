@@ -10,7 +10,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, mobileSavePDF } from './utils.js';
 import { estimateTotals } from './estimateCalc.js';
-import { TEMPLATES, DEFAULT_TEMPLATE, upsertPreset, removePreset, defaultPreset, sortedPresets } from './estimateDoc.js';
+import { TEMPLATES, DEFAULT_TEMPLATE, upsertPreset, removePreset, defaultPreset, sortedPresets } from './estimateDoc.js?v=1.1.0';
 import { renderEstimateDoc } from './estimatePdf.js?v=1.0.0';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -193,6 +193,16 @@ function draftFromEditor() {
 window._estPreview = async () => {
   const d = draftFromEditor();
   if (!d.items.length) { showToast('Add at least one item to preview', 'error'); return; }
+  return _showEstimatePreview(d);
+};
+/** Preview a saved estimate (tap on its row in the Estimates list). */
+window._estPreviewById = (id) => {
+  const e = (state.estimates || []).find(x => x.id === id);
+  if (!e) { showToast('Estimate not found', 'error'); return; }
+  return _showEstimatePreview(e);
+};
+async function _showEstimatePreview(d) {
+  const _tpl = TEMPLATES[d.template] ? d.template : DEFAULT_TEMPLATE;
   showToast('Preparing preview…', 'info');
   let doc;
   try { doc = await renderEstimateDoc(d); } catch (e) { console.error(e); showToast('Preview failed: ' + (e.message || e), 'error'); return; }
@@ -207,4 +217,4 @@ window._estPreview = async () => {
   ov.__onBack = () => { ov.remove(); try { URL.revokeObjectURL(url); } catch {} };
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.__onBack(); });
   document.body.appendChild(ov);
-};
+}

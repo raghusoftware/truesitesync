@@ -48,3 +48,20 @@ test('presets: upsert by title, single default, remove, sort', () => {
   assert.equal(removePreset(list, 'p1').length, 1);
   assert.throws(() => upsertPreset([], { title: '  ' }));
 });
+
+import { estimateStatus, duplicateEstimate } from '../js/modules/estimateDoc.js';
+
+test('estimateStatus: explicit status wins, an order means approved, else draft', () => {
+  assert.equal(estimateStatus({}), 'draft');
+  assert.equal(estimateStatus({ saleOrderId: 'so1' }), 'approved');
+  assert.equal(estimateStatus({ saleOrderId: 'so1', status: 'sent' }), 'sent');
+  assert.equal(estimateStatus({ status: 'weird' }), 'draft');
+});
+
+test('duplicateEstimate copies lines but resets identity, links and status', () => {
+  const src = { id: 'e1', estNum: 'EST-0004', date: '2026-01-02', clientId: 'c1', items: [{ desc: 'PCC', qty: 2 }], total: 10, saleOrderId: 'so', orderedMaterials: ['m'], status: 'approved', createdBy: 'x' };
+  const d = duplicateEstimate(src, { id: 'e2', estNum: 'EST-0009', date: '2026-10-28' });
+  assert.equal(d.id, 'e2'); assert.equal(d.estNum, 'EST-0009'); assert.equal(d.status, 'draft'); assert.equal(d.duplicatedFrom, 'e1');
+  assert.equal(d.saleOrderId, undefined); assert.equal(d.orderedMaterials, undefined); assert.equal(d.createdBy, undefined);
+  d.items[0].qty = 99; assert.equal(src.items[0].qty, 2);   // deep copy
+});

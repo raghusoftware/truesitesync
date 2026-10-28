@@ -62,7 +62,7 @@ import {
   generateLabourSalary, downloadMusterCard,
   openLabourPaymentModal, saveLabourPayment,
   toggleSidebarDropdown,
-} from './modules/ui.js?v=1.7.49';
+} from './modules/ui.js?v=1.7.50';
 import { exportAbstractPDF, exportDetailedAbstractPDF, exportDetailedAbstractExcel, exportRABillExcel } from './modules/abstractExports.js?v=1.6.75';
 import { exportSimpleMeasurementPdf, exportDetailedMeasurementPdf, exportToExcel, exportDetailedMeasurementExcel } from './modules/measurementExports.js?v=1.8.0';
 import { exportInvoicePDF, exportEstimatePDF } from './modules/invoiceExports.js?v=1.6.29';
@@ -92,7 +92,7 @@ import './modules/orgTeam.js?v=1.4.10';
 import './modules/cashFlow.js?v=1.6.56';
 import './modules/recycleBin.js?v=1.6.64';
 import { renderRecipeView, recipeFilterList, recipeOpenEditor, recipeCloseEditor, recipeAddRow, recipeSave, recipeDelete, loadRecipeItemsDropdown, renderExistingRecipesList, loadRecipeEditor, addRecipeIngredientRow, saveRecipe, deleteRecipe } from './modules/recipe.js?v=1.1.1';
-import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.2.0';
+import { createNewEstimate, closeEstimateEditor, addEstimateRow, saveEstimate, renderEstimatesList } from './modules/estimate.js?v=1.3.0';
 import './modules/estimateFlow.js?v=1.0.4';
 import './modules/estimation.js?v=1.0.6';
 import './modules/executionEngine.js?v=1.6.91';
@@ -136,7 +136,7 @@ import {
   renderSettingsView, switchSettingsTab, openSettingsSection, backToSettingsHome, settPrintSwitchDoc, savePrintConfig, resetPrintConfig,
   settThemeSwitchDoc, selectTheme, saveCurrencySettings, saveAutoNumbering,
   anPreview, restoreJSONBackupFromSettings, saveHeaderSettings, resetHeaderSettings
-} from './modules/settings.js?v=1.6.88';
+} from './modules/settings.js?v=1.6.89';
 import {
   renderMicroPlanningView, mpGenerate, mpToggleUtil, mpSaveProgress,
   mpExportDayPDF, mpPrintDay, mpSwitchMode,

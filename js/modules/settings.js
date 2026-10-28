@@ -5,6 +5,7 @@ import { state, saveAllData } from './state.js';
 import { showToast, getTerm } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js?v=1.0.2';
 import { invoiceDesignKeys, invoiceDesignName, invoiceDesignDesc, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.1';
+import { formatDocNo, parseStart } from './docNumbering.js?v=1.0.0';
 
 // ─── Settings hub navigation (icon grid → drill into a section) ───
 let _activeSettingsTab = null;
@@ -922,18 +923,17 @@ function renderAutoNumberingTab() {
   const rows = [
     { key: 'saleInvoice', label: 'Sale Invoice', prefix: 'INV-', startFrom: 1 },
     { key: 'proformaInvoice', label: 'Proforma Invoice', prefix: 'PI-', startFrom: 1 },
-    { key: 'saleOrder', label: 'Sale Order', prefix: 'SO-', startFrom: 1 },
-    { key: 'deliveryChallan', label: 'Delivery Challan', prefix: 'DC-', startFrom: 1 },
     { key: 'purchaseOrder', label: 'Purchase Order', prefix: 'PO-', startFrom: 1 },
+    { key: 'grn', label: 'Goods Receipt (GRN)', prefix: 'GRN-', startFrom: 1 },
     { key: 'measurement', label: 'Measurement Sheet', prefix: 'MS-', startFrom: 1 },
     { key: 'abstract', label: getTerm('abstract') + '/' + getTerm('raBill'), prefix: 'RA-', startFrom: 1 },
     { key: 'project', label: 'Project', prefix: 'PRJ-', startFrom: 1 },
     { key: 'estimate', label: 'Estimate', prefix: 'EST-', startFrom: 1 },
   ];
   c.innerHTML = `
-    <p class="text-sm text-slate-500 mb-4">Configure automatic numbering prefixes and starting numbers for each document type.</p>
+    <p class="text-sm text-slate-500 mb-4">Prefix + next number for each document type. Type the number with leading zeros to set its width (<b>0001</b> → 4 digits). A new number always skips past any already used (including ones synced from other devices). Two phones creating a record at the same moment while both offline can still pick the same number.</p>
     <div class="overflow-x-auto">
-      <table class="w-full max-w-3xl text-sm border">
+      <table class="an-table w-full max-w-3xl text-sm border">
         <thead class="bg-slate-50">
           <tr>
             <th class="px-3 py-2 text-left font-bold text-slate-600">Document Type</th>
@@ -947,11 +947,13 @@ function renderAutoNumberingTab() {
             const cfg = an[r.key] || {};
             const prefix = cfg.prefix ?? r.prefix;
             const next = cfg.nextNum ?? r.startFrom;
+            const digits = cfg.digits ?? 4;
+            const shown = String(next).padStart(digits, '0');
             return `<tr>
               <td class="px-3 py-2 font-medium text-slate-700">${r.label}</td>
-              <td class="px-3 py-2"><input type="text" id="an_prefix_${r.key}" value="${_esc(prefix)}" class="border rounded px-2 py-1 text-sm w-20" oninput="_anPreview('${r.key}')"></td>
-              <td class="px-3 py-2"><input type="number" id="an_next_${r.key}" value="${next}" min="1" class="border rounded px-2 py-1 text-sm w-20" oninput="_anPreview('${r.key}')"></td>
-              <td class="px-3 py-2 text-blue-600 font-mono text-xs" id="an_preview_${r.key}">${prefix}${String(next).padStart(4, '0')}</td>
+              <td class="px-3 py-2"><input type="text" id="an_prefix_${r.key}" value="${_esc(prefix)}" maxlength="16" autocapitalize="characters" class="border rounded px-2 py-1 text-sm w-24 font-mono" oninput="_anPreview('${r.key}')"></td>
+              <td class="px-3 py-2"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" id="an_next_${r.key}" value="${shown}" class="border rounded px-2 py-1 text-sm w-24 font-mono" oninput="_anPreview('${r.key}')"></td>
+              <td class="px-3 py-2 text-blue-600 font-mono text-xs" id="an_preview_${r.key}">${_esc(formatDocNo(prefix, next, digits))}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -964,20 +966,20 @@ function renderAutoNumberingTab() {
 
 export function anPreview(key) {
   const prefix = document.getElementById('an_prefix_' + key)?.value || '';
-  const num = parseInt(document.getElementById('an_next_' + key)?.value) || 1;
+  const start = parseStart(document.getElementById('an_next_' + key)?.value);
   const el = document.getElementById('an_preview_' + key);
-  if (el) el.textContent = prefix + String(num).padStart(4, '0');
+  if (el) { el.textContent = start ? formatDocNo(prefix, start.nextNum, start.digits) : 'Numbers only'; el.style.color = start ? '' : '#dc2626'; }
 }
 
 export function saveAutoNumbering() {
-  const keys = ['saleInvoice','proformaInvoice','saleOrder','deliveryChallan','purchaseOrder','measurement','abstract','project','estimate'];
-  const an = {};
-  keys.forEach(k => {
-    an[k] = {
-      prefix: document.getElementById('an_prefix_' + k)?.value || '',
-      nextNum: parseInt(document.getElementById('an_next_' + k)?.value) || 1
-    };
-  });
+  const keys = ['saleInvoice','proformaInvoice','saleOrder','deliveryChallan','purchaseOrder','grn','measurement','abstract','project','estimate'];
+  const an = { ...(state.autoNumbering || {}) };
+  for (const k of keys) {
+    if (!document.getElementById('an_next_' + k)) continue;
+    const start = parseStart(document.getElementById('an_next_' + k).value);
+    if (!start) { showToast('Next number must be digits only (e.g. 0001)', 'error'); document.getElementById('an_next_' + k).focus(); return; }
+    an[k] = { prefix: (document.getElementById('an_prefix_' + k)?.value || '').trim(), nextNum: start.nextNum, digits: start.digits };
+  }
   state.autoNumbering = an;
   saveAllData();
   showToast('Auto-numbering saved');
