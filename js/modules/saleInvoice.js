@@ -1190,9 +1190,8 @@ export function viewSaleInvoiceInfo(id) {
               <p class="text-[10px] text-slate-400">${sheet.area || '—'} • ${sheet.date || '—'}</p>
             </div>
             <div class="flex gap-1.5 flex-wrap">
-              <button onclick="exportSimpleMeasurementPdf('${sheet.id}')" class="bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600" title="Download Sheet PDF">📄 PDF</button>
-              <button onclick="exportDetailedMeasurementPdf('${sheet.id}')" class="bg-slate-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-500" title="Detailed Sheet PDF">📋 Detailed</button>
-              <button onclick="exportToExcel('${sheet.id}')" class="bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-green-600" title="Download Sheet Excel">📊 Excel</button>
+              <button onclick="openMeasExport('pdf','${sheet.id}')" class="bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600" title="Export to PDF">📄 PDF</button>
+              <button onclick="openMeasExport('excel','${sheet.id}')" class="bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-green-600" title="Export to Excel">📊 Excel</button>
               <button onclick="document.getElementById('saleInvoiceDetailModal').classList.add('hide');_navigateToSheet('${sheet.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-blue-700">Open →</button>
             </div>
           </div>
@@ -1216,9 +1215,8 @@ export function viewSaleInvoiceInfo(id) {
             <p class="text-[10px] text-slate-400">${sheet.area || '—'} • ${sheet.date || '—'}</p>
           </div>
           <div class="flex gap-1.5 flex-wrap">
-            <button onclick="exportSimpleMeasurementPdf('${sheet.id}')" class="bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600">📄 PDF</button>
-            <button onclick="exportDetailedMeasurementPdf('${sheet.id}')" class="bg-slate-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-500">📋 Detailed</button>
-            <button onclick="exportToExcel('${sheet.id}')" class="bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-green-600">📊 Excel</button>
+            <button onclick="openMeasExport('pdf','${sheet.id}')" class="bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600" title="Export to PDF">📄 PDF</button>
+            <button onclick="openMeasExport('excel','${sheet.id}')" class="bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-green-600" title="Export to Excel">📊 Excel</button>
             <button onclick="document.getElementById('saleInvoiceDetailModal').classList.add('hide');_navigateToSheet('${sheet.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-blue-700">Open →</button>
           </div>
         </div>`;

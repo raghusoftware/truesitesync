@@ -1438,3 +1438,52 @@ button.pcx-chip.on { border-color: #0f172a; background: #0f172a; color: #fff; }
   font-size: 13px; font-weight: 700; color: var(--ts-blue); }
 .ts-dash-link i { font-style: normal; font-size: 16px; line-height: 1; }
 #projDashKPIs.tsp-sum > div:nth-child(3) { border-right: none; }
+
+/* ── Measurement export: step 2 (Simple / Detailed) — measurementExports.js ──
+   Phones: bottom sheet that slides up over a dimmed page. ≥640px: centred dialog. */
+.mx-ov { position: fixed; inset: 0; z-index: 200002; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(15, 23, 42, 0); transition: background .18s ease; -webkit-tap-highlight-color: transparent; }
+.mx-ov.open { background: rgba(15, 23, 42, .5); }
+.mx-sheet { width: 100%; max-width: 520px; background: #fff; border-radius: 22px 22px 0 0; box-shadow: 0 -12px 40px rgba(15, 23, 42, .22);
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateY(100%); transition: transform .22s cubic-bezier(.2, .8, .2, 1); will-change: transform; }
+.mx-ov.open .mx-sheet { transform: none; }
+.mx-grab { width: 40px; height: 4px; border-radius: 4px; background: #d6dbe3; margin: 2px auto 10px; }
+.mx-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.mx-fmt { width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 900; letter-spacing: .06em; color: #fff; }
+.mx-fmt.pdf { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.mx-fmt.excel { background: linear-gradient(135deg, #22c55e, #15803d); }
+.mx-ttl { flex: 1; min-width: 0; }
+.mx-ttl h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+.mx-ttl small { display: block; margin-top: 2px; font-size: 13px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#measExportOverlay button.mx-x { width: 36px; height: 36px; min-height: 0 !important; padding: 0 !important; border: none; border-radius: 10px !important;
+  background: #f1f5f9; color: #475569; font-size: 20px !important; font-weight: 600 !important; line-height: 1; flex-shrink: 0; }
+.mx-q { margin: 0 2px 8px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+.mx-opts { display: flex; flex-direction: column; gap: 10px; }
+#measExportOverlay button.mx-opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px !important; padding: 12px 14px !important; text-align: left;
+  border: 1.5px solid #e5e9f0; border-radius: 16px !important; background: #fff; color: #0f172a; font-weight: 400 !important; cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .08s, background .15s; }
+#measExportOverlay button.mx-opt:hover { border-color: #cbd5e1; box-shadow: 0 6px 18px -10px rgba(15, 23, 42, .35); }
+#measExportOverlay button.mx-opt:focus-visible { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .18); }
+#measExportOverlay button.mx-opt:active { transform: scale(.985); background: #f8fafc; }
+#measExportOverlay button.mx-opt:disabled { cursor: progress; opacity: .55; }
+#measExportOverlay button.mx-opt.busy { opacity: 1; border-color: #0f172a; }
+.mx-ic { width: 46px; height: 46px; flex-shrink: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: #f1f5f9; }
+.mx-opt[data-depth="simple"] .mx-ic { background: #eef4ff; }
+.mx-opt[data-depth="detailed"] .mx-ic { background: #fdf4ff; }
+.mx-tx { flex: 1; min-width: 0; }
+.mx-tx b { display: block; font-size: 16px; font-weight: 800; color: #0f172a; }
+.mx-tx small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; color: #64748b; }
+.mx-tag { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: #f3e8ff; color: #7e22ce; font-size: 11.5px; font-weight: 800; }
+.mx-go { flex-shrink: 0; font-size: 24px; line-height: 1; color: #94a3b8; }
+.mx-opt.busy .mx-go { width: 18px; height: 18px; font-size: 0; border: 2.5px solid #cbd5e1; border-top-color: #0f172a; border-radius: 50%; animation: mxSpin .7s linear infinite; }
+@keyframes mxSpin { to { transform: rotate(360deg); } }
+@media (min-width: 640px) {
+  .mx-ov { align-items: center; padding: 24px; }
+  .mx-sheet { max-width: 440px; border-radius: 20px; padding: 18px 18px 18px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
+    transform: translateY(8px) scale(.97); opacity: 0; transition: transform .18s ease, opacity .18s ease; }
+  .mx-ov.open .mx-sheet { transform: none; opacity: 1; }
+  .mx-grab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mx-ov, .mx-sheet { transition: none !important; } }
+.mx-sheet:focus { outline: none; }

@@ -96,3 +96,26 @@ test('previous + this-bill + total flow matches manual math', () => {
   assert.equal(prev, 30);
   assert.equal(prev + thisBill, 50);
 });
+
+import { bbsSummary, bbsRowsOf, bbsKgPerM } from '../js/modules/sheetCalc.js';
+
+test('bbsSummary groups bars by diameter with weights and grand total', () => {
+  const s = bbsSummary([
+    { mark: 'Footing main', dia: '12', noBar: 10, no: 2, totalBars: 20, cutLen: 3.5, totalLen: 70 },
+    { mark: 'Footing dist', dia: '10', noBar: 8, no: 2, totalBars: 16, cutLen: 2, totalLen: 32 },
+    { mark: 'Column', dia: '12', noBar: 4, no: 1, totalBars: 4, cutLen: 5, totalLen: 20 },
+    { mark: 'Stirrups', dia: 8, nobar: '30', no: '2', cutLen: 1.2 },            // no saved totals → rebuilt
+    { mark: '', dia: '' },                                                     // blank editor row → ignored
+    { mark: 'Pile', dia: '32', totalBars: 6, totalLen: 60 },                   // >20mm is no longer dropped
+  ]);
+  assert.equal(s.count, 5);
+  assert.deepEqual(s.rows.map(r => [r.dia, r.bars, r.lengthM, r.kg]), [[8, 60, 72, 28.44], [10, 16, 32, 19.74], [12, 24, 90, 80.01], [32, 6, 60, 378.78]]);
+  assert.equal(s.totalBars, 106); assert.equal(s.totalLengthM, 254);
+  assert.equal(s.totalKg, 506.97); assert.equal(s.totalMt, 0.507);
+});
+
+test('bbsSummary is empty for no / blank BBS', () => {
+  assert.equal(bbsSummary(undefined).rows.length, 0);
+  assert.equal(bbsRowsOf([{ mark: ' ', dia: '' }]).length, 0);
+  assert.equal(bbsKgPerM(12), 0.889); assert.equal(bbsKgPerM(14), 1.21);
+});

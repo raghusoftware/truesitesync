@@ -13,7 +13,7 @@ import { showToast, getCompanyHeaderForPDF, getPdfCurrency, amountToWordsCur, mo
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { formatNumber2 } from './format.js?v=1.0.1';
 import { computeAbstractRows, lookupBoqItem } from './abstractCalc.js';
-import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
+import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js?v=1.1.0';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { MD, fitImage, drawCurSym, money2, moneyTotal, fmtLongDate, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
 

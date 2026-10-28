@@ -70,3 +70,47 @@ export function sheetPrevQtyFor(prevQtyMap, groupKey, firstEntry) {
 export function sumEntryQty(entries) {
   return (entries || []).reduce((t, e) => t + (e.qty || 0), 0);
 }
+
+/* ── Bar Bending Schedule summary (Simple PDF / Excel) ─────────────────── */
+
+/** Unit weight (kg/m) of TMT bars by diameter (mm) — d²/162, the standard
+ *  table values for common sizes so totals match the detailed BBS page. */
+const BBS_KG_PER_M = { 6: 0.222, 8: 0.395, 10: 0.617, 12: 0.889, 16: 1.580, 20: 2.469, 25: 3.858, 28: 4.834, 32: 6.313, 36: 7.990, 40: 9.864 };
+export const bbsKgPerM = (dia) => BBS_KG_PER_M[dia] || (dia > 0 ? Math.round(dia * dia / 162 * 1000) / 1000 : 0);
+
+const _num = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
+
+/** Usable BBS bar rows only (a mark or a diameter, like the sheet editor saves). */
+export function bbsRowsOf(rows) {
+  return (Array.isArray(rows) ? rows : []).filter(r => r && (String(r.mark || '').trim() || _num(r.dia) > 0));
+}
+
+/**
+ * One line per bar diameter + grand total, for the compact "steel summary"
+ * the Simple documents append. Lengths come from the saved Total Len; if that
+ * is missing it is rebuilt from total bars × cut length.
+ * @returns {{ rows: Array<{dia, bars, lengthM, kgPerM, kg}>, totalBars, totalLengthM, totalKg, totalMt, count }}
+ */
+export function bbsSummary(rows) {
+  const by = {};
+  const list = bbsRowsOf(rows);
+  list.forEach(r => {
+    const dia = Math.round(_num(r.dia));
+    if (!dia) return;
+    const bars = _num(r.totalBars) || (_num(r.noBar ?? r.nobar) * (_num(r.no) || 1));
+    const len = _num(r.totalLen) || bars * _num(r.cutLen);
+    const g = by[dia] || (by[dia] = { dia, bars: 0, lengthM: 0 });
+    g.bars += bars; g.lengthM += len;
+  });
+  const out = Object.values(by).sort((a, b) => a.dia - b.dia).map(g => {
+    const kgPerM = bbsKgPerM(g.dia);
+    return { dia: g.dia, bars: Math.round(g.bars), lengthM: Math.round(g.lengthM * 100) / 100, kgPerM, kg: Math.round(g.lengthM * kgPerM * 100) / 100 };
+  });
+  const totalKg = Math.round(out.reduce((s, r) => s + r.kg, 0) * 100) / 100;
+  return {
+    rows: out, count: list.length,
+    totalBars: out.reduce((s, r) => s + r.bars, 0),
+    totalLengthM: Math.round(out.reduce((s, r) => s + r.lengthM, 0) * 100) / 100,
+    totalKg, totalMt: Math.round(totalKg) / 1000,
+  };
+}

@@ -61,9 +61,9 @@
     <link rel="stylesheet" href="css/chat.css?v=1.1.1">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.29">
+    <link rel="stylesheet" href="css/shell.css?v=1.0.30">
     <link rel="stylesheet" href="css/tools.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.227"></script>
+    <script type="module" src="js/app.js?v=1.6.228"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1134,9 +1134,9 @@
               <button onclick="toggleBBSSection()" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 text-sm font-bold shadow-sm" id="btnToggleBBS">+ Add BBS</button>
               <button onclick="toggleAttachmentsSection()" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 flex items-center gap-2 text-sm font-bold shadow-sm" id="btnToggleAttach">+ Attachments</button>
               <div class="flex-1"></div>
-              <button onclick="exportSimpleMeasurementPdf()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm">Simple PDF</button>
-              <button onclick="exportDetailedMeasurementPdf()" class="bg-indigo-700 text-white px-4 py-2 rounded-md hover:bg-indigo-800 flex items-center gap-2 text-sm font-bold shadow-sm">Detailed RA PDF</button>
-              <button onclick="exportDetailedMeasurementExcel()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm">RA Bill Excel</button>
+              <!-- Two-step export: pick the format here, then Simple / Detailed in the sheet that opens -->
+              <button onclick="openMeasExport('pdf')" class="mx-trigger bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"><span data-keep-emoji>📄</span> Export to PDF</button>
+              <button onclick="openMeasExport('excel')" class="mx-trigger bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"><span data-keep-emoji>📊</span> Export to Excel</button>
             </div>
           </div><!-- /sheet-scroll-area -->
         </div>

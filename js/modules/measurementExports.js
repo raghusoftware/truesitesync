@@ -12,7 +12,7 @@ import { state } from './state.js';
 import { showToast, getCompanyHeaderForPDF, getCurrencySymbol, mobileSavePDF, mobileSaveXLSX, mobileDownloadBlob } from './utils.js';
 const _simpleHeader = (doc, o) => (typeof window !== 'undefined' && window.getSimpleHeaderForPDF) ? window.getSimpleHeaderForPDF(doc, o) : getCompanyHeaderForPDF(doc);
 import { lookupBoqItem } from './abstractCalc.js';
-import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor } from './sheetCalc.js';
+import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor, bbsSummary } from './sheetCalc.js?v=1.1.0';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
 
@@ -64,6 +64,46 @@ function _sheetCustomCols(s) {
 }
 /** Value of a custom column for an entry line (blank when unset). */
 function _ccVal(e, col) { return (e && e.customData && e.customData[col.id] != null) ? e.customData[col.id] : ''; }
+
+// ── Steel summary (BBS) for the Simple documents ─────────────────────────────
+// The Simple layouts carry a compact per-diameter summary; the full bar-by-bar
+// schedule stays in the Detailed export. Each template passes its own look so
+// the block matches the table above it (fonts, rules, margins).
+function _bbsSummaryFor(s) { return bbsSummary((state.bbsData || {})[s.id]); }
+const _n2 = v => (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * Append the steel summary below the last table (new page when it won't fit).
+ * look: { ml, mr, top, title(doc, x, y, subtitle), tableOpts, totalStyles }
+ */
+function _appendBbsSummaryPdf(doc, s, look) {
+  const sum = _bbsSummaryFor(s);
+  if (!sum.rows.length) return false;
+  const ph = doc.internal.pageSize.getHeight();
+  const pw = doc.internal.pageSize.getWidth();
+  const ml = look.ml ?? 14, mr = look.mr ?? 14;
+  const need = 22 + (sum.rows.length + 2) * 6.5;          // title + head + rows + total
+  let y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 40) + 10;
+  if (y + Math.min(need, 80) > ph - 14) { doc.addPage(); y = look.top ?? 16; }
+  look.title(doc, ml, y, `${sum.count} bar mark${sum.count === 1 ? '' : 's'} · full schedule in the Detailed export`);
+  const body = sum.rows.map(r => [r.dia + ' mm', String(r.bars), _n2(r.lengthM), r.kgPerM.toFixed(3), _n2(r.kg)]);
+  const ts = Object.assign({ fontStyle: 'bold' }, look.totalStyles || {});
+  body.push([
+    { content: 'Total', styles: Object.assign({}, ts, { halign: 'left' }) },
+    { content: String(sum.totalBars), styles: ts },
+    { content: _n2(sum.totalLengthM), styles: ts },
+    { content: '', styles: ts },
+    { content: `${_n2(sum.totalKg)}  (${sum.totalMt.toFixed(3)} MT)`, styles: ts },
+  ]);
+  const tableW = Math.min(150, pw - ml - mr);
+  doc.autoTable(Object.assign({
+    startY: y + 9, head: [['Dia', 'Bars', 'Length (m)', 'kg / m', 'Weight (kg)']], body,
+    tableWidth: tableW, margin: { left: ml, right: mr, top: look.top ?? 14, bottom: 14 }, rowPageBreak: 'avoid',
+    columnStyles: { 0: { halign: 'left', cellWidth: 22 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right', cellWidth: 46 } },
+    didParseCell: (d) => { if (d.section === 'head' && d.column.index > 0) d.cell.styles.halign = 'right'; if (d.section === 'head' && d.column.index === 0) d.cell.styles.halign = 'left'; },
+  }, look.tableOpts || {}));
+  return true;
+}
 
 export function exportMeasurementPlantPdf(id) {
   try {
@@ -139,6 +179,16 @@ export function exportMeasurementPlantPdf(id) {
       styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] },
       columnStyles: plantCS,
       margin: { left: 14, right: 14 }
+    });
+    _appendBbsSummaryPdf(doc, s, {
+      ml: 14, mr: 14, top: 14,
+      title: (d, x, ty, sub) => {
+        d.setFont('helvetica', 'bold'); d.setFontSize(10); d.setTextColor(20); d.text('Steel Summary (BBS)', x, ty + 3);
+        d.setFont('helvetica', 'normal'); d.setFontSize(7.5); d.setTextColor(110); d.text(sub, x, ty + 7.2);
+      },
+      tableOpts: { theme: 'grid',
+        headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5 },
+        styles: { fontSize: 8, cellPadding: 1.3, lineColor: [0, 0, 0], lineWidth: 0.15, textColor: [15, 23, 42] } },
     });
     mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
   } catch (err) {
@@ -343,6 +393,24 @@ export async function exportMeasurementFlintPdf(id) {
       }
     });
     doc.setLineWidth(0.2);
+    _appendBbsSummaryPdf(doc, s, {
+      ml, mr, top: 14,
+      title: (d, x, ty, sub) => {
+        d.setFont(F.gothic, 'bold'); d.setFontSize(11); d.setTextColor(MD.LABEL[0], MD.LABEL[1], MD.LABEL[2]); d.text('STEEL SUMMARY (BBS)', x, ty + 3);
+        d.setFont(F.sans, 'normal'); d.setFontSize(8); d.setTextColor(120); d.text(sub, x, ty + 7.4);
+      },
+      totalStyles: { fillColor: MD.TOTFILL, textColor: MD.TOTTEXT, font: F.gothic },
+      tableOpts: { theme: 'plain',
+        styles: { font: F.sans, fontSize: 9.5, fontStyle: 'bold', textColor: MD.INK, valign: 'middle', cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 }, minCellHeight: 5.9, lineWidth: 0 },
+        headStyles: { font: F.gothic, fontSize: 9, fontStyle: 'bold', textColor: MD.LABEL, minCellHeight: 8 },
+        didDrawCell: (d) => {
+          const c = d.cell;
+          const last = d.section === 'body' && d.row.index === d.table.body.length - 1;
+          if (d.section === 'head' || last) { doc.setDrawColor(MD.TOTLINE[0], MD.TOTLINE[1], MD.TOTLINE[2]); doc.setLineWidth(0.6); doc.line(c.x, c.y + c.height, c.x + c.width, c.y + c.height); if (last) doc.line(c.x, c.y, c.x + c.width, c.y); }
+          else if (d.section === 'body') { doc.setDrawColor(MD.RULE[0], MD.RULE[1], MD.RULE[2]); doc.setLineWidth(0.45); doc.line(c.x, c.y + c.height, c.x + c.width, c.y + c.height); }
+        } },
+    });
+    doc.setLineWidth(0.2);
     mobileSavePDF(doc, `Measurement_${s.sheetNum}.pdf`);
   } catch (err) {
     console.error('Modern measurement PDF failed:', err);
@@ -436,42 +504,19 @@ export function exportSimpleMeasurementPdf(id) {
     columnStyles: simpleCS
   });
 
-  // BBS summary if exists
-  const bbs = (state.bbsData || {})[s.id];
-  if (bbs && bbs.length) {
-    const bbsY = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
-    doc.text('DETAIL OF STEEL (BBS)', 14, bbsY);
-    const diaCols = [8, 10, 12, 16, 20];
-    const diaTotals = {}; diaCols.forEach(d => diaTotals[d] = 0);
-    const bbsRows = bbs.map((b, i) => {
-      const dia = parseInt(b.dia) || 0;
-      const row = [i + 1, b.mark || '', dia ? dia + 'mm' : '', b.noBar || '', b.no || '', b.totalBars || '',
-        b.a || '', b.b || '', b.c || '', b.d || '', b.hook || '',
-        b.cutLen ? b.cutLen.toFixed(2) : '', b.totalLen ? b.totalLen.toFixed(2) : '',
-        '', '', '', '', ''];
-      const ci = diaCols.indexOf(dia);
-      if (ci !== -1) { row[13 + ci] = b.totalLen ? b.totalLen.toFixed(2) : ''; diaTotals[dia] += (b.totalLen || 0); }
-      return row;
-    });
-    // Total RM
-    bbsRows.push(['', 'Total RM', '', '', '', '', '', '', '', '', '', '', '', ...diaCols.map(d => diaTotals[d] ? diaTotals[d].toFixed(2) : '-')]);
-    // KG/RM
-    bbsRows.push(['', 'KG/RM', '', '', '', '', '', '', '', '', '', '', '', ...diaCols.map(d => BBS_UNIT_WEIGHTS[d] ? BBS_UNIT_WEIGHTS[d].toFixed(3) : '-')]);
-    // Total KG per Dia
-    const wtPerDia = diaCols.map(d => diaTotals[d] * (BBS_UNIT_WEIGHTS[d] || 0));
-    bbsRows.push(['', 'Total KG per Dia', '', '', '', '', '', '', '', '', '', '', '', ...wtPerDia.map(w => w ? w.toFixed(2) : '-')]);
-    const grandKG = wtPerDia.reduce((a, b) => a + b, 0);
-    bbsRows.push([{ content: 'Total Weight: ' + grandKG.toFixed(2) + ' KG  |  ' + (grandKG / 1000).toFixed(3) + ' MT', colSpan: 18, styles: { fontStyle: 'bold', halign: 'center', fillColor: [245, 245, 245] } }]);
-    doc.autoTable({
-      startY: bbsY + 4,
-      head: [['SN', 'Description', 'DIA', 'No of Bar', 'No.', 'Total Bars', 'A', 'B', 'C', 'D', 'Hook', 'Cut Len', 'Total Len', '8mm', '10mm', '12mm', '16mm', '20mm']],
-      body: bbsRows, theme: 'grid',
-      headStyles: { fillColor: [124, 58, 237], fontSize: 6, fontStyle: 'bold' },
-      styles: { fontSize: 6, cellPadding: 1.5 },
-      columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 22 } }
-    });
-  }
+  // Steel summary (BBS) when the sheet has one — same accent + borders as the table above.
+  _appendBbsSummaryPdf(doc, s, {
+    ml: 14, mr: 14, top: 14,
+    title: (d, x, ty, sub) => {
+      d.setFont('helvetica', 'bold'); d.setFontSize(10.5); d.setTextColor(titleCol[0], titleCol[1], titleCol[2]); d.text('STEEL SUMMARY (BBS)', x, ty + 3);
+      d.setFont('helvetica', 'normal'); d.setFontSize(7.5); d.setTextColor(110); d.text(sub, x, ty + 7.2);
+    },
+    tableOpts: { theme: 'grid',
+      headStyles: { fillColor: accent, textColor: headTextCol, fontSize: isP ? 7 : 7.5, fontStyle: 'bold', lineColor: border, lineWidth: 0.15 },
+      styles: { fontSize: isP ? 7 : 7.5, cellPadding: 1.6, textColor: fontCol, lineColor: border, lineWidth: 0.15 },
+    },
+    totalStyles: { fillColor: totalFill },
+  });
 
   mobileSavePDF(doc,`Measurement_${s.sheetNum}.pdf`);
   } catch (err) {
@@ -672,31 +717,76 @@ export function exportDetailedMeasurementPdf(id) {
   mobileSavePDF(doc,`Detailed_Measurement_${s.sheetNum}.pdf`);
 }
 
-export function exportToExcel() {
-  if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
-  const s = state.sheets.find(x => x.id === state.currentSheetId);
-  // Columns strictly from the sheet: built-ins + custom columns (configured order).
+/** Simple measurement Excel: grouped measurement lines with item totals, then the
+ *  steel summary (BBS) when the sheet has one — one tidy sheet, ready to print. */
+export function exportSimpleMeasurementExcel(id) {
+  const sheetId = id || state.currentSheetId;
+  if (!sheetId) return showToast('Save sheet before exporting', 'error');
+  const s = state.sheets.find(x => x.id === sheetId);
+  if (!s) return showToast('Sheet not found', 'error');
   const cc = _sheetCustomCols(s);
-  const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const headerCols = ['Code', 'Description', 'Unit', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), ...cc.map(c => c.name), 'Qty', 'Remarks'];
-  let csvContent = headerCols.map(csvCell).join(',') + `\n`;
-  s.entries.forEach(e => {
-    let row = [e.code, `"${(e.description || '').replace(/"/g, '""')}"`, e.uom, e.nos, e.l, e.b, e.h, ...cc.map(col => csvCell(_ccVal(e, col))), e.qty, `"${(e.remarks || '').replace(/"/g, '""')}"`];
-    csvContent += row.join(",") + "\n";
+  const proj = state.projects.find(p => p.id === s.projectId);
+  const c = state.clients.find(x => x.id === s.clientId);
+  const cp = state.companyProfile || {};
+  const head = ['Sr', 'Particulars of work', _hl(s, 'nos', 'Nos'), _hl(s, 'l', 'L'), _hl(s, 'b', 'B'), _hl(s, 'h', 'H'), ...cc.map(col => col.name), 'Qty', 'Unit'];
+  const W = head.length;
+  const num = v => (v === '' || v == null || isNaN(Number(v))) ? (v ?? '') : Number(v);
+  const dp = state.printSettings?.measurementDecimals ?? 2;
+  const q = v => Number((Number(v) || 0).toFixed(dp));
+  const aoa = [], merges = [];
+  const full = (text) => { merges.push({ s: { r: aoa.length, c: 0 }, e: { r: aoa.length, c: W - 1 } }); aoa.push([text]); };
+  if (cp.CompanyName) full(cp.CompanyName);
+  full('MEASUREMENT SHEET');
+  full([`Project: ${proj?.name || '—'}`, `Client: ${c?.name || proj?.clientName || '—'}`, `Sheet No: ${s.sheetNum || ''}`, `Date: ${_fmtDMY(s.date)}`, s.area ? `Area: ${s.area}` : ''].filter(Boolean).join('   |   '));
+  aoa.push([]);
+  aoa.push(head);
+  const groups = groupSheetEntries(s.entries || []);
+  let n = 0;
+  Object.keys(groups).forEach(key => {
+    const lines = groups[key]; const first = lines[0] || {};
+    n++;
+    merges.push({ s: { r: aoa.length, c: 1 }, e: { r: aoa.length, c: W - 1 } });
+    aoa.push([n, (first.code ? first.code + ' — ' : '') + (first.description || first.code || '')]);
+    let total = 0;
+    lines.forEach(e => { total += (Number(e.qty) || 0); aoa.push(['', e.remarks || '', num(e.nos), num(e.l), num(e.b), num(e.h), ...cc.map(col => num(_ccVal(e, col))), q(e.qty), e.uom || first.uom || '']); });
+    const tr = new Array(W).fill(''); tr[1] = 'Total Quantity'; tr[W - 2] = q(total); tr[W - 1] = first.uom || '';
+    aoa.push(tr);
   });
-  // Save via the Capacitor-aware helper so it works in the Android app (writes the
-  // file + opens the Save/Share sheet), not just the browser.
-  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  mobileDownloadBlob(blob, `Measurement_${s.sheetNum}.csv`, 'text/csv');
+  const sum = _bbsSummaryFor(s);
+  if (sum.rows.length) {
+    aoa.push([]);
+    full('STEEL SUMMARY (BBS)');
+    aoa.push(['Dia (mm)', 'Bars', 'Length (m)', 'kg / m', 'Weight (kg)']);
+    sum.rows.forEach(r => aoa.push([r.dia, r.bars, r.lengthM, r.kgPerM, r.kg]));
+    aoa.push(['Total', sum.totalBars, sum.totalLengthM, '', sum.totalKg]);
+    aoa.push(['', '', '', 'MT', sum.totalMt]);
+  }
+  const XLSX = window.XLSX;
+  if (!XLSX) {
+    // No spreadsheet library: same content as CSV so the export never just fails.
+    const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = aoa.map(r => r.map(cell).join(',')).join('\n');
+    return mobileDownloadBlob(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }), `Measurement_${s.sheetNum}.csv`, 'text/csv');
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = [{ wch: 6 }, { wch: 46 }, ...new Array(W - 2).fill({ wch: 11 })];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Measurement');
+  mobileSaveXLSX(wb, `Measurement_${s.sheetNum}.xlsx`);
 }
+/** Kept for older buttons: the simple Excel export. */
+export function exportToExcel(id) { return exportSimpleMeasurementExcel(id); }
 
 /** Detailed RA Measurement Excel Export (VMC format) */
-export function exportDetailedMeasurementExcel() {
-  if (!state.currentSheetId) return showToast('Save sheet before exporting', 'error');
+export function exportDetailedMeasurementExcel(id) {
+  const sheetId = id || state.currentSheetId;
+  if (!sheetId) return showToast('Save sheet before exporting', 'error');
   const XLSX = window.XLSX;
   if (!XLSX) return showToast('SheetJS library not loaded', 'error');
 
-  const s = state.sheets.find(x => x.id === state.currentSheetId);
+  const s = state.sheets.find(x => x.id === sheetId);
+  if (!s) return showToast('Sheet not found', 'error');
   const c = state.clients.find(x => x.id === s.clientId);
   const proj = state.projects.find(p => p.id === s.projectId);
   const boqItems = proj?.boqItems || [];
@@ -945,4 +1035,88 @@ window._previewMeasTemplate = function (key) {
     state.printSettings.docTemplate = prev;
     if (temp) { const i = state.sheets.indexOf(sheet); if (i >= 0) state.sheets.splice(i, 1); }
   }
+};
+
+// ══════════════════════════════════════════════════════════
+//  TWO-STEP EXPORT: format (PDF / Excel) → depth (Simple / Detailed)
+// ══════════════════════════════════════════════════════════
+// Every measurement export button opens this with a format; the user then picks
+// the depth and only that tap generates + downloads the file. Phones get a
+// bottom sheet, wider screens a centred dialog (same markup, CSS decides).
+const _MX_RUN = {
+  pdf: { simple: id => exportSimpleMeasurementPdf(id), detailed: id => exportDetailedMeasurementPdf(id) },
+  excel: { simple: id => exportSimpleMeasurementExcel(id), detailed: id => exportDetailedMeasurementExcel(id) },
+};
+const _mxEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let _mxCtx = null;   // { format, sheetId, opener }
+
+function _mxClose() {
+  const ov = document.getElementById('measExportOverlay');
+  if (!ov) return;
+  ov.classList.remove('open');
+  document.removeEventListener('keydown', _mxKey, true);
+  const back = _mxCtx && _mxCtx.opener;
+  _mxCtx = null;
+  setTimeout(() => { ov.remove(); try { back && back.focus && back.focus({ preventScroll: true }); } catch {} }, 180);
+}
+function _mxKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); _mxClose(); }
+}
+
+/** Step 1 → 2: open the depth picker for a format ('pdf' | 'excel'). */
+window.openMeasExport = function (format, sheetId) {
+  const fmt = format === 'excel' ? 'excel' : 'pdf';
+  const id = sheetId || state.currentSheetId;
+  if (!id) return showToast('Save sheet before exporting', 'error');
+  const s = (state.sheets || []).find(x => x.id === id);
+  if (!s) return showToast('Sheet not found', 'error');
+  document.getElementById('measExportOverlay')?.remove();
+  _mxCtx = { format: fmt, sheetId: id, opener: document.activeElement };
+  const bbs = _bbsSummaryFor(s);
+  const steel = bbs.rows.length ? `<span class="mx-tag">+ Steel summary · ${_n2(bbs.totalKg)} kg</span>` : '';
+  const isPdf = fmt === 'pdf';
+  const opts = [
+    { depth: 'simple', icon: isPdf ? '📄' : '📊', title: 'Simple',
+      desc: isPdf ? 'Clean measurement sheet with item totals' : 'One sheet: measurements with item totals', extra: steel },
+    { depth: 'detailed', icon: '🗂️', title: 'Detailed',
+      desc: isPdf ? 'RA bill format: previous & this-bill quantities, full bar bending schedule'
+                  : 'RA bill workbook (VMC format) with the full BBS sheet', extra: '' },
+  ];
+  const ov = document.createElement('div');
+  ov.id = 'measExportOverlay';
+  ov.className = 'mx-ov';
+  ov.innerHTML = `<div class="mx-sheet" role="dialog" aria-modal="true" aria-labelledby="mxTitle" tabindex="-1">
+    <div class="mx-grab" aria-hidden="true"></div>
+    <div class="mx-head">
+      <span class="mx-fmt ${fmt}" aria-hidden="true">${isPdf ? 'PDF' : 'XLS'}</span>
+      <div class="mx-ttl"><h3 id="mxTitle">Export to ${isPdf ? 'PDF' : 'Excel'}</h3><small>Sheet ${_mxEsc(s.sheetNum || '')}${s.area ? ' · ' + _mxEsc(s.area) : ''}</small></div>
+      <button type="button" class="mx-x" aria-label="Close" onclick="window._mxClose()">×</button>
+    </div>
+    <div class="mx-q">How much detail?</div>
+    <div class="mx-opts">${opts.map(o => `<button type="button" class="mx-opt" data-depth="${o.depth}" onclick="window._mxPick('${o.depth}')">
+        <span class="mx-ic" data-keep-emoji>${o.icon}</span>
+        <span class="mx-tx"><b>${o.title}</b><small>${o.desc}</small>${o.extra}</span>
+        <span class="mx-go" aria-hidden="true">›</span></button>`).join('')}</div>
+  </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) _mxClose(); });
+  ov.__onBack = _mxClose;                       // Android back / gesture closes the sheet
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', _mxKey, true);
+  // Focus the dialog (not an option) so nothing looks pre-selected; Tab reaches the options.
+  requestAnimationFrame(() => { ov.classList.add('open'); ov.querySelector('.mx-sheet')?.focus({ preventScroll: true }); });
+};
+window._mxClose = _mxClose;
+
+/** Step 2: depth chosen → generate + download, then close. */
+window._mxPick = function (depth) {
+  if (!_mxCtx) return;
+  const { format, sheetId } = _mxCtx;
+  const run = (_MX_RUN[format] || {})[depth];
+  const btn = document.querySelector(`#measExportOverlay .mx-opt[data-depth="${depth}"]`);
+  document.querySelectorAll('#measExportOverlay .mx-opt').forEach(b => { b.disabled = true; });
+  if (btn) btn.classList.add('busy');
+  // Let the pressed state paint before the (synchronous) PDF/XLSX build blocks the thread.
+  setTimeout(async () => {
+    try { await run?.(sheetId); } finally { _mxClose(); }
+  }, 30);
 };
