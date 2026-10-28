@@ -7,7 +7,7 @@
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { getCurrencySymbol, showToast } from './utils.js';
-import { renderWorkingCF } from './cashForecastUI.js?v=1.0.0';
+import { renderWorkingCF } from './cashForecastUI.js?v=1.0.1';
 
 const N = (v) => parseFloat(v) || 0;
 const _days = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; };
@@ -1165,7 +1165,7 @@ export function renderCashFlow() {
   if (!root) return;
   const tab = (id, label, icon) => `<button onclick="window._cfSwitchTab('${id}')" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ${_cfTab === id ? 'transparent' : '#e2e8f0'};background:${_cfTab === id ? 'linear-gradient(135deg,#d6402c,#ef8420)' : '#fff'};color:${_cfTab === id ? '#fff' : '#475569'};">${icon} ${label}</button>`;
   const body = _cfTab === 'working' ? renderWorkingCF({
-      cashDerived: cashPosition(), labourDueNow: labourDue(), weeklyWagesAuto: _labourBilled(28) / 4, reserve: survival().targetReserve,
+      cashDerived: cashPosition(), weeklyWagesAuto: _labourBilled(28) / 4, reserve: survival().targetReserve,
       pnl: () => (typeof window.computeProjectPnL === 'function' ? (state.projects || []).map(p => window.computeProjectPnL(p.id)) : []),
     }) : _cfTab === 'cashflow' ? _renderConstructionCF() : _cfTab === 'cockpit' ? _renderCockpit() : _cfTab === 'survival' ? _renderSurvival() : _cfTab === 'targets' ? _renderTargets() : _cfTab === 'profitfirst' ? _renderProfitFirst() : _cfTab === 'commitments' ? _renderCommitments() : _cfTab === 'clients' ? _renderClients() : _cfTab === 'leaks' ? _renderLeaks() : _cfTab === 'forecast' ? _renderForecast() : _cfTab === 'tools' ? _renderTools() : _renderOverview();
   root.innerHTML = `

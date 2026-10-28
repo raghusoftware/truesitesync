@@ -63,6 +63,8 @@ export function saveClient() {
   if (!name) { showToast('Client name is required', 'error'); return; }
   const editId = _cf('modalClientId');
   const termsRaw = (_cf('modalClientTerms') || '').toString().trim();
+  // New clients need terms — they date every RA bill / invoice receipt in the cash-flow forecast.
+  if (termsRaw === '' && !editId) { document.getElementById('modalClientTerms')?.focus(); showToast('Set payment terms — pick Immediate, Net 15, Net 30 …', 'error'); return; }
   const paymentTermsDays = termsRaw === '' ? null : Math.max(0, parseInt(termsRaw) || 0);
   const creditLimit = parseFloat(_cf('modalClientCreditLimit')) || 0;
   const data = {

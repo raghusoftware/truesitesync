@@ -1716,14 +1716,18 @@ export function saveVendor() {
   const name = document.getElementById('modalVenName').value;
   if (!name) return showToast('Name Required', 'error');
   const _vtRaw = (document.getElementById('modalVenTerms')?.value || '').toString().trim();
-  const _vTerms = _vtRaw === '' ? null : Math.max(0, parseInt(_vtRaw) || 0);
+  const _vBasis = document.getElementById('modalVenTermsBasis')?.value || 'bill';
+  // Terms drive the cash-flow forecast, so a new supplier needs them (Immediate = 0 is fine).
+  if (_vtRaw === '' && _vBasis !== 'weekly') { document.getElementById('modalVenTerms')?.focus(); return showToast('Set payment terms — pick Immediate, Net 7 … or "Paid weekly"', 'error'); }
+  const _vTerms = _vtRaw === '' ? (_vBasis === 'weekly' ? 7 : null) : Math.max(0, parseInt(_vtRaw) || 0);
   const rec = {
     id: 'v_' + Date.now(), name,
     contact: document.getElementById('modalVenContact').value,
     gst: document.getElementById('modalVenGST').value.toUpperCase(),
     address: document.getElementById('modalVenAddress').value,
     paymentTermsDays: _vTerms,
-    termsBasis: document.getElementById('modalVenTermsBasis')?.value === 'delivery' ? 'delivery' : 'bill',
+    termsBasis: _vBasis === 'delivery' ? 'delivery' : 'bill',
+    ...(_vBasis === 'weekly' ? { termsType: 'weekly', payWeekday: 6 } : {}),
     termsHistory: _vTerms != null ? [{ date: new Date().toISOString(), from: null, to: _vTerms, reason: 'Initial terms at registration' }] : [],
     projectId: state.currentProjectId || undefined
   };

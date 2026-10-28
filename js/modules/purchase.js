@@ -650,7 +650,10 @@ export function savePanelPurchaseBill() {
   const _days = _v.paymentTermsDays != null && _v.paymentTermsDays !== '' ? +_v.paymentTermsDays : (+state.cashFlowSettings?.creditDays || 30);
   const _grnDates = purItems.map(it => it.grnId && (state.grnRecords || []).find(g => g.id === it.grnId)?.date).filter(Boolean).sort();
   const _basis = _v.termsBasis === 'delivery' && _grnDates.length ? _grnDates[0] : date;
-  const _due = new Date(_basis + 'T00:00:00Z'); _due.setUTCDate(_due.getUTCDate() + _days);
+  const _due = new Date(_basis + 'T00:00:00Z');
+  // Weekly suppliers are paid on their pay day (Saturday unless set) on or after the bill.
+  if (_v.termsType === 'weekly') _due.setUTCDate(_due.getUTCDate() + ((+(_v.payWeekday ?? 6) - _due.getUTCDay() + 7) % 7));
+  else _due.setUTCDate(_due.getUTCDate() + _days);
   const rec = {
     id: billId, vendorId, siteId, billNo, date, poId, poNo, items: purItems,
     dueDate: isNaN(_due) ? '' : _due.toISOString().slice(0, 10), termsDays: _days,
