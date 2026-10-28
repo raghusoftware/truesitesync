@@ -14,7 +14,7 @@ import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, m
 import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
-import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.0';
+import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
 
 /** Display a stored ISO date (yyyy-mm-dd) as dd/mm/yyyy. */
 function _purFmtDate(iso) {

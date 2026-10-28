@@ -69,7 +69,8 @@ const SCOPE_LABEL = {
  */
 export function mountTaxScope(sel, opts = {}) {
   if (!sel) return null;
-  let box = sel.parentElement.querySelector(`.tx-scope[data-for="${sel.id}"]`);
+  // Re-opening a form re-mounts: reuse the existing wrapper (not the inner .tx-scope).
+  let box = sel.parentElement.querySelector(`.tx-scope[data-for="${sel.id}"]`)?.closest('.tx-scope-wrap');
   if (!box) {
     box = document.createElement('div');
     box.className = 'tx-scope-wrap';

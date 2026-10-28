@@ -16,7 +16,7 @@ import { showToast, getCurrencySymbol, amountToWordsCur, getTaxConfig, getTerm }
 import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from './formHelpers.js';
 import { GST_STATE } from './constants.js?v=1.1.0';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
-import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.0';
+import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
 

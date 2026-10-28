@@ -145,17 +145,55 @@ function closeModal(el) {
   if (getComputedStyle(el).display !== 'none') el.style.display = 'none';
 }
 
+/* Full-screen forms (Sale / Purchase invoice, payments, orders, returns …) are
+ * fixed panels over the current view, not views of their own. Back must close
+ * the panel itself — walking the view tree underneath left the form on screen
+ * ("Back does nothing") until the root's press-again-to-exit closed the app. */
+const FORM_PANELS = '[id$="FormPanel"]';
+function topFormPanel() {
+  let best = null, bestZ = -1;
+  document.querySelectorAll(FORM_PANELS).forEach(el => {
+    if (el.classList.contains('hidden')) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.position !== 'fixed') return;
+    const z = parseInt(cs.zIndex) || 0;
+    if (z >= bestZ) { bestZ = z; best = el; }
+  });
+  return best;
+}
+/** Close a form panel the same way its own Cancel / ✕ does; ask first if the user typed into it. */
+function closeFormPanel(el) {
+  if (el.dataset.dirty && !window.confirm('Discard this unsaved entry?')) return;
+  if (typeof el.__onBack === 'function') el.__onBack();
+  else if (el.id === 'purchaseFormPanel' && typeof window.closePurchaseFormPanel === 'function') window.closePurchaseFormPanel();
+  else if (typeof window.closeFullScreenForm === 'function') window.closeFullScreenForm(el.id);
+  else el.classList.add('hidden');
+  if (!el.classList.contains('hidden')) el.classList.add('hidden');      // whatever the closer did, it's gone
+  document.body.style.overflow = '';
+}
+/** Mark a form "dirty" on real typing; forget it whenever the panel is hidden (saved / cancelled). */
+function trackFormEdits() {
+  const mark = (e) => { if (!e.isTrusted) return; const p = e.target.closest?.(FORM_PANELS); if (p) p.dataset.dirty = '1'; };
+  document.addEventListener('input', mark, true);
+  document.addEventListener('change', mark, true);
+  const mo = new MutationObserver(recs => recs.forEach(r => { if (r.target.classList.contains('hidden')) delete r.target.dataset.dirty; }));
+  document.querySelectorAll(FORM_PANELS).forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+}
+
 let _lastBack = 0;
 
 /**
  * Unified back handler. Priority:
- *   modal → drawer → fullscreen sheet → view history → exit (double-press).
+ *   modal → full-screen form → drawer → fullscreen sheet → view tree → exit (double-press).
  * Returns true if it handled the event (caller should preventDefault).
  */
 export function handleBack() {
   // 1. Close the top-most open modal
   const modal = topVisibleModal();
   if (modal) { closeModal(modal); return true; }
+  // 1b. Close an open full-screen form (back to the list / submenu it was opened from)
+  const form = topFormPanel();
+  if (form) { closeFormPanel(form); return true; }
   // 2. Close the slide-in sidebar drawer
   if (sidebarOpen()) { closeSidebar(); return true; }
 
@@ -281,6 +319,7 @@ export function initMobileShell() {
   if (_inited) return;
   _inited = true;
 
+  trackFormEdits();
   // Bottom nav (CSS keeps it hidden on ≥769px)
   buildBottomNav();
   highlightBottomNav();
