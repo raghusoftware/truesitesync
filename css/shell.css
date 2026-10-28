@@ -1720,3 +1720,11 @@ button.esl-more:hover { background: #eef1f5; color: #0f172a; }
   table.an-table td:last-child::before { content: 'Preview  '; font-family: inherit; color: #94a3b8; font-weight: 600; }
   table.an-table input { width: 100% !important; }
 }
+/* Pending GRNs: empty state when the chosen site has none (purchase.js) */
+.pg-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 14px; margin: 10px 12px 12px; text-align: center;
+  background: #fff; border: 1px dashed #e5d4c4; border-radius: 12px; }
+.pg-empty-ic { font-size: 26px; line-height: 1; margin-bottom: 4px; }
+.pg-empty b { font-size: 14px; color: #0f172a; }
+.pg-empty small { font-size: 12.5px; color: #64748b; }
+button.pg-empty-btn { margin-top: 8px; height: 34px; min-height: 0 !important; padding: 0 14px !important; border: 1px solid #fdba74; border-radius: 9px !important;
+  background: #fff7ed; color: #c2410c; font-size: 12.5px !important; font-weight: 800 !important; }
