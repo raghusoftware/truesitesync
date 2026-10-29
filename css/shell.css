@@ -1883,3 +1883,7 @@ button.prw-link { background: none; border: none; padding: 0 !important; min-hei
   .prw-table.rep tfoot tr { background: #fff7ed; } .prw-table.rep tfoot td { background: none; }
   .prw-table.rep tfoot td.rep-item { font-size: 14px; }
 }
+
+/* Pro Forma list: row actions */
+button.pi-more { width: 34px; height: 34px; min-height: 0 !important; padding: 0 !important; border: 1px solid #e2e8f0; border-radius: 10px !important; background: #fff; color: #334155; font-size: 18px !important; font-weight: 800; line-height: 1; cursor: pointer; }
+button.pi-more:hover, button.pi-more:focus-visible { background: #f1f5f9; border-color: #cbd5e1; }

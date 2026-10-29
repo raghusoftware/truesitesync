@@ -12,21 +12,52 @@ import { state, saveAllData } from './state.js';
 import { deductionsBlockHTML, initDeductions, readDeductions, loadDeductions, refreshBills, clientBills } from './deductionsUI.js';
 import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
-import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm } from './formHelpers.js';
+import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm, openFormModal, closeFormModal } from './formHelpers.js';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.2';
 
-export function openProformaInvoiceForm() {
+/** New pro forma, or edit an existing one (editId): the same form, filled in. */
+export function openProformaInvoiceForm(editId) {
+  if (typeof editId !== 'string') editId = '';   // called from a click handler (event) → new
+  const pi = editId ? (state.proformaInvoices || []).find(p => p.id === editId) : null;
+  if (editId && !pi) { showToast('Proforma invoice not found', 'error'); return; }
   _populateClientSelect('piFormClient');
-  document.getElementById('piFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('piFormNo').value = 'PI-' + (Date.now() % 100000);
-  document.getElementById('piFormTableBody').innerHTML = '';
-  addPIFormRow(3); calcPIFormTotal();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+  const panel = document.getElementById('proformaInvoiceFormPanel');
+  if (panel) panel.dataset.editId = pi ? pi.id : '';
+  const title = panel?.querySelector('h2'); if (title) title.textContent = pi ? `Edit Proforma Invoice ${pi.piNo || ''}` : 'Create Proforma Invoice';
+  const saveBtn = panel?.querySelector('button[onclick="saveProformaInvoiceForm()"]'); if (saveBtn) saveBtn.textContent = pi ? 'Save Changes' : 'Save Proforma Invoice';
+  set('piFormClient', pi ? pi.clientId : '');
+  set('piFormDate', pi ? pi.date : new Date().toISOString().split('T')[0]);
+  set('piFormNo', pi ? pi.piNo : _nextPiNo());
+  set('piFormValidUntil', pi ? pi.validUntil : '');
+  set('piFormNotes', pi ? pi.notes : '');
+  const tbody = document.getElementById('piFormTableBody');
+  tbody.innerHTML = '';
+  const items = pi ? (pi.items || []) : [];
+  addPIFormRow(Math.max(items.length, pi ? 1 : 3));
+  items.forEach((it, i) => {
+    const r = tbody.rows[i]; if (!r) return;
+    r.querySelector('input[type="text"]').value = it.desc || '';
+    const nums = r.querySelectorAll('input[type="number"]');
+    nums[0].value = it.qty; nums[1].value = it.rate;
+  });
+  calcPIFormTotal();
   _openFullScreenForm('proformaInvoiceFormPanel');
+}
+/** Next PI-#### number: one past the highest already used. */
+function _nextPiNo() {
+  const max = (state.proformaInvoices || []).reduce((m, p) => Math.max(m, parseInt(String(p.piNo || '').replace(/\D/g, ''), 10) || 0), 0);
+  return 'PI-' + String(max + 1).padStart(4, '0');
 }
 export function addPIFormRow(count = 1) { for (let i = 0; i < count; i++) _addGenericFormRow('piFormTableBody', 'calcPIFormTotal'); }
 export function calcPIFormTotal() { _calcGenericFormTotal('piFormTableBody', 'piFormSubtotal', 'piFormTotal'); }
 export function saveProformaInvoiceForm() {
+  const editId = document.getElementById('proformaInvoiceFormPanel')?.dataset.editId || '';
   const clientId = document.getElementById('piFormClient').value;
   if (!clientId) { showToast('Select a client', 'error'); return; }
+  const piNo = (document.getElementById('piFormNo').value || '').trim();
+  if (!piNo) { showToast('Enter the PI number', 'error'); return; }
+  if ((state.proformaInvoices || []).some(p => p.id !== editId && (p.piNo || '').trim().toLowerCase() === piNo.toLowerCase())) { showToast(`${piNo} is already used — pick another number`, 'error'); return; }
   const tbody = document.getElementById('piFormTableBody');
   let items = [], sub = 0;
   Array.from(tbody.rows).forEach(r => {
@@ -37,17 +68,25 @@ export function saveProformaInvoiceForm() {
     if (desc && qty > 0) { items.push({ desc, qty, rate, amount: qty * rate }); sub += qty * rate; }
   });
   if (!items.length) { showToast('Add at least one item', 'error'); return; }
-  const rec = {
-    id: 'pi_' + Date.now(), piNo: document.getElementById('piFormNo').value,
-    date: document.getElementById('piFormDate').value, clientId, items, total: sub,
+  const data = {
+    piNo, date: document.getElementById('piFormDate').value, clientId, items, total: sub,
     validUntil: document.getElementById('piFormValidUntil')?.value || '',
     notes: document.getElementById('piFormNotes')?.value || '',
-    status: 'Pending', convertedInvoice: ''
   };
   if (!state.proformaInvoices) state.proformaInvoices = [];
-  state.proformaInvoices.push(rec);
+  const existing = editId && state.proformaInvoices.find(p => p.id === editId);
+  if (existing) { Object.assign(existing, data, { updatedAt: new Date().toISOString() }); window.stampUpdate?.(existing); }
+  else state.proformaInvoices.push(window.stampCreate ? window.stampCreate({ id: 'pi_' + Date.now(), ...data, status: 'Pending', convertedInvoice: '' }) : { id: 'pi_' + Date.now(), ...data, status: 'Pending', convertedInvoice: '' });
   saveAllData(); closeFullScreenForm('proformaInvoiceFormPanel');
-  showToast('Proforma Invoice saved!'); renderProformaInvoices();
+  showToast(existing ? `${piNo} updated` : 'Proforma Invoice saved!', 'success'); renderProformaInvoices();
+}
+/** Pro forma PDF in the same design as the Tax Invoice (Settings → Print), titled "Proforma Invoice". */
+export function exportProformaPDF(id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id);
+  if (!p) { showToast('Proforma invoice not found', 'error'); return; }
+  const notes = [p.validUntil ? `Valid until ${p.validUntil}.` : '', p.notes || ''].filter(Boolean).join(' ');
+  return renderStyledInvoice({ invoiceNo: p.piNo, date: p.date, clientId: p.clientId, items: (p.items || []).map(it => ({ desc: it.desc, qty: it.qty, rate: it.rate, amount: it.amount })), total: p.total, notes },
+    resolveInvoiceDesign(state.printSettings?.invoiceTemplate), { title: 'Proforma Invoice', filePrefix: 'Proforma_Invoice_', hideReceived: true });
 }
 export function renderProformaInvoices() {
   const cfEl = document.getElementById('piFilterClient');
@@ -69,7 +108,7 @@ export function renderProformaInvoices() {
     const c = state.clients.find(x => x.id === p.clientId);
     kTotal += p.total; if (p.status === 'Converted') kConv += p.total; else kPend += p.total;
     const sBadge = p.status === 'Converted' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Converted</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700">${p.piNo}</td><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${p.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${sBadge}</td><td class="px-4 py-3 text-slate-500">${p.convertedInvoice || '-'}</td><td class="px-4 py-3 text-center"><button onclick="deleteProformaInvoice('${p.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
+    tbody.innerHTML += `<tr class="hover:bg-slate-50 cursor-pointer" onclick="window._piMenu('${p.id}')"><td class="px-4 py-3 font-mono font-bold text-blue-700">${p.piNo}</td><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${p.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${sBadge}</td><td class="px-4 py-3 text-slate-500">${p.convertedInvoice || '-'}</td><td class="px-4 py-3 text-center"><button type="button" onclick="event.stopPropagation();window._piMenu('${p.id}')" aria-label="Actions for ${p.piNo}" class="pi-more">⋯</button></td></tr>`;
   });
   if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No proforma invoices found.</td></tr>';
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -78,11 +117,33 @@ export function renderProformaInvoices() {
   s('piKpiTotal', getCurrencySymbol() + kTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
 }
 export function clearPIFilters() { ['piSearch','piFilterClient','piFilterStatus','piFromDate','piToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderProformaInvoices(); }
+/** Delete with a confirmation dialog (the record goes to the Recycle Bin). */
 export function deleteProformaInvoice(id) {
-  if (!confirm('Delete this Proforma Invoice?')) return;
-  window.recycleDelete && window.recycleDelete('proformaInvoices', id, 'Proforma Invoice');
-  saveAllData(); renderProformaInvoices(); showToast('Proforma Invoice Deleted', 'error');
+  const p = (state.proformaInvoices || []).find(x => x.id === id); if (!p) return;
+  const c = (state.clients || []).find(x => x.id === p.clientId);
+  openFormModal('Delete proforma invoice?', `<p style="margin:0;font-size:14px;color:#334155;line-height:1.5;">
+      <b>${p.piNo}</b> · ${c?.name || 'Unknown client'} · ${getCurrencySymbol()}${(p.total || 0).toLocaleString('en-IN')}<br>
+      It moves to the Recycle Bin (Setup → Recycle Bin), where you can restore it.${p.status === 'Converted' ? '<br><b>The tax invoice made from it is not affected.</b>' : ''}</p>`,
+    { grid: 1, width: 440, onSave: `window._piDeleteNow('${id}')`, saveLabel: 'Delete', danger: true });
 }
+window._piDeleteNow = function (id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id);
+  window.recycleDelete && window.recycleDelete('proformaInvoices', id, 'Proforma Invoice');
+  saveAllData(); closeFormModal(); renderProformaInvoices(); showToast(`${p?.piNo || 'Proforma invoice'} deleted`, 'success');
+};
+/** Row actions: View PDF · Edit · Delete. */
+window._piMenu = function (id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id); if (!p) return;
+  const c = (state.clients || []).find(x => x.id === p.clientId);
+  const acts = [
+    { icon: '📄', title: 'View PDF', desc: 'Same design as your tax invoice', run: () => exportProformaPDF(id) },
+    { icon: '✏️', title: 'Edit', desc: p.status === 'Converted' ? 'Already converted — changes don\'t touch the tax invoice' : 'Change items, rates, dates or notes', run: () => openProformaInvoiceForm(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => deleteProformaInvoice(id) },
+  ];
+  if (typeof window.shellSheet === 'function') window.shellSheet(`${p.piNo} · ${c?.name || ''}`, acts);
+  else openFormModal(`${p.piNo}`, acts.map((a, i) => `<button type="button" onclick="window.closeFormModal();window.__piActs[${i}]()" style="text-align:left;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-weight:700;cursor:pointer;color:${a.danger ? '#b91c1c' : '#0f172a'}">${a.icon} ${a.title}</button>`).join(''), { grid: 1, width: 380 }), window.__piActs = acts.map(a => a.run);
+};
+window.exportProformaPDF = exportProformaPDF;
 
 // ══════════════════════════════════
 // PAYMENT-IN

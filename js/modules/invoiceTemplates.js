@@ -138,19 +138,22 @@ function _newDoc(fonts) {
 }
 
 // ── Public dispatch ─────────────────────────────────────────────────────────
-export async function renderStyledInvoice(inv, styleKey) {
+/** @param {{ title?:string, filePrefix?:string, hideReceived?:boolean }} [opts]  e.g. a Proforma Invoice */
+export async function renderStyledInvoice(inv, styleKey, opts = {}) {
   try {
     if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh', 'error');
     const key = resolveInvoiceDesign(styleKey);
     const d = _prep(inv);                              // read state before awaiting
+    d.meta.title = opts.title || 'Tax Invoice';
+    if (opts.hideReceived) d.showReceived = false;
     const fonts = await loadFontFiles(_FONTS);
     const { doc, F } = _newDoc(fonts);
     const sym = (state.currencySettings || {}).symbol || '₹';
     const cur = F.custom ? sym : (sym === '₹' ? 'Rs.' : sym);
     const ctx = { doc, d, F, cur, m: (n) => cur + ' ' + _n2(n) };
     ({ grid: _grid, detailed: _detailed, compact: _compact })[key](ctx);
-    mobileSavePDF(doc, 'Tax_Invoice_' + (d.meta.no || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
-    showToast('Invoice PDF downloaded (' + invoiceDesignName(key) + ')');
+    mobileSavePDF(doc, (opts.filePrefix || 'Tax_Invoice_') + (d.meta.no || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
+    showToast(d.meta.title + ' PDF downloaded (' + invoiceDesignName(key) + ')');
   } catch (err) {
     console.error('Invoice PDF failed:', err);
     showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
@@ -234,7 +237,7 @@ function _itemRows(ctx, { unitCol, gstTwoLine }) {
 function _grid(ctx) {
   const { doc, d, F, m } = ctx;
   const INK = BLACK, RULE = GREY_RULE, fs = 7.2, lh = 3.75;
-  _text(doc, F, 'Tax Invoice', 106.2, 14.3, 9.8, true, INK, { align: 'center' });
+  _text(doc, F, d.meta.title || 'Tax Invoice', 106.2, 14.3, 9.8, true, INK, { align: 'center' });
 
   // ── Letterhead (left) + Invoice No./Date/Place/PO grid (right) ──
   let y = 16.2;
@@ -366,7 +369,7 @@ function _slate(ctx, compact) {
   const { doc, d, F, m } = ctx;
   const fs = compact ? 7.9 : 9.1, lh = compact ? 3.95 : 4.5;   // text sizes measured against the client templates
   const s = d.supplier, r = d.recipient;
-  _text(doc, F, 'Tax Invoice', 106.2, compact ? 17.0 : 17.9, compact ? 15.5 : 17, true, SLATE, { align: 'center' });
+  _text(doc, F, d.meta.title || 'Tax Invoice', 106.2, compact ? 17.0 : 17.9, compact ? 15.5 : 17, true, SLATE, { align: 'center' });
 
   // ── Letterhead ──
   let y = compact ? 21.7 : 23.0;
