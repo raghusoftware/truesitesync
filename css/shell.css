@@ -848,6 +848,10 @@ button.fuel-tab.on { background: #fff; color: var(--pc-ink); box-shadow: 0 1px 3
 
 /* ── Payments: docked In/Out bar + expandable transaction cards (paymentsUI.js) ── */
 .pmt-dock { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 0; }
+/* Desktop: stays in view at the bottom of the window while the list scrolls under it */
+@media (min-width: 769px) {
+  .pmt-dock { position: sticky; bottom: 0; z-index: 20; padding: 12px 0 16px; background: linear-gradient(to bottom, rgba(238, 241, 246, 0), #eef1f6 14px); }
+}
 @media (max-width: 768px) {
   /* Solid bar docked right above the bottom tabs — never floats over the list */
   .pmt-dock { position: fixed; left: 0; right: 0; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); z-index: 30; margin: 0;
