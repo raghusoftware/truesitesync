@@ -14,6 +14,7 @@ import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm, openFormModal, closeFormModal } from './formHelpers.js';
 import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.2';
+import { donutSVG, legendHTML, areaSVG, lastMonths, shortMoney, SERIES, NEUTRAL } from './financeViz.js?v=1.0.1';
 
 /** New pro forma, or edit an existing one (editId): the same form, filled in. */
 export function openProformaInvoiceForm(editId) {
@@ -538,55 +539,139 @@ export function deleteSaleFixedAsset(id) {
 // ══════════════════════════════════
 // OTHER INCOME
 // ══════════════════════════════════
-export function openOtherIncomeForm() {
-  document.getElementById('oiFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('oiFormSource').value = '';
-  document.getElementById('oiFormAmount').value = '';
-  document.getElementById('oiFormRef').value = '';
-  document.getElementById('oiFormNotes').value = '';
+/** Income streams beyond RA bills. Older entries (Interest, Rent, Commission, Other) group under Miscellaneous. */
+export const OI_CATS = [
+  { key: 'Equipment Rental', icon: '🚜', color: SERIES[0], hint: 'Machines hired out to others' },
+  { key: 'Scrap Sale', icon: '♻️', color: SERIES[1], hint: 'Steel, shuttering, packaging' },
+  { key: 'Consulting', icon: '📐', color: SERIES[2], hint: 'Design, supervision, PMC fees' },
+  { key: 'Miscellaneous', icon: '💼', color: NEUTRAL, hint: 'Interest, rent, commission, other' },
+];
+const _oiCat = o => (OI_CATS.some(c => c.key === o.category) ? o.category : 'Miscellaneous');
+const _oiMeta = k => OI_CATS.find(c => c.key === k) || OI_CATS[3];
+const _oiF = { q: '', cat: '', from: '', to: '' };
+
+export function openOtherIncomeForm(editId) {
+  if (typeof editId !== 'string') editId = '';
+  const o = editId ? (state.otherIncome || []).find(x => x.id === editId) : null;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+  const panel = document.getElementById('otherIncomeFormPanel');
+  if (panel) {
+    panel.dataset.editId = o ? o.id : '';
+    const h = panel.querySelector('h2'); if (h) h.textContent = o ? `Edit ${o.incomeNo || 'income'}` : 'Add Other Income';
+  }
+  set('oiFormDate', o ? o.date : new Date().toISOString().split('T')[0]);
+  set('oiFormSource', o ? o.source : '');
+  set('oiFormCategory', o ? _oiCat(o) : (_oiF.cat || 'Equipment Rental'));
+  set('oiFormPayType', o ? o.payType : 'Bank');
+  set('oiFormAmount', o ? o.amount : '');
+  set('oiFormRef', o ? o.ref : '');
+  set('oiFormNotes', o ? o.notes : '');
   _openFullScreenForm('otherIncomeFormPanel');
 }
 export function saveOtherIncomeForm() {
-  const source = document.getElementById('oiFormSource').value;
+  const editId = document.getElementById('otherIncomeFormPanel')?.dataset.editId || '';
+  const source = (document.getElementById('oiFormSource').value || '').trim();
   const amount = parseFloat(document.getElementById('oiFormAmount').value);
-  if (!source || !amount) { showToast('Source and Amount required', 'error'); return; }
-  const rec = {
-    id: 'oi_' + Date.now(), incomeNo: 'OI-' + (Date.now() % 100000), source,
-    date: document.getElementById('oiFormDate').value,
-    category: document.getElementById('oiFormCategory')?.value || 'Other',
-    payType: document.getElementById('oiFormPayType')?.value || 'Cash',
+  if (!source || !(amount > 0)) { showToast('Enter where the money came from and the amount', 'error'); return; }
+  const data = {
+    source, date: document.getElementById('oiFormDate').value,
+    category: document.getElementById('oiFormCategory')?.value || 'Miscellaneous',
+    payType: document.getElementById('oiFormPayType')?.value || 'Bank',
     amount, ref: document.getElementById('oiFormRef')?.value || '',
     notes: document.getElementById('oiFormNotes')?.value || ''
   };
   if (!state.otherIncome) state.otherIncome = [];
-  state.otherIncome.push(rec);
+  const existing = editId && state.otherIncome.find(x => x.id === editId);
+  if (existing) { Object.assign(existing, data); window.stampUpdate?.(existing); }
+  else {
+    const n = state.otherIncome.reduce((m, x) => Math.max(m, parseInt(String(x.incomeNo || '').replace(/\D/g, ''), 10) || 0), 0) + 1;
+    const rec = { id: 'oi_' + Date.now(), incomeNo: 'OI-' + String(n).padStart(4, '0'), ...data };
+    state.otherIncome.push(window.stampCreate ? window.stampCreate(rec) : rec);
+  }
   saveAllData(); closeFullScreenForm('otherIncomeFormPanel');
-  showToast('Other Income recorded!'); renderOtherIncome();
+  showToast(existing ? `${existing.incomeNo} updated` : 'Income recorded', 'success'); renderOtherIncome();
 }
 export function renderOtherIncome() {
-  const search = (document.getElementById('oiSearch')?.value || '').toLowerCase();
-  const catFilter = document.getElementById('oiFilterCategory')?.value || '';
-  let list = [...(state.otherIncome || [])];
-  list = list.filter(o => (!search || o.source?.toLowerCase().includes(search) || o.incomeNo?.toLowerCase().includes(search)) && (!catFilter || o.category === catFilter));
-  list.sort((a, b) => new Date(b.date) - new Date(a.date));
-  const tbody = document.getElementById('oiTableBody');
-  if (!tbody) return; tbody.innerHTML = '';
-  let kTotal = 0, kMonth = 0;
-  const curMonth = new Date().toISOString().slice(0, 7);
-  list.forEach(o => {
-    kTotal += o.amount;
-    if (o.date?.startsWith(curMonth)) kMonth += o.amount;
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-green-700">${o.incomeNo}</td><td class="px-4 py-3 text-slate-500">${o.date}</td><td class="px-4 py-3 font-bold">${o.source}</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">${o.category}</span></td><td class="px-4 py-3"><span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-1 rounded font-bold">${o.payType}</span></td><td class="px-4 py-3 text-right font-extrabold text-green-700">${getCurrencySymbol()}${o.amount?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center"><button onclick="deleteOtherIncome('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
-  });
-  if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No other income entries found.</td></tr>';
-  const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  s('oiKpiTotal', getCurrencySymbol() + kTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  s('oiKpiMonth', getCurrencySymbol() + kMonth.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  s('oiKpiCount', list.length);
+  const root = document.getElementById('oiRoot');
+  if (!root) return;
+  const cur = getCurrencySymbol();
+  const fmt = n => cur + Math.round(n || 0).toLocaleString('en-IN');
+  const sm = n => shortMoney(n, cur);
+  const all = state.otherIncome || [];
+  const f = _oiF;
+  const list = all.filter(o => (!f.q || [o.source, o.incomeNo, o.ref, o.category].some(v => String(v || '').toLowerCase().includes(f.q)))
+    && (!f.cat || _oiCat(o) === f.cat) && (!f.from || (o.date || '') >= f.from) && (!f.to || (o.date || '') <= f.to))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const total = list.reduce((t, o) => t + (parseFloat(o.amount) || 0), 0);
+  const month = new Date().toISOString().slice(0, 7);
+  const thisMonth = list.filter(o => (o.date || '').startsWith(month)).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0);
+  const slices = OI_CATS.map(c => ({ label: c.key, color: c.color, value: list.filter(o => _oiCat(o) === c.key).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0) }));
+  const trend = lastMonths(12).map(m => ({ label: m.label, value: list.filter(o => (o.date || '').startsWith(m.key)).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0) }));
+  const top = slices.slice().sort((a, b) => b.value - a.value)[0];
+  const chartW = Math.max(300, Math.min(760, (root.clientWidth || 900) > 860 ? (root.clientWidth - 40) / 2 : (root.clientWidth || 360) - 32));
+  const chip = (k, l) => `<button type="button" class="fx-chip${f.cat === k ? ' on' : ''}" onclick="window._oiSet('cat','${k}')">${l}</button>`;
+  root.innerHTML = `<div class="fx">
+    <div class="fx-head"><div><h2>Other Income</h2><p>Money earned beyond RA bills — equipment hire, scrap, consulting and more.</p></div>
+      <button type="button" class="fx-cta" onclick="openOtherIncomeForm()">+ Add income</button></div>
+    <section class="fx-hero">
+      <div class="fx-hero-main">
+        <span class="fx-eyebrow">Other income${f.from || f.to ? ` · ${f.from || '…'} → ${f.to || 'today'}` : ' · all time'}${f.cat ? ' · ' + f.cat : ''}</span>
+        <b class="pos">${fmt(total)}</b>
+        <span class="fx-pill pos">${list.length} entr${list.length === 1 ? 'y' : 'ies'}</span>
+      </div>
+      <div class="fx-kpis">
+        <div><span>This month</span><b>${fmt(thisMonth)}</b><small>${new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</small></div>
+        <div><span>Biggest stream</span><b>${top && top.value ? top.label : '—'}</b><small>${top && top.value ? fmt(top.value) : 'no income yet'}</small></div>
+        <div><span>Average entry</span><b>${fmt(list.length ? total / list.length : 0)}</b><small>per receipt</small></div>
+      </div>
+    </section>
+    <div class="fx-grid2">
+      <section class="fx-card"><header><b>Income by stream</b><small>share of total</small></header>
+        <div class="fx-donut-wrap">${donutSVG(slices, { size: 190, thick: 28, money: sm, sub: 'total income', title: 'Other income by category' })}${legendHTML(slices, fmt)}</div></section>
+      <section class="fx-card"><header><b>Monthly income</b><small>last 12 months</small></header>
+        ${areaSVG(trend, { width: chartW, height: 220, money: sm, title: 'Other income per month, last 12 months' })}</section>
+    </div>
+    <div class="fx-filter">
+      <div class="fx-filter-row">
+        <input type="search" placeholder="Search source, number, reference…" value="${(f.q || '').replace(/"/g, '&quot;')}" oninput="window._oiSet('q', this.value)" aria-label="Search">
+        <span class="fx-dates"><input type="date" value="${f.from}" onchange="window._oiSet('from', this.value)" aria-label="From"><span>→</span><input type="date" value="${f.to}" onchange="window._oiSet('to', this.value)" aria-label="To"></span>
+        ${f.q || f.cat || f.from || f.to ? '<button type="button" class="fx-chip" onclick="clearOIFilters()">✕ Clear</button>' : ''}
+      </div>
+      <div class="fx-filter-row">${chip('', 'All')}${OI_CATS.map(c => chip(c.key, c.icon + ' ' + c.key)).join('')}</div>
+    </div>
+    <section class="fx-card flush">
+      <header><b>Income register</b><small>tap a row to edit or delete</small></header>
+      <div class="fx-list">${list.map(o => {
+        const k = _oiCat(o), m = _oiMeta(k);
+        return `<button type="button" class="fx-li" onclick="window._oiMenu('${o.id}')">
+          <span class="fx-li-ic" style="background:${m.color}1f">${m.icon}</span>
+          <span class="fx-li-main"><b>${o.source || '—'}</b><small>${o.incomeNo || ''} · ${o.date || ''} · <i class="fx-dot" style="background:${m.color}"></i>${o.category && o.category !== k ? o.category : k} · ${o.payType || ''}${o.ref ? ' · ' + o.ref : ''}</small></span>
+          <span class="fx-li-amt pos">+${fmt(o.amount)}</span><span class="fx-li-more" aria-hidden="true">⋯</span></button>`;
+      }).join('') || `<p class="fx-empty">${all.length ? 'No income matches these filters.' : 'No other income yet. Add equipment hire, scrap sales or consulting fees.'}</p>`}</div>
+    </section>
+  </div>`;
 }
-export function clearOIFilters() { ['oiSearch','oiFilterCategory','oiFromDate','oiToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderOtherIncome(); }
+window._oiSet = (k, v) => {
+  _oiF[k] = k === 'q' ? String(v || '').toLowerCase() : (k === 'cat' && _oiF.cat === v ? '' : v || '');
+  renderOtherIncome();
+  if (k === 'q') { const el = document.querySelector('#oiRoot input[type=search]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+};
+window._oiMenu = function (id) {
+  const o = (state.otherIncome || []).find(x => x.id === id); if (!o) return;
+  const acts = [
+    { icon: '✏️', title: 'Edit', run: () => openOtherIncomeForm(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => deleteOtherIncome(id) },
+  ];
+  if (typeof window.shellSheet === 'function') window.shellSheet(`${o.incomeNo || 'Income'} · ${o.source || ''}`, acts);
+  else openOtherIncomeForm(id);
+};
+export function clearOIFilters() { Object.assign(_oiF, { q: '', cat: '', from: '', to: '' }); renderOtherIncome(); }
 export function deleteOtherIncome(id) {
-  if (!confirm('Delete this income entry?')) return;
-  window.recycleDelete && window.recycleDelete('otherIncome', id, 'Other Income');
-  saveAllData(); renderOtherIncome(); showToast('Income Entry Deleted', 'error');
+  const o = (state.otherIncome || []).find(x => x.id === id); if (!o) return;
+  openFormModal('Delete this income?', `<p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><b>${o.incomeNo || ''}</b> · ${o.source || ''} · ${getCurrencySymbol()}${(parseFloat(o.amount) || 0).toLocaleString('en-IN')}<br>It moves to the Recycle Bin, where you can restore it.</p>`,
+    { grid: 1, width: 420, onSave: `window._oiDeleteNow('${id}')`, saveLabel: 'Delete', danger: true });
 }
+window._oiDeleteNow = function (id) {
+  window.recycleDelete && window.recycleDelete('otherIncome', id, 'Other Income');
+  saveAllData(); closeFormModal(); renderOtherIncome(); showToast('Income deleted', 'success');
+};

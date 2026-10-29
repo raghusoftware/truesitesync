@@ -61,9 +61,9 @@
     <link rel="stylesheet" href="css/chat.css?v=1.1.1">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.43">
+    <link rel="stylesheet" href="css/shell.css?v=1.0.45">
     <link rel="stylesheet" href="css/tools.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.246"></script>
+    <script type="module" src="js/app.js?v=1.6.248"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1757,34 +1757,7 @@
 </div>
 
 <!-- ═══════ OTHER INCOME ═══════ -->
-<div id="otherIncomeView" class="view-section hide">
-  <div class="flex justify-between items-end mb-6">
-    <div><h2>Other Income</h2><p class="text-slate-500 font-medium mt-1">Track miscellaneous income sources like interest, rent, etc.</p></div>
-    <button onclick="openOtherIncomeForm()" class="bg-green-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-700 transition">➕ Add Other Income</button>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-center">
-    <input type="text" id="oiSearch" placeholder="Search source, category..." class="flex-1 min-w-48 p-2.5 border rounded-lg text-sm font-medium outline-none focus:border-green-400" oninput="renderOtherIncome()">
-    <select id="oiFilterCategory" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-green-400 bg-white" onchange="renderOtherIncome()"><option value="">All Categories</option><option value="Interest">Interest</option><option value="Rent">Rent</option><option value="Commission">Commission</option><option value="Scrap Sale">Scrap Sale</option><option value="Other">Other</option></select>
-    <input type="date" id="oiFromDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderOtherIncome()">
-    <span class="text-slate-400 font-bold text-xs">TO</span>
-    <input type="date" id="oiToDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderOtherIncome()">
-    <button onclick="clearOIFilters()" class="text-xs font-bold text-slate-500 hover:text-red-500 px-3 py-2 border rounded-lg hover:border-red-300 transition">✕ Clear</button>
-  </div>
-  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-green-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Total Income</p><p class="text-2xl font-extrabold text-green-600" id="oiKpiTotal">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-blue-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">This Month</p><p class="text-2xl font-extrabold text-blue-700" id="oiKpiMonth">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-orange-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Entries</p><p class="text-2xl font-extrabold text-orange-600" id="oiKpiCount">0</p></div>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 bg-slate-800 flex justify-between items-center text-white rounded-t-xl"><h3 class="font-bold">Other Income Register</h3><button onclick="printReport('oiTableWrapper','Other Income')" class="bg-slate-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-500">Print</button></div>
-    <div class="overflow-x-auto" id="oiTableWrapper">
-      <table class="min-w-full text-sm divide-y">
-        <thead class="bg-slate-50"><tr class="text-left text-[10px] font-bold uppercase text-slate-500"><th class="px-4 py-3">Income No</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Source</th><th class="px-4 py-3">Category</th><th class="px-4 py-3">Payment Type</th><th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-center">Actions</th></tr></thead>
-        <tbody id="oiTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<div id="otherIncomeView" class="view-section hide"><div id="oiRoot"></div></div>
 
         <!-- ═══════ PURCHASE BILLS (was Purchase Ledger) ═══════ -->
 <div id="purchaseBillsView" class="view-section hide lx lx-purchase">
@@ -3326,7 +3299,7 @@
             <div class="bg-white rounded-xl border shadow-sm p-6 mb-5">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Income Source *</label><input type="text" id="oiFormSource" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500" placeholder=""></div>
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category *</label><select id="oiFormCategory" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Interest">Interest</option><option value="Rent">Rent</option><option value="Commission">Commission</option><option value="Scrap Sale">Scrap Sale</option><option value="Other">Other</option></select></div>
+                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category *</label><select id="oiFormCategory" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Equipment Rental">🚜 Equipment Rental</option><option value="Scrap Sale">♻️ Scrap Sale</option><option value="Consulting">📐 Consulting</option><option value="Miscellaneous">💼 Miscellaneous (interest, rent, other)</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date *</label><input type="date" id="oiFormDate" class="w-full p-2.5 border rounded-lg outline-none focus:border-green-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Type</label><select id="oiFormPayType" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Cash">Cash</option><option value="Bank">Bank Transfer</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (&#8377;) *</label><input type="number" id="oiFormAmount" placeholder="0.00" class="w-full p-3 border rounded-lg font-extrabold text-2xl text-green-700 outline-none focus:border-green-500"></div>

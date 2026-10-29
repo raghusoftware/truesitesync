@@ -9,6 +9,7 @@ import { state, saveAllData } from './state.js';
 import { keepOnly } from './state.js';
 import { showToast, formatINR, getCurrencySymbol, getCompanyHeaderForPDF, mobileSavePDF, getTerm } from './utils.js';
 import { openFormModal, closeFormModal, fsField, FS_INPUT } from './formHelpers.js';
+import { donutSVG, legendHTML, areaSVG, lastMonths, shortMoney, SERIES } from './financeViz.js?v=1.0.1';
 
 // ─────────────────────────────────────────────────────
 //  CONSTANTS & HELPERS
@@ -2618,18 +2619,17 @@ function _labourOutputSection(pid, range) {
     <td class="px-2 py-1.5 text-right font-bold text-teal-700">${fmt(r.output)}</td>
     <td class="px-2 py-1.5 text-right font-bold ${r.ratio >= 1 ? 'text-green-600' : 'text-red-500'}">${r.ratio ? r.ratio.toFixed(2) + '×' : '—'}</td>
   </tr>`).join('');
-  return `<div class="bg-white border rounded-xl overflow-hidden mt-4">
-    <div class="p-3 border-b font-bold text-slate-700 text-sm">👷 Work done per labour <span class="text-[10px] text-slate-400 font-medium">— value attributed by man-days</span></div>
-    <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-      <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Labourer</th>
-      <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Trade</th>
-      <th class="px-2 py-2 text-center font-bold uppercase text-slate-500">Days</th>
-      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Wages</th>
-      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Work value</th>
-      <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Output/₹</th></tr></thead>
-      <tbody>${body || '<tr><td colspan="6" class="p-4 text-center text-slate-400">No attendance recorded yet.</td></tr>'}</tbody></table></div>
-    <p class="text-[10px] text-slate-400 px-3 py-2 border-t">Work value = project earned shared across workers by man-days (present + ½ half-day). Output/₹ = value ÷ wages; above 1× means output exceeds wage cost.</p>
-  </div>`;
+  return `<section class="fx-card flush">
+    <header><b>Work done per labourer</b><small>value shared by man-days</small></header>
+    <div class="fx-scroll"><table class="fx-table"><thead><tr>
+      <th>Labourer</th><th>Trade</th><th>Days</th><th>Wages</th><th>Work value</th><th>Output / ₹</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><b>${_esc(r.name)}</b></td><td class="l">${_esc(r.trade)}</td>
+        <td>${r.manDays}${r.ot ? ` <small>+${r.ot}h OT</small>` : ''}</td>
+        <td>${fmt(r.wages)}</td><td><b>${fmt(r.output)}</b></td>
+        <td class="${r.ratio >= 1 ? 'pos' : 'neg'}"><b>${r.ratio ? r.ratio.toFixed(2) + '×' : '—'}</b></td></tr>`).join('') || '<tr><td colspan="6" class="fx-none">No attendance recorded yet.</td></tr>'}</tbody></table></div>
+    <p class="fx-foot">Work value = project earned shared across workers by man-days (present + ½ half-day). Output / ₹ = value ÷ wages; above 1× the work is worth more than the wages.</p>
+  </section>`;
 }
 
 export function renderCostLedger() {
@@ -2653,22 +2653,16 @@ export function renderCostLedger() {
   const clientName = (cid) => { const cl = (state.clients || []).find(c => c.id === cid); return cl ? cl.name : 'Unknown'; };
   const clientOpts = '<option value="">All clients</option>' + (state.clients || []).map(cl => `<option value="${cl.id}" ${_costClient === cl.id ? 'selected' : ''}>${_esc(cl.name)}</option>`).join('');
   const projOpts = '<option value="">All projects</option>' + scopeProjects.map(p => `<option value="${p.id}" ${_costProject === p.id ? 'selected' : ''}>${_esc(p.name)}${p.clientId ? ' — ' + _esc(clientName(p.clientId)) : ''}</option>`).join('');
-  const rangeBtn = (id, label) => `<button onclick="window._costSetRange('${id}')" class="text-xs px-2.5 py-1.5 rounded-lg font-bold border ${_costRange === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">${label}</button>`;
-  const filterBar = `<div class="bg-white border rounded-xl p-3 mb-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Scope</span>
-      <select onchange="window._costSetClient(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${clientOpts}</select>
-      <select onchange="window._costSetProject(this.value)" class="text-xs border rounded-lg px-2 py-1.5 bg-white font-medium">${projOpts}</select>
-      <span class="text-[11px] text-slate-400 ml-auto">${single ? '1 project' : scopeIds.length + ' projects (all sites)'}</span>
+  const rangeBtn = (id, label) => `<button type="button" onclick="window._costSetRange('${id}')" class="fx-chip${_costRange === id ? ' on' : ''}">${label}</button>`;
+  const filterBar = `<div class="fx-filter">
+    <div class="fx-filter-row">
+      <select onchange="window._costSetClient(this.value)" aria-label="Client">${clientOpts}</select>
+      <select onchange="window._costSetProject(this.value)" aria-label="Project">${projOpts}</select>
+      <span class="fx-filter-note">${single ? '1 project' : scopeIds.length + ' projects'}</span>
     </div>
-    <div class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t">
-      <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Period</span>
+    <div class="fx-filter-row">
       ${rangeBtn('all', 'All time')}${rangeBtn('today', 'Today')}${rangeBtn('month', 'This month')}${rangeBtn('quarter', 'This quarter')}${rangeBtn('custom', 'Custom')}
-      ${_costRange === 'custom' ? `<span class="flex items-center gap-1 text-xs">
-        <input type="date" value="${_esc(_costFrom)}" onchange="window._costSetFrom(this.value)" class="border rounded-lg px-2 py-1.5 text-xs">
-        <span class="text-slate-400">→</span>
-        <input type="date" value="${_esc(_costTo)}" onchange="window._costSetTo(this.value)" class="border rounded-lg px-2 py-1.5 text-xs"></span>` : ''}
-      <span class="text-[11px] text-slate-400 ml-auto">${_esc(_costRangeLabel(range))}</span>
+      ${_costRange === 'custom' ? `<span class="fx-dates"><input type="date" value="${_esc(_costFrom)}" onchange="window._costSetFrom(this.value)" aria-label="From"><span>→</span><input type="date" value="${_esc(_costTo)}" onchange="window._costSetTo(this.value)" aria-label="To"></span>` : ''}
     </div>
   </div>`;
 
@@ -2678,81 +2672,96 @@ export function renderCostLedger() {
   const profit = pnl.profit, marginPct = pnl.marginPct, overheadCost = pnl.overhead || 0;
   const ohByCat = pnl.leakage; // { category: { count, cost } }
   const ohTotal = Object.values(ohByCat).reduce((a, b) => a + (b.count || 0), 0);
+  const sm = n => shortMoney(n, cur);
 
-  const itemRows = rows.map(r => `<tr class="border-b hover:bg-slate-50">
-      <td class="px-2 py-1.5 font-mono font-bold text-slate-700">${_esc(r.code)}</td>
-      <td class="px-2 py-1.5 text-slate-600">${_esc(r.description)}</td>
-      <td class="px-2 py-1.5 text-right">${r.qty.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${_esc(r.uom)}</td>
-      <td class="px-2 py-1.5 text-right text-slate-500">${fmt(r.value)}</td>
-      <td class="px-2 py-1.5 text-right text-slate-500">${r.matCost == null ? '<span class="text-amber-500" title="No recipe defined">—</span>' : fmt(r.matCost)}</td>
-      <td class="px-2 py-1.5 text-right font-bold ${r.itemMargin == null ? 'text-slate-300' : r.itemMargin >= 0 ? 'text-green-700' : 'text-red-600'}">${r.itemMargin == null ? '—' : fmt(r.itemMargin)}</td>
-      <td class="px-2 py-1.5 text-right font-bold ${r.marginPct == null ? 'text-slate-300' : r.marginPct >= 0 ? 'text-green-600' : 'text-red-500'}">${r.marginPct == null ? '—' : r.marginPct.toFixed(0) + '%'}</td>
+  // Where the money went — three slices (validated palette); overhead and other expenses fold together.
+  const slices = [
+    { label: 'Material', value: materialTotal, color: SERIES[0] },
+    { label: 'Labour', value: labourCost, color: SERIES[1] },
+    { label: 'Overhead & other', value: overheadCost + otherExpenses, color: SERIES[2] },
+  ];
+  // Profit trend — the last 6 calendar months, same engine and scope.
+  const trend = lastMonths(6).map(m => {
+    const r = { from: m.from, to: m.to };
+    const pp = single ? computeProjectPnL(scopeIds[0], r) : _aggregatePnL(scopeIds, r);
+    return { label: m.label, value: pp.profit, tip: `profit ${fmt(pp.profit)} · ${pp.marginPct.toFixed(1)}% margin · work done ${fmt(pp.earned)}` };
+  });
+  const chartW = Math.max(300, Math.min(760, ((c.clientWidth || 900) > 860 ? (c.clientWidth - 40) / 2 : (c.clientWidth || 360) - 32)));
+
+  const itemRows = rows.map(r => `<tr>
+      <td class="l"><b>${_esc(r.code)}</b> ${_esc(r.description)}</td>
+      <td>${r.qty.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${_esc(r.uom)}</td>
+      <td>${fmt(r.value)}</td>
+      <td>${r.matCost == null ? '<small title="No mix-design recipe">no recipe</small>' : fmt(r.matCost)}</td>
+      <td class="${r.itemMargin == null ? '' : r.itemMargin >= 0 ? 'pos' : 'neg'}"><b>${r.itemMargin == null ? '—' : fmt(r.itemMargin)}</b></td>
+      <td>${r.marginPct == null ? '—' : `<span class="fx-pill ${r.marginPct >= 0 ? 'pos' : 'neg'}">${r.marginPct.toFixed(0)}%</span>`}</td>
     </tr>`).join('');
-
-  const card = (label, val, sub, color) => `<div class="bg-white border rounded-xl p-3 text-center">
-      <p class="text-[10px] font-bold uppercase" style="color:${color}">${label}</p>
-      <p class="text-lg font-extrabold text-slate-800">${val}</p>${sub ? `<p class="text-[10px] text-slate-400">${sub}</p>` : ''}</div>`;
 
   // Per-project breakdown (only in the multi-project / all-sites view).
   const projTable = single ? '' : `
-    <div class="bg-white border rounded-xl overflow-hidden mb-4">
-      <div class="p-3 border-b font-bold text-slate-700 text-sm">Per-project P&amp;L (${(pnl._parts || []).length} sites)</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-        <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Project</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Earned</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Cost</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Profit</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
-        <tbody>${(pnl._parts || []).slice().sort((a, b) => b.profit - a.profit).map(p => `<tr class="border-b hover:bg-slate-50">
-          <td class="px-2 py-1.5 font-semibold text-slate-700">${_esc(p.projectName)}</td>
-          <td class="px-2 py-1.5 text-right text-slate-500">${fmt(p.earned)}</td>
-          <td class="px-2 py-1.5 text-right text-slate-500">${fmt(p.totalCost)}</td>
-          <td class="px-2 py-1.5 text-right font-bold ${p.profit >= 0 ? 'text-green-700' : 'text-red-600'}">${fmt(p.profit)}</td>
-          <td class="px-2 py-1.5 text-right font-bold ${p.marginPct >= 0 ? 'text-green-600' : 'text-red-500'}">${p.marginPct.toFixed(0)}%</td>
-        </tr>`).join('') || '<tr><td colspan="5" class="p-5 text-center text-slate-400">No data.</td></tr>'}</tbody></table></div>
-    </div>`;
+    <section class="fx-card flush">
+      <header><b>Profit by project</b><small>${(pnl._parts || []).length} sites</small></header>
+      <div class="fx-scroll"><table class="fx-table"><thead><tr><th>Project</th><th>Work done</th><th>Cost</th><th>Profit</th><th>Margin</th></tr></thead>
+        <tbody>${(pnl._parts || []).slice().sort((a, b) => b.profit - a.profit).map(p => `<tr>
+          <td class="l"><b>${_esc(p.projectName)}</b></td><td>${fmt(p.earned)}</td><td>${fmt(p.totalCost)}</td>
+          <td class="${p.profit >= 0 ? 'pos' : 'neg'}"><b>${fmt(p.profit)}</b></td>
+          <td><span class="fx-pill ${p.marginPct >= 0 ? 'pos' : 'neg'}">${p.marginPct.toFixed(0)}%</span></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="fx-none">No data.</td></tr>'}</tbody></table></div>
+    </section>`;
 
-  c.innerHTML = filterBar + `
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-      ${card('Work done (earned)', fmt(income), `Billed ${fmt(billed)} · WIP ${fmt(wip)}`, '#0d9488')}
-      ${card('Material cost', fmt(materialTotal), 'recipe × purchase rate', '#ea580c')}
-      ${card('Labour cost', fmt(labourCost), 'attendance wages', '#7c3aed')}
-      ${card(profit >= 0 ? 'Gross profit' : 'Gross loss', fmt(profit), marginPct.toFixed(1) + '% margin', profit >= 0 ? '#c2401c' : '#dc2626')}
+  const line = (l, v, cls) => `<div class="fx-pl-row${cls ? ' ' + cls : ''}"><span>${l}</span><b>${v}</b></div>`;
+  c.innerHTML = `<div class="fx">${filterBar}
+    <section class="fx-hero">
+      <div class="fx-hero-main">
+        <span class="fx-eyebrow">${profit >= 0 ? 'Gross profit' : 'Gross loss'} · ${_esc(_costRangeLabel(range))}</span>
+        <b class="${profit >= 0 ? 'pos' : 'neg'}">${fmt(profit)}</b>
+        <span class="fx-pill ${profit >= 0 ? 'pos' : 'neg'}">${marginPct.toFixed(1)}% margin</span>
+      </div>
+      <div class="fx-kpis">
+        <div><span>Work done</span><b>${fmt(income)}</b><small>measured value</small></div>
+        <div><span>Total cost</span><b>${fmt(pnl.totalCost)}</b><small>material + labour + other</small></div>
+        <div><span>Billed</span><b>${fmt(billed)}</b><small>RA bills raised</small></div>
+        <div><span>Not yet billed</span><b>${fmt(wip)}</b><small>work in progress</small></div>
+      </div>
+    </section>
+    <div class="fx-grid2">
+      <section class="fx-card">
+        <header><b>Where the money went</b><small>cost breakdown</small></header>
+        <div class="fx-donut-wrap">${donutSVG(slices, { size: 190, thick: 28, money: sm, sub: 'total cost', title: 'Cost breakdown' })}${legendHTML(slices, fmt)}</div>
+      </section>
+      <section class="fx-card">
+        <header><b>Profit trend</b><small>last 6 months · hover a month for its margin</small></header>
+        ${areaSVG(trend, { width: chartW, height: 220, money: sm, title: 'Monthly profit, last 6 months' })}
+      </section>
     </div>
     ${projTable}
-
-    <div class="bg-white border rounded-xl overflow-hidden mb-4">
-      <div class="p-3 border-b font-bold text-slate-700 text-sm">Margin by BOQ item</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-        <th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Code</th><th class="px-2 py-2 text-left font-bold uppercase text-slate-500">Description</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Done</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Value</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Material</th><th class="px-2 py-2 text-right font-bold uppercase text-slate-500">Margin</th>
-        <th class="px-2 py-2 text-right font-bold uppercase text-slate-500">%</th></tr></thead>
-        <tbody>${itemRows || '<tr><td colspan="7" class="p-5 text-center text-slate-400">No measured work yet — record it in the DPR (Execution).</td></tr>'}</tbody></table></div>
-      ${noRecipe ? `<p class="text-[11px] text-amber-600 px-3 py-2 border-t bg-amber-50">${noRecipe} item(s) have no mix-design recipe — their material cost shows "—" and isn't in the totals. Add recipes for accurate margins.</p>` : ''}
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="bg-white border rounded-xl p-4">
-        <h4 class="font-bold text-sm text-slate-800 mb-2">Project P&amp;L</h4>
-        <div class="space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-slate-500">Work done (earned)</span><span class="font-bold text-teal-700">${fmt(income)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">– Material (recipe)</span><span class="text-slate-700">${fmt(materialTotal)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">– Labour (attendance)</span><span class="text-slate-700">${fmt(labourCost)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">– Non-BOQ / overhead</span><span class="text-amber-700">${fmt(overheadCost)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">– Other expenses</span><span class="text-slate-700">${fmt(otherExpenses)}</span></div>
-          <div class="flex justify-between border-t pt-1.5 mt-1.5"><span class="font-bold text-slate-700">${profit >= 0 ? 'Gross profit' : 'Gross loss'}</span><span class="font-extrabold ${profit >= 0 ? 'text-green-700' : 'text-red-600'}">${fmt(profit)} <span class="text-[11px] font-bold">(${marginPct.toFixed(1)}%)</span></span></div>
+    <section class="fx-card flush">
+      <header><b>Margin by BOQ item</b><small>value of work done vs material cost</small></header>
+      <div class="fx-scroll"><table class="fx-table"><thead><tr><th>BOQ item</th><th>Done</th><th>Value</th><th>Material</th><th>Margin</th><th>%</th></tr></thead>
+        <tbody>${itemRows || '<tr><td colspan="6" class="fx-none">No measured work yet — record it in the Daily Progress Report.</td></tr>'}</tbody></table></div>
+      ${noRecipe ? `<p class="fx-foot warn">${noRecipe} item${noRecipe === 1 ? '' : 's'} have no mix-design recipe — material cost shows "no recipe" and isn't in the totals.</p>` : ''}
+    </section>
+    <div class="fx-grid2">
+      <section class="fx-card">
+        <header><b>Profit &amp; loss</b><small>${_esc(_costRangeLabel(range))}</small></header>
+        <div class="fx-pl">
+          ${line('Work done (earned)', fmt(income), 'in')}
+          ${line('Material (recipe)', '− ' + fmt(materialTotal))}
+          ${line('Labour (attendance)', '− ' + fmt(labourCost))}
+          ${line('Non-BOQ / overhead', '− ' + fmt(overheadCost))}
+          ${line('Other expenses', '− ' + fmt(otherExpenses))}
+          ${line(profit >= 0 ? 'Gross profit' : 'Gross loss', `${fmt(profit)} <em>${marginPct.toFixed(1)}%</em>`, 'total ' + (profit >= 0 ? 'pos' : 'neg'))}
         </div>
-      </div>
-      <div class="bg-white border rounded-xl p-4">
-        <h4 class="font-bold text-sm text-slate-800 mb-2">Non-BOQ / overhead leakage <span class="text-[10px] text-slate-400 font-medium">— cost not paid by the client</span></h4>
-        ${ohTotal ? `<div class="space-y-1 text-xs">${Object.entries(ohByCat).sort((a, b) => (b[1].cost || 0) - (a[1].cost || 0)).map(([cat, v]) => `<div class="flex justify-between"><span class="text-slate-600">${_esc(cat)} <span class="text-slate-300">· ${v.count}</span></span><span class="font-bold text-amber-700">${fmt(v.cost || 0)}</span></div>`).join('')}</div>
-          <div class="flex justify-between border-t pt-1.5 mt-1.5"><span class="font-bold text-slate-700">Total leak</span><span class="font-extrabold text-amber-700">${fmt(overheadCost)}</span></div>
-          <p class="text-[11px] text-slate-400 mt-2">Internal cost across ${ohTotal} entr${ohTotal > 1 ? 'ies' : 'y'} — money spent that no client pays back. Watch this to protect margin.</p>`
-          : '<p class="text-xs text-slate-400">No non-BOQ / overhead logged yet.</p>'}
-      </div>
+      </section>
+      <section class="fx-card">
+        <header><b>Non-BOQ leakage</b><small>cost no client pays back</small></header>
+        ${ohTotal ? `<div class="fx-pl">${Object.entries(ohByCat).sort((a, b) => (b[1].cost || 0) - (a[1].cost || 0)).map(([cat, v]) => line(`${_esc(cat)} <small>· ${v.count}</small>`, fmt(v.cost || 0))).join('')}
+          ${line('Total leakage', fmt(overheadCost), 'total warn')}</div>`
+          : '<p class="fx-empty">No non-BOQ / overhead logged yet.</p>'}
+      </section>
     </div>
     ${single ? _labourOutputSection(scopeIds[0], range) : ''}
-    <p class="text-[10px] text-slate-400 mt-3">Material cost = mix-design recipe × latest purchase rate of each ingredient. Labour = attendance wages (present + ½ half-day + 1.5× OT). Earned = measured value (billed + work-in-progress).</p>`;
+    <p class="fx-foot">Material = mix-design recipe × latest purchase rate. Labour = attendance wages (present + ½ half-day + 1.5× OT). Work done = measured value (billed + work in progress).</p>
+  </div>`;
 }
 window.renderCostLedger = renderCostLedger;
