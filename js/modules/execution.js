@@ -16,6 +16,7 @@ import { keepOnly } from './state.js';
 import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency, getCurrencySymbol } from './utils.js';
 import { getCurrentUser } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
+import { checkPunch, deviceId, distanceM, DEFAULT_RADIUS_M } from './attendanceGuard.js?v=1.0.0';
 
 // ── option lists ───────────────────────────────────────────
 const POUR_ELEMENTS = ['Footing', 'Column', 'Beam', 'Slab', 'Raft', 'Pile / Pile Cap', 'Retaining Wall', 'Plinth Beam', 'Staircase', 'Pedestal', 'Other'];
@@ -1090,6 +1091,10 @@ const _STD_HRS = 8;
 function _staffToday(staffId, date) { date = date || _today(); return (state.staffAttendance || []).find(a => a.staffId === staffId && a.date === date); }
 function _hm(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return '—'; } }
 function _money(n) { const cs = state.currencySettings || {}; return (cs.symbol || '₹') + Math.round(Number(n) || 0).toLocaleString(cs.locale || 'en-IN'); }
+// Anti-proxy: who is signed in, and are they the org owner / admin (server-side role).
+function _myUid() { try { return getCurrentUser()?.supabaseId || ''; } catch { return ''; } }
+function _isOrgAdmin() { try { return ['owner', 'admin'].includes(window.getCurrentOrg?.()?._userRole); } catch { return false; } }
+function _siteFence() { const p = (state.projects || []).find(x => x.id === _pid()); return p && p.siteGps && p.siteGps.lat != null ? p.siteGps : null; }
 
 /** Day pay + overtime for an attendance record, from the staff member's config.
  *  Two worlds, per staff: fixed daily/monthly wage (present = full day) OR
@@ -1114,17 +1119,24 @@ function _renderStaff(root) {
   const staff = _arr('staffMaster');
   const month = _today().slice(0, 7);
   const canManage = typeof window.canManageStaff !== 'function' || window.canManageStaff();
+  const me = _myUid(), admin = _isOrgAdmin(), fence = _siteFence();
+  // Punch buttons: your own card → Punch In / Out (selfie + location). Someone else's card →
+  // owner / admin may only make a "manual correction" with a reason; everyone else is locked.
+  const btn = (s, kind, manual) => `<button onclick="_staffPunch('${s.id}','${kind}'${manual ? ',true' : ''})" style="background:${manual ? '#fff' : (kind === 'in' ? '#c2401c' : '#dc2626')};color:${manual ? '#7c3aed' : '#fff'};border:${manual ? '1px solid #c4b5fd' : 'none'};border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">${manual ? '✎ Correct' : (kind === 'in' ? '📍 Punch In' : '📍 Punch Out')}</button>`;
+  const lockTxt = s => `<span style="font-size:11px;color:#94a3b8;" title="Only ${_esc(s.name)} can punch this card, from their own phone">🔒 ${s.userId ? 'Self-punch only' : 'Not linked'}</span>`;
   const cards = staff.map(s => {
     const a = _staffToday(s.id);
+    const mine = !!me && s.userId === me;
+    const act = kind => (mine ? btn(s, kind) : admin ? btn(s, kind, true) : lockTxt(s));
     let statusHtml, action;
     if (!a || !a.inAt) {
       statusHtml = `<span style="color:#94a3b8;font-weight:700;">Not marked</span>`;
-      action = canManage ? `<button onclick="_staffPunch('${s.id}','in')" style="background:#c2401c;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 In</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
+      action = act('in');
     } else if (!a.outAt) {
-      statusHtml = `<span style="color:#c2401c;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>`;
-      action = canManage ? `<button onclick="_staffPunch('${s.id}','out')" style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer;">📍 Out</button>` : `<span style="font-size:11px;color:#94a3b8;">🔒</span>`;
+      statusHtml = `<span style="color:#c2401c;font-weight:800;">● Present</span> <span style="color:#64748b;">In ${_hm(a.inAt)}</span>${a.manual ? ' <span style="color:#7c3aed;font-weight:700;" title="' + _esc(a.manualReason || '') + '">✎ manual</span>' : ''}`;
+      action = act('out');
     } else {
-      statusHtml = `<span style="color:#c2401c;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}`;
+      statusHtml = `<span style="color:#c2401c;font-weight:800;">✓ ${a.hours}h</span> <span style="color:#64748b;">${_hm(a.inAt)}–${_hm(a.outAt)}</span>${a.otHours > 0 ? ` <span style="color:#d97706;font-weight:700;">+${a.otHours}h OT</span>` : ''}${a.manual ? ' <span style="color:#7c3aed;font-weight:700;" title="' + _esc(a.manualReason || '') + '">✎ manual</span>' : ''}`;
       action = `<span style="font-size:13px;font-weight:800;color:#0f172a;">${_money(a.totalPay)}</span>`;
     }
     const wage = s.wageMode || 'daily';
@@ -1132,7 +1144,7 @@ function _renderStaff(root) {
     return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:40px;height:40px;border-radius:12px;background:#7c3aed15;border:2px solid #7c3aed30;display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;">${s.photo ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}</div>
-        <div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div><div style="font-size:11px;color:#64748b;">${_esc(s.designation || 'Staff')} · ${wageLabel}${s.otAllowed ? ' · <span style="color:#d97706;font-weight:700;">OT✓</span>' : ''}</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div><div style="font-size:11px;color:#64748b;">${_esc(s.designation || 'Staff')} · ${wageLabel}${s.otAllowed ? ' · <span style="color:#d97706;font-weight:700;">OT✓</span>' : ''}</div><div style="font-size:11px;color:${s.userId ? '#047857' : '#b45309'};font-weight:600;">${s.userId ? '🔗 ' + _esc(s.userEmail || 'Login linked') + (s.userId === me ? ' (you)' : '') : '⚠ No login linked'}${s.boundDevice ? ' · 📱' : ''}</div></div>
         <button onclick="_staffHistory('${s.id}')" title="History" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">🗓</button>
         ${canManage ? `<button onclick="_staffForm('${s.id}')" title="Edit" style="border:none;background:#f1f5f9;border-radius:8px;padding:4px 7px;cursor:pointer;">✏️</button>` : ''}
       </div>
@@ -1157,7 +1169,8 @@ function _renderStaff(root) {
   root.innerHTML = `${_backBar('Staff & Attendance')}
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
       ${canManage ? `<button onclick="_staffForm()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Staff</button>` : `<span style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-weight:700;">🔒 View only — your role can't mark or edit attendance</span>`}
-      <span style="font-size:12px;color:#94a3b8;">${staff.length} staff · GPS + photo-verified punches</span>
+      <span style="font-size:12px;color:#94a3b8;">${staff.length} staff · self-punch only · selfie + location${fence ? ` · within ${fence.radius || DEFAULT_RADIUS_M} m of site` : ''}</span>
+      ${admin ? `<button onclick="_staffSetSite()" style="padding:8px 12px;background:#fff;color:#7c3aed;border:1px solid #c4b5fd;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">📍 ${fence ? 'Site location set — update' : 'Set site location here'}</button>` : ''}
       <span style="margin-left:auto;display:flex;gap:8px;">
         <button onclick="_staffExportExcel()" style="padding:8px 12px;background:#d6402c;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Excel</button>
         <button onclick="_staffExportPDF()" style="padding:8px 12px;background:#dc2626;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">⬇ PDF</button>
@@ -1263,12 +1276,31 @@ window._staffForm = function (id) {
       <div><label style="${_lbl}">Standard hours / day</label><input id="stfStd" type="number" style="${_inp}" value="${s ? (_num(s.standardHours) || 8) : 8}"></div>
       <div><label style="${_lbl}">OT rate (${getCurrencySymbol().trim()}/hr)</label><input id="stfOtRate" type="number" style="${_inp}" placeholder="auto 1.5×" value="${s && s.otRate ? _num(s.otRate) : ''}"></div>
     </div>
+    ${_isOrgAdmin() ? `<div style="border:1px solid #c4b5fd;background:#faf5ff;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <label style="${_lbl}">Login (who punches this card) *</label>
+      <select id="stfUser" style="${_inp}"><option value="${_esc(s?.userId || '')}">${s?.userId ? _esc(s.userEmail || 'Linked login') : '— Loading team… —'}</option></select>
+      <p style="font-size:11px;color:#6b7280;margin:6px 0 0;">Only this person can punch in / out for this card, with a selfie and location from their own phone. Add people in Setup → Team &amp; Roles.</p>
+      ${s?.boundDevice ? `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:#334155;"><input type="checkbox" id="stfResetDev" style="width:16px;height:16px;"> Reset registered phone (they changed phones)</label>` : ''}
+    </div>` : ''}
     <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:16px;cursor:pointer;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:11px;"><input type="checkbox" id="stfOt" ${s && s.otAllowed ? 'checked' : ''} style="width:18px;height:18px;margin-top:1px;"><span style="font-size:12px;color:#334155;"><b>Overtime pay allowed</b> — extra hours beyond the standard day are paid at the OT rate. Leave off for staff who are present-for-day only (no extra pay for extra hours).</span></label>
     <button onclick="_staffSave('${id || ''}')" style="width:100%;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">${s ? 'Save' : 'Add Staff'}</button>
     ${s ? `<button onclick="_staffDelete('${s.id}')" style="width:100%;margin-top:8px;padding:9px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:10px;font-weight:700;cursor:pointer;">Delete staff</button>` : ''}
   </div>`);
   setTimeout(_staffModeHint, 30);
+  if (_isOrgAdmin()) _staffFillUsers(s);
 };
+async function _staffFillUsers(s) {
+  try {
+    const org = await import('./organization.js?v=1.6.69');
+    const members = (await org.loadOrgMembers()) || [];
+    const sel = document.getElementById('stfUser'); if (!sel || !members.length) return;   // offline: keep the current link
+    const taken = {}; (state.staffMaster || []).forEach(x => { if (x.userId && x.id !== s?.id) taken[x.userId] = x.name; });
+    sel.innerHTML = '<option value="">— Not linked —</option>' + members.filter(m => m.is_active !== false).map(m =>
+      `<option value="${_esc(m.user_id)}" data-email="${_esc(m.email || '')}" ${s?.userId === m.user_id ? 'selected' : ''}>${_esc(m.display_name || m.email || 'User')}${m.email ? ' · ' + _esc(m.email) : ''}${taken[m.user_id] ? ' (linked to ' + _esc(taken[m.user_id]) + ')' : ''}</option>`).join('');
+    // A linked login that has since left the team stays selectable (and selected) until the owner changes it.
+    if (s?.userId && !members.some(m => m.user_id === s.userId)) sel.insertAdjacentHTML('beforeend', `<option value="${_esc(s.userId)}" data-email="${_esc(s.userEmail || '')}" selected>${_esc(s.userEmail || 'Linked login')} (not in team)</option>`);
+  } catch (e) { console.warn('[staff] team list failed', e); }
+}
 window._staffModeHint = function () {
   const m = document.getElementById('stfMode')?.value;
   const l = document.getElementById('stfRateLbl');
@@ -1279,6 +1311,14 @@ window._staffSave = function (id) {
   const v = i => (document.getElementById(i)?.value || '').trim();
   const name = v('stfName'); if (!name) { showToast('Name required', 'error'); return; }
   const data = { name, designation: v('stfDesig'), phone: v('stfPhone'), wageMode: v('stfMode') || 'daily', rate: _num(v('stfRate')), standardHours: _num(v('stfStd')) || 8, otRate: _num(v('stfOtRate')), otAllowed: !!document.getElementById('stfOt')?.checked, active: true };
+  const uSel = document.getElementById('stfUser');
+  if (uSel && _isOrgAdmin()) {
+    data.userId = uSel.value || '';
+    data.userEmail = uSel.value ? (uSel.selectedOptions[0]?.dataset.email || (state.staffMaster || []).find(x => x.id === id)?.userEmail || '') : '';
+    const dup = data.userId && (state.staffMaster || []).find(x => x.userId === data.userId && x.id !== id);
+    if (dup) { showToast(`That login is already linked to ${dup.name}`, 'error'); return; }
+    if (document.getElementById('stfResetDev')?.checked) { data.boundDevice = ''; data.boundAt = ''; }
+  }
   if (!state.staffMaster) state.staffMaster = [];
   if (id) { const r = state.staffMaster.find(x => x.id === id); if (r) Object.assign(r, data); }
   else state.staffMaster.push(window.stampCreate({ id: 'stf_' + Date.now(), projectId: _pid(), ...data }));
@@ -1294,22 +1334,79 @@ window._staffDelete = function (id) {
 // _punchFile = the raw File (uploaded to Supabase Storage on confirm, keeping the
 // record light); _punchPhoto = a small base64 fallback used only when offline.
 let _punchPhoto = null, _punchGps = null, _punchFile = null;
-window._staffPunch = async function (staffId, kind) {
+window._staffPunch = async function (staffId, kind, manual) {
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
   _punchPhoto = null; _punchGps = null; _punchFile = null;
   const isIn = kind === 'in';
+  if (manual) return _staffManualForm(s, kind);
+  // Anti-proxy: refuse before the camera opens if this isn't your card / your phone.
+  const pre = checkPunch({ staff: s, uid: _myUid(), deviceId: deviceId(), gps: { lat: 0, lng: 0 }, site: null });
+  if (!pre.ok) { showToast(pre.msg, 'error'); return; }
   _modal(`${_head((isIn ? 'Punch In' : 'Punch Out') + ' — ' + _esc(s.name))}<div style="padding:20px;">
     <div style="text-align:center;margin-bottom:14px;"><div style="font-size:34px;font-weight:800;color:${isIn ? '#c2401c' : '#dc2626'};">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div style="font-size:12px;color:#94a3b8;">${_today()}</div></div>
     <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#64748b;">📍 <span id="punchGpsTxt">Getting location…</span></div>
     <label style="display:block;border:2px dashed #c4b5fd;background:#faf5ff;border-radius:12px;padding:16px;text-align:center;cursor:pointer;margin-bottom:14px;">
-      <div style="font-size:26px;">📷</div><div style="font-size:12px;font-weight:700;color:#6d28d9;">Tap to capture photo *</div>
+      <div style="font-size:26px;">🤳</div><div style="font-size:12px;font-weight:700;color:#6d28d9;">Take a selfie *</div>
       <input type="file" accept="image/*" capture="user" onchange="_staffPunchPhoto(this)" style="display:none;"><div id="punchPrev" style="margin-top:8px;"></div></label>
-    <button onclick="_staffPunchSave('${staffId}','${kind}')" style="width:100%;padding:12px;background:${isIn ? '#c2401c' : '#dc2626'};color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Confirm ${isIn ? 'Punch In' : 'Punch Out'}</button>
+    <button id="punchGo" onclick="_staffPunchSave('${staffId}','${kind}')" style="width:100%;padding:12px;background:${isIn ? '#c2401c' : '#dc2626'};color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Confirm ${isIn ? 'Punch In' : 'Punch Out'}</button>
+    <p style="font-size:11px;color:#94a3b8;text-align:center;margin:10px 0 0;">Only you can punch your attendance, from your registered phone, at the site.</p>
   </div>`);
   const gps = await getGps();
   _punchGps = gps;
   const t = document.getElementById('punchGpsTxt');
-  if (t) t.textContent = gps ? gpsLabel(gps) : 'Location unavailable — will save without GPS';
+  if (t) {
+    const fence = _siteFence(), d = fence && gps ? distanceM(fence, gps) : null;
+    t.textContent = gps ? gpsLabel(gps) + (d != null ? ` · ${d} m from site` : '') : 'Location unavailable — turn on location to punch';
+  }
+};
+/** Owner / admin correction for someone else's day: time + reason, flagged "manual". */
+function _staffManualForm(s, kind) {
+  if (!_isOrgAdmin()) { showToast('Only the owner or an admin can correct attendance', 'error'); return; }
+  const now = new Date(); const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  _modal(`${_head('Correct attendance — ' + _esc(s.name))}<div style="padding:20px;">
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 12px;font-size:12px;color:#5b21b6;margin-bottom:12px;">${_esc(s.name)} normally punches from their own phone. A correction is recorded with your name and the reason, and shows as <b>✎ manual</b>.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="${_lbl}">${kind === 'in' ? 'In time' : 'Out time'}</label><input id="mcTime" type="time" value="${hhmm}" style="${_inp}"></div>
+      <div><label style="${_lbl}">Date</label><input id="mcDate" type="date" value="${_today()}" style="${_inp}"></div>
+    </div>
+    <div style="margin-bottom:14px;"><label style="${_lbl}">Reason *</label><input id="mcReason" placeholder="e.g. Phone battery dead, verified on site" style="${_inp}"></div>
+    <button onclick="_staffManualSave('${s.id}','${kind}')" style="width:100%;padding:12px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">Save correction</button>
+  </div>`);
+}
+window._staffManualSave = function (staffId, kind) {
+  const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
+  const reason = (document.getElementById('mcReason')?.value || '').trim();
+  const chk = checkPunch({ staff: s, uid: _myUid(), manual: true, isAdmin: _isOrgAdmin(), reason });
+  if (!chk.ok) { showToast(chk.msg, 'error'); return; }
+  const date = document.getElementById('mcDate')?.value || _today();
+  const t = document.getElementById('mcTime')?.value || '09:00';
+  const at = new Date(`${date}T${t}:00`).toISOString();
+  if (!state.staffAttendance) state.staffAttendance = [];
+  let a = _staffToday(staffId, date);
+  if (kind === 'out' && (!a || !a.inAt)) { showToast('Record the In time first', 'error'); return; }
+  if (!a) { a = window.stampCreate({ id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }); state.staffAttendance.push(a); }
+  const by = _myUid(), who = getCurrentUser()?.name || 'Owner';
+  if (kind === 'in') { a.inAt = at; a.inBy = by; a.status = 'Present'; }
+  else { a.outAt = at; a.outBy = by; }
+  a.manual = true; a.manualBy = by; a.manualByName = who; a.manualReason = reason; a.manualAt = new Date().toISOString();
+  if (a.inAt && a.outAt) {
+    a.hours = Math.max(0, +((new Date(a.outAt) - new Date(a.inAt)) / 3600000).toFixed(2));
+    const pay = _staffComputePay(s, a.hours);
+    a.otHours = pay.otHours; a.otRate = pay.otRate; a.dayPay = pay.dayPay; a.otPay = pay.otPay; a.totalPay = pay.totalPay;
+  }
+  saveAllData(); _exCloseModal(); showToast(`Correction saved for ${s.name}`, 'success'); renderExecution();
+};
+/** Owner: save this phone's current position as the site geofence centre. */
+window._staffSetSite = async function () {
+  if (!_isOrgAdmin()) { showToast('Only the owner or an admin can set the site location', 'error'); return; }
+  const p = (state.projects || []).find(x => x.id === _pid()); if (!p) return;
+  showToast('Getting your location…', 'info');
+  const gps = await getGps();
+  if (!gps) { showToast('Location unavailable — turn on location and try again', 'error'); return; }
+  const r = parseInt(prompt(`Site centre set to ${gpsLabel(gps)}.\nAllowed punch radius in metres:`, String(p.siteGps?.radius || DEFAULT_RADIUS_M)), 10);
+  if (!(r > 0)) return;
+  p.siteGps = { lat: gps.lat, lng: gps.lng, radius: r, setAt: new Date().toISOString() };
+  saveAllData(); showToast(`Site location saved — punches must be within ${r} m`, 'success'); renderExecution();
 };
 window._staffPunchPhoto = function (input) {
   const file = input.files && input.files[0]; if (!file) return;
@@ -1332,9 +1429,12 @@ window._staffPunchPhoto = function (input) {
   reader.readAsDataURL(file);
 };
 window._staffPunchSave = async function (staffId, kind) {
-  if (typeof window.canManageStaff === 'function' && !window.canManageStaff()) { showToast('You do not have permission to mark attendance', 'error'); return; }
   const s = (state.staffMaster || []).find(x => x.id === staffId); if (!s) return;
-  if (!_punchPhoto && !_punchFile) { showToast('Capture a photo to verify the punch', 'error'); return; }
+  const dev = deviceId();
+  // Anti-proxy: the signed-in user must be this staff member, on their phone, at the site.
+  const chk = checkPunch({ staff: s, uid: _myUid(), deviceId: dev, gps: _punchGps, site: _siteFence() });
+  if (!chk.ok) { showToast(chk.msg, 'error'); return; }
+  if (!_punchPhoto && !_punchFile) { showToast('Take a selfie to verify the punch', 'error'); return; }
   const now = new Date().toISOString(), date = _today();
   if (!state.staffAttendance) state.staffAttendance = [];
   let a = _staffToday(staffId, date);
@@ -1345,11 +1445,15 @@ window._staffPunchSave = async function (staffId, kind) {
   let path = null;
   if (_punchFile) { try { const ref = await uploadExecMedia(_punchFile, 'staff', 'staff'); if (ref) path = ref.path; } catch {} }
   const photoB64 = path ? null : _punchPhoto;   // only keep base64 when upload didn't happen
+  const me = _myUid();
+  if (!s.boundDevice) { s.boundDevice = dev; s.boundAt = now; }   // first punch registers this phone
   if (kind === 'in') {
     if (!a) { a = window.stampCreate({ id: 'att_' + Date.now(), staffId, projectId: _pid(), date, status: 'Present' }); state.staffAttendance.push(a); }
     a.inAt = now; a.inGps = _punchGps || null; a.inPhotoPath = path; a.inPhoto = photoB64; a.status = 'Present';
+    a.inBy = me; a.inDevice = dev; a.inDist = chk.distance ?? null;
   } else {
     a.outAt = now; a.outGps = _punchGps || null; a.outPhotoPath = path; a.outPhoto = photoB64;
+    a.outBy = me; a.outDevice = dev; a.outDist = chk.distance ?? null;
     a.hours = Math.max(0, +((new Date(a.outAt) - new Date(a.inAt)) / 3600000).toFixed(2));
     const pay = _staffComputePay(s, a.hours);
     a.otHours = pay.otHours; a.otRate = pay.otRate; a.dayPay = pay.dayPay; a.otPay = pay.otPay; a.totalPay = pay.totalPay;
