@@ -1482,6 +1482,17 @@ button.pcx-chip.on { border-color: #0f172a; background: #0f172a; color: #fff; }
 .mx-go { flex-shrink: 0; font-size: 24px; line-height: 1; color: #94a3b8; }
 .mx-opt.busy .mx-go { width: 18px; height: 18px; font-size: 0; border: 2.5px solid #cbd5e1; border-top-color: #0f172a; border-radius: 50%; animation: mxSpin .7s linear infinite; }
 @keyframes mxSpin { to { transform: rotate(360deg); } }
+/* Bar Bending Schedule: a card with two orientation buttons (not a button itself) */
+#measExportOverlay .mx-opt.mx-bbs { display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px; border: 1.5px solid #fed7aa; border-radius: 16px; background: #fffaf5; }
+.mx-bbs .mx-ic { background: #ffedd5; }
+.mx-orient { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+#measExportOverlay button.mx-or { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-height: 0 !important; padding: 0 10px !important;
+  border: 1.5px solid #e5e9f0; border-radius: 12px !important; background: #fff; color: #0f172a; font-size: 14px !important; font-weight: 800 !important; cursor: pointer; }
+#measExportOverlay button.mx-or:hover { border-color: #ea580c; color: #c2410c; }
+#measExportOverlay button.mx-or:focus-visible { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .18); }
+#measExportOverlay button.mx-or:disabled { cursor: progress; opacity: .55; }
+.mx-or i { display: inline-block; border: 2px solid currentColor; border-radius: 3px; }
+.mx-or i.land { width: 20px; height: 14px; } .mx-or i.port { width: 14px; height: 19px; }
 @media (min-width: 640px) {
   .mx-ov { align-items: center; padding: 24px; }
   .mx-sheet { max-width: 440px; border-radius: 20px; padding: 18px 18px 18px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3);

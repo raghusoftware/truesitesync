@@ -15,6 +15,7 @@ import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor, bbsSummary } from './sheetCalc.js?v=1.1.0';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
+import { renderBbs, exportBbsPdf } from './bbsPdf.js?v=1.0.1';
 
 const _lookupBoqItem = lookupBoqItem;
 
@@ -673,46 +674,9 @@ export function exportDetailedMeasurementPdf(id) {
     y += 4;
   });
 
-  // BBS page if data exists
+  // Bar bending schedule (same premium layout as Export → PDF → Bar Bending Schedule)
   const bbs = (state.bbsData || {})[s.id];
-  if (bbs && bbs.length) {
-    doc.addPage('landscape');
-    y = _simpleHeader(doc);
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
-    doc.text('Detail of Steel (BBS)', doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
-    y += 6;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-    details.forEach(line => { doc.text(line, ml, y + 3); y += 5; });
-    y += 5;
-
-    const diaCols = [8, 10, 12, 16, 20];
-    const diaTotals = {}; diaCols.forEach(d => diaTotals[d] = 0);
-    const bbsHead = [['SN', 'Description', 'DIA', 'No of Bar', 'No.', 'Total Bars', 'A', 'B', 'C', 'D', 'Hook', 'Cut Len', 'Total Len', '8mm', '10mm', '12mm', '16mm', '20mm']];
-    const bbsRows = bbs.map((b, i) => {
-      const dia = parseInt(b.dia) || 0;
-      const row = [i + 1, b.mark || '', dia ? dia + 'mm' : '', b.noBar || '', b.no || '', b.totalBars || '',
-        b.a || '', b.b || '', b.c || '', b.d || '', b.hook || '',
-        b.cutLen ? b.cutLen.toFixed(2) : '', b.totalLen ? b.totalLen.toFixed(2) : '',
-        '', '', '', '', ''];
-      const ci = diaCols.indexOf(dia);
-      if (ci !== -1) { row[13 + ci] = b.totalLen ? b.totalLen.toFixed(2) : ''; diaTotals[dia] += (b.totalLen || 0); }
-      return row;
-    });
-
-    bbsRows.push(['', 'Total RM', '', '', '', '', '', '', '', '', '', '', '', ...diaCols.map(d => diaTotals[d] ? diaTotals[d].toFixed(2) : '-')]);
-    bbsRows.push(['', 'KG/RM', '', '', '', '', '', '', '', '', '', '', '', ...diaCols.map(d => BBS_UNIT_WEIGHTS[d] ? BBS_UNIT_WEIGHTS[d].toFixed(3) : '-')]);
-    const wtPerDia = diaCols.map(d => diaTotals[d] * (BBS_UNIT_WEIGHTS[d] || 0));
-    bbsRows.push(['', 'Total KG per Dia', '', '', '', '', '', '', '', '', '', '', '', ...wtPerDia.map(w => w ? w.toFixed(2) : '-')]);
-    const grandKG = wtPerDia.reduce((a, b) => a + b, 0);
-    bbsRows.push([{ content: 'Total Weight: ' + grandKG.toFixed(2) + ' KG  |  ' + (grandKG / 1000).toFixed(3) + ' MT', colSpan: 18, styles: { fontStyle: 'bold', halign: 'center', fillColor: [245, 245, 245] } }]);
-
-    doc.autoTable({
-      startY: y, head: bbsHead, body: bbsRows, theme: 'grid',
-      headStyles: { fillColor: [124, 58, 237], fontSize: 6, fontStyle: 'bold' },
-      styles: { fontSize: 6, cellPadding: 1.5 },
-      columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 28 } }
-    });
-  }
+  if (bbs && bbs.length) renderBbs(doc, { sans: 'helvetica' }, { sheet: s, rows: bbs, orientation: 'landscape' });
 
   mobileSavePDF(doc,`Detailed_Measurement_${s.sheetNum}.pdf`);
 }
@@ -1044,7 +1008,8 @@ window._previewMeasTemplate = function (key) {
 // the depth and only that tap generates + downloads the file. Phones get a
 // bottom sheet, wider screens a centred dialog (same markup, CSS decides).
 const _MX_RUN = {
-  pdf: { simple: id => exportSimpleMeasurementPdf(id), detailed: id => exportDetailedMeasurementPdf(id) },
+  pdf: { simple: id => exportSimpleMeasurementPdf(id), detailed: id => exportDetailedMeasurementPdf(id),
+    'bbs-landscape': id => exportBbsPdf(id, 'landscape'), 'bbs-portrait': id => exportBbsPdf(id, 'portrait') },
   excel: { simple: id => exportSimpleMeasurementExcel(id), detailed: id => exportDetailedMeasurementExcel(id) },
 };
 const _mxEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1096,7 +1061,12 @@ window.openMeasExport = function (format, sheetId) {
     <div class="mx-opts">${opts.map(o => `<button type="button" class="mx-opt" data-depth="${o.depth}" onclick="window._mxPick('${o.depth}')">
         <span class="mx-ic" data-keep-emoji>${o.icon}</span>
         <span class="mx-tx"><b>${o.title}</b><small>${o.desc}</small>${o.extra}</span>
-        <span class="mx-go" aria-hidden="true">›</span></button>`).join('')}</div>
+        <span class="mx-go" aria-hidden="true">›</span></button>`).join('')}
+      ${isPdf && bbs.rows.length ? `<div class="mx-opt mx-bbs" role="group" aria-label="Bar bending schedule">
+        <span class="mx-ic" data-keep-emoji>📐</span>
+        <span class="mx-tx"><b>Bar Bending Schedule</b><small>Detailed BBS only — every bar, shape, cut length and weight · ${_n2(bbs.totalKg)} kg</small>
+          <span class="mx-orient"><button type="button" class="mx-or" data-depth="bbs-landscape" onclick="window._mxPick('bbs-landscape')"><i class="land" aria-hidden="true"></i>Landscape</button><button type="button" class="mx-or" data-depth="bbs-portrait" onclick="window._mxPick('bbs-portrait')"><i class="port" aria-hidden="true"></i>Portrait</button></span></span>
+      </div>` : ''}</div>
   </div>`;
   ov.addEventListener('click', e => { if (e.target === ov) _mxClose(); });
   ov.__onBack = _mxClose;                       // Android back / gesture closes the sheet
@@ -1112,8 +1082,8 @@ window._mxPick = function (depth) {
   if (!_mxCtx) return;
   const { format, sheetId } = _mxCtx;
   const run = (_MX_RUN[format] || {})[depth];
-  const btn = document.querySelector(`#measExportOverlay .mx-opt[data-depth="${depth}"]`);
-  document.querySelectorAll('#measExportOverlay .mx-opt').forEach(b => { b.disabled = true; });
+  const btn = document.querySelector(`#measExportOverlay [data-depth="${depth}"]`);
+  document.querySelectorAll('#measExportOverlay .mx-opt, #measExportOverlay .mx-or').forEach(b => { b.disabled = true; });
   if (btn) btn.classList.add('busy');
   // Let the pressed state paint before the (synchronous) PDF/XLSX build blocks the thread.
   setTimeout(async () => {
