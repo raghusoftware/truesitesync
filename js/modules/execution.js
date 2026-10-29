@@ -19,19 +19,8 @@ import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } fro
 import { checkPunch, deviceId, distanceM, DEFAULT_RADIUS_M } from './attendanceGuard.js?v=1.0.0';
 
 // ── option lists ───────────────────────────────────────────
-const POUR_ELEMENTS = ['Footing', 'Column', 'Beam', 'Slab', 'Raft', 'Pile / Pile Cap', 'Retaining Wall', 'Plinth Beam', 'Staircase', 'Pedestal', 'Other'];
-const GRADES = ['M10', 'M15', 'M20', 'M25', 'M30', 'M35', 'M40', 'M45', 'M50'];
-const QUALITY_TYPES = ['Cube Test', 'NCR', 'Inspection', 'Material Test'];
-const SAFETY_TYPES = ['Incident', 'Near Miss', 'PPE / Toolbox', 'Unsafe Condition'];
-const SEVERITIES = ['Low', 'Medium', 'High', 'Critical'];
-const POUR_CHECKS = [
-  ['formwork', 'Formwork checked & oiled'],
-  ['reinforcement', 'Reinforcement as per drawing'],
-  ['cover', 'Cover blocks placed'],
-  ['embedments', 'Embedments / inserts fixed'],
-  ['cleaning', 'Surface cleaned & watered'],
-  ['level', 'Level & alignment checked'],
-];
+import { POUR_ELEMENTS, GRADES, QUALITY_TYPES, SAFETY_TYPES, SEVERITIES, POUR_CHECKS } from './endOfDayCalc.js?v=1.0.0';
+import { renderEndOfDay } from './endOfDay.js?v=1.0.0';
 
 // ── helpers ────────────────────────────────────────────────
 function _pid() { return state.currentProjectId || null; }
@@ -82,7 +71,7 @@ function _compressImage(file) {
 }
 
 // ── view state ─────────────────────────────────────────────
-let _section = 'home';   // home | dashboard | dpr | pour | milestones | quality | safety
+let _section = 'home';   // home = End of Day hub | registers | dashboard | dpr | pour | quality | safety | staff
 let _pendingPhoto = null;         // legacy base64 (back-compat display)
 let _pendingPhotoPath = null;     // Storage path of a newly-captured photo
 
@@ -102,7 +91,8 @@ export function renderExecution() {
   if (_section === 'quality') return _renderQuality(root);
   if (_section === 'safety') return _renderSafety(root);
   if (_section === 'staff') return _renderStaff(root);
-  return _renderHome(root);
+  if (_section === 'registers') return _renderHome(root);
+  return renderEndOfDay(root);
 }
 window._exOpen = function (s) {
   _section = s; renderExecution();
@@ -111,7 +101,7 @@ window._exOpen = function (s) {
 window._exSection = () => _section;
 
 function _backBar(title) {
-  return `<button onclick="_exOpen('home')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Execution</button>
+  return `<button onclick="_exOpen('home')" style="margin-bottom:14px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; End of Day</button>
     <h2 class="text-2xl font-extrabold text-slate-800 mb-4">${title}</h2>`;
 }
 
@@ -126,9 +116,9 @@ function _renderHome(root) {
       <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${sub}</div>
     </div>`;
   root.innerHTML = `
-    <button onclick="window._navBack&&window._navBack()" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; Back</button>
-    <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Site Execution</h2>
-    <p class="text-sm text-slate-400 mb-5">Daily progress, concrete pours, quality & safety</p>
+    <button onclick="_exOpen('home')" style="margin-bottom:12px;padding:6px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">&larr; End of Day</button>
+    <h2 class="text-3xl font-extrabold text-slate-800 mb-1">Registers</h2>
+    <p class="text-sm text-slate-400 mb-5">Every DPR, pour card, quality and safety record — all dates</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;">
       ${card('&#128202;', '#1e3a8a', 'Dashboard', 'Overview & KPIs', 'dashboard')}
       ${card('&#128221;', '#0ea5e9', 'Daily Progress', 'DPR — work done daily', 'dpr', _arr('dailyProgress').length)}
