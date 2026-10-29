@@ -145,8 +145,7 @@ export function closeDrawer() { document.getElementById('tsDrawer')?.remove(); }
 
 function supportSheet() {
   openSheet('Customer Support', [
-    { icon: '💬', title: 'WhatsApp us', desc: '+91 73835 03062', run: () => window.open('https://wa.me/917383503062', '_blank') },
-    { icon: '📞', title: 'Call us', desc: '+91 73835 03062', run: () => { location.href = 'tel:+917383503062'; } },
+    { icon: '💬', title: 'WhatsApp us', desc: '+91 70432 74323', run: () => window.open('https://wa.me/917043274323', '_blank') },
     { icon: '📞', title: 'Call us', desc: '+91 70432 74323', run: () => { location.href = 'tel:+917043274323'; } },
     { icon: '🌐', title: 'Visit our website', desc: 'truesitesync.com', run: () => window.open('https://truesitesync.com', '_blank') },
   ]);
@@ -397,7 +396,7 @@ export function renderProjectHome() {
 
 /* ── Profile ──────────────────────────────────────────────────────────────── */
 
-const SUPPORT = { phones: ['+917383503062', '+917043274323'], whatsapp: '917383503062', site: 'https://truesitesync.com' };
+const SUPPORT = { phones: ['+917043274323'], whatsapp: '917043274323', site: 'https://truesitesync.com' };
 
 export function renderProfile() {
   const el = document.getElementById('profileView');
@@ -436,7 +435,7 @@ export function renderProfile() {
       ${link('🗑️', '#fdeef3', 'Recycle bin', 'Restore deleted records', `onclick="switchView('recycleBinView')"`)}
     </div>
     <div class="ts-card"><div class="ts-card-h">Help &amp; support</div>
-      ${link('💬', '#e8f8ef', 'WhatsApp us', '+91 73835 03062', `href="https://wa.me/${SUPPORT.whatsapp}" target="_blank" rel="noopener"`)}
+      ${link('💬', '#e8f8ef', 'WhatsApp us', '+91 70432 74323', `href="https://wa.me/${SUPPORT.whatsapp}" target="_blank" rel="noopener"`)}
       ${SUPPORT.phones.map(p => link('📞', '#eef3ff', 'Call us', p.replace(/^\+91(\d{5})(\d{5})$/, '+91 $1 $2'), `href="tel:${p}"`)).join('')}
       ${link('🌐', '#f3eefe', 'Visit our website', SUPPORT.site.replace('https://', ''), `href="${SUPPORT.site}" target="_blank" rel="noopener"`)}
     </div>
