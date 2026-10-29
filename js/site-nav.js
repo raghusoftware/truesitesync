@@ -155,6 +155,11 @@
   var caret = svg('<path d="M6 9l6 6 6-6"/>');
   var navHTML =
     '<nav class="tssn" id="tssn">' +
+      /* support line — on every page, above the menu (part of the sticky bar, so nothing covers it) */
+      '<div class="tssn-help">' + svg('<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19a3 3 0 0 1-3 3h-3"/>') +
+        '<span class="tssn-help-t">Any query? Talk to our support —</span><span class="tssn-help-m">Support:</span>' +
+        '<a href="tel:+917043274323">+91 70432 74323</a>' +
+      '</div>' +
       '<div class="tssn-inner">' +
         '<a class="tssn-logo" href="/"><img src="/assets/logo.png" alt="True Site Sync" onerror="this.style.display=\'none\'"><span>True Site Sync</span></a>' +
         '<button class="tssn-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>' +
@@ -177,12 +182,20 @@
 
   /* ---------- styles ---------- */
   var css =
-    '.tssn{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(13,40,28,.07);font-family:"Inter",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}' +
+    '.tssn{position:sticky;top:0;z-index:1000;padding:0;margin:0;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(13,40,28,.07);font-family:"Inter",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}' +
     /* warm brand accent bar (lucky red + orange) */
     '.tssn::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#EF8420,#C6301C 50%,#EF8420);z-index:1002}' +
     '.tssn-top.tssn-active{color:#C6301C;box-shadow:inset 0 -2px 0 #EF8420}' +
     '.tssn *{box-sizing:border-box}' +
     '.tssn svg{display:block}' +
+    '.tssn-help{display:flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:6px 16px 5px;background:linear-gradient(135deg,#ef8420,#c2321f);color:#fff;font-size:13px;font-weight:600;text-align:center}' +
+    '.tssn-help svg{width:16px;height:16px;flex:0 0 auto}' +
+    '.tssn-help a{color:#fff;font-weight:800;letter-spacing:.3px;text-decoration:none;border-bottom:1px dashed rgba(255,255,255,.6);white-space:nowrap}' +
+    '.tssn-help a:hover{border-bottom-style:solid}' +
+    '.tssn-help-m{display:none}' +
+    '@media(max-width:600px){.tssn-help-t{display:none}.tssn-help-m{display:inline}.tssn-help{font-size:12.5px}}' +
+    /* the home page's old fixed support strip sat underneath this bar — this one replaces it */
+    '#supportBar{display:none!important}' +
     '.tssn-inner{max-width:1240px;margin:0 auto;padding:13px 32px;display:flex;align-items:center;gap:16px}' +
     '.tssn-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex:0 0 auto}' +
     '.tssn-logo img{width:30px;height:30px;object-fit:contain;border-radius:8px}' +
