@@ -23,12 +23,23 @@ const f3 = v => N(v).toLocaleString('en-IN', { minimumFractionDigits: 3, maximum
 /** Shape dimensions as entered, at most 3 decimals, blank for zero. */
 const dim = v => (N(v) ? String(Math.round(N(v) * 1000) / 1000) : '');
 
-// Palette — slate ink, brand orange accent, quiet greys.
-const C = {
+// Palettes — Modern Design: slate ink, brand orange accent, quiet greys.
+const COLOR = {
   INK: [15, 23, 42], INK2: [51, 65, 85], MUTE: [100, 116, 139], FAINT: [148, 163, 184],
   LINE: [226, 232, 240], ZEBRA: [248, 250, 252], PANEL: [246, 248, 251],
   HEAD: [30, 41, 59], ACC: [234, 88, 12], ACC2: [194, 50, 31], ACCBG: [255, 247, 237], WHITE: [255, 255, 255],
+  HLLINE: [253, 186, 116], CALLMUTE: [203, 213, 225], CALLACC: [253, 186, 116],
 };
+// Standard / Plant templates: pure black-and-white, prints cleanly on any office printer.
+const MONO = {
+  INK: [0, 0, 0], INK2: [25, 25, 25], MUTE: [85, 85, 85], FAINT: [120, 120, 120],
+  LINE: [175, 175, 175], ZEBRA: [244, 244, 244], PANEL: [255, 255, 255],
+  HEAD: [0, 0, 0], ACC: [0, 0, 0], ACC2: [0, 0, 0], ACCBG: [232, 232, 232], WHITE: [255, 255, 255],
+  HLLINE: [0, 0, 0], CALLMUTE: [190, 190, 190], CALLACC: [225, 225, 225],
+};
+
+/** True when Settings → Print uses a plain template (Standard / Plant) → black-and-white BBS. */
+export const bbsMono = () => ((state.printSettings?.docTemplate) || 'flint') !== 'flint';
 
 /** Sheet + project context for the letterhead and panels. */
 function _ctxFor(s) {
@@ -47,10 +58,12 @@ function _ctxFor(s) {
  * Draw the schedule on new pages of `doc`.
  * @param {object} doc  jsPDF
  * @param {{ sans:string }} F  font family ('helvetica' fallback)
- * @param {{ sheet:object, rows:Array, orientation:'landscape'|'portrait', firstPage?:boolean }} o
+ * @param {{ sheet:object, rows:Array, orientation:'landscape'|'portrait', firstPage?:boolean, mono?:boolean }} o
  *   firstPage: draw on the doc's current (blank) first page instead of adding one
+ *   mono: black-and-white palette (defaults to the Settings → Print template)
  */
 export function renderBbs(doc, F, o) {
+  const C = (o.mono ?? bbsMono()) ? MONO : COLOR;
   const land = o.orientation !== 'portrait';
   const m = bbsModel(o.rows);
   const x = _ctxFor(o.sheet);
@@ -108,7 +121,7 @@ export function renderBbs(doc, F, o) {
   const kw = (W - 3 * 3) / 4;
   kpis.forEach(([k, v, u], i) => {
     const kx = ML + i * (kw + 3), hl = i === 2;
-    fill(hl ? C.ACCBG : C.WHITE); stroke(hl ? [253, 186, 116] : C.LINE, 0.25); doc.roundedRect(kx, y, kw, 15, 2.5, 2.5, 'FD');
+    fill(hl ? C.ACCBG : C.WHITE); stroke(hl ? C.HLLINE : C.LINE, 0.25); doc.roundedRect(kx, y, kw, 15, 2.5, 2.5, 'FD');
     font('bold', 6.5, hl ? C.ACC2 : C.FAINT); doc.text(k, kx + 4, y + 5);
     font('bold', land ? 13 : 11.5, hl ? C.ACC2 : C.INK); doc.text(v, kx + 4, y + 11.6);
     const vw = doc.getTextWidth(v); font('normal', 7, C.MUTE); doc.text(u, kx + 5 + vw, y + 11.6);
@@ -197,9 +210,9 @@ export function renderBbs(doc, F, o) {
   const sumEnd = doc.lastAutoTable.finalY;
   const bx = land ? ML + sw + 8 : ML, by = land ? y + 6 : sumEnd + 5, bw = land ? W - sw - 8 : W, bh = 26;
   fill(C.HEAD); doc.roundedRect(bx, by, bw, bh, 3, 3, 'F');
-  font('bold', 7, [203, 213, 225]); doc.text('TOTAL STEEL WEIGHT', bx + 6, by + 7);
+  font('bold', 7, C.CALLMUTE); doc.text('TOTAL STEEL WEIGHT', bx + 6, by + 7);
   font('bold', 18, C.WHITE); doc.text(f2(m.totalKg) + ' kg', bx + 6, by + 16.5);
-  font('normal', 8.5, [253, 186, 116]); doc.text(f3(m.totalMt) + ' MT  ·  ' + m.dias.map(d => 'Ø' + d).join(', ') + '  ·  ' + m.rows.length + ' lines', bx + 6, by + 22.5);
+  font('normal', 8.5, C.CALLACC); doc.text(f3(m.totalMt) + ' MT  ·  ' + m.dias.map(d => 'Ø' + d).join(', ') + '  ·  ' + m.rows.length + ' lines', bx + 6, by + 22.5);
   y = Math.max(sumEnd, by + bh) + 12;
 
   // ── Sign-off ──

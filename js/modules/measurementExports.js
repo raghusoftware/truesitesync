@@ -15,7 +15,7 @@ import { lookupBoqItem } from './abstractCalc.js';
 import { computeSheetPrevQtyMap, groupSheetEntries, sheetPrevQtyFor, bbsSummary } from './sheetCalc.js?v=1.1.0';
 import { BBS_UNIT_WEIGHTS } from './constants.js';
 import { MD, fitImage, loadModernFonts, newModernDoc } from './pdfModernTheme.js?v=1.2.0';
-import { renderBbs, exportBbsPdf } from './bbsPdf.js?v=1.0.1';
+import { renderBbs, exportBbsPdf, bbsMono } from './bbsPdf.js?v=1.0.2';
 
 const _lookupBoqItem = lookupBoqItem;
 
@@ -676,7 +676,7 @@ export function exportDetailedMeasurementPdf(id) {
 
   // Bar bending schedule (same premium layout as Export → PDF → Bar Bending Schedule)
   const bbs = (state.bbsData || {})[s.id];
-  if (bbs && bbs.length) renderBbs(doc, { sans: 'helvetica' }, { sheet: s, rows: bbs, orientation: 'landscape' });
+  if (bbs && bbs.length) renderBbs(doc, { sans: 'helvetica' }, { sheet: s, rows: bbs, orientation: 'landscape', mono: true });
 
   mobileSavePDF(doc,`Detailed_Measurement_${s.sheetNum}.pdf`);
 }
@@ -1065,6 +1065,7 @@ window.openMeasExport = function (format, sheetId) {
       ${isPdf && bbs.rows.length ? `<div class="mx-opt mx-bbs" role="group" aria-label="Bar bending schedule">
         <span class="mx-ic" data-keep-emoji>📐</span>
         <span class="mx-tx"><b>Bar Bending Schedule</b><small>Detailed BBS only — every bar, shape, cut length and weight · ${_n2(bbs.totalKg)} kg</small>
+          <em class="mx-style">${bbsMono() ? 'Black &amp; white · Standard template' : 'Colour · Modern Design template'} <span>(Settings → Print)</span></em>
           <span class="mx-orient"><button type="button" class="mx-or" data-depth="bbs-landscape" onclick="window._mxPick('bbs-landscape')"><i class="land" aria-hidden="true"></i>Landscape</button><button type="button" class="mx-or" data-depth="bbs-portrait" onclick="window._mxPick('bbs-portrait')"><i class="port" aria-hidden="true"></i>Portrait</button></span></span>
       </div>` : ''}</div>
   </div>`;

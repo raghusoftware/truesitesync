@@ -1485,6 +1485,8 @@ button.pcx-chip.on { border-color: #0f172a; background: #0f172a; color: #fff; }
 /* Bar Bending Schedule: a card with two orientation buttons (not a button itself) */
 #measExportOverlay .mx-opt.mx-bbs { display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px; border: 1.5px solid #fed7aa; border-radius: 16px; background: #fffaf5; }
 .mx-bbs .mx-ic { background: #ffedd5; }
+.mx-bbs em.mx-style { display: block; margin-top: 4px; font-style: normal; font-size: 11.5px; font-weight: 700; color: #9a3412; }
+.mx-bbs em.mx-style span { font-weight: 500; color: #94a3b8; }
 .mx-orient { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 #measExportOverlay button.mx-or { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-height: 0 !important; padding: 0 10px !important;
   border: 1.5px solid #e5e9f0; border-radius: 12px !important; background: #fff; color: #0f172a; font-size: 14px !important; font-weight: 800 !important; cursor: pointer; }
