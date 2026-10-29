@@ -188,6 +188,6 @@ begin
   return v_merged;
 end $function$;
 
-revoke all on function public._guard_attendance(uuid, text, jsonb, jsonb) from public, anon;
-revoke all on function public._is_org_admin(uuid) from public, anon;
-revoke all on function public._guard_attendance_core(text, jsonb, jsonb, text, boolean, jsonb) from public, anon;
+revoke all on function public._guard_attendance(uuid, text, jsonb, jsonb) from public, anon, authenticated;
+revoke all on function public._is_org_admin(uuid) from public, anon, authenticated;
+revoke all on function public._guard_attendance_core(text, jsonb, jsonb, text, boolean, jsonb) from public, anon, authenticated;
