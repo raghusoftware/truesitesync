@@ -24,12 +24,19 @@ import { formatNumber2 } from './format.js?v=1.0.1';
 const _n2 = formatNumber2;
 const _num = n => (Number(n) || 0);
 
+/** Retention % from the project's / client's Billing & compliance rules (null when not set). */
+function _ruleRet(pid) {
+  const p = (state.projects || []).find(x => x.id === pid); if (!p) return null;
+  const c = (state.clients || []).find(x => x.id === p.clientId) || {};
+  const v = p.defaultRetentionRate != null && p.defaultRetentionRate !== '' ? p.defaultRetentionRate : c.defaultRetentionRate;
+  return v != null && v !== '' ? _num(v) : null;
+}
 /** Per-project contract terms, with sensible UAE defaults. */
 export function getContractTerms(pid) {
   const all = state.contractTerms || (state.contractTerms = {});
   const t = all[pid] || {};
   return {
-    retentionPct: t.retentionPct != null ? _num(t.retentionPct) : 10,
+    retentionPct: t.retentionPct != null ? _num(t.retentionPct) : _ruleRet(pid) ?? 10,
     advancePaid: _num(t.advancePaid),
     advanceRecoveryPct: t.advanceRecoveryPct != null ? _num(t.advanceRecoveryPct) : 0,
   };

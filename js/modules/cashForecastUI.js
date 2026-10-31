@@ -16,13 +16,14 @@
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { getCurrencySymbol } from './utils.js';
-import { forecastItems, bucketize, forecastSummary, wageRunRate, addDays, shortDate, VIEWS } from './cashForecast.js?v=2.0.1';
+import { lockedRetention } from './billingRules.js?v=1.0.0';
+import { forecastItems, bucketize, forecastSummary, wageRunRate, addDays, shortDate, VIEWS } from './cashForecast.js?v=2.0.2';
 
 const N = v => parseFloat(v) || 0;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = v => (N(v) < 0 ? '−' : '') + getCurrencySymbol() + Math.round(Math.abs(N(v))).toLocaleString('en-IN');
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SRC = { sale: 'Sale invoice', ra: 'RA bill', bill: 'Purchase bill', subcon: 'Subcontractor', labour: 'Labour bill', payroll: 'Payroll' };
+const SRC = { sale: 'Sale invoice', ra: 'RA bill', retention: 'Retention release', bill: 'Purchase bill', subcon: 'Subcontractor', labour: 'Labour bill', payroll: 'Payroll' };
 let _drill = null;     // { key: bucket start, dir: 'in'|'out' } — the open sheet
 let _last = null;      // last computed buckets (the sheet reads from them)
 
@@ -93,6 +94,7 @@ export function renderWorkingCF(ctx) {
     </div>
     ${banner}
     <div class="xcf-timeline n${buckets.length}">${cards}</div>
+    ${_lockedHTML()}
     <details class="xcf-set">
       <summary>How this is worked out <small>approved invoices, bills, subcontractor certificates, labour bills and payroll — nothing else</small></summary>
       <ul class="xcf-how">
@@ -108,6 +110,20 @@ export function renderWorkingCF(ctx) {
       ${delayed ? `<p class="xcf-hint">${delayed} payment${delayed === 1 ? '' : 's'} delayed by you. <button type="button" class="xcf-link" onclick="window._xcfClearDelays()">Restore due dates</button></p>` : ''}
     </details>
   </div>`;
+}
+
+/** Retention held by clients: real money, but not due for months — shown apart from the buckets. */
+function _lockedHTML() {
+  const L = lockedRetention(state);
+  if (!(L.total > 0) && !(L.claimed > 0)) return '';
+  const top = L.byClient.slice(0, 3).map(c => `<li><button type="button" onclick="window.openPartyDetail&&(switchView('partiesLedgerView'),window.openPartyDetail('${esc(c.clientId)}','Client'))"><span>${esc(c.name)}</span><b>${money(c.held + c.due)}</b></button></li>`).join('');
+  return `<section class="xcf-lock" aria-label="Locked future cash">
+    <div class="xcf-lock-h"><span class="xcf-lock-ic" aria-hidden="true">🔒</span>
+      <div><b>Locked future cash · retention</b><small>Held by clients until handover / defect liability. Not counted in the forecast above until you raise a retention release bill.</small></div>
+      <b class="xcf-lock-amt">${money(L.total)}</b></div>
+    <div class="xcf-lock-split"><span><i class="h"></i>Withheld so far <b>${money(L.held)}</b></span>${L.due > 0 ? `<span><i class="d"></i>Will be withheld on unpaid bills <b>${money(L.due)}</b></span>` : ''}${L.claimed > 0 ? `<span><i class="c"></i>Release bills raised (in forecast) <b>${money(L.claimed)}</b></span>` : ''}</div>
+    ${top ? `<ul class="xcf-lock-list">${top}</ul>` : ''}
+  </section>`;
 }
 
 // ── Drill-down sheet ──────────────────────────────────────────────────────────

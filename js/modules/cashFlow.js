@@ -7,7 +7,7 @@
 import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { getCurrencySymbol, showToast } from './utils.js';
-import { renderWorkingCF } from './cashForecastUI.js?v=2.0.1';
+import { renderWorkingCF } from './cashForecastUI.js?v=2.0.2';
 
 const N = (v) => parseFloat(v) || 0;
 const _days = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; };

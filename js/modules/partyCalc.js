@@ -33,7 +33,8 @@ export function partyRows(S) {
   (S.clients || []).forEach(c => {
     const billed = (S.abstracts || []).filter(a => a.clientId === c.id && a.status !== 'invoiced').reduce((s, a) => s + _n(a.totalAmount), 0)
       + (S.invoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + _n(i.taxAmount), 0)
-      + (S.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + _n(i.total), 0);
+      + (S.saleInvoices || []).filter(i => i.clientId === c.id && i.status !== 'Cancelled').reduce((s, i) => s + _n(i.total), 0)
+      + (S.retentionBills || []).filter(b => b.clientId === c.id && b.status !== 'Cancelled').reduce((s, b) => s + _n(b.amount), 0);
     const paid = (S.paymentsIn || []).filter(p => p.clientId === c.id).reduce((s, p) => s + settledAmount(p), 0);
     rows.push({ id: c.id, name: c.name || '', type: 'Client', balance: billed - paid, phone: c.contact || c.phone || '' });
   });
@@ -95,6 +96,7 @@ export function partyEntries(S, id, type) {
     (S.abstracts || []).filter(a => a.clientId === id && a.status !== 'invoiced').forEach(a => t.push({ date: a.date, number: a.abstractNum || 'Abstract', type: 'Sale (Abstract)', total: _n(a.totalAmount), isDebit: true, src: 'abstracts', id: a.id }));
     (S.invoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, number: i.invoiceNum || 'Invoice', type: 'Sale (GST)', total: _n(i.taxAmount), isDebit: true, src: 'invoices', id: i.id }));
     (S.saleInvoices || []).filter(i => i.clientId === id && i.status !== 'Cancelled').forEach(i => t.push({ date: i.date, number: i.invoiceNo || 'Invoice', type: 'Sale Invoice', total: _n(i.total), isDebit: true, src: 'saleInvoices', id: i.id }));
+    (S.retentionBills || []).filter(b => b.clientId === id && b.status !== 'Cancelled').forEach(b => t.push({ date: b.date, number: b.billNo || 'Retention', type: 'Retention Release Bill', total: _n(b.amount), isDebit: true, src: 'retentionBills', id: b.id }));
     (S.paymentsIn || []).filter(p => p.clientId === id).forEach(p => t.push({ date: p.date, number: p.ref || p.receiptNo || 'Receipt', type: 'Payment In', total: settledAmount(p), isDebit: false, src: 'paymentsIn', id: p.id, rec: p }));
   } else if (type === 'Vendor') {
     (S.vendorMaterials || []).filter(m => m.vendorId === id).forEach(m => t.push({ date: m.date, number: m.billNo || 'Purchase', type: 'Purchase', total: _n(m.totalAmount) || _n(m.amount), isDebit: false, src: 'vendorMaterials', id: m.id }));

@@ -11,6 +11,7 @@ import { state, saveAllData } from './state.js';
 import { settledAmount } from './deductions.js';
 import { showToast, getCurrencySymbol, populateDropdowns } from './utils.js';
 import { buildClientLedger, renderMasterClientList } from './finance.js';
+import { rulesBlockHTML, readRules } from './billingRulesUI.js?v=1.0.1';
 
 export function renderClientHub() {
   const cId = document.getElementById('hubClientSelect').value;
@@ -50,13 +51,30 @@ export function openClientModal(editId) {
   _setCf('modalClientEmail', c ? c.email : '');
   _setCf('modalClientGst', c ? c.gst : '');
   _setCf('modalClientPan', c ? c.pan : '');
-  _setCf('modalClientTerms', c && c.paymentTermsDays != null ? c.paymentTermsDays : '');
-  window._syncTermsChips?.('modalClientTerms');
-  _setCf('modalClientCreditLimit', c && c.creditLimit ? c.creditLimit : '');
   _setCf('modalClientAddr', c ? c.address : '');
-  const t = document.getElementById('clientModalTitle'); if (t) t.textContent = c ? 'Edit Client' : 'Add Client';
+  const slot = document.getElementById('clientRulesSlot');
+  if (slot) slot.innerHTML = rulesBlockHTML('modalClient', {
+    terms: c ? c.paymentTermsDays : '', tds: c ? c.defaultTdsRate : '', ret: c ? c.defaultRetentionRate : '',
+    credit: c ? c.creditLimit : '', showCredit: true, required: !c,
+  });
+  const t = document.getElementById('clientModalTitle'); if (t) t.textContent = c ? 'Edit client' : 'Add client';
+  const sub = document.getElementById('clientModalSub'); if (sub) sub.textContent = c ? (c.name || '') : 'Who you bill, and the rules every bill follows';
+  const sv = document.getElementById('clientModalSave'); if (sv) sv.textContent = c ? 'Save changes' : 'Save client';
   document.getElementById('clientModal').classList.remove('hidden');
+  document.body.classList.add('clf-open');
+  setTimeout(() => { if (!c) document.getElementById('modalClientName')?.focus(); }, 60);
 }
+export function closeClientModal() {
+  document.getElementById('clientModal')?.classList.add('hidden');
+  document.body.classList.remove('clf-open');
+}
+window.closeClientModal = closeClientModal;
+/** A GSTIN carries the PAN (characters 3–12) — fill PAN when it is still empty. */
+window._cmGstPan = () => {
+  const g = (document.getElementById('modalClientGst')?.value || '').trim().toUpperCase(), pan = document.getElementById('modalClientPan');
+  if (pan && !pan.value.trim() && /^\d{2}[A-Z]{5}\d{4}[A-Z]/.test(g)) pan.value = g.slice(2, 12);
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('clientModal')?.classList.contains('hidden')) closeClientModal(); });
 
 export function saveClient() {
   const name = _cf('modalClientName');
@@ -67,11 +85,14 @@ export function saveClient() {
   if (termsRaw === '' && !editId) { document.getElementById('modalClientTerms')?.focus(); showToast('Set payment terms — pick Immediate, Net 15, Net 30 …', 'error'); return; }
   const paymentTermsDays = termsRaw === '' ? null : Math.max(0, parseInt(termsRaw) || 0);
   const creditLimit = parseFloat(_cf('modalClientCreditLimit')) || 0;
+  const rules = readRules('modalClient');
+  if ((rules.defaultTdsRate || 0) > 20 || (rules.defaultRetentionRate || 0) > 50) { showToast('TDS or retention % looks too high — check the rules', 'error'); return; }
   const data = {
     name,
     contact: _cf('modalClientContact'), phone: _cf('modalClientPhone'), email: _cf('modalClientEmail'),
     gst: _cf('modalClientGst').toUpperCase(), pan: _cf('modalClientPan').toUpperCase(), address: _cf('modalClientAddr'),
     paymentTermsDays, creditLimit,
+    defaultTdsRate: rules.defaultTdsRate, defaultRetentionRate: rules.defaultRetentionRate,
   };
   let createdRec = null;
   if (editId) {
@@ -102,7 +123,7 @@ export function saveClient() {
     state.clients.push(createdRec);
   }
   saveAllData();
-  document.getElementById('clientModal').classList.add('hidden');
+  closeClientModal();
   populateDropdowns();
   if (typeof window.renderProjectsHome === 'function') window.renderProjectsHome();
   renderClientTable();

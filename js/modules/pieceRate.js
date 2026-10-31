@@ -17,7 +17,7 @@ import { state, saveAllData, keepOnly } from './state.js';
 import { showToast, getCurrencySymbol, getPdfCurrency, getCompanyHeaderForPDF, mobileSavePDF } from './utils.js';
 import { openFormModal, closeFormModal, FS_INPUT, FS_LABEL } from './formHelpers.js';
 import { rateFor, priceLogs, unbilledLogs, draftBillLines, billSettlement, boqLabourReport, reportTotals } from './pieceRateCalc.js?v=1.0.0';
-import { nextPayDay, addDays } from './cashForecast.js?v=2.0.1';
+import { nextPayDay, addDays } from './cashForecast.js?v=2.0.2';
 
 const N = v => parseFloat(v) || 0;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

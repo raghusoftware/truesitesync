@@ -17,6 +17,7 @@ import { _openFullScreenForm, _populateClientSelect, closeFullScreenForm } from 
 import { GST_STATE } from './constants.js?v=1.1.0';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
 import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
+import { rulesFor, applyDeductions } from './billingRules.js?v=1.0.0';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
 
@@ -73,6 +74,7 @@ function _populateSIProjectSelect() {
 
 // ── Project change handler ──
 export function onSIProjectChange() {
+  setTimeout(_siApplyRules, 0);
   const projId = document.getElementById('siFormProject')?.value;
   const clientSel = document.getElementById('siFormClient');
   const woSel = document.getElementById('siFormWO');
@@ -393,14 +395,35 @@ function _siAutoDue() {
     dateEl?.addEventListener('change', _siAutoDue);
   }
   const client = state.clients.find(c => c.id === document.getElementById('siFormClient')?.value);
-  const days = client && client.paymentTermsDays != null && client.paymentTermsDays !== '' ? +client.paymentTermsDays : (+state.cashFlowSettings?.creditDays || 30);
+  const rule = rulesFor(state, { projectId: document.getElementById('siFormProject')?.value || '', clientId: client?.id || '' });
+  const days = rule.termsDays != null ? +rule.termsDays : (+state.cashFlowSettings?.creditDays || 30);
   const d = new Date((dateEl?.value || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + days);
   dueEl.value = d.toISOString().slice(0, 10);
-  dueEl.title = client && client.paymentTermsDays != null ? `${client.name}: ${days ? 'Net ' + days : 'Immediate'}` : `Default ${days} days`;
+  dueEl.title = rule.termsDays != null ? `${rule.source.terms === 'project' ? 'Project' : client?.name || 'Client'}: ${days ? 'Net ' + days : 'Immediate'}` : `Default ${days} days`;
+}
+
+/** Fill TDS % / Retention % from the project's (else client's) Billing & compliance rules, until the user edits them. */
+function _siApplyRules() {
+  const tEl = document.getElementById('siFormTdsPct'), rEl = document.getElementById('siFormRetPct'); if (!tEl || !rEl) return;
+  const rule = rulesFor(state, { projectId: document.getElementById('siFormProject')?.value || '', clientId: _siRealClientId() });
+  if (!tEl.dataset.touched) tEl.value = rule.tdsPct || 0;
+  if (!rEl.dataset.touched) rEl.value = rule.retentionPct || 0;
+  const src = [rule.source.tds, rule.source.retention].filter(Boolean);
+  const lbl = document.getElementById('siDedSrc');
+  if (lbl) lbl.textContent = src.includes('project') ? 'from the project rules' : src.length ? 'from the client rules' : 'no rules set — enter if the client deducts';
+  _siAutoDue();
+  calcSIFormTotal();
+}
+/** The real client id (project-client options resolve to the project's client). */
+function _siRealClientId() {
+  const v = document.getElementById('siFormClient')?.value || '';
+  if (v.startsWith('proj_client_')) return (state.projects || []).find(p => p.id === v.slice(12))?.clientId || '';
+  return v;
 }
 
 export function onSIClientChange() {
+  setTimeout(_siApplyRules, 0);
   const clientId = document.getElementById('siFormClient')?.value;
   const client = state.clients.find(c => c.id === clientId);
   _siAutoDue();
@@ -654,6 +677,7 @@ export function openSaleInvoiceForm(editId) {
     setEl('siFormState', existing.stateOfSupply);
     setEl('siFormTCS', existing.tcsPct || 0);
     const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = existing.roundOff !== false;
+    ['siFormTdsPct', 'siFormRetPct'].forEach((id, k) => { const el = document.getElementById(id); if (el) { el.value = +(k ? existing.retentionPct : existing.tdsPct) || 0; el.dataset.touched = '1'; } });
     const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = existing.gstPct != null ? existing.gstPct : '18';
     // Client + WO need the project to repopulate dependent dropdowns first.
     const clEl = document.getElementById('siFormClient'); if (clEl) clEl.value = existing.clientId || '';
@@ -676,6 +700,7 @@ export function openSaleInvoiceForm(editId) {
     const termsEl = document.getElementById('siFormTerms'); if (termsEl) termsEl.value = '';
     const stateEl = document.getElementById('siFormState'); if (stateEl) stateEl.value = '';
     const tcsEl = document.getElementById('siFormTCS'); if (tcsEl) tcsEl.value = '0';
+    ['siFormTdsPct', 'siFormRetPct'].forEach(id => { const el = document.getElementById(id); if (el) { el.value = '0'; delete el.dataset.touched; } });
     const roundEl = document.getElementById('siFormRoundOff'); if (roundEl) roundEl.checked = true;
     const gstPctEl = document.getElementById('siFormGstPct'); if (gstPctEl) gstPctEl.value = '18';
     setSIPayMode('Credit');
@@ -818,6 +843,14 @@ export function calcSIFormTotal() {
   if (roundEl?.checked) { roundAmt = Math.round(grand) - grand; grand = Math.round(grand); }
   setT('siFormRoundAmt', roundAmt !== 0 ? (roundAmt > 0 ? '+' : '') + roundAmt.toFixed(2) : '0.00');
   setT('siFormTotal', getCurrencySymbol() + grand.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+  // Client deductions (TDS + retention on the taxable value) → net receivable
+  const ded = applyDeductions({ taxable: taxableAmount, tax: totalLineTax, tcs: tcsAmt, roundOff: roundAmt,
+    tdsPct: parseFloat(document.getElementById('siFormTdsPct')?.value) || 0, retentionPct: parseFloat(document.getElementById('siFormRetPct')?.value) || 0 });
+  const box = document.getElementById('siDedBox');
+  if (box) {
+    box.classList.toggle('on', ded.deductions > 0);
+    setT('siFormTdsAmt', '−' + fmt(ded.tds)); setT('siFormRetAmt', '−' + fmt(ded.retention)); setT('siFormNet', fmt(ded.net));
+  }
   const words = document.getElementById('siFormAmountWords');
   if (words) words.textContent = grand > 0 ? amountToWordsCur(grand) : '—';
 }
@@ -933,6 +966,11 @@ export function saveSaleInvoiceForm() {
     notes: document.getElementById('siFormNotes')?.value || '',
     grossTotal, totalDiscount, taxableAmount, itemTax: totalLineTax,
     gstPct, gstAmount, tcsPct, tcsAmount, roundOff, roundAmt,
+    ...(() => {
+      const d = applyDeductions({ taxable: taxableAmount, tax: totalLineTax, tcs: tcsAmount, roundOff: roundAmt,
+        tdsPct: parseFloat(document.getElementById('siFormTdsPct')?.value) || 0, retentionPct: parseFloat(document.getElementById('siFormRetPct')?.value) || 0 });
+      return { tdsPct: d.tdsPct, tdsAmt: d.tds, retentionPct: d.retentionPct, retentionAmt: d.retention, netReceivable: d.net };
+    })(),
     subtotal: taxableAmount, total: grand, status: existing ? (existing.status || 'Active') : 'Active',
     linkedAbstractIds: existing ? (existing.linkedAbstractIds || [...linkedAbstracts]) : [...linkedAbstracts]
   };

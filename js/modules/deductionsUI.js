@@ -300,7 +300,15 @@ export function clientBills(state, clientId) {
   });
   (state.saleInvoices || []).filter(i => i.clientId === clientId && i.status !== 'Cancelled').forEach(i => {
     const gross = _num(i.total);
-    out.push({ id: i.id, ref: i.invoiceNo || 'Invoice', label: `${i.invoiceNo || 'Invoice'} · ${i.date || ''} · ${money(gross)}`, gross, base: _num(i.subtotal || i.taxableValue), deductions: [] });
+    // TDS / retention set on the invoice (from the client's / project's billing rules) prefill the receipt.
+    const ds = [];
+    if (_num(i.tdsAmt) > 0) ds.push({ type: 'tds', amount: _num(i.tdsAmt), rate: _num(i.tdsPct) });
+    if (_num(i.retentionAmt) > 0) ds.push({ type: 'retention', amount: _num(i.retentionAmt), rate: _num(i.retentionPct) });
+    out.push({ id: i.id, ref: i.invoiceNo || 'Invoice', label: `${i.invoiceNo || 'Invoice'} · ${i.date || ''} · ${money(gross)}`, gross, base: _num(i.subtotal || i.taxableValue), deductions: ds });
+  });
+  (state.retentionBills || []).filter(b => b.clientId === clientId && b.status !== 'Cancelled').forEach(b => {
+    const gross = _num(b.amount);
+    out.push({ id: b.id, ref: b.billNo || 'Retention release', label: `${b.billNo || 'Retention release'} · retention release · ${money(gross)}`, gross, base: 0, deductions: [] });
   });
   return out.sort((a, b) => String(b.label).localeCompare(String(a.label)));
 }

@@ -16,6 +16,8 @@ import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _popul
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
 import { nextDocNo } from './docNumbering.js?v=1.0.0';
+import { rulesBlockHTML, readRules } from './billingRulesUI.js?v=1.0.1';
+import { rulesFor } from './billingRules.js?v=1.0.0';
 
 // ══════════════════════════════════════════
 // PROJECT MANAGEMENT
@@ -761,6 +763,17 @@ export function _projFormClientChanged() {
   const sel = document.getElementById('projFormClientSelect');
   const idEl = document.getElementById('projFormClientId');
   if (sel && idEl) idEl.value = sel.value || '';
+  _renderProjRules();
+}
+/** Project's Billing & compliance rules — blank fields inherit the selected client's rules. */
+let _projRulesVals = null;   // the project's own values while the form is open
+function _renderProjRules() {
+  const slot = document.getElementById('projRulesSlot'); if (!slot) return;
+  if (slot.firstElementChild && _projRulesVals) _projRulesVals = { ..._projRulesVals, ...(() => { const r = readRules('projForm'); return { terms: r.paymentTermsDays, tds: r.defaultTdsRate, ret: r.defaultRetentionRate }; })() };
+  const c = (state.clients || []).find(x => x.id === document.getElementById('projFormClientSelect')?.value) || null;
+  const v = _projRulesVals || {};
+  slot.innerHTML = rulesBlockHTML('projForm', { terms: v.terms ?? '', tds: v.tds ?? '', ret: v.ret ?? '',
+    inherit: c ? { from: c.name || 'Client', terms: c.paymentTermsDays, tds: c.defaultTdsRate, ret: c.defaultRetentionRate } : { from: 'Client' } });
 }
 
 export function openProjectForm(editId, presetClientId) {
@@ -793,6 +806,8 @@ export function openProjectForm(editId, presetClientId) {
     setVal('projFormClientGst', p.clientGst);
     setVal('projFormClientPan', p.clientPan);
     setVal('projFormClientAddr', p.clientAddress);
+    _projRulesVals = { terms: p.paymentTermsDays ?? '', tds: p.defaultTdsRate ?? '', ret: p.defaultRetentionRate ?? '' };
+    document.getElementById('projRulesSlot')?.replaceChildren();
     _populateProjFormClients(p.clientId);
     _populateProjFormTeam(p.teamMembers || []);
     // BOQ — multiple groups (WO/PO details stored per group)
@@ -838,6 +853,8 @@ export function openProjectForm(editId, presetClientId) {
     // Client
     ['projFormClient','projFormClientContact','projFormClientPhone','projFormClientEmail','projFormClientGst','projFormClientPan','projFormClientAddr'].forEach(id => setVal(id, ''));
     setVal('projFormClientId', '');
+    _projRulesVals = {};
+    document.getElementById('projRulesSlot')?.replaceChildren();
     _populateProjFormClients(presetClientId || '');
     _populateProjFormTeam([]);
     // BOQ — empty (WO/PO details stored per group)
@@ -892,6 +909,8 @@ export function saveProject() {
     // Computed totals from BOQ groups for backward compatibility
     budget: (() => { _saveActiveBoqGroupData(); return _boqGroups.reduce((s, g) => s + (g.poValue || 0), 0); })(),
     woNumber: (() => { _saveActiveBoqGroupData(); return _boqGroups.map(g => g.woNumber).filter(Boolean).join(', '); })(),
+    // Billing & compliance rules (null = inherit the client's): terms → cash flow, TDS, retention
+    ...(() => { const r = readRules('projForm'); return { paymentTermsDays: r.paymentTermsDays, defaultTdsRate: r.defaultTdsRate, defaultRetentionRate: r.defaultRetentionRate }; })(),
     // Team members allowed to access this project (rbac user ids; admins always have access)
     teamMembers: Array.from(document.querySelectorAll('#projFormTeamMembers .proj-team-chk:checked')).map(el => el.value)
   };
@@ -4906,8 +4925,10 @@ export function loadPendingAbstractsForBilling() {
   // Prefill retention % from the client's project setting (user can still override).
   const _client = state.clients.find(c => c.id === cId);
   const _proj = state.projects.find(p => p.id === _client?.projectId);
-  const _ret = document.getElementById('billRetention');
-  if (_ret && _proj && (_proj.retention || 0) > 0 && !_ret.dataset.touched) _ret.value = _proj.retention;
+  const _ret = document.getElementById('billRetention'), _tds = document.getElementById('billTds');
+  const _rules = rulesFor(state, { projectId: _proj?.id || '', clientId: cId });
+  if (_ret && !_ret.dataset.touched) _ret.value = _rules.retentionPct || (_proj?.retention || 0) || 0;
+  if (_tds && !_tds.dataset.touched) _tds.value = _rules.tdsPct || 0;
 
   const pending = state.abstracts.filter(a => a.clientId === cId && !isAbstractInvoiced(a));
   pending.forEach(a => {

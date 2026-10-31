@@ -4,7 +4,9 @@
  * One question: will there be enough cash next week and next month?
  * Only formal, approved documents move the forecast:
  *
- *   MONEY IN   sale invoices + RA tax invoices (net of retention / TDS)
+ *   MONEY IN   sale invoices + RA tax invoices (net of retention / TDS — those stay with the client)
+ *              retention release bills once raised; retention still held is "locked future cash",
+ *              summarised separately and never in the 30-day buckets (billingRules.lockedRetention)
  *              due = invoice due date, else invoice date + client terms
  *   MONEY OUT  purchase bills ........ due date, else vendor terms (bill or GRN date, or weekly)
  *              subcontractor certificates (unpaid SPCs) .. certificate date + default terms
@@ -25,6 +27,7 @@
  */
 
 import { billSettlement } from './pieceRateCalc.js?v=1.0.0';
+import { cashShare } from './billingRules.js?v=1.0.0';
 
 const N = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
 const r2 = (v) => Math.round(N(v) * 100) / 100;
@@ -107,15 +110,18 @@ export function forecastItems(S, o) {
 
   // ── MONEY IN: sale invoices + RA tax invoices, against the client's receipts ──
   const invs = [
-    ...(S.saleInvoices || []).filter(isLive).map(i => ({ id: i.id, src: 'sale', clientId: i.clientId, date: i.date, dueDate: i.dueDate, total: N(i.total) || N(i.totalAmount), ref: i.invoiceNo || i.invNo || i.number || 'Invoice' })),
+    // Sale invoices: the client keeps TDS + retention, so only the cash share of what is open comes in.
+    ...(S.saleInvoices || []).filter(isLive).map(i => ({ id: i.id, src: 'sale', clientId: i.clientId, date: i.date, dueDate: i.dueDate, total: N(i.total) || N(i.totalAmount), ref: i.invoiceNo || i.invNo || i.number || 'Invoice', share: cashShare(i).cash })),
+    // Retention release bills: retention comes back only once you raise the release bill.
+    ...(S.retentionBills || []).filter(isLive).map(b => ({ id: b.id, src: 'retention', clientId: b.clientId, date: b.date, dueDate: b.dueDate, total: N(b.amount), ref: b.billNo || 'Retention release' })),
     ...(S.invoices || []).filter(isLive).map(i => ({ id: i.id, src: 'ra', clientId: i.clientId, date: i.date, dueDate: i.dueDate, total: N(i.netPayable) || N(i.totalAmount), ref: i.invoiceNum || i.invoiceNo || 'RA invoice' })),
   ].filter(i => i.total > 0);
-  const receipts = group((S.paymentsIn || []).map(p => ({ clientId: p.clientId, amount: paidOf(p), ref: p.invoiceId || p.billId })), 'clientId');
+  const receipts = group((S.paymentsIn || []).map(p => ({ clientId: p.clientId, amount: paidOf(p), ref: p.againstBillId || p.invoiceId || p.billId })), 'clientId');
   Object.entries(group(invs, 'clientId')).forEach(([cid, list]) => {
     const c = byId(S.clients, cid);
     openAmounts(list, receipts[cid] || []).forEach(i => add({
       key: 'inv:' + i.id, dir: 'in', src: i.src, party: c.name || 'Client', ref: i.ref,
-      docDate: i.date, due: i.dueDate || dueDate(i.date, cDays(c)), amount: i.open,
+      docDate: i.date, due: i.dueDate || dueDate(i.date, cDays(c)), amount: i.share != null ? i.open * i.share : i.open,
     }));
   });
 

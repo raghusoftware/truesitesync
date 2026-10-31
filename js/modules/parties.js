@@ -11,6 +11,7 @@
 import { state, saveAllData, keepOnly } from './state.js';
 import { partyRows, partyEntries, partyTotals, balanceSide, filterParties, balanceList, TYPE_LABEL } from './partyCalc.js';
 import { deductionTotal } from './deductions.js';
+import { clientFinance, rulesFor, nextRetentionBillNo } from './billingRules.js?v=1.0.0';
 import { showToast, getCurrencySymbol, pdfMoney, getCompanyHeaderForPDF, mobileSavePDF, populateDropdowns, getTerm, getTaxConfig, printReport } from './utils.js';
 
 // ── Party screens: list (summary · search · type chips · cards) and one
@@ -153,6 +154,7 @@ export function renderPartyTransactions() {
       <div style="text-align:right"><b style="color:${col};font-size:17px">${_pm(row.balance)}</b><small style="display:block;color:var(--ts-muted);font-size:12px">${lbl}</small></div>
       <button type="button" class="ts-kebab" onclick="window._partyMenu()" aria-label="Party options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
     </div>
+    ${type === 'Client' ? _financeHTML(id, party) : ''}
     <div class="ts-search" style="margin-top:12px">${_SEARCH_IC}<input id="partyEntrySearch" type="search" placeholder="Search entry" value="${_pe(_eq)}" oninput="window._partyEntrySearch(this.value)" autocomplete="off"></div>
     <div class="pt-entries">${rows || `<div class="ts-empty"><div class="ts-emo" data-keep-emoji>🔍</div><h3>No entry found</h3></div>`}</div>
     <div id="partyLedgerPrintZone" hidden>${_printTable(name, type, all)}</div>
@@ -160,6 +162,78 @@ export function renderPartyTransactions() {
   </div>`;
   if (keepFocus) { const i = document.getElementById('partyEntrySearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
+
+/** Client "Financial health": billed · received · retention withheld · TDS deducted, the split bar and the rules. */
+function _financeHTML(id, party) {
+  const f = clientFinance(state, id);
+  if (!f.bills && !f.received && !f.retentionHeld && !f.releaseBills.length) return _rulesStrip(id, party);
+  const pct = (v) => (f.billed > 0 ? Math.max(0, Math.min(100, v / f.billed * 100)) : 0);
+  const open = Math.max(0, f.billed - f.received - f.tds - f.retentionWithheld);
+  const segs = [['rcv', 'Received', f.received], ['tds', 'TDS', f.tds], ['ret', 'Retention', f.retentionWithheld], ['due', 'Still to collect', open]].filter(x => x[2] > 0.004);
+  const card = (k, ic, label, val, sub) => `<div class="fh-card ${k}"><span class="fh-ic" aria-hidden="true">${ic}</span><small>${label}</small><b class="${_kpiFit(val)}">${_pm(val)}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
+  return `<section class="fh" aria-label="Financial health">
+    <div class="fh-grid">
+      ${card('bil', '💰', 'Total billed', f.billed, `${f.bills} bill${f.bills === 1 ? '' : 's'}`)}
+      ${card('rcv', '📥', 'Total received', f.received, f.billed > 0 ? `${Math.round(pct(f.received))}% of billed, in cash` : 'in cash')}
+      ${card('ret', '🛡️', 'Retention withheld', f.retentionHeld, [f.retentionDue > 0 ? `+${_pm(f.retentionDue)} on unpaid bills` : '', f.retentionClaimed > 0 ? `${_pm(f.retentionClaimed)} claimed` : '', f.retentionReleased > 0 ? `${_pm(f.retentionReleased)} received back` : ''].filter(Boolean).join(' · ') || 'held until handover')}
+      ${card('tds', '🏛️', 'TDS deducted', f.tds, 'tax credit — check Form 26AS')}
+    </div>
+    ${segs.length ? `<div class="fh-bar" role="img" aria-label="${_pe(segs.map(x => x[1] + ' ' + _pm(x[2])).join(', '))}">${segs.map(x => `<i class="${x[0]}" style="flex:${x[2].toFixed(2)}" title="${_pe(x[1])}: ${_pm(x[2])}"></i>`).join('')}</div>
+    <div class="fh-legend">${segs.map(x => `<span><i class="${x[0]}"></i>${x[1]} <b>${_pm(x[2])}</b></span>`).join('')}</div>` : ''}
+    ${_rulesStrip(id, party, f)}
+  </section>`;
+}
+function _rulesStrip(id, party, f) {
+  const r = rulesFor(state, { clientId: id });
+  const chip = (lbl, v) => `<span class="fh-rule${v == null || v === 0 ? ' off' : ''}">${lbl}</span>`;
+  const terms = r.termsDays == null ? 'Terms not set' : +r.termsDays === 0 ? 'Immediate' : `Net ${r.termsDays}`;
+  return `<div class="fh-rules"><span class="fh-rules-l">Billing rules</span>${chip(terms, r.termsDays)}${chip(`TDS ${r.tdsPct || 0}%`, r.tdsPct)}${chip(`Retention ${r.retentionPct || 0}%`, r.retentionPct)}
+    <button type="button" class="fh-link" onclick="window.openClientModal&&window.openClientModal('${_pe(id)}')">Edit</button>
+    ${f && f.retentionHeld > 0 ? `<button type="button" class="fh-release" onclick="window._raiseRetentionBill('${_pe(id)}')">🛡️ Raise retention release bill</button>` : ''}</div>`;
+}
+
+/** Retention release bill: claims retention back. It enters the client's ledger and the cash forecast on its due date. */
+window._raiseRetentionBill = function (clientId) {
+  const c = (state.clients || []).find(x => x.id === clientId); if (!c) return;
+  const f = clientFinance(state, clientId);
+  if (!(f.retentionHeld > 0)) { showToast('No retention is being held by this client', 'info'); return; }
+  const projs = (state.projects || []).filter(p => p.clientId === clientId);
+  const today = new Date().toISOString().slice(0, 10);
+  const r = rulesFor(state, { clientId });
+  document.getElementById('rrbOverlay')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div id="rrbOverlay" class="clf-bg" onclick="if(event.target===this)this.remove()">
+    <section class="clf-sheet" role="dialog" aria-modal="true" aria-label="Retention release bill" style="width:min(480px,100%)">
+      <header class="clf-h"><span class="clf-ic" aria-hidden="true">🛡️</span><div><h3>Retention release bill</h3><small>${_pe(c.name)} · ${_pm(f.retentionHeld)} held</small></div><button type="button" class="clf-x" aria-label="Close" onclick="document.getElementById('rrbOverlay').remove()">✕</button></header>
+      <div class="clf-body"><section class="clf-card">
+        <label class="clf-f">Amount to claim<input id="rrbAmt" type="number" inputmode="decimal" min="0" max="${f.retentionHeld}" step="any" value="${f.retentionHeld}"></label>
+        ${projs.length ? `<label class="clf-f">Project<select id="rrbProj">${projs.map(p => `<option value="${_pe(p.id)}">${_pe(p.name || 'Project')}</option>`).join('')}</select></label>` : ''}
+        <div class="clf-row2">
+          <label class="clf-f">Bill date<input id="rrbDate" type="date" value="${today}"></label>
+          <label class="clf-f">Expected on<input id="rrbDue" type="date" value="${_addDays(today, r.termsDays ?? 30)}"></label>
+        </div>
+        <label class="clf-f">Note<input id="rrbNote" placeholder="e.g. Handover done · DLP ended 31 Mar"></label>
+        <p class="br-note">The claimed amount moves out of "locked" retention and into the cash forecast on the expected date. Record the client's payment against <b>${_pe(nextRetentionBillNo(state))}</b> when it arrives.</p>
+      </section></div>
+      <footer class="clf-foot"><button type="button" class="clf-btn ghost" onclick="document.getElementById('rrbOverlay').remove()">Cancel</button><button type="button" class="clf-btn" onclick="window._saveRetentionBill('${_pe(clientId)}')">Raise bill</button></footer>
+    </section></div>`);
+};
+const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + (parseInt(n, 10) || 0)); return d.toISOString().slice(0, 10); };
+window._saveRetentionBill = function (clientId) {
+  const f = clientFinance(state, clientId);
+  const amount = Math.round((parseFloat(document.getElementById('rrbAmt')?.value) || 0) * 100) / 100;
+  if (!(amount > 0)) { showToast('Enter the amount to claim', 'error'); return; }
+  if (amount > f.retentionHeld + 0.01) { showToast(`Only ${_pm(f.retentionHeld)} is being held`, 'error'); return; }
+  const v = id => document.getElementById(id)?.value || '';
+  const bill = { id: 'rrb_' + Date.now(), billNo: nextRetentionBillNo(state), clientId, projectId: v('rrbProj'), date: v('rrbDate'), dueDate: v('rrbDue'), amount, note: v('rrbNote').trim(), status: 'Raised' };
+  window.stampCreate?.(bill);
+  (state.retentionBills = state.retentionBills || []).push(bill);
+  // Keep the project's retention summary (contract terms / IPC) in step.
+  if (bill.projectId) (state.retentionReleases = state.retentionReleases || []).push({ id: 'rr_' + Date.now(), projectId: bill.projectId, amount, date: bill.date, kind: 'Release bill ' + bill.billNo });
+  saveAllData();
+  document.getElementById('rrbOverlay')?.remove();
+  showToast(`${bill.billNo} raised — ${_pm(amount)} now expected on ${bill.dueDate}`, 'success');
+  renderPartyTransactions();
+};
 
 function _printTable(name, type, entries) {
   const r = entries.map(e => `<tr><td>${_pe(e.date)}</td><td>${_pe(e.type)}</td><td>${_pe(e.number)}</td><td style="text-align:right">${_pm(e.total)}</td><td style="text-align:right">${_pm(e.running)}${e.running < 0 ? ' (Adv)' : ''}</td></tr>`).join('');
@@ -237,7 +311,7 @@ window._editPartyTx = function(src, id) {
 
 /** Delete a transaction */
 window._deletePartyTx = function(src, id) {
-  const labels = { paymentsIn: 'receipt', vendorPayments: 'vendor payment', labourPayments: 'labour payment', vendorMaterials: 'purchase bill', abstracts: 'abstract', invoices: 'invoice', labourSalaries: 'salary entry' };
+  const labels = { retentionBills: 'retention release bill', paymentsIn: 'receipt', vendorPayments: 'vendor payment', labourPayments: 'labour payment', vendorMaterials: 'purchase bill', abstracts: 'abstract', invoices: 'invoice', labourSalaries: 'salary entry' };
   if (!confirm(`Delete this ${labels[src] || 'transaction'}? This cannot be undone.`)) return;
   // keepOnly records a tombstone so the deletion can't sync back from the cloud.
   keepOnly(src, x => x.id !== id);
@@ -335,6 +409,8 @@ function _peField(label, id, val, opts = {}) {
 
 /** Nice modal to edit a party (Client / Vendor / Labour). Replaces the old prompt() chain. */
 export function _editParty(id, type) {
+  // Clients have one premium form (details + billing & compliance rules).
+  if (type === 'Client' && typeof window.openClientModal === 'function') { window.openClientModal(id); return; }
   const rec = _findParty(id, type);
   if (!rec) return showToast(type + ' not found', 'error');
   window._partyEditCtx = { id, type };
