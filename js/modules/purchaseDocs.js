@@ -10,6 +10,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getCurrencySymbol, getCompanyHeaderForPDF, getPdfCurrency, mobileSavePDF } from './utils.js';
 import { _openFullScreenForm, _populateVendorSelect, closeFullScreenForm } from './formHelpers.js';
+import { txCard, txMount } from './txList.js?v=1.0.0';
 
 export function openPurchaseOrderForm(editId) {
   _populateVendorSelect('poOrdFormVendor');
@@ -219,35 +220,28 @@ export function renderPurchaseOrders() {
 
   const tbody = document.getElementById('poOrderTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '';
-  if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-12 text-center text-slate-400 font-medium">No purchase orders found.</td></tr>'; return; }
-  filtered.forEach(o => {
+  const cur = getCurrencySymbol(), money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const cards = filtered.map(o => {
     const v = state.vendors.find(x => x.id === o.vendorId);
     const f = _fmap.get(o.id);
-    const barColor = f.status === 'Completed' ? '#c2401c' : (f.status === 'Partial' ? '#f59e0b' : '#cbd5e1');
-    const chip = f.status === 'Completed'
-      ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">Completed</span>'
-      : (f.status === 'Partial'
-        ? `<span class="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded font-bold">Partial ${f.pct}%</span>`
-        : '<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded font-bold">Pending</span>');
-    const dCell = `<div class="flex flex-col items-center gap-1">${chip}<div style="width:78px;height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden;"><div style="width:${f.pct}%;height:100%;background:${barColor};"></div></div><span class="text-[9px] text-slate-400">recv ${(+f.receivedTotal.toFixed(2))}/${(+f.orderedTotal.toFixed(2))}</span></div>`;
-    const pBadge = o.paymentStatus === 'Paid' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Paid</span>' : '<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">Unpaid</span>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
-      <td class="px-4 py-3 font-mono font-bold text-blue-700">${o.poNo}</td>
-      <td class="px-4 py-3 font-bold text-slate-700">${v?.name || 'Unknown'}</td>
-      <td class="px-4 py-3 text-slate-500">${o.date}</td>
-      <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(o.totalAmount || 0).toLocaleString('en-IN')}</td>
-      <td class="px-4 py-3 text-center">${dCell}</td>
-      <td class="px-4 py-3 text-center">${pBadge}</td>
-      <td class="px-4 py-3 text-center whitespace-nowrap">
-        <button onclick="viewPurchaseOrderReport('${o.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 text-[10px] px-2 py-1 rounded font-bold mr-1">📊 Track</button>
-        <button onclick="openPurchaseOrderForm('${o.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold mr-1">Edit</button>
-        <button onclick="exportPurchaseOrderPDF('${o.id}')" class="text-slate-700 bg-slate-100 hover:bg-slate-200 text-[10px] px-2 py-1 rounded font-bold mr-1">PDF</button>
-        <button onclick="deletePurchaseOrder('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button>
-      </td>
-    </tr>`;
-  });
+    return txCard({ id: o.id, no: o.poNo || 'PO', date: o.date, party: v?.name || 'Unknown supplier',
+      sub: `Delivered ${f.pct}%${o.paymentStatus ? ' · ' + o.paymentStatus : ''}`,
+      extra: `<span class="txl-bar${f.status === 'Completed' ? ' done' : ''}"><i style="width:${Math.max(0, Math.min(100, f.pct))}%"></i></span>`,
+      amount: money(o.totalAmount), badge: f.status === 'Partial' ? 'Partial' : f.status,
+      tap: `window._poMenu('${o.id}')`, menu: `window._poMenu('${o.id}')` });
+  }).join('');
+  txMount(tbody, cards, { empty: orders.length ? 'No purchase orders match your filters' : 'No purchase orders yet',
+    summary: `<span>${filtered.length} order${filtered.length === 1 ? '' : 's'} · ${pending} open</span><span>Value <b>${money(filtered.reduce((t, o) => t + (o.totalAmount || 0), 0))}</b></span>` });
 }
+window._poMenu = function (id) {
+  const o = (state.purchaseOrders || []).find(x => x.id === id); if (!o) return;
+  window.shellSheet?.(o.poNo || 'Purchase order', [
+    { icon: '📊', title: 'Track delivery', desc: 'Ordered vs received, linked GRNs & bills', run: () => window.viewPurchaseOrderReport?.(id) },
+    { icon: '✏️', title: 'Edit', run: () => window.openPurchaseOrderForm?.(id) },
+    { icon: '📄', title: 'PDF', run: () => window.exportPurchaseOrderPDF?.(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => window.deletePurchaseOrder?.(id) },
+  ]);
+};
 
 /** Detail modal: PO items ordered/received/remaining + linked GRNs & bills. */
 export function viewPurchaseOrderReport(id) {
@@ -410,21 +404,23 @@ export function renderPurchaseReturns() {
 
   const tbody = document.getElementById('prTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '';
-  if (returns.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-12 text-center text-slate-400 font-medium">No purchase returns found.</td></tr>'; return; }
-  returns.forEach(r => {
+  const cur = getCurrencySymbol(), money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const cards = returns.map(r => {
     const v = state.vendors.find(x => x.id === r.vendorId);
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 transition">
-      <td class="px-4 py-3 font-mono font-bold text-blue-700">${r.returnNo}</td>
-      <td class="px-4 py-3 font-bold text-slate-700">${v?.name || 'Unknown'}</td>
-      <td class="px-4 py-3 text-slate-500">${r.invoiceRef || '-'}</td>
-      <td class="px-4 py-3 text-right font-bold text-slate-800">${getCurrencySymbol()}${(r.amount || 0).toLocaleString('en-IN')}</td>
-      <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">${r.status}</span></td>
-      <td class="px-4 py-3 text-slate-500">${r.date}</td>
-      <td class="px-4 py-3 text-center"><button onclick="deletePurchaseReturn('${r.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td>
-    </tr>`;
-  });
+    return txCard({ id: r.id, no: r.returnNo || 'Return', date: r.date, party: v?.name || 'Unknown supplier',
+      sub: [r.invoiceRef ? 'Against ' + r.invoiceRef : '', r.reason].filter(Boolean).join(' · '),
+      amount: money(r.amount), badge: r.status || 'Pending',
+      tap: `window._prMenu('${r.id}')`, menu: `window._prMenu('${r.id}')` });
+  }).join('');
+  txMount(tbody, cards, { empty: 'No purchase returns yet',
+    summary: `<span>${returns.length} return${returns.length === 1 ? '' : 's'}</span><span>Total <b>${money(totalAmt)}</b></span>` });
 }
+window._prMenu = function (id) {
+  const r = (state.purchaseReturns || []).find(x => x.id === id); if (!r) return;
+  window.shellSheet?.(r.returnNo || 'Purchase return', [
+    { icon: '🗑', title: 'Delete', danger: true, run: () => window.deletePurchaseReturn?.(id) },
+  ]);
+};
 
 export function deletePurchaseReturn(id) {
   if (!confirm('Delete this Purchase Return?')) return;

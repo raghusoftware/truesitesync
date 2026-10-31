@@ -8,7 +8,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 
-import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.94';
+import { ReportEngine, REPORT_CATEGORIES } from '../modules/ReportEngine.js?v=1.6.95';
 import { getReportDefinition } from '../config/reportDefinitions.js?v=1.6.93';
 import { addReportHistory, getReportHistory, getDashPref, setDashPref } from '../database/db.js';
 import { state } from '../modules/state.js';

@@ -4,7 +4,7 @@
 import { state, saveAllData } from './state.js';
 import { showToast, getTerm } from './utils.js';
 import { THEMES, getThemeList, getActiveThemeId, setActiveTheme, getPrintSettings } from './pdfThemes.js?v=1.0.2';
-import { invoiceDesignKeys, invoiceDesignName, invoiceDesignDesc, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.2';
+import { invoiceDesignKeys, invoiceDesignName, invoiceDesignDesc, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.3';
 import { formatDocNo, parseStart } from './docNumbering.js?v=1.0.0';
 
 // ─── Settings hub navigation (icon grid → drill into a section) ───

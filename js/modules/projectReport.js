@@ -25,7 +25,7 @@ function _gather(pid) {
   const sum = (arr, f) => arr.reduce((s, r) => s + _num(typeof f === 'function' ? f(r) : r[f]), 0);
 
   const abstracts = by('abstracts');
-  const invoices = by('saleInvoices');
+  const invoices = by('saleInvoices').filter(i => i.status !== 'Cancelled');
   const paymentsIn = by('paymentsIn');
   const purchases = by('vendorMaterials');
   const expenses = by('expenses');

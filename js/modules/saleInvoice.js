@@ -18,6 +18,8 @@ import { GST_STATE } from './constants.js?v=1.1.0';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
 import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
 import { rulesFor, applyDeductions } from './billingRules.js?v=1.0.0';
+import { openAmounts } from './cashForecast.js?v=2.0.2';
+import { txCard, txMount } from './txList.js?v=1.0.0';
 
 let _siItemDebounce = null;  // (was undeclared in ui.js — fixed here)
 
@@ -640,6 +642,9 @@ function _renumberSIRows() {
 window._renumberSIRows = _renumberSIRows;
 
 export function openSaleInvoiceForm(editId) {
+  // A cancelled invoice is a closed audit record — show it, never edit it.
+  const _cx = editId ? (state.saleInvoices || []).find(i => i.id === editId) : null;
+  if (_cx && _cx.status === 'Cancelled') { showToast(`${_cx.invoiceNo || 'This invoice'} is cancelled — it can be viewed, not edited`, 'info'); viewSaleInvoiceInfo(editId); return; }
   _populateSIProjectSelect();
   _populateClientSelect('siFormClient');
   const woSel = document.getElementById('siFormWO');
@@ -1081,54 +1086,149 @@ export function saveSaleInvoiceForm() {
   if (typeof window.renderPartyTransactions === 'function') { try { window.renderPartyTransactions(); } catch {} }
 }
 export function renderSaleInvoices() {
-  // Populate filters
+  // Filters (shared with the old RA-invoice ledger, which now renders through here too).
   const cfEl = document.getElementById('slFilterClient');
-  if (cfEl && cfEl.options.length <= 1) state.clients.forEach(c => cfEl.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-  const search = (document.getElementById('slSearch')?.value || '').toLowerCase();
-  const cFilter = document.getElementById('slFilterClient')?.value || '';
-  const sFilter = document.getElementById('slFilterStatus')?.value || '';
+  if (cfEl) { const keep = cfEl.value; cfEl.innerHTML = '<option value="">All Clients</option>' + (state.clients || []).map(c => `<option value="${c.id}">${_esc(c.name)}</option>`).join(''); cfEl.value = keep; }
+  const stEl = document.getElementById('slFilterStatus');
+  if (stEl && !stEl.dataset.v2) { stEl.dataset.v2 = '1'; const keep = stEl.value; stEl.innerHTML = '<option value="">All Status</option>' + ['Unpaid', 'Partial', 'Overdue', 'Paid', 'Cancelled'].map(x => `<option value="${x}">${x}</option>`).join(''); stEl.value = keep; }
+  const search = (document.getElementById('slSearch')?.value || '').toLowerCase().trim();
+  const cFilter = cfEl?.value || '';
+  const sFilter = stEl?.value || '';
   const fromD = document.getElementById('slFromDate')?.value || '';
   const toD = document.getElementById('slToDate')?.value || '';
-  let invoices = [...(state.saleInvoices || [])];
-  invoices = invoices.filter(inv => {
-    const c = state.clients.find(x => x.id === inv.clientId);
-    const matchS = !search || inv.invoiceNo?.toLowerCase().includes(search) || c?.name?.toLowerCase().includes(search) || inv.clientName?.toLowerCase().includes(search);
-    const matchC = !cFilter || inv.clientId === cFilter;
-    const matchSt = !sFilter || inv.status === sFilter;
-    const matchF = !fromD || inv.date >= fromD;
-    const matchT = !toD || inv.date <= toD;
-    return matchS && matchC && matchSt && matchF && matchT;
+  const today = new Date().toISOString().slice(0, 10);
+  const cur = getCurrencySymbol();
+  const money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+  // Every client document: sale invoices + RA tax invoices (legacy billing), one list.
+  const docs = [
+    ...(state.saleInvoices || []).map(i => ({ id: i.id, src: 'sale', no: i.invoiceNo, date: i.date, clientId: i.clientId, name: i.clientName, projectId: i.projectId, poNo: i.poNo, total: Number(i.total) || 0, due: i.dueDate, cancelled: i.status === 'Cancelled', rec: i })),
+    ...(state.invoices || []).map(i => ({ id: i.id, src: 'ra', no: i.invoiceNum, date: i.date, clientId: i.clientId, total: Number(i.taxAmount) || Number(i.totalAmount) || 0, cancelled: i.status === 'Cancelled', rec: i })),
+  ];
+  // Paid / open per document: a receipt naming a document clears it first, the rest pays the oldest (FIFO).
+  const open = {};
+  const byClient = {};
+  docs.filter(d => !d.cancelled).forEach(d => { open[d.id] = 0; (byClient[d.clientId] = byClient[d.clientId] || []).push(d); });   // openAmounts lists only unpaid docs
+  Object.entries(byClient).forEach(([cid, list]) => {
+    const pays = (state.paymentsIn || []).filter(p => p.clientId === cid).map(p => ({ amount: settledAmount(p), ref: p.againstBillId || p.invoiceId || '' }));
+    openAmounts(list.slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))), pays).forEach(x => { open[x.id] = x.open; });
   });
-  invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const statusOf = d => {
+    if (d.cancelled) return 'Cancelled';
+    const o = open[d.id] ?? d.total;
+    if (o <= 0.5) return 'Paid';
+    if (d.due && d.due < today) return 'Overdue';
+    return o < d.total - 0.5 ? 'Partial' : 'Unpaid';
+  };
+  const filtered = docs.filter(d => {
+    const c = (state.clients || []).find(x => x.id === d.clientId);
+    const hay = [d.no, c?.name, d.name, d.poNo, String(Math.round(d.total))].join(' ').toLowerCase();
+    return (!search || hay.includes(search)) && (!cFilter || d.clientId === cFilter) && (!sFilter || statusOf(d) === sFilter)
+      && (!fromD || (d.date || '') >= fromD) && (!toD || (d.date || '') <= toD);
+  }).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.no || '').localeCompare(String(a.no || '')));
+
+  let kTotal = 0, kOpen = 0, kCancel = 0;
+  const cards = filtered.map(d => {
+    const c = (state.clients || []).find(x => x.id === d.clientId);
+    const proj = d.projectId ? (state.projects || []).find(p => p.id === d.projectId) : null;
+    const st = statusOf(d), o = open[d.id] ?? d.total;
+    if (d.cancelled) kCancel++; else { kTotal += d.total; kOpen += Math.max(0, o); }
+    const sub = [d.src === 'ra' ? 'RA tax invoice' : '', proj?.name, d.poNo ? 'WO ' + d.poNo : '', d.cancelled && d.rec.cancelReason ? 'Cancelled: ' + d.rec.cancelReason : ''].filter(Boolean).join(' · ');
+    return txCard({
+      id: d.id, no: d.no || 'Invoice', date: d.date, party: c?.name || d.name || 'Unknown client', sub,
+      amount: money(d.total), badge: st,
+      amountSub: !d.cancelled && st !== 'Paid' && o < d.total - 0.5 ? `${money(o)} due` : '',
+      cancelled: d.cancelled,
+      tap: d.src === 'sale' ? `window._siMenu('${d.id}')` : `window._raInvMenu('${d.id}')`,
+      menu: d.src === 'sale' ? `window._siMenu('${d.id}')` : `window._raInvMenu('${d.id}')`,
+    });
+  }).join('');
   const tbody = document.getElementById('slTableBody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  let kTotal = 0, kReceived = 0;
-  invoices.forEach(inv => {
-    const c = state.clients.find(x => x.id === inv.clientId);
-    const received = (state.paymentsIn || []).filter(p => p.clientId === inv.clientId).reduce((s, p) => s + settledAmount(p), 0);
-    const outstanding = inv.total - Math.min(received, inv.total);
-    kTotal += inv.total; kReceived += Math.min(received, inv.total);
-    const statusBadge = inv.status === 'Cancelled' ? '<span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded font-bold">Cancelled</span>' : '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Active</span>';
-    const proj = inv.projectId ? (state.projects || []).find(p => p.id === inv.projectId) : null;
-    const clientDisplay = (c?.name || inv.clientName || 'Unknown') + (proj ? '<br><span class="text-[10px] text-purple-500 font-medium">' + proj.name + '</span>' : '') + (inv.poNo ? '<br><span class="text-[10px] text-slate-400">WO: ' + inv.poNo + '</span>' : '');
-    // Build links column
-    const hasAbstracts = (inv.linkedAbstractIds || []).length > 0;
-    const hasProject = !!inv.projectId;
-    let linksHtml = '<div class="flex gap-1 justify-center flex-wrap">';
-    if (hasProject) linksHtml += '<span class="bg-purple-100 text-purple-700 text-[9px] px-1.5 py-0.5 rounded font-bold cursor-pointer" onclick="viewSaleInvoiceInfo(\'' + inv.id + '\')" title="Project linked">📁 Proj</span>';
-    if (hasAbstracts) linksHtml += '<span class="bg-orange-100 text-orange-700 text-[9px] px-1.5 py-0.5 rounded font-bold cursor-pointer" onclick="viewSaleInvoiceInfo(\'' + inv.id + '\')" title="Abstracts linked">📋 Abs</span>';
-    if (!hasProject && !hasAbstracts) linksHtml += '<span class="text-slate-300 text-[9px]">—</span>';
-    linksHtml += '</div>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="viewSaleInvoiceInfo('${inv.id}')">${inv.invoiceNo}${window.attributionHTML(inv, 'Created')}</td><td class="px-4 py-3 text-slate-500">${inv.date}</td><td class="px-4 py-3 font-bold">${clientDisplay}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.subtotal?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right">${getCurrencySymbol()}${inv.gstAmount?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${inv.total?.toLocaleString('en-IN') || 0}</td><td class="px-4 py-3 text-right text-green-600 font-bold">${getCurrencySymbol()}${Math.min(received, inv.total).toLocaleString('en-IN')}</td><td class="px-4 py-3 text-right ${outstanding > 0 ? 'text-red-600 font-extrabold' : 'text-slate-400'}">${getCurrencySymbol()}${outstanding.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${statusBadge}</td><td class="px-4 py-3 text-center">${linksHtml}</td><td class="px-4 py-3 text-center"><div class="flex gap-1 justify-center"><button onclick="viewSaleInvoiceInfo('${inv.id}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 text-[10px] px-2 py-1 rounded font-bold" title="View Details">👁</button><button onclick="openSaleInvoiceForm('${inv.id}')" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-[10px] px-2 py-1 rounded font-bold" title="Edit / Reopen invoice">✏️</button><button onclick="exportSaleInvoicePDF('${inv.id}')" class="text-slate-600 bg-slate-50 hover:bg-slate-100 text-[10px] px-2 py-1 rounded font-bold" title="Download PDF">📄</button><button onclick="deleteSaleInvoice('${inv.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold" title="Delete">🗑</button></div></td></tr>`;
+  txMount(tbody, cards, {
+    empty: docs.length ? 'No invoices match your filters' : 'No sale invoices yet',
+    summary: `<span>${filtered.length} invoice${filtered.length === 1 ? '' : 's'}${kCancel ? ` · ${kCancel} cancelled` : ''}</span><span>Billed <b>${money(kTotal)}</b> · Due <b>${money(kOpen)}</b></span>`,
   });
-  if (!invoices.length) tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-slate-400 font-medium">No sale invoices found.</td></tr>';
+  const foot = document.getElementById('slTableFoot'); if (foot) foot.innerHTML = '';
   const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setEl('slKpiTotal', getCurrencySymbol() + kTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  setEl('slKpiReceived', getCurrencySymbol() + kReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  setEl('slKpiOutstanding', getCurrencySymbol() + (kTotal - kReceived).toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  setEl('slKpiCount', invoices.length);
+  setEl('slKpiTotal', money(kTotal));
+  setEl('slKpiReceived', money(kTotal - kOpen));
+  setEl('slKpiOutstanding', money(kOpen));
+  setEl('slKpiCount', filtered.length - kCancel);
+  const pct = kTotal > 0 ? Math.round((kTotal - kOpen) / kTotal * 100) : 0;
+  setEl('slKpiReceivedSub', pct + '% collected'); setEl('slKpiOutstandingSub', (100 - pct) + '% pending');
+  setEl('slKpiCountSub', kCancel ? `${kCancel} cancelled, not counted` : 'active invoices');
 }
+const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Row actions for a sale invoice. Cancelled invoices are read-only audit records. */
+window._siMenu = function (id) {
+  const inv = (state.saleInvoices || []).find(i => i.id === id); if (!inv) return;
+  const cx = inv.status === 'Cancelled';
+  window.shellSheet?.(`${inv.invoiceNo || 'Invoice'}${cx ? ' · Cancelled' : ''}`, [
+    { icon: '👁', title: 'View details', desc: cx ? `Cancelled ${inv.cancelledAt ? inv.cancelledAt.slice(0, 10) : ''}${inv.cancelledBy ? ' by ' + inv.cancelledBy : ''}` : 'Items, links and payments', run: () => viewSaleInvoiceInfo(id) },
+    { icon: '📄', title: 'PDF', desc: cx ? 'Marked CANCELLED' : 'Share or print', run: () => window.exportSaleInvoicePDF?.(id) },
+    ...(cx ? [] : [
+      { icon: '✏️', title: 'Edit', run: () => openSaleInvoiceForm(id) },
+      { icon: '⛔', title: 'Cancel invoice', desc: 'Void it — kept on record, removed from totals and cash flow', danger: true, run: () => window._siCancel(id) },
+      { icon: '🗑', title: 'Delete', desc: 'Only for mistakes never sent — prefer Cancel', danger: true, run: () => deleteSaleInvoice(id) },
+    ]),
+  ]);
+};
+window._raInvMenu = function (id) {
+  const inv = (state.invoices || []).find(i => i.id === id); if (!inv) return;
+  const cx = inv.status === 'Cancelled';
+  window.shellSheet?.(`${inv.invoiceNum || 'RA invoice'}${cx ? ' · Cancelled' : ''}`, [
+    { icon: '👁', title: 'Open', run: () => window.viewInvoiceFromLedger?.(id) },
+    ...(cx ? [] : [{ icon: '⛔', title: 'Cancel invoice', danger: true, run: () => window.cancelInvoiceFromLedger?.(id) }]),
+  ]);
+};
+
+/** Audit-compliant cancellation: status CANCELLED + who / when / why; the record is never deleted. */
+window._siCancel = function (id) {
+  const inv = (state.saleInvoices || []).find(i => i.id === id); if (!inv || inv.status === 'Cancelled') return;
+  const cur = getCurrencySymbol(), money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const paid = (state.paymentsIn || []).filter(p => (p.againstBillId || p.invoiceId) === id).reduce((s, p) => s + settledAmount(p), 0);
+  const absN = (inv.linkedAbstractIds || []).length;
+  document.getElementById('siCancelOverlay')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div id="siCancelOverlay" class="clf-bg" onclick="if(event.target===this)this.remove()">
+    <section class="clf-sheet" role="dialog" aria-modal="true" aria-labelledby="siCxTitle" style="width:min(480px,100%)">
+      <header class="clf-h"><span class="clf-ic" style="background:#fee2e2" aria-hidden="true">⛔</span><div><h3 id="siCxTitle">Cancel ${_esc(inv.invoiceNo || 'invoice')}?</h3><small>${_esc(inv.clientName || '')} · ${money(inv.total)}</small></div><button type="button" class="clf-x" aria-label="Close" onclick="document.getElementById('siCancelOverlay').remove()">✕</button></header>
+      <div class="clf-body"><section class="clf-card">
+        <ul class="si-cx-list">
+          <li>The invoice stays in the Sales list, <b>struck through</b> with a red CANCELLED badge — it is not deleted.</li>
+          <li>It stops counting in sales totals, GST reports, the client's balance, Cash Flow and Cost &amp; Profit.</li>
+          ${absN ? `<li>${absN} linked abstract${absN === 1 ? '' : 's'} go back to <b>pending</b>, ready to bill again.</li>` : ''}
+          <li>Stock used by this invoice goes back into inventory.</li>
+          ${paid > 0 ? `<li class="warn">${money(paid)} already received against it stays on the client's account as an advance.</li>` : ''}
+        </ul>
+        <label class="clf-f">Reason for cancelling *<input id="siCxReason" placeholder="e.g. Wrong rate · re-issued as SI-14" maxlength="140"></label>
+        <p class="br-note">Cancellation can't be undone. Raise a new invoice if needed.</p>
+      </section></div>
+      <footer class="clf-foot"><button type="button" class="clf-btn ghost" onclick="document.getElementById('siCancelOverlay').remove()">Keep invoice</button><button type="button" class="clf-btn" style="background:#dc2626;box-shadow:0 6px 16px rgba(220,38,38,.28)" onclick="window._siCancelNow('${id}')">Cancel invoice</button></footer>
+    </section></div>`);
+  setTimeout(() => document.getElementById('siCxReason')?.focus(), 50);
+};
+window._siCancelNow = function (id) {
+  const inv = (state.saleInvoices || []).find(i => i.id === id); if (!inv || inv.status === 'Cancelled') return;
+  const reason = (document.getElementById('siCxReason')?.value || '').trim();
+  if (!reason) { document.getElementById('siCxReason')?.focus(); showToast('Enter the reason — it is kept on the audit record', 'error'); return; }
+  let by = ''; try { const u = window.getCurrentUser?.(); by = u?.name || u?.email || ''; } catch {}
+  inv.status = 'Cancelled';
+  inv.cancelledAt = new Date().toISOString(); inv.cancelledBy = by; inv.cancelReason = reason;
+  window.stampUpdate?.(inv);
+  // Reverse what the invoice moved: stock back in, abstracts free to bill again.
+  if (Array.isArray(state.inventoryTx)) keepOnly('inventoryTx', tx => tx.saleInvoiceId !== id);
+  const ids = new Set(inv.linkedAbstractIds || []);
+  (state.abstracts || []).forEach(a => {
+    if (ids.has(a.id) || a.linkedInvoiceId === inv.id || a.linkedInvoice === inv.invoiceNo) { a.isInvoiced = false; a.status = 'pending'; delete a.linkedInvoiceId; delete a.linkedInvoice; }
+  });
+  saveAllData();   // → 'tss:data-saved': Cash Flow, Cost & Profit, parties and dashboards recompute without it
+  document.getElementById('siCancelOverlay')?.remove();
+  renderSaleInvoices();
+  if (typeof window.renderAbstractsList === 'function') { try { window.renderAbstractsList(); } catch {} }
+  if (typeof window.renderPartyTransactions === 'function') { try { window.renderPartyTransactions(); } catch {} }
+  showToast(`${inv.invoiceNo} cancelled — kept on record, removed from totals`, 'warning');
+};
 export function deleteSaleInvoice(id) {
   if (!confirm('Move this Sale Invoice to the Recycle Bin?')) return;
   const inv = (state.saleInvoices || []).find(i => i.id === id);

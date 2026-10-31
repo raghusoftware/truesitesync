@@ -152,12 +152,29 @@ export async function renderStyledInvoice(inv, styleKey, opts = {}) {
     const cur = F.custom ? sym : (sym === '₹' ? 'Rs.' : sym);
     const ctx = { doc, d, F, cur, m: (n) => cur + ' ' + _n2(n) };
     ({ grid: _grid, detailed: _detailed, compact: _compact })[key](ctx);
+    if (inv.status === 'Cancelled') _cancelStamp(doc, F, inv);
     mobileSavePDF(doc, (opts.filePrefix || 'Tax_Invoice_') + (d.meta.no || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
     showToast(d.meta.title + ' PDF downloaded (' + invoiceDesignName(key) + ')');
   } catch (err) {
     console.error('Invoice PDF failed:', err);
     showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
   }
+}
+
+/** A cancelled invoice prints with a red CANCELLED stamp on every page (audit copy, not a demand). */
+function _cancelStamp(doc, F, inv) {
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) {
+    doc.setPage(p);
+    try { doc.saveGraphicsState(); doc.setGState(new doc.GState({ opacity: 0.16 })); } catch {}
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(84); doc.setTextColor(220, 38, 38);
+    doc.text('CANCELLED', pw / 2, ph / 2 + 12, { align: 'center', angle: 32 });
+    try { doc.restoreGraphicsState(); } catch {}
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(8.5); doc.setTextColor(185, 28, 28);
+    const when = inv.cancelledAt ? String(inv.cancelledAt).slice(0, 10) : '';
+    doc.text(`CANCELLED${when ? ' on ' + when : ''}${inv.cancelledBy ? ' by ' + inv.cancelledBy : ''}${inv.cancelReason ? ' — ' + inv.cancelReason : ''}`.slice(0, 120), pw / 2, 7, { align: 'center' });
+  }
+  doc.setTextColor(0, 0, 0);
 }
 
 // ── Drawing helpers ─────────────────────────────────────────────────────────

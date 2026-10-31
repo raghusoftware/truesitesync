@@ -13,7 +13,8 @@ import { deductionsBlockHTML, initDeductions, readDeductions, loadDeductions, re
 import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
 import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm, openFormModal, closeFormModal } from './formHelpers.js';
-import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.2';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.3';
+import { txCard, txMount } from './txList.js?v=1.0.0';
 import { donutSVG, legendHTML, areaSVG, lastMonths, shortMoney, SERIES, NEUTRAL } from './financeViz.js?v=1.0.1';
 
 /** New pro forma, or edit an existing one (editId): the same form, filled in. */
@@ -103,15 +104,20 @@ export function renderProformaInvoices() {
   });
   list.sort((a, b) => new Date(b.date) - new Date(a.date));
   const tbody = document.getElementById('piTableBody');
-  if (!tbody) return; tbody.innerHTML = '';
+  if (!tbody) return;
   let kPend = 0, kConv = 0, kTotal = 0;
-  list.forEach(p => {
+  const cur = getCurrencySymbol(), money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const cards = list.map(p => {
     const c = state.clients.find(x => x.id === p.clientId);
+    const proj = p.projectId ? (state.projects || []).find(x => x.id === p.projectId) : null;
     kTotal += p.total; if (p.status === 'Converted') kConv += p.total; else kPend += p.total;
-    const sBadge = p.status === 'Converted' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Converted</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50 cursor-pointer" onclick="window._piMenu('${p.id}')"><td class="px-4 py-3 font-mono font-bold text-blue-700">${p.piNo}</td><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${p.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${sBadge}</td><td class="px-4 py-3 text-slate-500">${p.convertedInvoice || '-'}</td><td class="px-4 py-3 text-center"><button type="button" onclick="event.stopPropagation();window._piMenu('${p.id}')" aria-label="Actions for ${p.piNo}" class="pi-more">⋯</button></td></tr>`;
-  });
-  if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No proforma invoices found.</td></tr>';
+    return txCard({ id: p.id, no: p.piNo || 'Proforma', date: p.date, party: c?.name || 'Unknown client',
+      sub: [proj?.name, p.status === 'Converted' && p.convertedInvoiceNo ? 'Invoice ' + p.convertedInvoiceNo : ''].filter(Boolean).join(' · '),
+      amount: money(p.total), badge: p.status === 'Converted' ? 'Converted' : 'Pending',
+      tap: `window._piMenu('${p.id}')`, menu: `window._piMenu('${p.id}')` });
+  }).join('');
+  txMount(tbody, cards, { empty: (state.proformaInvoices || []).length ? 'No proforma invoices match your filters' : 'No proforma invoices yet',
+    summary: `<span>${list.length} proforma${list.length === 1 ? '' : 's'}</span><span>Pending <b>${money(kPend)}</b></span>` });
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   s('piKpiPending', getCurrencySymbol() + kPend.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   s('piKpiConverted', getCurrencySymbol() + kConv.toLocaleString('en-IN', { maximumFractionDigits: 0 }));

@@ -15,6 +15,7 @@ import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
 import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
+import { txCard, txMount } from './txList.js?v=1.0.0';
 
 /** Display a stored ISO date (yyyy-mm-dd) as dd/mm/yyyy. */
 function _purFmtDate(iso) {
@@ -72,37 +73,28 @@ export function renderPurchaseLedger() {
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const tbody = document.getElementById('plTableBody');
-  tbody.innerHTML = '';
   let kpiTotal = 0, kpiPaid = 0, kpiOut = 0;
   const allLocs = getAllLocations();
-
   const sym = getCurrencySymbol();
   const nf = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const today = new Date().toISOString().split('T')[0];
   let kpiOverdue = 0;
-  let rowsHtml = '';
-  filtered.forEach((b, i) => {
+  const cards = filtered.map(b => {
     const v = state.vendors.find(x => x.id === b.vendorId);
     const site = allLocs.find(x => x.id === b.siteId);
     kpiTotal += b.totalAmount; kpiPaid += b.paidAmt; kpiOut += b.outstanding;
     const isOverdue = (b.outstanding > 0) && b.dueDate && b.dueDate < today;
     if (isOverdue) kpiOverdue += b.outstanding;
-    const pill = b.status === 'Paid' ? '<span class="lx-pill paid">Paid</span>'
-      : (b.status === 'Partial' ? '<span class="lx-pill partial">Partial</span>' : '<span class="lx-pill pending">Unpaid</span>');
-    const nm = v?.name || 'Unknown';
-    rowsHtml += `<tr style="animation-delay:${Math.min(i * 28, 320)}ms">
-      <td style="color:var(--lx-muted)">${_lxDate(b.date)}</td>
-      <td><span class="doc-no">${b.billNo}</span>${window.attributionHTML(b, 'Created')}</td>
-      <td><span class="lx-party"><span class="lx-av" style="background:${_lxAv(nm)}">${_lxInit(nm)}</span><span style="font-weight:650">${nm}</span></span></td>
-      <td style="color:var(--lx-muted)">${site?.name || '—'}</td>
-      <td class="num" style="font-weight:750">${sym}${nf(b.totalAmount)}</td>
-      <td class="num" style="${b.outstanding > 0 ? 'color:var(--lx-bad);font-weight:800' : 'color:var(--lx-faint)'}">${sym}${nf(b.outstanding)}</td>
-      <td style="color:${isOverdue ? 'var(--lx-bad);font-weight:700' : 'var(--lx-muted)'}">${b.dueDate ? _lxDate(b.dueDate) : '—'}</td>
-      <td style="text-align:center">${pill}</td>
-      <td style="text-align:center"><div class="lx-act"><button onclick="viewPurchaseBill('${b.id}')" class="lx-btn view">View</button><button onclick="openPurchaseFormPanel('${b.id}')" class="lx-btn edit">Edit</button><button onclick="deletePurchaseBill('${b.id}')" class="lx-btn del">Del</button></div></td>
-    </tr>`;
-  });
-  tbody.innerHTML = rowsHtml || `<tr><td colspan="9" style="padding:44px;text-align:center;color:var(--lx-faint);font-weight:600">No purchases match your filters.</td></tr>`;
+    return txCard({
+      id: b.id, no: b.billNo || 'Bill', date: b.date, party: v?.name || 'Unknown supplier',
+      sub: [site?.name, b.dueDate ? (isOverdue ? 'Overdue since ' : 'Due ') + _lxDate(b.dueDate) : ''].filter(Boolean).join(' · '),
+      amount: sym + nf(b.totalAmount), badge: isOverdue ? 'Overdue' : b.status,
+      amountSub: b.outstanding > 0 && b.status !== 'Unpaid' ? `${sym}${nf(b.outstanding)} due` : '',
+      tap: `window._pbMenu('${b.id}')`, menu: `window._pbMenu('${b.id}')`,
+    });
+  }).join('');
+  txMount(tbody, cards, { empty: bills.length ? 'No purchases match your filters' : 'No purchase bills yet',
+    summary: `<span>${filtered.length} bill${filtered.length === 1 ? '' : 's'}</span><span>Total <b>${sym}${nf(kpiTotal)}</b> · Payable <b>${sym}${nf(kpiOut)}</b></span>` });
   document.getElementById('plKpiTotal').textContent = sym + nf(kpiTotal);
   document.getElementById('plKpiPaid').textContent = sym + nf(kpiPaid);
   document.getElementById('plKpiOutstanding').textContent = sym + nf(kpiOut);
@@ -113,6 +105,15 @@ export function renderPurchaseLedger() {
   setSub('plKpiPaidSub', pct + '% settled');
   setSub('plKpiOutstandingSub', (100 - pct) + '% payable');
 }
+
+window._pbMenu = function (id) {
+  const b = (state.vendorMaterials || []).find(x => x.id === id); if (!b) return;
+  window.shellSheet?.(b.billNo || 'Purchase bill', [
+    { icon: '👁', title: 'View', run: () => window.viewPurchaseBill?.(id) },
+    { icon: '✏️', title: 'Edit', run: () => window.openPurchaseFormPanel?.(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => window.deletePurchaseBill?.(id) },
+  ]);
+};
 
 export function clearPurchaseLedgerFilters() {
   ['plSearch', 'plFilterVendor', 'plFilterSite', 'plFilterStatus', 'plFromDate', 'plToDate'].forEach(id => {

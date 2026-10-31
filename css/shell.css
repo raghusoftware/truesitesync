@@ -2285,3 +2285,81 @@ button.fh-release { margin-left: auto; min-height: 0 !important; height: 34px; p
   .fh-card b { font-size: 17px; } .fh-card b.long { font-size: 15px; } .fh-card b.xlong { font-size: 13px; }
   button.fh-release { margin-left: 0; width: 100%; }
 }
+
+/* ── TransactionListCard (txList.js): Sale Invoices, Purchase Bills, Proforma, Purchase Orders, Purchase Returns ── */
+table.txl-hidden-table { display: none !important; }
+.txl-list { display: flex; flex-direction: column; background: #fff; border: 1px solid #e5e9f0; border-radius: 16px; overflow: hidden; }
+.txl-sum { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #eef1f5; font-size: 12.5px; font-weight: 700; color: #64748b; }
+.txl-sum b { color: #0f172a; font-variant-numeric: tabular-nums; }
+.txl { display: grid; grid-template-columns: minmax(104px, 160px) minmax(0, 1fr) auto 34px; align-items: center; gap: 14px; padding: 13px 8px 13px 16px; border-bottom: 1px solid #eef1f5; cursor: pointer; transition: background .12s; animation: tsPfIn .2s ease both; }
+.txl:last-child { border-bottom: none; }
+.txl:hover { background: #f8fafc; }
+.txl:focus-visible { outline: 2px solid #059669; outline-offset: -2px; }
+.txl-id, .txl-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.txl-id b { font-size: 14px; font-weight: 800; color: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txl-id small, .txl-who small { font-size: 12px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txl-who b { font-size: 14.5px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Money never truncates: the column is as wide as its content and does not shrink. */
+.txl-amt { flex-shrink: 0; min-width: max-content; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
+.txl-amt b { font-size: 15px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.txl-amt small { font-size: 11.5px; color: #64748b; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.txl-badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.txl-badge.good { background: #dcfce7; color: #15803d; } .txl-badge.info { background: #dbeafe; color: #1d4ed8; }
+.txl-badge.warn { background: #fef3c7; color: #b45309; } .txl-badge.bad { background: #fee2e2; color: #b91c1c; }
+.txl-badge.muted { background: #f1f5f9; color: #475569; }
+.txl-badge.cancel { background: #dc2626; color: #fff; letter-spacing: .06em; text-transform: uppercase; }
+.txl-bar { display: block; width: 90px; height: 4px; margin-top: 4px; border-radius: 99px; background: #e2e8f0; overflow: hidden; } .txl-bar i { display: block; height: 100%; background: #f59e0b; } .txl-bar.done i { background: #059669; }
+button.txl-more { width: 34px; height: 34px; min-height: 0 !important; padding: 0 !important; border: none; border-radius: 9px !important; background: transparent; color: #64748b; font-size: 18px !important; font-weight: 800 !important; cursor: pointer; }
+button.txl-more:hover { background: #eef1f5; color: #0f172a; }
+/* Cancelled: kept for audit — struck through, dimmed, red badge. */
+.txl.is-cancel { background: #fcfcfd; }
+.txl.is-cancel .txl-id b, .txl.is-cancel .txl-id small, .txl.is-cancel .txl-who b, .txl.is-cancel .txl-who small, .txl.is-cancel .txl-amt b, .txl.is-cancel .txl-amt small { text-decoration: line-through; text-decoration-thickness: 1.5px; opacity: .5; }
+.txl-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 40px 16px; color: #64748b; font-size: 13.5px; text-align: center; }
+.txl-empty b { color: #0f172a; font-size: 15px; }
+@media (max-width: 640px) {
+  .txl { grid-template-columns: minmax(0, 1fr) auto 30px; grid-template-areas: "id amt more" "who amt more"; row-gap: 3px; column-gap: 10px; padding: 12px 6px 12px 14px; }
+  .txl-id { grid-area: id; flex-direction: row; align-items: baseline; gap: 8px; }
+  .txl-who { grid-area: who; } .txl-amt { grid-area: amt; } button.txl-more { grid-area: more; width: 30px; }
+}
+.si-cx-list { margin: 2px 0 6px; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.45; color: #334155; }
+.si-cx-list li.warn { color: #b45309; font-weight: 600; }
+
+/* Money never truncates (Estimates list + TransactionListCard).
+   The amount column is content-sized and never shrinks; the party / project text gives way first.
+   If a card is too narrow even for that (small phone + large Android text), the amount moves to its own line. */
+.esl-amt { flex-shrink: 0; min-width: max-content; }
+.esl-amt b, .txl-amt b { overflow: visible; text-overflow: clip; }
+.esl-row { grid-template-columns: minmax(96px, 170px) minmax(0, 1fr) max-content 32px; }
+.esl, .txl-list { container-type: inline-size; }
+@media (max-width: 640px) {
+  .esl-row { grid-template-columns: minmax(0, 1fr) max-content 28px; }
+  .txl { grid-template-columns: minmax(0, 1fr) max-content 30px; }
+  .esl-id b, .txl-id b { flex-shrink: 0; overflow: visible; }
+  .esl-id small, .txl-id small { min-width: 0; }
+}
+@container (max-width: 330px) {
+  .esl-row, .txl { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: "id more" "who more" "amt more"; }
+  .esl-amt, .txl-amt { flex-direction: row; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 4px 8px; text-align: left; min-width: 0; }
+  .esl-amt b, .txl-amt b { white-space: normal; overflow-wrap: anywhere; }
+}
+
+/* Transactional screens (.txv): Sale Invoices, Purchase Bills, Proforma, Purchase Orders, Purchase Returns */
+.txv .bg-slate-800.rounded-t-xl { background: #fff !important; color: #0f172a !important; border-bottom: 1px solid #eef1f5; }
+.txv .bg-slate-800.rounded-t-xl h3 { color: #0f172a !important; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.txv .bg-slate-800.rounded-t-xl button { background: #f1f5f9 !important; color: #334155 !important; }
+.txv .txl-list { border: none; border-radius: 0; }
+@media (max-width: 640px) {
+  /* totals: two compact columns instead of one tall card each */
+  .txv .grid.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .txv .grid.grid-cols-2 > div { padding: 12px !important; min-width: 0; }
+  .txv .grid.grid-cols-2 > div p.text-2xl { font-size: 18px !important; white-space: nowrap; }
+  .txv .lx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .txv .lx-kpis .lx-val { font-size: 19px !important; white-space: nowrap; }
+  .txv .lx-kpis .lx-tile { min-width: 0; padding: 12px !important; }
+  /* filters: a tidy two-column grid that does not float over the list */
+  .txv .lx-toolbar, .txv > .bg-white.flex-wrap { position: static !important; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; padding: 10px !important; }
+  .txv .lx-toolbar > *, .txv > .bg-white.flex-wrap > * { width: 100% !important; min-width: 0 !important; max-width: 100%; margin: 0 !important; }
+  .txv .lx-toolbar .lx-search, .txv > .bg-white.flex-wrap > input[type=text], .txv > .bg-white.flex-wrap > input[type=search] { grid-column: 1 / -1; }
+  .txv .lx-toolbar .to, .txv > .bg-white.flex-wrap > span { display: none !important; }
+  .txv .lx-toolbar select, .txv .lx-toolbar input, .txv > .bg-white.flex-wrap select, .txv > .bg-white.flex-wrap input { min-height: 44px !important; font-size: 14px !important; }
+}

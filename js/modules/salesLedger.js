@@ -53,6 +53,8 @@ export function lxAnimateKpis(containerId) {
 if (typeof window !== 'undefined') window.lxAnimateKpis = lxAnimateKpis;
 
 export function renderSalesLedger() {
+  // One list for every client invoice (sale invoices + RA tax invoices) — saleInvoice.js renders it.
+  if (typeof window.renderSaleInvoices === 'function') { window.renderSaleInvoices(); return; }
   const clientFilter = document.getElementById('slFilterClient');
   if (clientFilter) {
     // Rebuild every render so renamed clients show their current name (was
@@ -136,8 +138,12 @@ export function clearSalesLedgerFilters() {
 export function cancelInvoiceFromLedger(id) {
   const inv = state.invoices.find(x => x.id === id);
   if (!inv) return;
-  if (!confirm(`Cancel Invoice ${inv.invoiceNum}? This is reversible.`)) return;
+  const reason = prompt(`Cancel invoice ${inv.invoiceNum}? It stays on record (struck through) and stops counting in totals and cash flow.\n\nReason:`, '');
+  if (reason === null) return;
+  if (!reason.trim()) { showToast('Enter the reason — it is kept on the audit record', 'error'); return; }
   inv.status = 'Cancelled';
+  inv.cancelledAt = new Date().toISOString(); inv.cancelReason = reason.trim();
+  try { const u = window.getCurrentUser?.(); inv.cancelledBy = u?.name || u?.email || ''; } catch {}
   saveAllData(); renderSalesLedger();
   showToast(`Invoice ${inv.invoiceNum} Cancelled`, 'warning');
 }

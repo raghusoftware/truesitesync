@@ -12,7 +12,7 @@ import { state } from './state.js';
 import { settledAmount } from './deductions.js';
 import { showToast, getCompanyHeaderForPDF, getPdfCurrency, formatINR, mobileSavePDF, mobileDownloadBlob } from './utils.js';
 import { formatNumber2 } from './format.js?v=1.0.1';
-import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.2';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.3';
 
 const _num2 = formatNumber2;
 
@@ -108,8 +108,9 @@ export function exportSalesLedgerExcel() {
 
 // ── Share Sales Ledger ──
 export function shareSalesLedger() {
-  const total = (state.saleInvoices || []).reduce((s, i) => s + (i.total || 0), 0);
-  const count = (state.saleInvoices || []).length;
+  const live = (state.saleInvoices || []).filter(i => i.status !== 'Cancelled');
+  const total = live.reduce((s, i) => s + (i.total || 0), 0);
+  const count = live.length;
   const text = `Sales Ledger Summary\nTotal Invoices: ${count}\nTotal Amount: ${formatINR(total)}\nDate: ${new Date().toLocaleDateString('en-IN')}`;
   if (navigator.share) {
     navigator.share({ title: 'Sales Ledger', text }).catch(() => {});

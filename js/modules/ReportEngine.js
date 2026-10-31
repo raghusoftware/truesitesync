@@ -156,7 +156,7 @@ export class ReportEngine {
    */
   query({ dataSource, dateRange, filters = {}, groupBy, aggregates = [] }) {
     // Get raw data from state
-    let data = this._getDataSource(dataSource);
+    let data = this._getDataSource(dataSource, { all: true });   // registers list every document, cancelled ones included
     if (!data || !data.length) return { rows: [], summary: {}, columns: [], kpis: {} };
 
     // Apply date filter
@@ -196,7 +196,7 @@ export class ReportEngine {
   }
 
   // ── Get data from localStorage state (live read) ──
-  _getDataSource(source) {
+  _getDataSource(source, { all = false } = {}) {
     if (!source) return [];
     const map = {
       saleInvoices: 'saleInvoices',
@@ -233,8 +233,10 @@ export class ReportEngine {
     };
     const stateKey = map[source] || source;
     const data = state[stateKey];
-    if (Array.isArray(data)) return [...data];
-    return [];
+    if (!Array.isArray(data)) return [];
+    // Cancelled (void) sale invoices stay on record for audit but never count in totals / GST.
+    if (!all && stateKey === 'saleInvoices') return data.filter(r => r.status !== 'Cancelled');
+    return [...data];
   }
 
   // ── Infer table columns from data ──
