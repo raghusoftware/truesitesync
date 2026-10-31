@@ -196,6 +196,43 @@ main, #appContainer main { background: var(--ts-bg) !important; }
 .ts-card { background: #fff; border: 1px solid var(--ts-line); border-radius: 12px; box-shadow: var(--ts-shadow); margin-bottom: 14px; overflow: hidden; }
 .ts-card-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: var(--ts-muted); letter-spacing: .07em; text-transform: uppercase; padding: 14px 16px 6px; }
 .ts-card-h.danger { color: var(--ts-red); }
+/* My Profile — inline edit (View ⇄ Edit on the same card, no navigation) */
+.ts-card { transition: box-shadow .2s ease, border-color .2s ease; }
+.ts-card.is-editing { border-color: rgba(217, 72, 31, .35); box-shadow: 0 0 0 3px rgba(217, 72, 31, .08), 0 10px 30px rgba(16, 24, 40, .08); }
+.ts-card-h { min-height: 50px; gap: 10px; }
+.ts-card-h > :first-child { min-width: 0; }
+button.ts-pf-edit { display: inline-flex; align-items: center; gap: 6px; height: 32px; min-height: 0 !important; padding: 0 12px !important; border: 1px solid #f3d6c8; border-radius: 999px !important; background: #fff8f4; color: var(--ts-blue); font-size: 13px !important; font-weight: 700 !important; letter-spacing: 0; text-transform: none; cursor: pointer; transition: background .15s, transform .15s; }
+button.ts-pf-edit:hover { background: #ffefe6; } button.ts-pf-edit:active { transform: scale(.97); }
+.ts-pf-acts { display: inline-flex; flex: 0 0 auto; gap: 8px; animation: tsPfIn .18s ease both; text-transform: none; letter-spacing: 0; }
+button.ts-pf-cancel, button.ts-pf-save { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; height: 32px; min-height: 0 !important; padding: 0 14px !important; border-radius: 999px !important; font-size: 13px !important; font-weight: 700 !important; cursor: pointer; transition: filter .15s, transform .15s, opacity .15s; }
+button.ts-pf-cancel { border: 1px solid var(--ts-line); background: #fff; color: var(--ts-ink2); }
+button.ts-pf-save { border: none; background: linear-gradient(135deg, #ef8420, #d6402c); color: #fff; box-shadow: 0 4px 12px rgba(214, 64, 44, .28); }
+button.ts-pf-save:hover { filter: brightness(1.05); } button.ts-pf-save:active, button.ts-pf-cancel:active { transform: scale(.97); }
+button.ts-pf-save:disabled, button.ts-pf-cancel:disabled { opacity: .7; cursor: default; }
+.ts-spin { display: none; width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; border-radius: 50%; animation: tsSpin .7s linear infinite; }
+button.ts-pf-save.busy .ts-spin { display: inline-block; }
+@keyframes tsSpin { to { transform: rotate(360deg); } }
+@keyframes tsPfIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.ts-pf .ts-row-tx b.ts-pf-none { color: #a0a9b8; font-weight: 500; font-style: italic; }
+.ts-pf-sp { flex: 0 0 34px; width: 34px; }
+.ts-pf.is-edit { padding-top: 8px; padding-bottom: 8px; }
+.ts-card .ts-pf-in, #profileView .ts-card .ts-pf-in { display: block; width: calc(100% + 12px) !important; margin: 2px 0 -2px -12px !important; padding: 6px 11px !important; min-height: 0 !important; height: 36px !important; border: 1.5px solid #e3e8ef !important; border-radius: 10px !important; background: #fbfcfe !important; font-family: inherit; font-size: 15px !important; font-weight: 600; color: var(--ts-ink); outline: none; animation: tsPfIn .2s ease both; transition: border-color .15s, box-shadow .15s, background .15s; box-sizing: border-box; }
+#profileView .ts-card textarea.ts-pf-in { height: auto !important; min-height: 60px !important; resize: vertical; line-height: 1.4; }
+#profileView .ts-card .ts-pf-in:hover { border-color: #d3dae4 !important; }
+#profileView .ts-card .ts-pf-in:focus { border-color: var(--ts-blue) !important; background: #fff !important; box-shadow: 0 0 0 4px rgba(217, 72, 31, .14), 0 0 18px rgba(239, 132, 32, .18) !important; }
+#profileView .ts-card .ts-pf-in.bad { border-color: #dc2626 !important; background: #fffafa !important; } #profileView .ts-card .ts-pf-in.bad:focus { box-shadow: 0 0 0 4px rgba(220, 38, 38, .14) !important; }
+#profileView .ts-card .ts-pf-in:disabled { opacity: .65; }
+.ts-pf-err { display: block; margin-top: 4px; font-style: normal; font-size: 12px; font-weight: 600; color: #dc2626; animation: tsPfIn .15s ease both; }
+.ts-pf.is-edit .ts-row-tx small label { cursor: pointer; }
+.ts-prof-logo-w { position: relative; width: 96px; margin: 0 auto 12px; }
+.ts-prof-logo-w .ts-prof-logo { margin: 0; transition: box-shadow .2s; }
+.ts-prof-logo-w.is-edit .ts-prof-logo { box-shadow: 0 0 0 3px rgba(217, 72, 31, .25), 0 4px 16px rgba(16, 24, 40, .15); }
+.ts-prof-cam { position: absolute; right: -2px; bottom: 2px; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #ef8420, #d6402c); color: #fff; display: grid; place-items: center; border: 3px solid #fff; cursor: pointer; box-shadow: 0 3px 10px rgba(214, 64, 44, .35); animation: tsPfIn .2s ease both; }
+.ts-prof-cam input { display: none; }
+button.ts-pf-rmlogo { display: block; margin: -4px auto 8px; background: none; border: none; min-height: 0 !important; padding: 2px 8px !important; color: var(--ts-muted); font-size: 12px !important; font-weight: 600 !important; text-decoration: underline; cursor: pointer; }
+.ts-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 440px) { button.ts-pf-save .ts-pf-long { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ts-pf-in, .ts-pf-acts, .ts-pf-err, .ts-prof-cam { animation: none; } }
 .ts-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid #f1f4f8; cursor: default; text-decoration: none; color: inherit; background: none; width: 100%; text-align: left; border-left: none; border-right: none; border-top: none; min-height: 0 !important; }
 .ts-row:last-child { border-bottom: none; }
 button.ts-row, a.ts-row { cursor: pointer; }

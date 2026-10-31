@@ -7,7 +7,7 @@
  *   • My Profile page (company, subscription, help & support, log out)
  * Pure rules (titles, tabs, filters, progress) live in shellCalc.js.
  */
-import { state } from './state.js';
+import { state, saveAllData } from './state.js';
 import * as SC from './shellCalc.js?v=1.0.1';
 import { computeAnalytics } from './analyticsCalc.js';
 
@@ -63,6 +63,8 @@ const svg = {
   cal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
   plus: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   x: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  pen: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  cam: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
 };
 
@@ -133,7 +135,7 @@ export function openDrawer() {
       <div class="ts-drawer-hd">
         <span class="ts-drawer-av" data-keep-emoji>${me}</span>
         <div style="flex:1;min-width:0"><b>${esc(name)}</b><small>${esc([role && String(role).replace(/^./, c => c.toUpperCase()), org.name].filter(Boolean).join(' · '))}</small></div>
-        <button type="button" class="ts-kebab" title="Edit profile" onclick="window._shellCloseDrawer();switchView('profileView')">✎</button>
+        <button type="button" class="ts-kebab" title="Edit profile" onclick="window._shellCloseDrawer();switchView('profileView');window._pfEdit?.('me')">✎</button>
       </div>
       <nav class="ts-drawer-nav">${items.map(([ic, l, fn]) => `<button type="button" class="ts-drawer-it" onclick="window._shellCloseDrawer();${fn}"><span data-keep-emoji>${ic}</span>${l}</button>`).join('')}
         <button type="button" class="ts-drawer-it danger" onclick="window._shellCloseDrawer();window._rbacLogout&&window._rbacLogout()"><span data-keep-emoji>🚪</span>Logout</button>
@@ -398,36 +400,96 @@ export function renderProjectHome() {
 
 const SUPPORT = { phones: ['+917043274323'], whatsapp: '917043274323', site: 'https://truesitesync.com' };
 
+// Inline editing: each card has a View state and an Edit state on this same screen.
+// `_pe` holds the card being edited, its draft (separate from the committed data),
+// field errors and the saving flag. Cancel just drops the draft; Save commits it.
+const ME_FIELDS = [['name', '👤', '#eef3ff', 'Full name', 'text', 'name'], ['phone', '📱', '#e8f8ef', 'Mobile', 'tel', 'tel']];
+const CO_FIELDS = [['CompanyName', '🏢', '#eef3ff', 'Company name', 'text', 'organization'], ['Phone', '📞', '#e8f8ef', 'Mobile', 'tel', 'tel'],
+  ['Email', '✉️', '#fdeef3', 'Email', 'email', 'email'], ['GST', '🧾', '#e8f8ef', 'GSTIN', 'text', 'off'], ['PAN', '🪪', '#fff2e5', 'Company PAN', 'text', 'off'],
+  ['Address', '📍', '#f3eefe', 'Address', 'textarea', 'street-address']];
+let _pe = null;   // { card:'me'|'co', draft:{}, errors:{}, saving:false, focus?:string }
+
+function _committed(card) {
+  if (card === 'me') { const u = user(); return { name: u.name || '', phone: u.phone || '' }; }
+  const cp = state.companyProfile || {};
+  return Object.fromEntries([...CO_FIELDS.map(f => [f[0], cp[f[0]] || '']), ['logo', cp.logo || '']]);
+}
+function _canEditCompany() { try { return typeof window.isCurrentUserAdmin !== 'function' || !!window.isCurrentUserAdmin(); } catch { return false; } }
+/** Format checks run only on fields the user changed, so an old stored value never blocks a save. */
+function _validate(card, d) {
+  const e = {}, was = _committed(card);
+  if (card === 'me') {
+    if (!String(d.name || '').trim()) e.name = 'Enter your name';
+    if (d.phone !== was.phone && d.phone && !/^[+\d][\d\s-]{6,16}$/.test(d.phone.trim())) e.phone = 'Enter a valid mobile number';
+  } else {
+    if (!String(d.CompanyName || '').trim()) e.CompanyName = 'Enter the company name';
+    if (d.Phone !== was.Phone && d.Phone && !/^[+\d][\d\s-]{6,16}$/.test(d.Phone.trim())) e.Phone = 'Enter a valid mobile number';
+    if (d.Email !== was.Email && d.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.Email.trim())) e.Email = 'Enter a valid email';
+    if (d.GST !== was.GST && d.GST && !/^[0-9A-Z]{15}$/.test(d.GST.trim().toUpperCase())) e.GST = 'GSTIN has 15 letters / digits';
+    if (d.PAN !== was.PAN && d.PAN && !/^[A-Z]{5}\d{4}[A-Z]$/.test(d.PAN.trim().toUpperCase())) e.PAN = 'PAN looks like ABCDE1234F';
+  }
+  return e;
+}
+
+/** One field row — static text in View, an input in Edit; same row height either way. */
+function _fieldRow(card, [key, ic, bg, label, type, ac], val, editing) {
+  const id = `pf_${card}_${key}`;
+  const err = editing && _pe?.errors?.[key];
+  if (!editing) {
+    return `<div class="ts-row ts-pf"><span class="ts-row-ic" style="background:${bg}" data-keep-emoji>${ic}</span>
+      <span class="ts-row-tx"><small>${label}</small>${val ? `<b>${esc(val)}</b>` : '<b class="ts-pf-none">Not added</b>'}</span>
+      ${val ? `<button type="button" class="ts-kebab" title="Copy ${label}" onclick="window._shellCopy(${esc(JSON.stringify(String(val)))})">${svg.copy}</button>` : '<span class="ts-pf-sp"></span>'}</div>`;
+  }
+  const attrs = `id="${id}" class="ts-pf-in${err ? ' bad' : ''}" autocomplete="${ac}" ${err ? `aria-invalid="true" aria-describedby="${id}_e"` : ''} oninput="window._pfInput('${key}', this.value)" onkeydown="window._pfKey(event)"${_pe?.saving ? ' disabled' : ''}`;
+  const input = type === 'textarea'
+    ? `<textarea ${attrs} rows="2">${esc(val)}</textarea>`
+    : `<input ${attrs} type="${type}" ${type === 'tel' ? 'inputmode="tel"' : ''} value="${esc(val)}"${key === 'GST' || key === 'PAN' ? ' style="text-transform:uppercase"' : ''}>`;
+  return `<div class="ts-row ts-pf is-edit"><span class="ts-row-ic" style="background:${bg}" data-keep-emoji>${ic}</span>
+    <span class="ts-row-tx"><small><label for="${id}">${label}</label></small>${input}${err ? `<em class="ts-pf-err" id="${id}_e">${esc(err)}</em>` : ''}</span><span class="ts-pf-sp"></span></div>`;
+}
+/** Card header: one "Edit" button in View; Cancel + Save changes in Edit. */
+function _cardHead(card, title, canEdit) {
+  const editing = _pe?.card === card;
+  if (!canEdit) return `<div class="ts-card-h">${title}</div>`;
+  if (!editing) return `<div class="ts-card-h"><span>${title}</span><button type="button" class="ts-pf-edit" onclick="window._pfEdit('${card}')" aria-label="Edit ${title}">${svg.pen}<span>Edit</span></button></div>`;
+  return `<div class="ts-card-h"><span>${title}</span><span class="ts-pf-acts">
+      <button type="button" class="ts-pf-cancel" onclick="window._pfCancel()"${_pe.saving ? ' disabled' : ''}>Cancel</button>
+      <button type="button" class="ts-pf-save${_pe.saving ? ' busy' : ''}" onclick="window._pfSave()"${_pe.saving ? ' disabled aria-busy="true"' : ''}><i class="ts-spin" aria-hidden="true"></i><span>${_pe.saving ? 'Saving…' : 'Save<span class="ts-pf-long"> changes</span>'}</span></button></span></div>`;
+}
+
 export function renderProfile() {
   const el = document.getElementById('profileView');
   if (!el) return;
-  const org = orgInfo(), cp = org.cp, u = user();
+  const org = orgInfo(), u = user();
   let role = u.role || '';
   try { const r = window.getCurrentOrg?.()?._userRole; if (r) role = r; } catch {}
-  const copyRow = (ic, bg, label, val) => val ? `<div class="ts-row"><span class="ts-row-ic" style="background:${bg}" data-keep-emoji>${ic}</span>
-      <span class="ts-row-tx"><small>${label}</small><b>${esc(val)}</b></span>
-      <button type="button" class="ts-kebab" title="Copy" onclick="window._shellCopy(${esc(JSON.stringify(String(val)))})">${svg.copy}</button></div>` : '';
   const link = (ic, bg, title, desc, attrs) => `<${attrs.startsWith('href') ? 'a' : 'button type="button"'} class="ts-row" ${attrs}>
       <span class="ts-row-ic" style="background:${bg}" data-keep-emoji>${ic}</span>
       <span class="ts-row-tx"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span><span class="ts-row-go">${svg.go}</span></${attrs.startsWith('href') ? 'a' : 'button'}>`;
-  const logo = org.logo ? `<img src="${esc(org.logo)}" alt="">` : esc(SC.initials(org.name));
-  const company = [
-    copyRow('🏢', '#eef3ff', 'Company Name', org.name),
-    copyRow('📞', '#e8f8ef', 'Mobile', cp.Phone),
-    copyRow('✉️', '#fdeef3', 'Email', cp.Email),
-    copyRow('🧾', '#e8f8ef', 'GSTIN', cp.GST),
-    copyRow('🪪', '#fff2e5', 'Company PAN', cp.PAN),
-    copyRow('📍', '#f3eefe', 'Address', cp.Address),
-  ].join('') || `<div class="ts-row"><span class="ts-row-tx"><small>No company details yet — tap ✎ to add them.</small></span></div>`;
+  const coEdit = _pe?.card === 'co', meEdit = _pe?.card === 'me';
+  const co = coEdit ? _pe.draft : _committed('co'), me = meEdit ? _pe.draft : _committed('me');
+  const logoSrc = co.logo || '';
+  const logo = logoSrc ? `<img src="${esc(logoSrc)}" alt="">` : esc(SC.initials(co.CompanyName || org.name));
+  const canCo = _canEditCompany();
   el.innerHTML = `<div class="ts-page" style="max-width:720px">
     <div class="ts-prof-hd">
-      <div class="ts-prof-logo" data-keep-emoji>${logo}</div>
-      <h2>${esc(org.name)}</h2>
+      <div class="ts-prof-logo-w${coEdit ? ' is-edit' : ''}">
+        <div class="ts-prof-logo" data-keep-emoji>${logo}</div>
+        ${coEdit ? `<label class="ts-prof-cam" title="Change logo"><input type="file" accept="image/*" onchange="window._pfLogo(this)"${_pe.saving ? ' disabled' : ''}>${svg.cam}<span class="ts-sr">Change logo</span></label>` : ''}
+      </div>
+      ${coEdit && logoSrc ? '<button type="button" class="ts-pf-rmlogo" onclick="window._pfLogo(null)">Remove logo</button>' : ''}
+      <h2>${esc(co.CompanyName || org.name)}</h2>
       ${role ? `<span class="ts-role">${esc(String(role).replace(/^./, c => c.toUpperCase()))}</span>` : ''}
-      <div style="color:var(--ts-muted);font-size:14px;margin-top:4px">${esc(u.name || u.username || '')}${u.email && u.email !== u.username ? ' · ' + esc(u.email) : ''}</div>
+      <div style="color:var(--ts-muted);font-size:14px;margin-top:4px">${esc(me.name || u.username || '')}${u.email && u.email !== u.username ? ' · ' + esc(u.email) : ''}</div>
     </div>
-    <div class="ts-card"><div class="ts-card-h">Company information
-      <button type="button" class="ts-kebab" title="Edit" onclick="switchView('settingsView')" style="color:var(--ts-blue)">✎</button></div>${company}</div>
+    <div class="ts-card${meEdit ? ' is-editing' : ''}" id="pfCardMe">${_cardHead('me', 'Your details', !!(u.email || u.id))}
+      ${ME_FIELDS.map(f => _fieldRow('me', f, me[f[0]], meEdit)).join('')}
+      <div class="ts-row ts-pf"><span class="ts-row-ic" style="background:#fdeef3" data-keep-emoji>✉️</span><span class="ts-row-tx"><small>Login email</small><b>${esc(u.email || u.username || '—')}</b></span><span class="ts-pf-sp"></span></div>
+    </div>
+    <div class="ts-card${coEdit ? ' is-editing' : ''}" id="pfCardCo">${_cardHead('co', 'Company information', canCo)}
+      ${CO_FIELDS.map(f => _fieldRow('co', f, co[f[0]], coEdit)).join('')}
+      ${canCo && !coEdit ? `<button type="button" class="ts-row" onclick="switchView('settingsView')"><span class="ts-row-ic" style="background:#f1f5f9" data-keep-emoji>🏦</span><span class="ts-row-tx"><b>Bank details &amp; print settings</b><small>Used on invoices and PDFs</small></span><span class="ts-row-go">${svg.go}</span></button>` : ''}
+    </div>
     <div class="ts-card"><div class="ts-card-h">Subscription &amp; data</div>
       ${link('💳', '#eef3ff', 'Subscription', 'Plan, usage &amp; billing', `onclick="switchView('planBillingView')"`)}
       ${link('☁️', '#e8f8ef', 'Cloud sync', 'Sync status &amp; force sync', `onclick="window._openSyncDoctor&&window._openSyncDoctor()"`)}
@@ -446,7 +508,71 @@ export function renderProfile() {
     </div>
     <div style="text-align:center;color:var(--ts-muted);font-size:13px;padding:6px 0 20px"><b style="color:var(--ts-ink2)">True Site Sync</b></div>
   </div>`;
+  if (_pe?.focus) {
+    const f = document.getElementById(`pf_${_pe.card}_${_pe.focus}`);
+    if (f) { f.focus({ preventScroll: true }); if (f.setSelectionRange && f.type !== 'email') { const n = f.value.length; f.setSelectionRange(n, n); } }
+    _pe.focus = null;
+  }
 }
+
+const _dirty = () => !!_pe && JSON.stringify(_pe.draft) !== JSON.stringify(_committed(_pe.card));
+window._pfEdit = function (card) {
+  if (_pe && _pe.card !== card && _dirty() && !confirm('Discard the changes you made?')) return;
+  _pe = { card, draft: _committed(card), errors: {}, saving: false, focus: card === 'me' ? 'name' : 'CompanyName' };
+  renderProfile();
+};
+window._pfInput = function (key, v) {
+  if (!_pe) return;
+  _pe.draft[key] = v;
+  if (_pe.errors[key]) {   // clear the error as soon as the field is fixed (no re-render while typing)
+    delete _pe.errors[key];
+    const inp = document.getElementById(`pf_${_pe.card}_${key}`);
+    inp?.classList.remove('bad'); inp?.removeAttribute('aria-invalid'); document.getElementById(`pf_${_pe.card}_${key}_e`)?.remove();
+  }
+};
+window._pfKey = function (e) {
+  if (e.key === 'Escape') { e.preventDefault(); window._pfCancel(); }
+  else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); window._pfSave(); }
+};
+window._pfCancel = function () { if (!_pe || _pe.saving) return; _pe = null; renderProfile(); };
+window._pfLogo = function (input) {
+  if (!_pe || _pe.card !== 'co') return;
+  if (!input) { _pe.draft.logo = ''; renderProfile(); return; }
+  const file = input.files && input.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { window.showToast?.('Logo too large — max 2 MB', 'error'); input.value = ''; return; }
+  const r = new FileReader();
+  r.onload = e => { if (_pe?.card === 'co') { _pe.draft.logo = e.target.result; renderProfile(); } };
+  r.readAsDataURL(file);
+};
+window._pfSave = async function () {
+  if (!_pe || _pe.saving) return;
+  const { card, draft } = _pe;
+  const errors = _validate(card, draft);
+  if (Object.keys(errors).length) { _pe.errors = errors; _pe.focus = Object.keys(errors)[0]; renderProfile(); window.showToast?.('Check the highlighted field', 'error'); return; }
+  if (!_dirty()) { _pe = null; renderProfile(); return; }
+  _pe.saving = true; renderProfile();
+  try {
+    if (card === 'me') {
+      if (typeof window.updateMyProfile !== 'function') throw new Error('Profile service not loaded — refresh the app');
+      const res = await window.updateMyProfile({ name: draft.name, phone: draft.phone });
+      if (!res.ok) throw new Error(res.error || 'Could not save');
+      _pe = null; renderProfile();
+      window.showToast?.(res.cloud ? 'Profile updated' : 'Profile saved on this device — it will sync when online', 'success');
+    } else {
+      const cp = state.companyProfile || (state.companyProfile = {});
+      CO_FIELDS.forEach(([k]) => { const v = String(draft[k] || '').trim(); cp[k] = (k === 'GST' || k === 'PAN') ? v.toUpperCase() : v; });
+      cp.logo = draft.logo || null;
+      saveAllData();   // local + cloud push
+      try { window.shellSectionChanged?.(); } catch {}
+      _pe = null; renderProfile();
+      window.showToast?.('Company details updated', 'success');
+    }
+  } catch (e) {
+    if (_pe) { _pe.saving = false; renderProfile(); }
+    window.showToast?.(e?.message || 'Could not save — try again', 'error');
+  }
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && _pe && !e.defaultPrevented && document.getElementById('profileView')?.offsetParent) window._pfCancel(); });
 
 /* ── View hook (called by switchView) ─────────────────────────────────────── */
 
