@@ -1443,7 +1443,7 @@ export function switchView(viewId) {
   if (viewId === 'creditBookView') window.renderCreditBook?.();
   if (viewId === 'projectsHome') renderProjectsHome();
   if (viewId === 'projectDashboard') renderProjectDashboard();
-  if (viewId === 'accountsManagerView') renderAccounts();
+  if (viewId === 'accountsManagerView') { renderAccounts(); window.renderBankCash?.(); }
   if (viewId === 'estimatesView') window.renderEstimatesList?.();
   if (viewId === 'savedSheets') window.renderSavedSheets?.();
   if (viewId === 'abstractsView') renderAbstractsList();

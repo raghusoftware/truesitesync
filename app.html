@@ -61,9 +61,9 @@
     <link rel="stylesheet" href="css/chat.css?v=1.1.1">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.63">
+    <link rel="stylesheet" href="css/shell.css?v=1.0.65">
     <link rel="stylesheet" href="css/tools.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.262"></script>
+    <script type="module" src="js/app.js?v=1.6.263"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -1161,31 +1161,7 @@
 
         <!-- ═══════ ACCOUNTS MANAGER ═══════ -->
         <div id="accountsManagerView" class="view-section hide">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-extrabold text-slate-800">Bank & Cash</h2>
-            <div class="flex gap-2">
-              <button onclick="_acctTransfer()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold text-sm transition">🔄 Transfer</button>
-              <button onclick="openAccountModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-bold text-sm transition">➕ Add Account</button>
-            </div>
-          </div>
-          <div class="flex flex-col md:flex-row gap-4" style="height:78vh;">
-            <!-- Left: account list -->
-            <div class="w-full md:w-96 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden flex-shrink-0">
-              <div class="p-3 border-b bg-slate-50"><input type="text" id="acctSearch" placeholder="🔍 Search account..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-blue-500" oninput="renderAccounts()"></div>
-              <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase px-4 py-2 border-b bg-slate-100"><span>Account Name</span><span>Balance</span></div>
-              <div id="accountsCardsContainer" class="flex-1 overflow-y-auto divide-y divide-slate-100"></div>
-            </div>
-            <!-- Right: transactions -->
-            <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden relative">
-              <div id="acctEmptyState" class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-10"><p class="text-4xl mb-3">🏦</p><h3 class="text-lg font-bold text-slate-700">Select an Account</h3><p class="text-slate-500 text-sm mt-1">Choose an account to view its ledger.</p></div>
-              <div class="p-4 border-b flex justify-between items-center">
-                <div><h3 class="font-extrabold text-lg text-slate-800" id="acctSelName">—</h3><span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200" id="acctSelType">TYPE</span></div>
-                <div class="flex gap-2 flex-wrap"><button onclick="_acctDeposit()" class="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold">+ Deposit</button><button onclick="_acctWithdraw()" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold">− Withdraw</button><button onclick="_editAccount(window._selAcct)" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold">Edit</button><button onclick="_deleteAccount(window._selAcct)" class="bg-slate-50 text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold">Delete</button></div>
-              </div>
-              <div class="flex-1 overflow-y-auto" id="acctTxnsContainer"></div>
-              <div class="bg-slate-800 text-white p-4 flex justify-between items-center text-sm font-bold"><span>Closing Balance:</span><span id="acctClosingBal" class="text-xl font-extrabold">₹0.00</span></div>
-            </div>
-          </div>
+          <div id="bankCashRoot"></div>
         </div>
 
         <!-- Payments hub removed -->
