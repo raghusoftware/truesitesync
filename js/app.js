@@ -37,7 +37,7 @@ import {
   renderMaintenanceLogs, showAssetHistory, openEquipmentModal, saveEquipment,
   renderEquipmentView, saveEquipmentLog, renderEquipmentLog,
   deleteEquipment, deleteEquipmentLog
-} from './modules/fleet.js?v=1.0.5';
+} from './modules/fleet.js?v=1.0.6';
 import {
   switchView, handleDescInput,
   goProjectsHome, renderProjectsHome, openProject, renderProjectDashboard,
@@ -71,7 +71,7 @@ import { renderPettyCash } from './modules/pettyCash.js?v=1.1.0';
 import { renderNotifications } from './modules/notifications.js?v=1.0.5';
 import { initPush } from './modules/push.js?v=1.0.0';
 import { renderIssues } from './modules/issues.js?v=1.3.24';
-import { renderExecution } from './modules/execution.js?v=1.6.124';
+import { renderExecution } from './modules/execution.js?v=1.6.125';
 import './modules/chat.js?v=1.1.1';
 import './modules/projectReport.js?v=1.3.36';
 import './modules/financeReports.js?v=1.3.41';

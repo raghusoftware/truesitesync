@@ -14,13 +14,13 @@
 import { state, saveAllData } from './state.js';
 import { keepOnly } from './state.js';
 import { showToast, mobileSavePDF, mobileSaveXLSX, getCompanyHeaderForPDF, getPdfCurrency, getCurrencySymbol } from './utils.js';
-import { getCurrentUser } from './rbac.js';
+import { getCurrentUser, isCurrentUserAdmin } from './rbac.js';
 import { uploadExecMedia, signedExecUrl, removeExecMedia, getGps, gpsLabel } from './execMedia.js';
 import { checkPunch, deviceId, distanceM, DEFAULT_RADIUS_M } from './attendanceGuard.js?v=1.0.0';
 
 // ── option lists ───────────────────────────────────────────
-import { POUR_ELEMENTS, GRADES, QUALITY_TYPES, SAFETY_TYPES, SEVERITIES, POUR_CHECKS } from './endOfDayCalc.js?v=1.0.0';
-import { renderEndOfDay } from './endOfDay.js?v=1.0.0';
+import { POUR_ELEMENTS, GRADES, QUALITY_TYPES, SAFETY_TYPES, SEVERITIES, POUR_CHECKS } from './endOfDayCalc.js?v=1.1.0';
+import { renderEndOfDay } from './endOfDay.js?v=1.1.0';
 
 // ── helpers ────────────────────────────────────────────────
 function _pid() { return state.currentProjectId || null; }
@@ -493,6 +493,7 @@ window._dprOhCalc = function (el) { const tr = el.closest('tr'); const qty = par
 
 window._exDprForm = function (id) {
   const d = id ? (state.dailyProgress || []).find(x => x.id === id) : null;
+  if (d?.eodSubmitted && !_isOrgAdmin() && !isCurrentUserAdmin()) { showToast('This day\'s report is submitted and locked — ask an owner or admin to reopen it', 'info'); return; }
   _pendingPhoto = d?.photo || null; _pendingPhotoPath = d?.photoPath || null;
 
   // ── Real-time link to Micro-Planning: seed measurement rows from planned tasks ──

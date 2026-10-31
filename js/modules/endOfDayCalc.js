@@ -7,6 +7,8 @@
  *       quality    QC checks / checklists, safety incidents (worst severity)
  *       workforce  labour present / half-day / absent by sub contractor and trade, staff punched in
  *       done       which of the four sections have something recorded
+ *       report     the DPR feed: BOQ work (logged here + pulled from measurement sheets, grouped
+ *                  by item), non-BOQ work, equipment hours per machine, checklist, lock state
  *   checklistResult(items)  → 'Pass' | 'Fail' | 'Open' for a QC checklist
  *   QC_TEMPLATES            → the quick digital checklists
  */
@@ -81,8 +83,45 @@ export function daySummary(S, pid, date) {
   const staffIn = (S.staffAttendance || []).filter(a => a.date === date && a.inAt && (staffIds.has(a.staffId) || a.projectId === pid));
   const headcount = lab.present + lab.half + staffIn.length;
 
+  // ── Measurement sheets — lines recorded for this date outside today's DPR(s) ──
+  const dprIds = new Set(dprs.map(d => d.id));
+  const sheetLines = [];
+  (S.sheets || []).filter(sh => sh.projectId === pid).forEach(sh => (sh.entries || []).forEach((e, i) => {
+    const d = (e._date || sh.date || '').slice(0, 10);
+    if (d !== date || (e._dprId && dprIds.has(e._dprId)) || !(N(e.qty) > 0)) return;
+    if (String(e.code || '').indexOf('NB:') === 0) return;
+    sheetLines.push({ code: e.code, description: e.description || e.code, uom: e.uom || '', qty: N(e.qty), nos: e.nos, l: e.l, b: e.b, h: e.h, sheetId: sh.id, sheetNo: sh.sheetNum || '', location: sh.area || sh.locationLabel || '', idx: i });
+  }));
+  const boqWork = work.filter(w => !w.isNonBoq && String(w.code || '').indexOf('NB:') !== 0);
+  const nonBoq = work.filter(w => w.isNonBoq || String(w.code || '').indexOf('NB:') === 0);
+  const groups = {};
+  const add = (code, desc, uom, qty, line) => {
+    const g = groups[code] || (groups[code] = { code, description: desc, uom, qty: 0, lines: [] });
+    g.qty = Math.round((g.qty + qty) * 1000) / 1000; g.lines.push(line);
+  };
+  boqWork.forEach(w => add(w.code, w.description || w.code, w.uom || '', N(w.qty), { ...w, src: 'dpr', wi: work.indexOf(w) }));
+  sheetLines.forEach(l => add(l.code, l.description, l.uom, l.qty, { ...l, src: 'sheet' }));
+
+  // ── Equipment — logs for this project and date, one row per machine ──
+  const eqById = {}; (S.equipmentList || []).forEach(e => { eqById[e.id] = e; });
+  const eqLogs = (S.equipmentLogs || []).filter(l => (l.date || '').slice(0, 10) === date && (l.projectId === pid || (!l.projectId && eqById[l.assetId]?.projectId === pid)));
+  const machines = {};
+  eqLogs.forEach(l => {
+    const e = eqById[l.assetId] || {};
+    const m = machines[l.assetId] || (machines[l.assetId] = { assetId: l.assetId, name: e.name || e.code || 'Equipment', regNo: e.regNo || '', unit: e.unit || 'HMR', hours: 0, km: 0, litres: 0, logs: 0, breakdown: false });
+    m.hours = Math.round((m.hours + N(l.hours)) * 100) / 100; m.km = Math.round((m.km + N(l.km)) * 100) / 100; m.litres = Math.round((m.litres + N(l.litres)) * 100) / 100;
+    m.logs++; if (l.type === 'Breakdown') m.breakdown = true;
+  });
+  const equipment = Object.values(machines).sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
+
+  const report = {
+    groups: Object.values(groups), sheetLines, nonBoq, equipment,
+    equipHours: Math.round(equipment.reduce((t, m) => t + m.hours, 0) * 100) / 100,
+    locked: !!(dpr && dpr.eodSubmitted), submitted: dpr?.eodSubmitted || null,
+  };
+
   return {
-    date, dpr, dprs, work,
+    date, dpr, dprs, work, report,
     pours, pourM3: Math.round(pourM3 * 100) / 100,
     qc, incidents, worstSeverity: worst,
     workforce: { ...lab, staff: staffIn.length, staffList: staffIn, headcount, manDays: lab.present + lab.half * 0.5 + staffIn.length },

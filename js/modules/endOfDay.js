@@ -15,9 +15,9 @@
  */
 import { state, saveAllData } from './state.js';
 import { showToast } from './utils.js';
-import { getCurrentUser } from './rbac.js';
+import { getCurrentUser, isCurrentUserAdmin } from './rbac.js';
 import { uploadExecMedia, signedExecUrl } from './execMedia.js';
-import { daySummary, checklistResult, QC_TEMPLATES, POUR_ELEMENTS, GRADES, POUR_CHECKS, SAFETY_TYPES, SEVERITIES } from './endOfDayCalc.js?v=1.0.0';
+import { daySummary, checklistResult, QC_TEMPLATES, POUR_ELEMENTS, GRADES, POUR_CHECKS, SAFETY_TYPES, SEVERITIES } from './endOfDayCalc.js?v=1.1.0';
 
 const N = v => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -31,7 +31,7 @@ const arr = k => (state[k] || (state[k] = []));
 const gangs = () => (state.labourContractors || []).filter(c => !c.projectId || c.projectId === pid());
 const boqItems = () => (typeof window.mpBoqItems === 'function' ? window.mpBoqItems() : []);
 const SEV_C = { Low: '#0f766e', Medium: '#b45309', High: '#c2410c', Critical: '#b91c1c' };
-const TABS = [['progress', 'Progress', '📐'], ['pour', 'Concrete', '🧱'], ['qs', 'Quality & Safety', '🦺'], ['crew', 'Workforce', '👷']];
+const TABS = [['progress', 'Daily Report', '📋'], ['pour', 'Concrete', '🧱'], ['qs', 'Quality & Safety', '🦺'], ['crew', 'Workforce', '👷']];
 const DONE_KEY = { progress: 'progress', pour: 'pour', qs: 'quality', crew: 'workforce' };
 
 let _date = null, _tab = 'progress';
@@ -65,27 +65,92 @@ window._eodSetDate = v => { if (v && v <= today()) { _date = v; _re(); } };
 window._eodTab = t => { _tab = t; _re(); };
 window._eodPdf = () => { const s = daySummary(state, pid(), _date); if (s.dpr) window._exDprPdf?.(s.dpr.id); else showToast('Log some work for this day first — the report is built from it', 'info'); };
 
-// ── Progress ─────────────────────────────────────────────────────────────────
+// ── Daily Report feed — one vertical checklist that pulls the day's data in ───────
+const UOMS = ['Nos', 'Sqm', 'Cum', 'Rmt', 'Kg', 'MT', 'Trip', 'Hours', 'Day', 'Bag', 'Ltr', 'LS'];
+const fq = v => (Math.round(N(v) * 1000) / 1000).toLocaleString('en-IN');
+const _locked = () => !!_dayDpr(false)?.eodSubmitted;
+const _guard = () => { if (!_locked()) return false; showToast('This day is submitted and locked', 'info'); return true; };
+const _isAdmin = () => { try { return ['owner', 'admin'].includes(window.getCurrentOrg?.()?._userRole) || !!isCurrentUserAdmin(); } catch { return false; } };
+
+/** One checklist step: number / tick, title, a one-line status and the body. */
+function _step(n, done, title, status, body, action) {
+  return `<section class="eod-card eod-step${done ? ' done' : ''}">
+    <header><span class="eod-num" aria-hidden="true">${done ? '✓' : n}</span><div class="eod-step-t"><b>${title}</b><small>${status}</small></div>${action || ''}</header>
+    ${body}</section>`;
+}
+
 function _progressTab(s) {
-  const d = s.dpr;
+  const d = s.dpr, r = s.report, w = s.workforce, lock = r.locked;
+  const ro = lock ? ' disabled' : '';
+  const sub = r.submitted;
+  const when = sub?.at ? new Date(sub.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+
+  // 1 · Labour — read-only from attendance; never re-typed here.
+  const labour = w.headcount
+    ? `<button type="button" class="eod-crew" onclick="window._eodTab('crew')" aria-label="Workforce details">
+        <span class="eod-crew-ic" aria-hidden="true">👷</span>
+        <span class="eod-crew-n"><b>${w.headcount}</b><span>on site today</span></span>
+        <span class="eod-crew-s">${w.present} present${w.half ? ` · ${w.half} half day` : ''}${w.staff ? ` · ${w.staff} staff` : ''}${w.ot ? ` · ${w.ot}h OT` : ''}<em>From attendance · tap for details ›</em></span>
+      </button>`
+    : `<div class="eod-nudge"><span aria-hidden="true">🕘</span><div><b>No attendance logged for ${esc(nice(_date).toLowerCase() === 'today' ? 'today' : nice(_date))}</b><small>The labour count fills itself from attendance — nothing to type here.</small></div>
+        <button type="button" class="eod-btn" onclick="window.switchView('labourView');window._openLabourSection?.('markAtt')">Tap to log attendance</button></div>`;
+
+  // 2 · BOQ measurements — grouped by item; lines from this DPR and from measurement sheets.
   const bq = {}; boqItems().forEach(b => { bq[b.code] = b; });
-  const tagged = new Set(s.work.filter(w => w.gangId).map(w => w.gangId)).size;
+  const dims = l => [l.nos, l.l, l.b, l.h].filter(x => N(x)).map(x => fq(x)).join(' × ');
+  const groups = r.groups.map(g => `<details class="eod-grp"><summary>
+      <span class="eod-grp-c">${esc(g.code)}</span>
+      <span class="eod-grp-d">${esc(g.description || bq[g.code]?.description || '')}<small>${g.lines.length} line${g.lines.length === 1 ? '' : 's'}${g.lines.some(l => l.src === 'sheet') ? ' · incl. measurement sheet' : ''}</small></span>
+      <b class="eod-grp-q">${fq(g.qty)} <em>${esc(g.uom || bq[g.code]?.uom || '')}</em></b></summary>
+      <ul class="eod-list">${g.lines.map(l => `<li><div class="eod-li-main"><b>${fq(l.qty)} ${esc(l.uom || g.uom || '')}</b>${dims(l) ? ` <span class="eod-dim">${dims(l)}</span>` : ''}<small>📍 ${esc(l.location || 'General')}${l.src === 'sheet' ? ` · 📏 Sheet ${esc(l.sheetNo || '')}` : ` · ${esc(l.doneBy || 'Own labour')}`}</small></div>
+        ${l.src === 'sheet' ? '<span class="eod-pill">Measurement</span>' : lock ? '<span class="eod-pill ok">DPR</span>' : `<button type="button" class="eod-x" aria-label="Remove line" onclick="window._eodWorkDel('${l.dprId}', ${l.wi})">✕</button>`}</li>`).join('')}</ul></details>`).join('');
+  const boq = (groups ? `<div class="eod-grps">${groups}</div>` : `<div class="eod-empty"><b>No measurements yet</b><span>Anything measured today in the Measurement module shows here automatically.</span></div>`)
+    + (lock ? '' : `<button type="button" class="eod-btn wide" onclick="window._eodWorkSheet()">+ Add measurement</button>`);
+
+  // 3 · Non-BOQ work — vertical cards, photo optional.
+  const nb = r.nonBoq.map(n => `<li class="eod-nb">${n.photoPath || n.photo ? `<span class="eod-nb-ph" data-path="${esc(n.photoPath || '')}" data-b64="${n.photoPath ? '' : esc(n.photo || '')}"></span>` : '<span class="eod-nb-ph none" aria-hidden="true">🧰</span>'}
+      <div class="eod-li-main"><b>${esc(n.description || String(n.code).replace(/^NB:/, ''))}</b><small>📍 ${esc(n.location || 'General')} · ${esc(n.doneBy || 'Own labour')}</small></div>
+      <div class="eod-li-r"><b>${fq(n.qty)} ${esc(n.uom || '')}</b></div>
+      ${lock ? '' : `<button type="button" class="eod-x" aria-label="Remove" onclick="window._eodWorkDel('${n.dprId}', ${s.work.indexOf(n)})">✕</button>`}</li>`).join('');
+  const nonBoq = (nb ? `<ul class="eod-list">${nb}</ul>` : '<p class="eod-hint" style="margin:0 0 10px">Extra or out-of-scope work that is not in the BOQ — debris removal, rework, client-asked changes.</p>')
+    + (lock ? '' : `<button type="button" class="eod-btn wide ghost" onclick="window._eodNbSheet()">+ Log non-BOQ work</button>`);
+
+  // 4 · Equipment — pulled from Equipment logs; quick insert saves to the master logs.
+  const eq = r.equipment.map(m => `<li><span class="eod-eq-ic" aria-hidden="true">🚜</span><div class="eod-li-main"><b>${esc(m.name)}</b><small>${esc(m.regNo || '')}${m.logs > 1 ? `${m.regNo ? ' · ' : ''}${m.logs} logs` : ''}${m.breakdown ? ' · ⚠ breakdown' : ''}</small></div>
+      <div class="eod-li-r"><b>${m.hours ? fq(m.hours) + ' h' : m.km ? fq(m.km) + ' km' : '—'}</b>${m.litres ? `<span class="eod-tag">⛽ ${fq(m.litres)} L</span>` : ''}</div></li>`).join('');
+  const equip = (eq ? `<ul class="eod-list">${eq}</ul>` : '<p class="eod-hint" style="margin:0 0 10px">No machine hours logged for this day.</p>')
+    + (lock ? '' : `<button type="button" class="eod-btn wide ghost" onclick="window._eodEqSheet()">+ Log equipment usage</button>`);
+
+  // 5 · Weather & remarks
   const weather = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rain', '🌬️ Windy'];
-  return `<div class="eod-kpis"><div><b>${s.work.length}</b><span>work item${s.work.length === 1 ? '' : 's'}</span></div><div><b>${tagged}</b><span>sub contractor${tagged === 1 ? '' : 's'}</span></div><div><b>${s.pourM3 || 0} m³</b><span>concrete</span></div></div>
-    <section class="eod-card">
-      <header><b>Work done</b><button type="button" class="eod-btn" onclick="window._eodWorkSheet()">+ Log work</button></header>
-      ${s.work.length ? `<ul class="eod-list">${s.work.map((w, i) => `<li>
-        <div class="eod-li-main"><b>${esc(w.code)}</b> ${esc(w.description || bq[w.code]?.description || '')}<small>📍 ${esc(w.location || 'General')}</small></div>
-        <div class="eod-li-r"><b>${(Math.round(N(w.qty) * 1000) / 1000).toLocaleString('en-IN')} ${esc(w.uom || bq[w.code]?.uom || '')}</b><span class="eod-tag ${w.gangId ? 'sub' : ''}">${esc(w.doneBy)}</span></div>
-        <button type="button" class="eod-x" aria-label="Remove ${esc(w.code)}" onclick="window._eodWorkDel('${w.dprId}', ${i})">✕</button></li>`).join('')}</ul>`
-        : `<div class="eod-empty"><b>Nothing logged yet</b><span>Log what was built today and who built it — it flows to measurement, RA bills and sub contractor bills.</span></div>`}
-    </section>
-    <section class="eod-card">
-      <header><b>Site notes</b>${d ? `<button type="button" class="eod-link" onclick="window._exDprForm('${d.id}')">Open full DPR</button>` : ''}</header>
-      <div class="eod-chips">${weather.map(w => `<button type="button" class="eod-chip${d?.weather === w ? ' on' : ''}" onclick="window._eodNote('weather', '${w}')">${w}</button>`).join('')}</div>
-      <label class="eod-field">Hindrances / delays<input value="${esc(d?.hindrance || '')}" placeholder="e.g. Rain stopped work 2–4 pm; RMC late" onchange="window._eodNote('hindrance', this.value)"></label>
-      <label class="eod-field">Work summary<textarea rows="2" placeholder="One line for the client report" onchange="window._eodNote('workDone', this.value)">${esc(d?.workDone || '')}</textarea></label>
-    </section>`;
+  const notes = `<div class="eod-chips">${weather.map(x => `<button type="button" class="eod-chip${d?.weather === x ? ' on' : ''}" onclick="window._eodNote('weather', '${x}')"${ro}>${x}</button>`).join('')}</div>
+    <label class="eod-field">Hindrances / delays<input value="${esc(d?.hindrance || '')}" placeholder="e.g. Rain stopped work 2–4 pm; RMC late" onchange="window._eodNote('hindrance', this.value)"${ro}></label>
+    <label class="eod-field">General remarks<textarea rows="2" placeholder="One line for the client report" onchange="window._eodNote('workDone', this.value)"${ro}>${esc(d?.workDone || '')}</textarea></label>`;
+
+  const steps = [
+    _step(1, w.headcount > 0, 'Labour', w.headcount ? `${w.headcount} on site · synced from attendance` : 'Waiting for attendance', labour),
+    _step(2, r.groups.length > 0, 'BOQ measurements', r.groups.length ? `${r.groups.length} item${r.groups.length === 1 ? '' : 's'} measured` : 'Nothing measured yet', boq),
+    _step(3, r.nonBoq.length > 0, 'Non-BOQ work', r.nonBoq.length ? `${r.nonBoq.length} entr${r.nonBoq.length === 1 ? 'y' : 'ies'}` : 'Optional', nonBoq),
+    _step(4, r.equipment.length > 0, 'Equipment', r.equipment.length ? `${r.equipment.length} machine${r.equipment.length === 1 ? '' : 's'}${r.equipHours ? ` · ${fq(r.equipHours)} h` : ''} · from Equipment logs` : 'Optional', equip),
+    _step(5, !!(d?.weather || d?.workDone || d?.hindrance), 'Site weather & remarks', d?.weather || 'Optional', notes,
+      d ? `<button type="button" class="eod-link" onclick="window._exDprForm('${d.id}')">Full DPR</button>` : ''),
+  ].join('');
+
+  const foot = lock
+    ? `<section class="eod-done-card"><span aria-hidden="true">🔒</span><div><b>Daily report submitted</b><small>${esc([sub.by, when].filter(Boolean).join(' · '))}${sub.by || when ? ' — ' : ''}this day's record is locked.</small></div>
+        ${_isAdmin() ? '<button type="button" class="eod-btn ghost" onclick="window._eodReopen()">Reopen</button>' : ''}</section>`
+    : `<div class="eod-swipe" id="eodSwipe"><span class="eod-swipe-t">Slide to submit daily report</span>
+        <button type="button" class="eod-swipe-k" aria-label="Submit daily report" onclick="window._eodSubmit()" onpointerdown="window._eodSwipeStart(event)">➜</button></div>
+        <p class="eod-hint" style="text-align:center">Submitting locks the day's DPR. Labour and equipment stay live in their own modules.</p>`;
+  setTimeout(_paintNbPhotos, 0);
+  return `${lock ? `<div class="eod-lockbar">🔒 Submitted${sub.by ? ' by ' + esc(sub.by) : ''}${when ? ' · ' + esc(when) : ''}</div>` : ''}${steps}${foot}`;
+}
+async function _paintNbPhotos() {
+  for (const el of document.querySelectorAll('.eod-nb-ph[data-path],.eod-nb-ph[data-b64]')) {
+    if (el.dataset.done) continue; el.dataset.done = '1';
+    const src = el.dataset.b64 || (el.dataset.path ? await signedExecUrl(el.dataset.path).catch(() => '') : '');
+    if (src) el.innerHTML = `<img src="${esc(src)}" alt="Work photo">`;
+  }
 }
 /** The day's DPR, created on first use (same numbering as the DPR form). */
 function _dayDpr(create) {
@@ -103,19 +168,24 @@ function _resync(d) {
   window.prSyncDprLogs?.(d.id, d.date, d.measurements || []);
   if (typeof window.mpRecordWork !== 'function') return;
   window.mpClearDpr?.(d.id);
-  const byLoc = {};
+  const byLoc = {}, oh = d.overheads || [];
   (d.measurements || []).forEach(m => { (byLoc[m.location] = byLoc[m.location] || []).push(m); });
-  Object.keys(byLoc).forEach(loc => window.mpRecordWork({ date: d.date, locationId: loc, locationLabel: loc, items: byLoc[loc], overheads: [], src: 'dpr', dprId: d.id }));
+  const ohLoc = (d.area || Object.keys(byLoc)[0] || 'General').trim() || 'General';
+  Object.keys(byLoc).forEach(loc => window.mpRecordWork({ date: d.date, locationId: loc, locationLabel: loc, items: byLoc[loc], overheads: loc === ohLoc ? oh : [], src: 'dpr', dprId: d.id }));
+  if (oh.length && !byLoc[ohLoc]) window.mpRecordWork({ date: d.date, locationId: ohLoc, locationLabel: ohLoc, items: [], overheads: oh, src: 'dpr', dprId: d.id });
 }
-window._eodNote = (k, v) => { const d = _dayDpr(true); d[k] = d[k] === v && k === 'weather' ? '' : v; saveAllData(); _re(); };
+window._eodNote = (k, v) => { if (_guard()) return; const d = _dayDpr(true); d[k] = d[k] === v && k === 'weather' ? '' : v; saveAllData(); _re(); };
 window._eodWorkSheet = function () {
+  if (_guard()) return;
   const boq = boqItems();
   if (!boq.length) { showToast('This project has no BOQ yet — add the BOQ first', 'error'); return; }
   const locs = typeof window.mpProjectLocations === 'function' ? window.mpProjectLocations() : [];
   _sheet('Log work', `
     <label class="eod-field">BOQ item<select id="ewBoq" onchange="document.getElementById('ewUom').textContent=this.selectedOptions[0]?.dataset.uom||''"><option value="">— Pick the item —</option>${boq.map(b => `<option value="${esc(b.code)}" data-uom="${esc(b.uom)}">${esc(b.code)} — ${esc(b.description)}</option>`).join('')}</select></label>
+    <div class="eod-sec">Measure <span class="eod-sec-n">optional — fills the quantity</span></div>
+    <div class="eod-dims">${['Nos', 'L', 'B', 'H'].map(k => `<label>${k}<input id="ewD${k}" type="number" inputmode="decimal" min="0" step="any" oninput="window._eodDims()"></label>`).join('')}</div>
     <div class="eod-row2">
-      <label class="eod-field">Quantity<span class="eod-qty"><input id="ewQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0"><em id="ewUom"></em></span></label>
+      <label class="eod-field">Quantity<span class="eod-qty"><input id="ewQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0" oninput="this.dataset.typed=1"><em id="ewUom"></em></span></label>
       <label class="eod-field">Location<input id="ewLoc" list="ewLocs" placeholder="e.g. Tower B, 3rd floor"><datalist id="ewLocs">${locs.map(l => `<option value="${esc(l.label)}">`).join('')}</datalist></label>
     </div>
     <label class="eod-field">Who executed this work?<select id="ewGang">${window.prGangOptions ? window.prGangOptions('') : '<option value="">Own labour</option>'}</select></label>
@@ -128,15 +198,126 @@ window._eodWorkSave = function () {
   const b = boqItems().find(x => x.code === code) || {};
   const d = _dayDpr(true);
   if (!d.measurements) d.measurements = [];
-  d.measurements.push({ location: (document.getElementById('ewLoc')?.value || '').trim() || 'General', code, description: b.description, uom: b.uom, rate: b.rate, qty, gangId: document.getElementById('ewGang')?.value || '', isNonBoq: false });
+  const dv = k => document.getElementById('ewD' + k)?.value || '';
+  d.measurements.push({ location: (document.getElementById('ewLoc')?.value || '').trim() || 'General', code, description: b.description, uom: b.uom, rate: b.rate, qty, nos: dv('Nos'), l: dv('L'), b: dv('B'), h: dv('H'), gangId: document.getElementById('ewGang')?.value || '', isNonBoq: false });
   _resync(d); saveAllData(); _closeSheet(); showToast(`Logged ${qty} ${b.uom || ''} of ${code}`, 'success'); _re();
 };
 window._eodWorkDel = function (dprId, i) {
+  if (_guard()) return;
   const s = daySummary(state, pid(), _date), w = s.work[i]; if (!w) return;
   const d = arr('dailyProgress').find(x => x.id === dprId); if (!d) return;
   const k = (d.measurements || []).findIndex(m => m.code === w.code && N(m.qty) === N(w.qty) && (m.location || '') === (w.location || '') && (m.gangId || '') === (w.gangId || ''));
   if (k < 0 || !confirm(`Remove ${w.code} · ${w.qty} ${w.uom || ''}?`)) return;
   d.measurements.splice(k, 1); _resync(d); saveAllData(); _re();
+};
+
+/** Quantity = Nos × L × B × H of whatever is filled, unless the quantity was typed by hand. */
+window._eodDims = function () {
+  const q = document.getElementById('ewQty'); if (!q || q.dataset.typed) return;
+  const v = ['Nos', 'L', 'B', 'H'].map(k => N(document.getElementById('ewD' + k)?.value)).filter(x => x > 0);
+  q.value = v.length ? String(Math.round(v.reduce((a, b) => a * b, 1) * 1000) / 1000) : '';
+};
+
+// Non-BOQ work → a DPR line flagged isNonBoq (same shape the DPR form writes), photo optional.
+window._eodNbSheet = function () {
+  if (_guard()) return;
+  const locs = typeof window.mpProjectLocations === 'function' ? window.mpProjectLocations() : [];
+  _sheet('Log non-BOQ work', `
+    <label class="eod-field">What was done?<input id="nbDesc" placeholder="e.g. Debris removal from Tower B" autocomplete="off"></label>
+    <div class="eod-sec">Unit</div>
+    <div class="eod-chips" id="nbUoms">${UOMS.map((u, i) => `<button type="button" class="eod-chip${i === 0 ? ' on' : ''}" data-u="${u}" onclick="document.querySelectorAll('#nbUoms .eod-chip').forEach(b=>b.classList.toggle('on',b===this))">${u}</button>`).join('')}</div>
+    <div class="eod-row2">
+      <label class="eod-field">Quantity<span class="eod-qty"><input id="nbQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></span></label>
+      <label class="eod-field">Location<input id="nbLoc" list="nbLocs" placeholder="Optional"><datalist id="nbLocs">${locs.map(l => `<option value="${esc(l.label)}">`).join('')}</datalist></label>
+    </div>
+    <label class="eod-field">Who did it?<select id="nbGang">${window.prGangOptions ? window.prGangOptions('') : '<option value="">Own labour</option>'}</select></label>
+    ${_photoField(1)}`, 'Save non-BOQ work', 'window._eodNbSave()');
+  setTimeout(() => document.getElementById('nbDesc')?.focus(), 50);
+};
+window._eodNbSave = function () {
+  const desc = (document.getElementById('nbDesc')?.value || '').trim(), qty = N(document.getElementById('nbQty')?.value);
+  const uom = document.querySelector('#nbUoms .eod-chip.on')?.dataset.u || '';
+  if (!desc || !(qty > 0)) { showToast('Describe the work and enter the quantity', 'error'); return; }
+  if (_photos.some(p => p.uploading)) { showToast('Photo still uploading — one moment', 'info'); return; }
+  const d = _dayDpr(true); if (!d.measurements) d.measurements = [];
+  const ph = _photos[0];
+  d.measurements.push({ location: (document.getElementById('nbLoc')?.value || '').trim() || 'General', code: 'NB:' + desc, description: desc, uom, rate: 0, qty, gangId: document.getElementById('nbGang')?.value || '', isNonBoq: true, ...(ph?.path ? { photoPath: ph.path } : ph?.b64 ? { photo: ph.b64 } : {}) });
+  _resync(d); saveAllData(); _closeSheet(); showToast(`Logged ${qty} ${uom} — ${desc}`, 'success'); _re();
+};
+
+// Equipment usage → saved to the master Equipment logs (meter + service due), so every module sees it.
+window._eodEqSheet = function () {
+  if (_guard()) return;
+  const list = (state.equipmentList || []).filter(e => !e.projectId || e.projectId === pid());
+  if (!list.length) { showToast('No equipment yet — add machines in Equipment first', 'error'); return; }
+  const ops = (state.labourMaster || []).filter(l => !l.siteId || l.siteId === pid());
+  _sheet('Log equipment usage', `
+    <label class="eod-field">Machine<select id="eqA" onchange="window._eodEqUnit()">${list.map(e => `<option value="${esc(e.id)}" data-unit="${esc(e.unit || 'HMR')}">${esc(e.name || e.code || 'Equipment')}${e.regNo ? ' · ' + esc(e.regNo) : ''}</option>`).join('')}</select></label>
+    <div class="eod-row2">
+      <label class="eod-field">Start<input id="eqS" type="time" oninput="window._eodEqCalc()"></label>
+      <label class="eod-field">Finish<input id="eqF" type="time" oninput="window._eodEqCalc()"></label>
+    </div>
+    <div class="eod-row2">
+      <label class="eod-field">Hours run<span class="eod-qty"><input id="eqH" type="number" inputmode="decimal" min="0" step="any" placeholder="0"><em>h</em></span></label>
+      <label class="eod-field" id="eqKmF">KM run<span class="eod-qty"><input id="eqK" type="number" inputmode="decimal" min="0" step="any" placeholder="0"><em>km</em></span></label>
+    </div>
+    <label class="eod-field">Operator<select id="eqO"><option value="">—</option>${ops.map(l => `<option value="${esc(l.id)}">${esc(l.name || '')}</option>`).join('')}</select></label>
+    <label class="eod-field">Note<input id="eqR" placeholder="Optional — e.g. excavation, Tower B"></label>
+    <p class="eod-hint">Saved to Equipment → Usage logs as well — the machine's meter moves forward.</p>`, 'Save usage', 'window._eodEqSave()');
+  window._eodEqUnit();
+};
+window._eodEqUnit = () => { const u = document.getElementById('eqA')?.selectedOptions[0]?.dataset.unit; const f = document.getElementById('eqKmF'); if (f) f.style.opacity = u === 'KM' ? '1' : '.55'; };
+window._eodEqCalc = function () {
+  const s = document.getElementById('eqS')?.value, f = document.getElementById('eqF')?.value; if (!s || !f) return;
+  const m = (t => t[0] * 60 + t[1]); let mins = m(f.split(':').map(Number)) - m(s.split(':').map(Number)); if (mins < 0) mins += 1440;
+  document.getElementById('eqH').value = Math.round(mins / 60 * 100) / 100;
+};
+window._eodEqSave = function () {
+  const v = id => document.getElementById(id)?.value || '';
+  if (typeof window.logEquipmentRun !== 'function') { showToast('Equipment module not loaded — refresh', 'error'); return; }
+  const log = window.logEquipmentRun({ assetId: v('eqA'), date: _date, hours: v('eqH'), km: v('eqK'), startTime: v('eqS'), finishTime: v('eqF'), operatorId: v('eqO'), remarks: v('eqR').trim(), projectId: pid(), src: 'dpr' });
+  if (!log) { showToast('Enter the hours or km run', 'error'); return; }
+  _closeSheet(); showToast('Equipment usage saved', 'success'); _re();
+};
+
+// Swipe-to-submit (the knob is also a plain button: tap / Enter submits after a confirm).
+window._eodSwipeStart = function (ev) {
+  const k = ev.currentTarget, bar = document.getElementById('eodSwipe'); if (!bar) return;
+  ev.preventDefault();
+  const x0 = ev.clientX, max = bar.clientWidth - k.offsetWidth - 8; let dx = 0;
+  k.setPointerCapture?.(ev.pointerId);
+  const mv = e => { dx = Math.max(0, Math.min(max, e.clientX - x0)); k.style.transform = `translateX(${dx}px)`; bar.style.setProperty('--p', (dx / max).toFixed(3)); };
+  const up = () => {
+    k.removeEventListener('pointermove', mv); k.removeEventListener('pointerup', up); k.removeEventListener('pointercancel', up);
+    if (dx >= max * 0.85) window._eodSubmit(true); else { k.style.transform = ''; bar.style.setProperty('--p', 0); }
+  };
+  k.addEventListener('pointermove', mv); k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+  k.onclick = null;   // a drag is not a tap
+  setTimeout(() => { k.onclick = () => window._eodSubmit(); }, 400);
+};
+window._eodSubmit = function (swiped) {
+  if (_guard()) return;
+  const s = daySummary(state, pid(), _date), r = s.report;
+  const gaps = [!s.workforce.headcount && 'no attendance', !r.groups.length && !r.nonBoq.length && 'no work measured'].filter(Boolean);
+  if (gaps.length && !confirm(`Submit with ${gaps.join(' and ')}?`)) { _re(); return; }
+  if (!swiped && !gaps.length && !confirm(`Submit the daily report for ${nice(_date)}? It will be locked.`)) return;
+  const d = _dayDpr(true), u = (() => { try { return getCurrentUser() || {}; } catch { return {}; } })(), w = s.workforce;
+  // Snapshot what was pulled in, so the DPR (and its PDF) keeps the day's picture.
+  d.eodSnapshot = { headcount: w.headcount, present: w.present, half: w.half, staff: w.staff, ot: w.ot,
+    equipment: r.equipment.map(m => ({ assetId: m.assetId, name: m.name, hours: m.hours, km: m.km, litres: m.litres })),
+    sheetLines: r.sheetLines.length, measuredItems: r.groups.length, nonBoq: r.nonBoq.length };
+  if (r.equipment.length) d.equipment = r.equipment.map(m => `${m.name}${m.hours ? ' ' + fq(m.hours) + 'h' : m.km ? ' ' + fq(m.km) + 'km' : ''}`).join(', ');
+  if (!N(d.manpowerSkilled) && !N(d.manpowerUnskilled)) d.manpowerUnskilled = w.present + w.half;
+  d.eodSubmitted = { at: new Date().toISOString(), by: u.name || u.email || '', uid: u.id || '' };
+  saveAllData(); showToast('Daily report submitted 🔒', 'success'); _re();
+  try { window.notifyOwners && window.notifyOwners({ type: 'dpr', title: 'Daily report submitted', body: `${proj().name || ''} · ${_date} · ${w.headcount} on site`, data: { view: 'executionView' } }); } catch {}
+};
+window._eodReopen = function () {
+  const d = _dayDpr(false); if (!d?.eodSubmitted) return;
+  if (!_isAdmin()) { showToast('Only an owner or admin can reopen a submitted day', 'error'); return; }
+  const why = prompt('Reason for reopening this day?'); if (!why || !why.trim()) return;
+  (d.eodReopened = d.eodReopened || []).push({ ...d.eodSubmitted, reopenedAt: new Date().toISOString(), reason: why.trim() });
+  delete d.eodSubmitted; saveAllData(); showToast('Day reopened for edits', 'success'); _re();
 };
 
 // ── Concrete pour cards ──────────────────────────────────────────────────────
