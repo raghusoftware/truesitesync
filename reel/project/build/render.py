@@ -272,10 +272,11 @@ def laptop_frame(A, scroll):
     return cover(out)
 
 def scene1(A, t, cv):
-    z = 1.0 + 0.28 * ease(t / 4.4)
+    vid = A['s1'].is_video
+    z = (1.03 + 0.06 * ease(t / 4.4)) if vid else (1.0 + 0.28 * ease(t / 4.4))
     shake = max(0, 1 - t / 4.8) * 9
     dx, dy = shake * math.sin(t * 37), shake * math.cos(t * 29)
-    fr = zoom(A['s1'].frame(t), z, 0.5, 0.33, dx, dy)
+    fr = zoom(A['s1'].frame(t), z, 0.5, 0.4 if vid else 0.33, dx, dy)
     return grade(fr, -0.9)
 
 def scene1_gfx(t, cv):
@@ -288,13 +289,14 @@ def scene1_gfx(t, cv):
     s, a = pop(t, 3.0)
     if a:
         red = t > 3.35
-        im = text_img('Profit = ', 92)
+        im = text_img('Profit =', 92)
         q = text_img('???', 104, color=RED if red else (255, 255, 255))
         sh = 9 * math.sin(t * 60) if red else 0
-        total = im.width + q.width
+        iw, qw = im.width - 40, q.width - 40
+        total = iw + qw + 10
         x0 = CX - total * s / 2
-        place(cv, im, x0 + im.width * s / 2, y + 20, s, a)
-        place(cv, q, x0 + im.width * s + q.width * s / 2 + sh, y + 20 + sh * 0.4, s * (1 + 0.06 * red), a, rot=sh * 0.6)
+        place(cv, im, x0 + iw * s / 2, y + 20, s, a)
+        place(cv, q, x0 + (iw + 10) * s + qw * s / 2 + sh, y + 20 + sh * 0.4, s * (1 + 0.06 * red), a, rot=sh * 0.6)
 
 def scene2(A, t, cv):
     scroll = 260 * t + 140 * t * t
@@ -560,11 +562,12 @@ def draw_captions(groups, t, cv):
                 toks.append((im, sc))
             if not toks:
                 return
-            total = sum(im.width * 0.92 for im, _ in toks)
+            GAP, PAD = 20, 40
+            total = sum(im.width - PAD for im, _ in toks) + GAP * (len(toks) - 1)
             x = CX - total / 2
             for im, sc in toks:
-                place(cv, im, x + im.width * 0.46, 1405, sc)
-                x += im.width * 0.92
+                place(cv, im, x + (im.width - PAD) / 2, 1405, sc)
+                x += im.width - PAD + GAP
             return
 
 # ---------------------------------------------------------------- main
