@@ -1,0 +1,9 @@
+# personal reference photos and large intermediates (regenerable)
+project/refs/
+project/build/*.mp4
+project/build/check_*.jpg
+project/build/__pycache__/
+project/keyframes/*.png
+project/audio/vo_tight.wav
+project/audio/vo_arjun.wav
+project/audio/test_edge.mp3

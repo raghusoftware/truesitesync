@@ -1,0 +1,13 @@
+Project complete ho gaya. Client ne full payment de diya. Phir bhi bank balance kam kyun hai?
+
+Most contractors think Excel is enough to track project expenses.
+
+But Excel doesn't know what happened on site today. Diesel issued, cement used, extra labour called... sab kuch WhatsApp aur register mein bikhra hai.
+
+So your Excel shows what someone entered last week. Not what's actually being spent today.
+
+The better way? Connect labour, material, purchases, and billing to each project, so costs update as work happens.
+
+Then you can check mid-project: is this site making money or not? And fix it before it's too late.
+
+That's how True Site Sync works. Link in bio to see a demo.
