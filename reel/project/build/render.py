@@ -428,7 +428,7 @@ def scene5_gfx(A, t, cv):
         ox, oy = x - card.width * z / 2, 1010 - card.height * z / 2
         sc = card.width * z / 1080
         glow_box(cv, (ox + 15 * sc, oy + 15 * sc, ox + 530 * sc, oy + 310 * sc), lt, 0.6)
-        place(cv, text_img('Labour 👷', 50), phone_cx, 1450, *[v for v in pop(lt, 0.3)])
+        place(cv, text_img('Labour 👷', 50), phone_cx, 525, *[v for v in pop(lt, 0.3)])
     else:
         lt = t - 4.2
         k = ease(lt / 0.4)
@@ -440,7 +440,7 @@ def scene5_gfx(A, t, cv):
         place(cv, im, x, y, 1, 1)
         ox, oy = x - im.width / 2, y - im.height / 2
         glow_box(cv, (ox + 18 * sc, oy + 160 * sc, ox + 628 * sc, oy + 275 * sc), lt, 0.6)
-        place(cv, text_img('Material · Diesel · Purchases', 44), phone_cx, 1450, *[v for v in pop(lt, 0.3)])
+        place(cv, text_img('Material · Diesel · Purchases', 44), phone_cx, 525, *[v for v in pop(lt, 0.3)])
 
 S6A = 2.6
 
@@ -564,10 +564,12 @@ def draw_captions(groups, t, cv):
                 return
             GAP, PAD = 20, 40
             total = sum(im.width - PAD for im, _ in toks) + GAP * (len(toks) - 1)
-            x = CX - total / 2
+            maxw = SAFE_R - SAFE_L - 20
+            f = min(1.0, maxw / total)
+            x = CX - total * f / 2
             for im, sc in toks:
-                place(cv, im, x + (im.width - PAD) / 2, 1405, sc)
-                x += im.width - PAD + GAP
+                place(cv, im, x + (im.width - PAD) * f / 2, 1405, sc * f)
+                x += (im.width - PAD + GAP) * f
             return
 
 # ---------------------------------------------------------------- main
@@ -576,7 +578,7 @@ def main(only=None):
     groups = load_captions()
     enc = lambda out: subprocess.Popen(
         ['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
-         '-vf', 'noise=alls=7:allf=t', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', out],
+         '-vf', 'noise=alls=5:allf=t', '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-maxrate', '10M', '-bufsize', '20M', '-profile:v', 'high', '-r', '30', '-g', '60', '-pix_fmt', 'yuv420p', out],
         stdin=subprocess.PIPE)
     e1 = enc(p('build', 'video_captions.mp4'))
     e2 = enc(p('build', 'video_nocaptions.mp4'))
