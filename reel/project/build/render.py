@@ -417,8 +417,8 @@ def scene5_gfx(A, t, cv):
     elif t < 4.2:
         lt = t - 2.5
         k = ease(lt / 0.4)
-        card = A['labour'].crop((0, 0, 1080, 1180))
-        card = card.resize((760, int(1180 * 760 / 1080)), Image.LANCZOS)
+        card = A['labour'].crop((0, 0, 1080, 1000))
+        card = card.resize((720, int(1000 * 720 / 1080)), Image.LANCZOS)
         rc = Image.new('L', card.size, 0); ImageDraw.Draw(rc).rounded_rectangle((0, 0, card.width - 1, card.height - 1), radius=36, fill=255)
         card = card.convert('RGBA'); card.putalpha(rc)
         z = 1 + 0.06 * lt / 2
@@ -498,7 +498,7 @@ def scene7_gfx(A, t, cv):
     if t > 2.0:
         b = abs(math.sin((t - 2.0) * 5)) * 18 if t < 3.7 else 0
         s, a = pop(t, 2.0)
-        place(cv, text_img('Link in bio 👆', 54), CX, 1440 - b, s, a)
+        place(cv, text_img('Link in bio 👆', 54), CX, 1305 - b, s, a)
 
 SCENES = [  # (start, end, base, gfx, warm)
     (0, 4.8, scene1, lambda A, t, c: scene1_gfx(t, c)),
@@ -564,7 +564,7 @@ def draw_captions(groups, t, cv):
                 return
             GAP, PAD = 20, 40
             total = sum(im.width - PAD for im, _ in toks) + GAP * (len(toks) - 1)
-            maxw = SAFE_R - SAFE_L - 20
+            maxw = SAFE_R - SAFE_L - 90
             f = min(1.0, maxw / total)
             x = CX - total * f / 2
             for im, sc in toks:

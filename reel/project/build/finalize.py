@@ -24,9 +24,12 @@ def cover():
     R.place(cv, R.text_img('Profit = ', 120), R.CX - 150, 620)
     R.place(cv, R.text_img('???', 150, color=R.RED), R.CX + 245, 620, rot=-6)
     R.place(cv, R.text_img('Project done. Payment received.', 50), R.CX, 760)
-    logo = A['logo'].resize((150, 150), Image.LANCZOS)
-    R.place(cv, logo, R.CX - 170, 1380)
-    R.place(cv, R.text_img('True Site Sync', 54), R.CX + 60, 1380)
+    logo = A['logo'].resize((130, 130), Image.LANCZOS)
+    name = R.text_img('True Site Sync', 54)
+    tw = name.width - 40
+    left = R.CX - (130 + 16 + tw) / 2
+    R.place(cv, logo, left + 65, 1380)
+    R.place(cv, name, left + 130 + 16 + tw / 2, 1380)
     cv.convert('RGB').save(os.path.join(OUT, 'cover.jpg'), quality=92)
 
 def probe(f):
