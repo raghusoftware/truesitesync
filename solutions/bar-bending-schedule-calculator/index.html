@@ -169,6 +169,6 @@ function k(){const d=num('kDia');const L=num('kLen')-d*(num('k45')*num('d45')+nu
 document.getElementById('bAdd').addEventListener('click',()=>{const tb=document.querySelector('#bTbl tbody');const tr=tb.rows[tb.rows.length-1].cloneNode(true);tr.querySelectorAll('input')[0].value='New';tb.appendChild(tr);c();});
 document.getElementById('bTbl').addEventListener('input',c);document.getElementById('bTbl').addEventListener('change',c);
 ['kDia','kLen','k45','k90','k135','kHook','d45','d90','d135','dHook'].forEach(i=>document.getElementById(i).addEventListener('input',k));c();k();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

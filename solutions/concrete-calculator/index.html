@@ -129,6 +129,6 @@
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;const f2=n=>n.toLocaleString('en-IN',{maximumFractionDigits:2});function c(){const V=num('qL')*num('qB')*num('qD')*(1+num('qW')/100);const p=document.getElementById('qG').value.split(',').map(Number);const s=p[0]+p[1]+p[2];const dry=V*num('qF');const cm=dry*p[0]/s,sd=dry*p[1]/s,ag=dry*p[2]/s;const kgc=cm*1440;document.getElementById('qOut').innerHTML='Concrete volume (incl. wastage): '+f2(V)+' m³<br>Cement: <b>'+f2(kgc/50)+' bags</b> ('+Math.round(kgc).toLocaleString('en-IN')+' kg)<br>Sand: <b>'+f2(sd)+' m³</b> ('+f2(sd*35.3147)+' cft, '+f2(sd*35.3147/100)+' brass)<br>Aggregate: <b>'+f2(ag)+' m³</b> ('+f2(ag*35.3147)+' cft, '+f2(ag*35.3147/100)+' brass)';}['qL','qB','qD','qG','qF','qW'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

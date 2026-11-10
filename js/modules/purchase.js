@@ -15,6 +15,7 @@ import { computePurchaseTotal } from './purchaseCalc.js';
 import { materialUnitOptions, toBaseQty } from './units.js';
 import { groupByMonth } from './pendingGroups.js?v=1.0.0';
 import { pendingMonthsHTML, mountTaxScope, autoTaxScope, syncTaxScopeFromLines } from './billPickers.js?v=1.0.1';
+import { txCard, txMount } from './txList.js?v=1.0.0';
 
 /** Display a stored ISO date (yyyy-mm-dd) as dd/mm/yyyy. */
 function _purFmtDate(iso) {
@@ -72,37 +73,28 @@ export function renderPurchaseLedger() {
   filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const tbody = document.getElementById('plTableBody');
-  tbody.innerHTML = '';
   let kpiTotal = 0, kpiPaid = 0, kpiOut = 0;
   const allLocs = getAllLocations();
-
   const sym = getCurrencySymbol();
   const nf = v => (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const today = new Date().toISOString().split('T')[0];
   let kpiOverdue = 0;
-  let rowsHtml = '';
-  filtered.forEach((b, i) => {
+  const cards = filtered.map(b => {
     const v = state.vendors.find(x => x.id === b.vendorId);
     const site = allLocs.find(x => x.id === b.siteId);
     kpiTotal += b.totalAmount; kpiPaid += b.paidAmt; kpiOut += b.outstanding;
     const isOverdue = (b.outstanding > 0) && b.dueDate && b.dueDate < today;
     if (isOverdue) kpiOverdue += b.outstanding;
-    const pill = b.status === 'Paid' ? '<span class="lx-pill paid">Paid</span>'
-      : (b.status === 'Partial' ? '<span class="lx-pill partial">Partial</span>' : '<span class="lx-pill pending">Unpaid</span>');
-    const nm = v?.name || 'Unknown';
-    rowsHtml += `<tr style="animation-delay:${Math.min(i * 28, 320)}ms">
-      <td style="color:var(--lx-muted)">${_lxDate(b.date)}</td>
-      <td><span class="doc-no">${b.billNo}</span>${window.attributionHTML(b, 'Created')}</td>
-      <td><span class="lx-party"><span class="lx-av" style="background:${_lxAv(nm)}">${_lxInit(nm)}</span><span style="font-weight:650">${nm}</span></span></td>
-      <td style="color:var(--lx-muted)">${site?.name || '—'}</td>
-      <td class="num" style="font-weight:750">${sym}${nf(b.totalAmount)}</td>
-      <td class="num" style="${b.outstanding > 0 ? 'color:var(--lx-bad);font-weight:800' : 'color:var(--lx-faint)'}">${sym}${nf(b.outstanding)}</td>
-      <td style="color:${isOverdue ? 'var(--lx-bad);font-weight:700' : 'var(--lx-muted)'}">${b.dueDate ? _lxDate(b.dueDate) : '—'}</td>
-      <td style="text-align:center">${pill}</td>
-      <td style="text-align:center"><div class="lx-act"><button onclick="viewPurchaseBill('${b.id}')" class="lx-btn view">View</button><button onclick="openPurchaseFormPanel('${b.id}')" class="lx-btn edit">Edit</button><button onclick="deletePurchaseBill('${b.id}')" class="lx-btn del">Del</button></div></td>
-    </tr>`;
-  });
-  tbody.innerHTML = rowsHtml || `<tr><td colspan="9" style="padding:44px;text-align:center;color:var(--lx-faint);font-weight:600">No purchases match your filters.</td></tr>`;
+    return txCard({
+      id: b.id, no: b.billNo || 'Bill', date: b.date, party: v?.name || 'Unknown supplier',
+      sub: [site?.name, b.dueDate ? (isOverdue ? 'Overdue since ' : 'Due ') + _lxDate(b.dueDate) : ''].filter(Boolean).join(' · '),
+      amount: sym + nf(b.totalAmount), badge: isOverdue ? 'Overdue' : b.status,
+      amountSub: b.outstanding > 0 && b.status !== 'Unpaid' ? `${sym}${nf(b.outstanding)} due` : '',
+      tap: `window._pbMenu('${b.id}')`, menu: `window._pbMenu('${b.id}')`,
+    });
+  }).join('');
+  txMount(tbody, cards, { empty: bills.length ? 'No purchases match your filters' : 'No purchase bills yet',
+    summary: `<span>${filtered.length} bill${filtered.length === 1 ? '' : 's'}</span><span>Total <b>${sym}${nf(kpiTotal)}</b> · Payable <b>${sym}${nf(kpiOut)}</b></span>` });
   document.getElementById('plKpiTotal').textContent = sym + nf(kpiTotal);
   document.getElementById('plKpiPaid').textContent = sym + nf(kpiPaid);
   document.getElementById('plKpiOutstanding').textContent = sym + nf(kpiOut);
@@ -113,6 +105,15 @@ export function renderPurchaseLedger() {
   setSub('plKpiPaidSub', pct + '% settled');
   setSub('plKpiOutstandingSub', (100 - pct) + '% payable');
 }
+
+window._pbMenu = function (id) {
+  const b = (state.vendorMaterials || []).find(x => x.id === id); if (!b) return;
+  window.shellSheet?.(b.billNo || 'Purchase bill', [
+    { icon: '👁', title: 'View', run: () => window.viewPurchaseBill?.(id) },
+    { icon: '✏️', title: 'Edit', run: () => window.openPurchaseFormPanel?.(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => window.deletePurchaseBill?.(id) },
+  ]);
+};
 
 export function clearPurchaseLedgerFilters() {
   ['plSearch', 'plFilterVendor', 'plFilterSite', 'plFilterStatus', 'plFromDate', 'plToDate'].forEach(id => {
@@ -272,6 +273,8 @@ export function openPurchaseFormPanel(editId) {
   const siteSel = document.getElementById('plFormSite');
   siteSel.innerHTML = '<option value="">-- Select Site / Location --</option>';
   getAllLocations().forEach(l => siteSel.innerHTML += `<option value="${l.id}">${l.name}</option>`);
+  // The Pending GRNs list follows the site: pick one → only GRNs received there.
+  siteSel.onchange = () => { window._purRefreshGrnPicker && window._purRefreshGrnPicker(); };
 
   const existing = editId ? (state.vendorMaterials || []).find(m => m.id === editId) : null;
   const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
@@ -433,17 +436,35 @@ function _pendingGrnsForVendor(vendorId) {
   );
 }
 
-/** Render the "Pending GRNs" picker for the currently selected vendor. */
+const _escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/** Render the "Pending GRNs" picker for the currently selected vendor (and site, if one is picked). */
 window._purRefreshGrnPicker = function() {
   const section = document.getElementById('plFormGrnSection');
   const list = document.getElementById('plFormGrnList');
   const countEl = document.getElementById('plFormGrnCount');
   if (!section || !list) return;
   const vendorId = document.getElementById('plFormVendor')?.value || '';
-  const pending = vendorId ? _pendingGrnsForVendor(vendorId) : [];
-  if (!pending.length) { section.classList.add('hidden'); list.innerHTML = ''; if (countEl) countEl.textContent = ''; return; }
+  const siteId = document.getElementById('plFormSite')?.value || '';
+  const all = vendorId ? _pendingGrnsForVendor(vendorId) : [];
+  // Ticks the user already made survive a re-render, as long as the GRN is still listed.
+  const ticked = new Set([...list.querySelectorAll('.pur-grn-chk:checked')].map(c => c.value));
+  if (!all.length) { section.classList.add('hidden'); list.innerHTML = ''; if (countEl) countEl.textContent = ''; return; }
   section.classList.remove('hidden');
-  if (countEl) countEl.textContent = `${pending.length} pending`;
+  // Site chosen → only GRNs received at that site; no site → every site, each row labelled.
+  const pending = siteId ? all.filter(g => g.siteId === siteId) : all;
+  const dropped = [...ticked].filter(id => !pending.some(g => g.id === id)).length;
+  if (dropped) showToast(`${dropped} ticked GRN${dropped > 1 ? 's were' : ' was'} from another site — cleared`, 'info');
+  const siteName = id => { const l = getAllLocations().find(x => x.id === id); return l ? (l.projectName || l.name) : ''; };
+  if (countEl) countEl.textContent = siteId ? `${pending.length} of ${all.length} pending · ${siteName(siteId) || 'this site'}` : `${all.length} pending · all sites`;
+  if (!pending.length) {
+    list.innerHTML = `<div class="pg-empty" role="status">
+      <span class="pg-empty-ic" aria-hidden="true">📭</span>
+      <b>No pending GRNs for ${_escH(siteName(siteId) || 'this location')}</b>
+      <small>This supplier has ${all.length} unbilled GRN${all.length > 1 ? 's' : ''} at other sites.</small>
+      <button type="button" class="pg-empty-btn" onclick="document.getElementById('plFormSite').value='';window._purRefreshGrnPicker()">Show all sites</button>
+    </div>`;
+    return;
+  }
   const cur = getCurrencySymbol();
   const money = n => cur + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const amtOf = g => g.amount || (g.qty * (g.rate || 0));
@@ -452,10 +473,11 @@ window._purRefreshGrnPicker = function() {
     selectable: true, money, sum: amtOf,
     rowHTML: g => {
       const m = (state.rawMaterials || []).find(r => r.id === g.matId);
+      const where = !siteId && g.siteId ? ` · 📍 ${_escH(siteName(g.siteId))}` : '';
       return `<label class="pg-row">
-        <input type="checkbox" class="pur-grn-chk" value="${g.id}">
+        <input type="checkbox" class="pur-grn-chk" value="${g.id}" ${ticked.has(g.id) ? 'checked' : ''}>
         <span class="pg-date">${_purFmtDate(g.date) || '—'}</span>
-        <span class="pg-main"><b>${m ? m.name : (g.category || 'Material')}</b><small><span class="pg-no">${g.grnNo || '—'}</span> · ${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}</small></span>
+        <span class="pg-main"><b>${m ? m.name : (g.category || 'Material')}</b><small><span class="pg-no">${g.grnNo || '—'}</span> · ${g.qty} ${m?.unit || ''} × ${cur}${(g.rate || 0).toLocaleString('en-IN')}${where}</small></span>
         <span class="pg-amt">${money(amtOf(g))}</span>
       </label>`;
     },
@@ -485,6 +507,8 @@ window._purAddSelectedGrns = function() {
   // Default the bill's site to the GRN's site if none chosen yet.
   const siteSel = document.getElementById('plFormSite');
   if (siteSel && !siteSel.value && firstSite) siteSel.value = firstSite;
+  const sites = new Set(checked.map(gid => (state.grnRecords || []).find(x => x.id === gid)?.siteId).filter(Boolean));
+  if (sites.size > 1) showToast('These GRNs were received at different sites — the bill is booked to one site. Check the Location.', 'warning');
   // Auto-fill the bill's Purchase Order from the selected GRN (if it carried one
   // and the user hasn't already picked a PO). Otherwise they can pick one below.
   const poSel = document.getElementById('plFormPO');
@@ -621,8 +645,19 @@ export function savePanelPurchaseBill() {
 
   const poId = document.getElementById('plFormPO')?.value || '';
   const poNo = (state.purchaseOrders || []).find(o => o.id === poId)?.poNo || '';
+  // Projected settlement date from the vendor's terms (Net days from the bill, or from
+  // the earliest linked GRN when the vendor's terms start at delivery). Cash Flow reads it.
+  const _v = (state.vendors || []).find(v => v.id === vendorId) || {};
+  const _days = _v.paymentTermsDays != null && _v.paymentTermsDays !== '' ? +_v.paymentTermsDays : (+state.cashFlowSettings?.creditDays || 30);
+  const _grnDates = purItems.map(it => it.grnId && (state.grnRecords || []).find(g => g.id === it.grnId)?.date).filter(Boolean).sort();
+  const _basis = _v.termsBasis === 'delivery' && _grnDates.length ? _grnDates[0] : date;
+  const _due = new Date(_basis + 'T00:00:00Z');
+  // Weekly suppliers are paid on their pay day (Saturday unless set) on or after the bill.
+  if (_v.termsType === 'weekly') _due.setUTCDate(_due.getUTCDate() + ((+(_v.payWeekday ?? 6) - _due.getUTCDay() + 7) % 7));
+  else _due.setUTCDate(_due.getUTCDate() + _days);
   const rec = {
     id: billId, vendorId, siteId, billNo, date, poId, poNo, items: purItems,
+    dueDate: isNaN(_due) ? '' : _due.toISOString().slice(0, 10), termsDays: _days,
     grossTotal: Math.round(gross * 100) / 100, totalDiscount: Math.round(discount * 100) / 100,
     taxableAmount: Math.round(taxable * 100) / 100, cgst: Math.round(cgst * 100) / 100,
     sgst: Math.round(sgst * 100) / 100, igst: Math.round(igst * 100) / 100,

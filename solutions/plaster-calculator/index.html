@@ -124,6 +124,6 @@
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;const f2=n=>n.toLocaleString('en-IN',{maximumFractionDigits:2});function c(){const A=num('pA')*(+document.getElementById('pU').value);const t=(+document.getElementById('pT').value)/1000;const r=+document.getElementById('pM').value;const wet=A*t;const w2=wet*(1+num('pX')/100)*(1+num('pW')/100);const dry=w2*num('pF');const cm=dry/(1+r),sd=dry*r/(1+r);const kgc=cm*1440;document.getElementById('pOut').innerHTML='Area: '+f2(A)+' m² · wet mortar '+f2(wet)+' m³ → '+f2(w2)+' m³ with allowances → '+f2(dry)+' m³ dry<br>Cement: <b>'+f2(kgc/50)+' bags</b> ('+Math.round(kgc).toLocaleString('en-IN')+' kg)<br>Sand: <b>'+f2(sd)+' m³</b> ('+f2(sd*35.3147)+' cft)';}['pA','pU','pT','pM','pX','pF','pW'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

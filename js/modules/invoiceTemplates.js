@@ -138,23 +138,43 @@ function _newDoc(fonts) {
 }
 
 // ── Public dispatch ─────────────────────────────────────────────────────────
-export async function renderStyledInvoice(inv, styleKey) {
+/** @param {{ title?:string, filePrefix?:string, hideReceived?:boolean }} [opts]  e.g. a Proforma Invoice */
+export async function renderStyledInvoice(inv, styleKey, opts = {}) {
   try {
     if (!window.jspdf || !window.jspdf.jsPDF) return showToast('PDF library not loaded — refresh', 'error');
     const key = resolveInvoiceDesign(styleKey);
     const d = _prep(inv);                              // read state before awaiting
+    d.meta.title = opts.title || 'Tax Invoice';
+    if (opts.hideReceived) d.showReceived = false;
     const fonts = await loadFontFiles(_FONTS);
     const { doc, F } = _newDoc(fonts);
     const sym = (state.currencySettings || {}).symbol || '₹';
     const cur = F.custom ? sym : (sym === '₹' ? 'Rs.' : sym);
     const ctx = { doc, d, F, cur, m: (n) => cur + ' ' + _n2(n) };
     ({ grid: _grid, detailed: _detailed, compact: _compact })[key](ctx);
-    mobileSavePDF(doc, 'Tax_Invoice_' + (d.meta.no || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
-    showToast('Invoice PDF downloaded (' + invoiceDesignName(key) + ')');
+    if (inv.status === 'Cancelled') _cancelStamp(doc, F, inv);
+    mobileSavePDF(doc, (opts.filePrefix || 'Tax_Invoice_') + (d.meta.no || 'Invoice').replace(/[\\/]/g, '-') + '.pdf');
+    showToast(d.meta.title + ' PDF downloaded (' + invoiceDesignName(key) + ')');
   } catch (err) {
     console.error('Invoice PDF failed:', err);
     showToast('PDF error: ' + (err && err.message ? err.message : err), 'error');
   }
+}
+
+/** A cancelled invoice prints with a red CANCELLED stamp on every page (audit copy, not a demand). */
+function _cancelStamp(doc, F, inv) {
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) {
+    doc.setPage(p);
+    try { doc.saveGraphicsState(); doc.setGState(new doc.GState({ opacity: 0.16 })); } catch {}
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(84); doc.setTextColor(220, 38, 38);
+    doc.text('CANCELLED', pw / 2, ph / 2 + 12, { align: 'center', angle: 32 });
+    try { doc.restoreGraphicsState(); } catch {}
+    doc.setFont(F.sans, 'bold'); doc.setFontSize(8.5); doc.setTextColor(185, 28, 28);
+    const when = inv.cancelledAt ? String(inv.cancelledAt).slice(0, 10) : '';
+    doc.text(`CANCELLED${when ? ' on ' + when : ''}${inv.cancelledBy ? ' by ' + inv.cancelledBy : ''}${inv.cancelReason ? ' — ' + inv.cancelReason : ''}`.slice(0, 120), pw / 2, 7, { align: 'center' });
+  }
+  doc.setTextColor(0, 0, 0);
 }
 
 // ── Drawing helpers ─────────────────────────────────────────────────────────
@@ -234,7 +254,7 @@ function _itemRows(ctx, { unitCol, gstTwoLine }) {
 function _grid(ctx) {
   const { doc, d, F, m } = ctx;
   const INK = BLACK, RULE = GREY_RULE, fs = 7.2, lh = 3.75;
-  _text(doc, F, 'Tax Invoice', 106.2, 14.3, 9.8, true, INK, { align: 'center' });
+  _text(doc, F, d.meta.title || 'Tax Invoice', 106.2, 14.3, 9.8, true, INK, { align: 'center' });
 
   // ── Letterhead (left) + Invoice No./Date/Place/PO grid (right) ──
   let y = 16.2;
@@ -366,7 +386,7 @@ function _slate(ctx, compact) {
   const { doc, d, F, m } = ctx;
   const fs = compact ? 7.9 : 9.1, lh = compact ? 3.95 : 4.5;   // text sizes measured against the client templates
   const s = d.supplier, r = d.recipient;
-  _text(doc, F, 'Tax Invoice', 106.2, compact ? 17.0 : 17.9, compact ? 15.5 : 17, true, SLATE, { align: 'center' });
+  _text(doc, F, d.meta.title || 'Tax Invoice', 106.2, compact ? 17.0 : 17.9, compact ? 15.5 : 17, true, SLATE, { align: 'center' });
 
   // ── Letterhead ──
   let y = compact ? 21.7 : 23.0;

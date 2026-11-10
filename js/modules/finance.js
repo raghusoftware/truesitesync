@@ -432,6 +432,7 @@ function _getAccountBalance(accId) {
   const acc0 = state.accounts.find(a => a.id === accId);
   let bal = parseFloat(acc0?.openingBalance) || 0;
   state.paymentsIn.filter(p => p.accountId === accId).forEach(p => bal += (parseFloat(p.amount) || 0));
+  (state.otherIncome || []).filter(o => o.accountId === accId).forEach(o => bal += (parseFloat(o.amount) || 0));   // loans, capital, other receipts
   state.expenses.filter(e => e.accountId === accId).forEach(e => bal -= (parseFloat(e.amount) || 0));
   state.vendorPayments.filter(v => v.accountId === accId).forEach(v => bal -= (parseFloat(v.amount) || 0));
   state.labourPayments.filter(l => l.accountId === accId).forEach(l => bal -= (parseFloat(l.amount) || 0));

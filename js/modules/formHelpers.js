@@ -112,7 +112,7 @@ export function openFormModal(title, bodyHtml, opts = {}) {
       </div>
       <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #f1f5f9;flex-shrink:0;background:#fafbfc;">
         <button type="button" onclick="window.closeFormModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
-        ${opts.onSave ? `<button type="button" onclick="${opts.onSave}" style="border:none;background:linear-gradient(135deg,#ef8420,#d6402c);color:#fff;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(214,64,44,.22);">${opts.saveLabel || 'Save'}</button>` : ''}
+        ${opts.onSave ? `<button type="button" onclick="${opts.onSave}" style="border:none;background:${opts.danger ? '#dc2626' : 'linear-gradient(135deg,#ef8420,#d6402c)'};color:#fff;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(214,64,44,.22);">${opts.saveLabel || 'Save'}</button>` : ''}
       </div>
     </div>`;
   o.addEventListener('click', e => { if (e.target === o) closeFormModal(); });

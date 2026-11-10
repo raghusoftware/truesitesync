@@ -16,6 +16,8 @@ import { closeFullScreenForm, _openFullScreenForm, _populateVendorSelect, _popul
 import { calcQty, calcEstimateRow, calcEstimateTotal, calculateLiveBill, buildClientLedger, renderAccounts, renderReports, renderVendorLedger, renderMasterClientList, renderMasterVendorList } from './finance.js';
 import { renderAssetsView, renderEquipmentView } from './fleet.js';
 import { nextDocNo } from './docNumbering.js?v=1.0.0';
+import { rulesBlockHTML, readRules } from './billingRulesUI.js?v=1.0.1';
+import { rulesFor } from './billingRules.js?v=1.0.0';
 
 // ══════════════════════════════════════════
 // PROJECT MANAGEMENT
@@ -761,6 +763,17 @@ export function _projFormClientChanged() {
   const sel = document.getElementById('projFormClientSelect');
   const idEl = document.getElementById('projFormClientId');
   if (sel && idEl) idEl.value = sel.value || '';
+  _renderProjRules();
+}
+/** Project's Billing & compliance rules — blank fields inherit the selected client's rules. */
+let _projRulesVals = null;   // the project's own values while the form is open
+function _renderProjRules() {
+  const slot = document.getElementById('projRulesSlot'); if (!slot) return;
+  if (slot.firstElementChild && _projRulesVals) _projRulesVals = { ..._projRulesVals, ...(() => { const r = readRules('projForm'); return { terms: r.paymentTermsDays, tds: r.defaultTdsRate, ret: r.defaultRetentionRate }; })() };
+  const c = (state.clients || []).find(x => x.id === document.getElementById('projFormClientSelect')?.value) || null;
+  const v = _projRulesVals || {};
+  slot.innerHTML = rulesBlockHTML('projForm', { terms: v.terms ?? '', tds: v.tds ?? '', ret: v.ret ?? '',
+    inherit: c ? { from: c.name || 'Client', terms: c.paymentTermsDays, tds: c.defaultTdsRate, ret: c.defaultRetentionRate } : { from: 'Client' } });
 }
 
 export function openProjectForm(editId, presetClientId) {
@@ -793,6 +806,8 @@ export function openProjectForm(editId, presetClientId) {
     setVal('projFormClientGst', p.clientGst);
     setVal('projFormClientPan', p.clientPan);
     setVal('projFormClientAddr', p.clientAddress);
+    _projRulesVals = { terms: p.paymentTermsDays ?? '', tds: p.defaultTdsRate ?? '', ret: p.defaultRetentionRate ?? '' };
+    document.getElementById('projRulesSlot')?.replaceChildren();
     _populateProjFormClients(p.clientId);
     _populateProjFormTeam(p.teamMembers || []);
     // BOQ — multiple groups (WO/PO details stored per group)
@@ -838,6 +853,8 @@ export function openProjectForm(editId, presetClientId) {
     // Client
     ['projFormClient','projFormClientContact','projFormClientPhone','projFormClientEmail','projFormClientGst','projFormClientPan','projFormClientAddr'].forEach(id => setVal(id, ''));
     setVal('projFormClientId', '');
+    _projRulesVals = {};
+    document.getElementById('projRulesSlot')?.replaceChildren();
     _populateProjFormClients(presetClientId || '');
     _populateProjFormTeam([]);
     // BOQ — empty (WO/PO details stored per group)
@@ -892,6 +909,8 @@ export function saveProject() {
     // Computed totals from BOQ groups for backward compatibility
     budget: (() => { _saveActiveBoqGroupData(); return _boqGroups.reduce((s, g) => s + (g.poValue || 0), 0); })(),
     woNumber: (() => { _saveActiveBoqGroupData(); return _boqGroups.map(g => g.woNumber).filter(Boolean).join(', '); })(),
+    // Billing & compliance rules (null = inherit the client's): terms → cash flow, TDS, retention
+    ...(() => { const r = readRules('projForm'); return { paymentTermsDays: r.paymentTermsDays, defaultTdsRate: r.defaultTdsRate, defaultRetentionRate: r.defaultRetentionRate }; })(),
     // Team members allowed to access this project (rbac user ids; admins always have access)
     teamMembers: Array.from(document.querySelectorAll('#projFormTeamMembers .proj-team-chk:checked')).map(el => el.value)
   };
@@ -1424,7 +1443,7 @@ export function switchView(viewId) {
   if (viewId === 'creditBookView') window.renderCreditBook?.();
   if (viewId === 'projectsHome') renderProjectsHome();
   if (viewId === 'projectDashboard') renderProjectDashboard();
-  if (viewId === 'accountsManagerView') renderAccounts();
+  if (viewId === 'accountsManagerView') { renderAccounts(); window.renderBankCash?.(); }
   if (viewId === 'estimatesView') window.renderEstimatesList?.();
   if (viewId === 'savedSheets') window.renderSavedSheets?.();
   if (viewId === 'abstractsView') renderAbstractsList();
@@ -1695,21 +1714,39 @@ export function openVendorModal() {
   document.getElementById('modalVenName').value = '';
   document.getElementById('modalVenContact').value = '';
   document.getElementById('modalVenGST').value = '';
-  const vt = document.getElementById('modalVenTerms'); if (vt) vt.value = '';
+  const vt = document.getElementById('modalVenTerms'); if (vt) { vt.value = ''; window._syncTermsChips?.('modalVenTerms'); }
+  const vb = document.getElementById('modalVenTermsBasis'); if (vb) vb.value = 'bill';
   document.getElementById('modalVenAddress').value = '';
 }
+
+// ── Payment-terms presets (Immediate / Net 7 … Net 60) under any credit-days box ──
+const _TERM_CHIPS = [[0, 'Immediate'], [7, 'Net 7'], [15, 'Net 15'], [30, 'Net 30'], [45, 'Net 45'], [60, 'Net 60']];
+window._termsChipsHTML = (id, cur) => _TERM_CHIPS.map(([n, l]) => `<button type="button" class="terms-chip${cur !== '' && cur != null && +cur === n ? ' on' : ''}" data-v="${n}" onclick="window._pickTerms('${id}',${n})">${l}</button>`).join('');
+window._syncTermsChips = (id) => {
+  const el = document.getElementById(id), box = document.querySelector(`.terms-chips[data-for="${id}"]`); if (!el || !box) return;
+  if (!box.children.length) box.innerHTML = window._termsChipsHTML(id, el.value);
+  box.querySelectorAll('.terms-chip').forEach(b => b.classList.toggle('on', el.value !== '' && +el.value === +b.dataset.v));
+};
+window._pickTerms = (id, n) => { const el = document.getElementById(id); if (!el) return; el.value = n; window._syncTermsChips(id); };
+document.addEventListener('input', e => { const id = e.target && e.target.id; if (id && document.querySelector(`.terms-chips[data-for="${id}"]`)) window._syncTermsChips(id); }, true);
+document.querySelectorAll('.terms-chips[data-for]').forEach(b => window._syncTermsChips(b.dataset.for));
 
 export function saveVendor() {
   const name = document.getElementById('modalVenName').value;
   if (!name) return showToast('Name Required', 'error');
   const _vtRaw = (document.getElementById('modalVenTerms')?.value || '').toString().trim();
-  const _vTerms = _vtRaw === '' ? null : Math.max(0, parseInt(_vtRaw) || 0);
+  const _vBasis = document.getElementById('modalVenTermsBasis')?.value || 'bill';
+  // Terms drive the cash-flow forecast, so a new supplier needs them (Immediate = 0 is fine).
+  if (_vtRaw === '' && _vBasis !== 'weekly') { document.getElementById('modalVenTerms')?.focus(); return showToast('Set payment terms — pick Immediate, Net 7 … or "Paid weekly"', 'error'); }
+  const _vTerms = _vtRaw === '' ? (_vBasis === 'weekly' ? 7 : null) : Math.max(0, parseInt(_vtRaw) || 0);
   const rec = {
     id: 'v_' + Date.now(), name,
     contact: document.getElementById('modalVenContact').value,
     gst: document.getElementById('modalVenGST').value.toUpperCase(),
     address: document.getElementById('modalVenAddress').value,
     paymentTermsDays: _vTerms,
+    termsBasis: _vBasis === 'delivery' ? 'delivery' : 'bill',
+    ...(_vBasis === 'weekly' ? { termsType: 'weekly', payWeekday: 6 } : {}),
     termsHistory: _vTerms != null ? [{ date: new Date().toISOString(), from: null, to: _vTerms, reason: 'Initial terms at registration' }] : [],
     projectId: state.currentProjectId || undefined
   };
@@ -4888,8 +4925,10 @@ export function loadPendingAbstractsForBilling() {
   // Prefill retention % from the client's project setting (user can still override).
   const _client = state.clients.find(c => c.id === cId);
   const _proj = state.projects.find(p => p.id === _client?.projectId);
-  const _ret = document.getElementById('billRetention');
-  if (_ret && _proj && (_proj.retention || 0) > 0 && !_ret.dataset.touched) _ret.value = _proj.retention;
+  const _ret = document.getElementById('billRetention'), _tds = document.getElementById('billTds');
+  const _rules = rulesFor(state, { projectId: _proj?.id || '', clientId: cId });
+  if (_ret && !_ret.dataset.touched) _ret.value = _rules.retentionPct || (_proj?.retention || 0) || 0;
+  if (_tds && !_tds.dataset.touched) _tds.value = _rules.tdsPct || 0;
 
   const pending = state.abstracts.filter(a => a.clientId === cId && !isAbstractInvoiced(a));
   pending.forEach(a => {
@@ -5670,250 +5709,7 @@ window._ppeDelete = function(ppeId) {
   showToast('PPE record deleted', 'warning');
 };
 
-// ══════════════════════════════════════════
-// PIECE-RATE WORK — rate card, measurement, approval, payout
-// ══════════════════════════════════════════
-window._prTab = function(tab, btn) {
-  if (btn) {
-    document.querySelectorAll('.pr-tab').forEach(b => { b.classList.remove('bg-white','text-slate-800','shadow-sm'); b.classList.add('text-slate-500'); });
-    btn.classList.add('bg-white','text-slate-800','shadow-sm'); btn.classList.remove('text-slate-500');
-  }
-  if (tab === 'rates') _prRenderRates();
-  else if (tab === 'measure') _prRenderMeasure();
-  else if (tab === 'approve') _prRenderApprovals();
-  else if (tab === 'payout') _prRenderPayout();
-};
-
-// Client names only — see _invSiteOptions().
-function _prSiteOptions() {
-  let opts = '';
-  getAllLocations().forEach(l => { opts += `<option value="${l.id}">${l.name}</option>`; });
-  return opts || '<option value="main">Main Site</option>';
-}
-
-/** defineWorkItemRates — rate card */
-function _prRenderRates() {
-  const c = document.getElementById('prContent');
-  if (!c) return;
-  const cur = getCurrencySymbol();
-  const rates = (state.workItemRates || []).filter(r => r.projectId === state.currentProjectId);
-  const rows = rates.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
-    <td style="padding:8px 10px;font-family:monospace;font-weight:700;color:#2563eb;">${r.itemCode || '—'}</td>
-    <td style="padding:8px 10px;">${r.workCategory}</td>
-    <td style="padding:8px 10px;text-align:center;">${r.uom}</td>
-    <td style="padding:8px 10px;text-align:right;font-weight:700;">${cur}${r.rate.toLocaleString('en-IN')}</td>
-    <td style="padding:8px 10px;text-align:center;"><button onclick="_prDeleteRate('${r.id}')" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:2px 8px;cursor:pointer;">Del</button></td>
-  </tr>`).join('');
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">➕ Add Work Item Rate</h4>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <input id="prItemCode" placeholder="Item Code" class="p-2 border rounded-lg text-sm outline-none">
-        <input id="prCategory" placeholder="Work (e.g. RCC M20)" class="p-2 border rounded-lg text-sm outline-none">
-        <select id="prUom" class="p-2 border rounded-lg text-sm outline-none bg-white"><option>M3</option><option>M2</option><option>RMT</option><option>MT</option><option>Nos</option><option>Kg</option><option>Sqft</option><option>Cft</option><option>Bag</option><option>Lot</option></select>
-        <input id="prRate" type="number" placeholder="Rate ${getCurrencySymbol().trim()}" class="p-2 border rounded-lg text-sm outline-none">
-        <button onclick="_prAddRate()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Add</button>
-      </div>
-    </div>
-    <div class="bg-white border rounded-xl overflow-hidden">
-      <table class="w-full text-sm"><thead class="bg-slate-50"><tr>
-        <th class="px-3 py-2 text-left text-[10px] font-bold uppercase text-slate-500">Code</th>
-        <th class="px-3 py-2 text-left text-[10px] font-bold uppercase text-slate-500">Work Category</th>
-        <th class="px-3 py-2 text-center text-[10px] font-bold uppercase text-slate-500">UOM</th>
-        <th class="px-3 py-2 text-right text-[10px] font-bold uppercase text-slate-500">Rate</th>
-        <th class="px-3 py-2"></th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="5" class="p-6 text-center text-slate-400">No rates defined yet.</td></tr>'}</tbody></table>
-    </div>`;
-}
-window._prAddRate = function() {
-  const itemCode = document.getElementById('prItemCode').value.trim();
-  const workCategory = document.getElementById('prCategory').value.trim();
-  const uom = document.getElementById('prUom').value;
-  const rate = parseFloat(document.getElementById('prRate').value) || 0;
-  if (!workCategory || rate <= 0) { showToast('Enter work category and rate', 'error'); return; }
-  state.workItemRates.push({ id: 'rate_' + Date.now(), itemCode, workCategory, uom, rate, projectId: state.currentProjectId });
-  saveAllData(); _prRenderRates();
-  showToast('Rate added', 'success');
-};
-window._prDeleteRate = function(id) {
-  keepOnly('workItemRates', r => r.id !== id);
-  saveAllData(); _prRenderRates();
-};
-
-/** logDailyWorkMeasurement */
-function _prRenderMeasure() {
-  const c = document.getElementById('prContent');
-  if (!c) return;
-  const rates = (state.workItemRates || []).filter(r => r.projectId === state.currentProjectId);
-  if (!rates.length) { c.innerHTML = '<div class="bg-white border rounded-xl p-8 text-center text-slate-400">Define work item rates first (Rate Card tab).</div>'; return; }
-  const gangs = _projectContractors();
-  const rateOpts = rates.map(r => `<option value="${r.id}">${r.workCategory} (${getCurrencySymbol()}${r.rate}/${r.uom})</option>`).join('');
-  const gangOpts = gangs.map(g => `<option value="${g.id}">${g.name}</option>`).join('') || '<option value="">No gangs — add a contractor</option>';
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4 mb-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">📏 Log Daily Work Measurement</h4>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <input id="prmDate" type="date" value="${new Date().toISOString().split('T')[0]}" class="p-2 border rounded-lg text-sm outline-none">
-        <select id="prmSite" class="p-2 border rounded-lg text-sm outline-none bg-white">${_prSiteOptions()}</select>
-        <select id="prmGang" class="p-2 border rounded-lg text-sm outline-none bg-white">${gangOpts}</select>
-        <select id="prmRate" class="p-2 border rounded-lg text-sm outline-none bg-white">${rateOpts}</select>
-        <input id="prmQty" type="number" placeholder="Quantity" class="p-2 border rounded-lg text-sm outline-none">
-      </div>
-      <input id="prmLoc" placeholder="Location detail (e.g. 2nd floor slab, Grid A-B)" class="w-full mt-2 p-2 border rounded-lg text-sm outline-none">
-      <button onclick="_prLogMeasure()" class="mt-3 w-full bg-amber-500 text-white p-2.5 rounded-lg font-bold text-sm hover:bg-amber-600">Submit Measurement (Pending Approval)</button>
-    </div>
-    <div id="prMeasureList"></div>`;
-  _prRenderMeasureList();
-}
-function _prRenderMeasureList() {
-  const box = document.getElementById('prMeasureList');
-  if (!box) return;
-  const cur = getCurrencySymbol();
-  const list = (state.workMeasurements || []).filter(m => m.projectId === state.currentProjectId).slice(-20).reverse();
-  box.innerHTML = `<div class="bg-white border rounded-xl overflow-hidden"><table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-    <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Gang</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Work</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Status</th></tr></thead><tbody>
-    ${list.map(m => {
-      const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
-      const gang = (state.labourContractors || []).find(g => g.id === m.gangId);
-      const val = (rate?.rate || 0) * m.quantity;
-      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}</td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center">${m.approved ? '<span style="color:#d6402c;font-weight:700;font-size:10px;">✓ Approved</span>' : '<span style="color:#d97706;font-weight:700;font-size:10px;">Pending</span>'}</td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">No measurements logged.</td></tr>'}
-  </tbody></table></div>`;
-}
-window._prLogMeasure = function() {
-  const date = document.getElementById('prmDate').value;
-  const siteId = document.getElementById('prmSite').value;
-  const gangId = document.getElementById('prmGang').value;
-  const rateId = document.getElementById('prmRate').value;
-  const quantity = parseFloat(document.getElementById('prmQty').value) || 0;
-  const location = document.getElementById('prmLoc').value.trim();
-  if (!gangId) { showToast('Select a gang', 'error'); return; }
-  if (quantity <= 0) { showToast('Enter valid quantity', 'error'); return; }
-  state.workMeasurements.push(window.stampCreate({ id: 'meas_' + Date.now(), date, siteId, gangId, rateId, quantity, location, approved: false, projectId: state.currentProjectId }));
-  saveAllData(); _prRenderMeasureList();
-  document.getElementById('prmQty').value = ''; document.getElementById('prmLoc').value = '';
-  showToast('Measurement logged — pending approval', 'success');
-};
-
-/** approveMeasurement */
-function _prRenderApprovals() {
-  const c = document.getElementById('prContent');
-  if (!c) return;
-  const cur = getCurrencySymbol();
-  const pending = (state.workMeasurements || []).filter(m => m.projectId === state.currentProjectId && !m.approved);
-  c.innerHTML = `<div class="bg-white border rounded-xl overflow-hidden">
-    <div class="p-3 bg-amber-50 border-b text-sm font-bold text-amber-700">⏳ ${pending.length} measurement(s) awaiting engineer approval</div>
-    <table class="w-full text-xs"><thead class="bg-slate-50"><tr>
-      <th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Gang</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Work / Location</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th><th class="px-3 py-2 text-center font-bold uppercase text-slate-500">Action</th></tr></thead><tbody>
-    ${pending.map(m => {
-      const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
-      const gang = (state.labourContractors || []).find(g => g.id === m.gangId);
-      const val = (rate?.rate || 0) * m.quantity;
-      return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2 font-bold">${gang?.name || '—'}</td><td class="px-3 py-2">${rate?.workCategory || '—'}<div style="font-size:10px;color:#94a3b8;">${m.location || ''}</div></td><td class="px-3 py-2 text-right font-bold">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td><td class="px-3 py-2 text-center"><button onclick="_prApprove('${m.id}')" style="background:#d6402c;color:#fff;border:none;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;margin-right:3px;">Approve</button><button onclick="_prRejectMeasure('${m.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✕</button></td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">No pending approvals. ✓</td></tr>'}
-  </tbody></table></div>`;
-}
-window._prApprove = function(id) {
-  const m = (state.workMeasurements || []).find(x => x.id === id);
-  if (!m) return;
-  const user = (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser() : null;
-  m.approved = true; m.approvedBy = user?.name || user?.email || 'Engineer'; m.approvedAt = new Date().toISOString();
-  saveAllData(); _prRenderApprovals();
-  showToast('Measurement approved', 'success');
-};
-window._prRejectMeasure = function(id) {
-  if (!confirm('Reject and delete this measurement?')) return;
-  keepOnly('workMeasurements', x => x.id !== id);
-  saveAllData(); _prRenderApprovals();
-};
-
-/** calculateGangPayout + processGangAdvancesAndDeductions */
-function _prRenderPayout() {
-  const c = document.getElementById('prContent');
-  if (!c) return;
-  const gangs = _projectContractors();
-  const gangOpts = gangs.map(g => `<option value="${g.id}">${g.name}</option>`).join('') || '<option value="">No gangs</option>';
-  const m = new Date().toISOString().substring(0, 7);
-  c.innerHTML = `
-    <div class="bg-white border rounded-xl p-4">
-      <h4 class="font-bold text-slate-700 text-sm mb-3">💰 Calculate Gang Payout (Piece-Rate)</h4>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-        <select id="prpGang" class="p-2 border rounded-lg text-sm bg-white">${gangOpts}</select>
-        <input id="prpStart" type="date" value="${m}-01" class="p-2 border rounded-lg text-sm">
-        <input id="prpEnd" type="date" value="${new Date().toISOString().split('T')[0]}" class="p-2 border rounded-lg text-sm">
-        <button onclick="_prCalcPayout()" class="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700">Calculate</button>
-      </div>
-      <div id="prPayoutResult"></div>
-    </div>`;
-}
-window._prCalcPayout = function() {
-  const gangId = document.getElementById('prpGang').value;
-  const start = document.getElementById('prpStart').value;
-  const end = document.getElementById('prpEnd').value;
-  const cur = getCurrencySymbol();
-  if (!gangId) { showToast('Select a gang', 'error'); return; }
-  // Sum APPROVED, not-yet-paid measurements only (so a second Calculate after paying
-  // doesn't re-offer work already settled).
-  const meas = (state.workMeasurements || []).filter(m => m.gangId === gangId && m.approved && !m.paid && m.date >= start && m.date <= end);
-  if (!meas.length) { document.getElementById('prPayoutResult').innerHTML = '<p class="text-center text-emerald-600 py-6 font-bold">✓ No unpaid approved work in this period — the gang is settled.</p>'; return; }
-  let gross = 0;
-  const rows = meas.map(m => {
-    const rate = (state.workItemRates || []).find(r => r.id === m.rateId);
-    const val = (rate?.rate || 0) * m.quantity;
-    gross += val;
-    return `<tr style="border-bottom:1px solid #f1f5f9;"><td class="px-3 py-2">${m.date}</td><td class="px-3 py-2">${rate?.workCategory || '—'}</td><td class="px-3 py-2 text-right">${m.quantity} ${rate?.uom || ''}</td><td class="px-3 py-2 text-right">${cur}${(rate?.rate||0)}</td><td class="px-3 py-2 text-right font-bold">${cur}${val.toLocaleString('en-IN')}</td></tr>`;
-  }).join('');
-  // Gang's unsettled advances (advances recorded against the contractor's workers? Use contractor-level: advances on gang leader stored as labourAdvances with labourId = gangId)
-  const advances = (state.labourAdvances || []).filter(a => a.labourId === gangId && !a.settled).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
-  // Payments already made to this gang not yet tied to a piece-rate payout (e.g. a
-  // Payment Out → Contractor from the Payments screen). Offset them so paying via
-  // either screen reconciles and the work is never billed/paid twice.
-  const priorExps = (state.expenses || []).filter(e => e.gangId === gangId && e.category === 'Piece-Rate Gang Payout' && !e.payoutId);
-  const priorPaid = priorExps.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-  const net = Math.max(0, gross - advances - priorPaid);
-  // Remember exactly which measurements this payout covers so _prPayGang can mark them paid.
-  window._prPayoutCtx = { gangId, start, end, measIds: meas.map(m => m.id), gross, advances, priorPaid, priorIds: priorExps.map(e => e.id), net };
-  const accOpts = state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
-  document.getElementById('prPayoutResult').innerHTML = `
-    <div class="border rounded-lg overflow-hidden mb-3"><table class="w-full text-xs"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Date</th><th class="px-3 py-2 text-left font-bold uppercase text-slate-500">Work</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Qty</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Rate</th><th class="px-3 py-2 text-right font-bold uppercase text-slate-500">Value</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;">
-      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Gross (approved work)</span><span style="font-weight:700;color:#2563eb;">${cur}${gross.toLocaleString('en-IN')}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Gang Advances</span><span style="font-weight:700;color:#ea580c;">−${cur}${advances.toLocaleString('en-IN')}</span></div>
-      ${priorPaid > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#64748b;">Less: Already paid to gang</span><span style="font-weight:700;color:#0284c7;">−${cur}${priorPaid.toLocaleString('en-IN')}</span></div>` : ''}
-      <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:1px solid #e2e8f0;margin-top:6px;"><span style="font-weight:800;">Net Payable</span><span style="font-weight:800;font-size:16px;color:#d6402c;">${cur}${net.toLocaleString('en-IN')}</span></div>
-    </div>
-    <div class="flex gap-2 mt-3">
-      <select id="prpAccount" class="flex-1 p-2 border rounded-lg text-sm bg-white">${accOpts}</select>
-      <button onclick="_prPayGang('${gangId}',${net})" class="bg-emerald-600 text-white px-5 rounded-lg font-bold text-sm hover:bg-emerald-700">${net > 0 ? 'Pay ' + cur + net.toLocaleString('en-IN') : 'Settle (already paid)'}</button>
-    </div>`;
-};
-window._prPayGang = function(gangId, net) {
-  const ctx = (window._prPayoutCtx && window._prPayoutCtx.gangId === gangId) ? window._prPayoutCtx : null;
-  const hasCoverage = ctx && (((ctx.measIds || []).length) || ((ctx.priorIds || []).length));
-  if (net <= 0 && !hasCoverage) { showToast('Nothing to pay', 'warning'); return; }
-  const accountId = document.getElementById('prpAccount').value;
-  const gang = (state.labourContractors || []).find(g => g.id === gangId);
-  const date = new Date().toISOString().split('T')[0];
-  const payoutId = 'gpay_' + Date.now();
-  if (!state.expenses) state.expenses = [];
-  // Record a NEW cash payment only for the remaining balance; prior gang payments
-  // are consumed below rather than paid again.
-  if (net > 0) state.expenses.push({ id: 'exp_' + Date.now(), accountId, date, category: 'Piece-Rate Gang Payout', amount: net, remarks: `Piece-rate payout to ${gang?.name || 'gang'}`, projectId: state.currentProjectId, gangId, payoutId, gross: ctx?.gross, advances: ctx?.advances });
-  // Attribute (consume) prior unlinked gang payments to this settlement so they
-  // stop offsetting future payouts.
-  if (ctx && (ctx.priorIds || []).length) { const ps = new Set(ctx.priorIds); (state.expenses || []).forEach(e => { if (ps.has(e.id)) e.payoutId = payoutId; }); }
-  // Mark the covered measurements as paid so a re-Calculate doesn't re-offer them.
-  const idSet = new Set(ctx?.measIds || []);
-  (state.workMeasurements || []).forEach(m => { if (idSet.has(m.id)) { m.paid = true; m.payoutId = payoutId; m.paidDate = date; } });
-  // settle gang advances
-  (state.labourAdvances || []).filter(a => a.labourId === gangId && !a.settled).forEach(a => a.settled = true);
-  window._prPayoutCtx = null;
-  saveAllData();
-  window.renderPartiesList?.(); window.renderPartyTransactions?.();
-  if (typeof renderAccounts === 'function') { try { renderAccounts(); } catch {} }
-  showToast(net > 0 ? `Paid ${getCurrencySymbol()}${net.toLocaleString('en-IN')} to ${gang?.name || 'gang'}` : `${gang?.name || 'Gang'} work settled (already paid)`, 'success');
-  _prRenderPayout();
-};
+// Piece-rate work (work orders, daily logs, labour bills, BOQ labour cost) → pieceRate.js
 
 /** Total value of unreturned PPE for a worker (used in final settlement) */
 function _unreturnedPPEValue(labourId) {

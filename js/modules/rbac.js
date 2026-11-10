@@ -416,6 +416,31 @@ export function isLoggedIn() {
 // ═══════════════════════════════════════════════
 
 /** The current user's rbacUsers entry (stable id source for project.teamMembers). */
+/**
+ * Update the signed-in user's own name / mobile (My Profile → inline edit).
+ * Writes the team-list entry (what every screen reads) and, when online, the
+ * login's metadata so the name follows the account to new devices.
+ * @returns {Promise<{ok:boolean, cloud:boolean, error?:string}>}
+ */
+export async function updateMyProfile({ name, phone }) {
+  const u = getCurrentUser();
+  if (!u) return { ok: false, cloud: false, error: 'Not signed in' };
+  name = String(name || '').trim(); phone = String(phone || '').trim();
+  if (!name) return { ok: false, cloud: false, error: 'Name cannot be empty' };
+  const me = getMyRbacUser();
+  if (me) { me.name = name; me.phone = phone; me.updatedAt = new Date().toISOString(); saveAllData(); }
+  let cloud = false;
+  const sb = getSupabase();
+  if (sb && u.supabaseId && navigator.onLine !== false) {
+    const { error } = await sb.auth.updateUser({ data: { display_name: name, name, phone } });
+    if (error && !me) return { ok: false, cloud: false, error: error.message || 'Could not save' };
+    cloud = !error;
+  } else if (!me) return { ok: false, cloud: false, error: 'You are offline — try again when connected' };
+  _cachedUser = null;
+  return { ok: true, cloud };
+}
+window.updateMyProfile = updateMyProfile;
+
 export function getMyRbacUser() {
   const u = getCurrentUser();
   if (!u) return null;

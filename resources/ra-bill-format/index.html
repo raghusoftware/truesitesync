@@ -148,6 +148,6 @@
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;function c(){const tb=Math.max(0,num('aU')-num('aP'));const g=tb*num('aG')/100,gross=tb+g;const d=[['Retention',tb*num('aR')/100],['Income-tax TDS',tb*num('aT')/100],['GST TDS',tb*num('aS')/100],['Labour cess',tb*num('aC')/100],['Advance recovery',num('aM')],['Other / LD',num('aX')]].filter(x=>x[1]>0);const tot=d.reduce((s,x)=>s+x[1],0);document.getElementById('aOut').innerHTML='This bill: <b>'+inr(tb)+'</b> · GST '+inr(g)+' · gross <b>'+inr(gross)+'</b><br>'+d.map(x=>x[0]+' −'+inr(x[1])).join(' · ')+'<br>Total deductions: '+inr(tot)+'<br>Net payable: <b>'+inr(gross-tot)+'</b>';}['aU','aP','aG','aR','aT','aS','aC','aM','aX'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

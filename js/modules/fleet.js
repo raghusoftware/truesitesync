@@ -790,6 +790,46 @@ window._eqCalcHours = function() {
   if (hEl) hEl.value = hrs;
 };
 
+/** Advance a machine's running meter (hours for HMR assets, km for KM assets) and flag service due. */
+function _advanceMeter(eq, hours, km) {
+  if (!eq) return;
+  const inc = (eq.unit === 'KM') ? km : hours;
+  eq.currentHMR = (eq.currentHMR || 0) + inc;
+  if (eq.pmTarget && eq.currentHMR >= eq.pmTarget && eq.status !== 'UNDER_REPAIR') {
+    eq.status = 'SERVICE_DUE';
+    showToast(`⚠ ${eq.name} reached service target (${eq.pmTarget}) — SERVICE DUE`, 'warning');
+  }
+}
+
+/**
+ * Record a Runbook (usage) log from anywhere in the app — e.g. the End-of-Day DPR — into the
+ * master equipment logs, exactly like the Equipment → Log entry form does (meter, service due).
+ * @param {{assetId:string, date:string, hours?:number, km?:number, startTime?:string, finishTime?:string, operatorId?:string, remarks?:string, projectId?:string}} o
+ * @returns {object|null} the saved log
+ */
+export function logEquipmentRun(o) {
+  const eq = (state.equipmentList || []).find(e => e.id === o.assetId);
+  const hours = parseFloat(o.hours) || 0, km = parseFloat(o.km) || 0;
+  if (!eq || !o.date || (hours <= 0 && km <= 0)) return null;
+  const op = (state.labourMaster || []).find(l => l.id === o.operatorId);
+  const parts = [];
+  if (o.startTime && o.finishTime) parts.push(`${o.startTime}–${o.finishTime}`);
+  if (hours) parts.push(`${hours} hrs`);
+  if (km) parts.push(`${km} km`);
+  const log = window.stampCreate({
+    id: 'eql_' + Date.now(), assetId: eq.id, date: o.date, type: 'Runbook', siteId: '', amount: 0, accountId: '',
+    hours, km, startTime: o.startTime || '', finishTime: o.finishTime || '', operatorId: o.operatorId || '',
+    remarks: `${parts.join(' · ')}${op ? ' · Op: ' + op.name : ''}${o.remarks ? ' · ' + o.remarks : ''}`,
+    projectId: o.projectId || state.currentProjectId, src: o.src || '',
+  });
+  _advanceMeter(eq, hours, km);
+  if (!state.equipmentLogs) state.equipmentLogs = [];
+  state.equipmentLogs.push(log);
+  saveEquipmentData();
+  return log;
+}
+window.logEquipmentRun = logEquipmentRun;
+
 export function saveEquipmentLog() {
   const assetId = document.getElementById('eqLogAsset').value;
   const date = document.getElementById('eqLogDate').value;
@@ -820,13 +860,7 @@ export function saveEquipmentLog() {
     if (hours) parts.push(`${hours} hrs`);
     if (km) parts.push(`${km} km`);
     logEntry.remarks = `${parts.join(' · ')}${op ? ' · Op: ' + op.name : ''}${remarks ? ' · ' + remarks : ''}`;
-    // Advance the machine's running meter (hours for HMR assets, km for KM assets)
-    const inc = (eq.unit === 'KM') ? km : hours;
-    eq.currentHMR = (eq.currentHMR || 0) + inc;
-    if (eq.pmTarget && eq.currentHMR >= eq.pmTarget && eq.status !== 'UNDER_REPAIR') {
-      eq.status = 'SERVICE_DUE';
-      showToast(`⚠ ${eq.name} reached service target (${eq.pmTarget}) — SERVICE DUE`, 'warning');
-    }
+    _advanceMeter(eq, hours, km);
   }
   // Fuel: litres + source + receipt
   if (type === 'Fuel') {

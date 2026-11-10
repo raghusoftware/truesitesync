@@ -130,6 +130,6 @@
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;function c(){const V=num('gV'),R=num('gR')/100;const gst=V*R,gross=V+gst;const govt=document.getElementById('gB').value==='1',big=document.getElementById('gC').value==='1',s=document.getElementById('gS').value;const applies=govt&&big&&s!=='exempt';const gt=applies?V*0.02:0;const it=V*(+document.getElementById('gT').value)/100;let split='';if(applies)split=s==='inter'?' (IGST 2%: '+inr(gt)+')':' (CGST 1%: '+inr(V*0.01)+' + SGST 1%: '+inr(V*0.01)+')';document.getElementById('gOut').innerHTML='GST @ '+(R*100)+'%: '+inr(gst)+' · gross bill <b>'+inr(gross)+'</b><br>GST TDS: <b>'+inr(gt)+'</b>'+(applies?split:' (not applicable)')+'<br>Income-tax TDS: <b>'+inr(it)+'</b><br>Amount received: <b>'+inr(gross-gt-it)+'</b>';}['gV','gR','gB','gC','gS','gT'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

@@ -61,9 +61,9 @@
     <link rel="stylesheet" href="css/chat.css?v=1.1.1">
     <link rel="stylesheet" href="css/data-module.css?v=1.0.3">
     <link rel="stylesheet" href="css/theme-twotone.css?v=1.0.4">
-    <link rel="stylesheet" href="css/shell.css?v=1.0.35">
+    <link rel="stylesheet" href="css/shell.css?v=1.0.65">
     <link rel="stylesheet" href="css/tools.css?v=1.0.0">
-    <script type="module" src="js/app.js?v=1.6.235"></script>
+    <script type="module" src="js/app.js?v=1.6.264"></script>
 </head>
 <body class="h-screen flex overflow-hidden">
 
@@ -234,9 +234,9 @@
 
         <!-- ── Support (moved out of the top bar to de-clutter the header) ── -->
         <p class="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1.5">Help</p>
-        <a href="tel:+917383503062" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" style="color:#6ee7b7;"><span style="font-size:13px">&#128222;</span> Call Support</a>
+        <a href="tel:+917043274323" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs" style="color:#6ee7b7;"><span style="font-size:13px">&#128222;</span> Call Support</a>
         <div class="px-3 pt-1 pb-2 text-[10px] text-slate-400 leading-relaxed">
-          <a href="tel:+917383503062" class="hover:text-emerald-300">73835&nbsp;03062</a> · <a href="tel:+917043274323" class="hover:text-emerald-300">70432&nbsp;74323</a>
+          <a href="tel:+917043274323" class="hover:text-emerald-300">70432&nbsp;74323</a>
         </div>
       </nav>
     </aside>
@@ -348,7 +348,7 @@
     </div>
 
     <!-- ═══════ ADD/EDIT PROJECT FORM (Full-Screen) ═══════ -->
-    <div id="projectFormPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#f1f5f9;display:none;flex-direction:column;">
+    <div id="projectFormPanel" class="pf-modern" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#f1f5f9;display:none;flex-direction:column;">
       <input type="hidden" id="projFormId">
       <!-- Top Bar -->
       <div class="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 flex-shrink-0" style="box-shadow:0 1px 3px rgba(0,0,0,.06);">
@@ -429,6 +429,7 @@
               <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Client *</label>
               <select id="projFormClientSelect" onchange="_projFormClientChanged()" class="w-full p-2.5 border rounded-xl text-sm outline-none focus:border-green-400 font-semibold bg-white"></select>
               <p class="text-[10px] text-slate-400 mt-1">This project belongs to the selected client. Client details (contact, GST, PAN, address) are managed on the client itself &mdash; Home &rarr; client card &rarr; Edit.</p>
+              <div id="projRulesSlot" class="mt-4"></div>
             </div>
           </div>
 
@@ -1156,35 +1157,11 @@
         </div>
 
         <!-- ═══════ BILLING & INVOICES ═══════ -->
-        <div id="billingView" class="view-section hide"><h2 class="text-3xl font-extrabold text-slate-800 mb-6">Billing & Invoice Management</h2><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-blue-500 mb-8"><h3 class="font-bold text-lg mb-4 text-blue-900">Step 1: Select Client to Invoice</h3><select id="billingClientSelect" class="w-full md:w-1/3 p-3 bg-slate-50 border border-slate-300 rounded-lg font-semibold outline-none focus:border-blue-500" onchange="loadPendingAbstractsForBilling()"></select><div id="billingAbstractsContainer" class="mt-6 hide"><h4 class="font-bold mb-3 text-slate-700">Step 2: Select Pending Abstracts to include</h4><div class="border rounded-lg max-h-48 overflow-y-auto bg-slate-50" id="billingCheckboxesList"></div><div class="mt-6 border-t pt-6 grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="font-bold mb-3 text-slate-700">Step 3: Apply GST</h4><div class="flex gap-4 mb-3"><label class="flex items-center gap-2"><input type="radio" name="gstType" value="intra" checked onchange="toggleGstInputs()"> <span>Intra-State (CGST + SGST)</span></label><label class="flex items-center gap-2"><input type="radio" name="gstType" value="inter" onchange="toggleGstInputs()"> <span>Inter-State (IGST)</span></label></div><div class="flex gap-3" id="gstInputContainer"><div class="flex-1"><label class="text-xs font-bold text-slate-500">CGST %</label><input type="number" id="billCgst" value="9" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div class="flex-1"><label class="text-xs font-bold text-slate-500">SGST %</label><input type="number" id="billSgst" value="9" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div class="flex-1 hide" id="igstWrapper"><label class="text-xs font-bold text-slate-500">IGST %</label><input type="number" id="billIgst" value="18" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div></div><div class="mt-5"><h4 class="font-bold mb-3 text-slate-700">Step 4: Deductions &amp; Recovery</h4><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-bold text-slate-500">Retention %</label><input type="number" id="billRetention" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">TDS %</label><input type="number" id="billTds" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">Advance Recovery (₹)</label><input type="number" id="billAdvanceRec" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">LD / Penalty (₹)</label><input type="number" id="billLD" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div></div><p class="text-[11px] text-slate-400 mt-2">Retention &amp; TDS are computed on work value (pre-GST).</p></div></div><div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h4 class="font-bold mb-2 text-blue-900">Bill Summary</h4><div class="flex justify-between mb-1 text-sm"><span class="text-slate-600 font-medium">Work Value:</span><span class="font-bold" id="billPreviewSub">₹0.00</span></div><div class="flex justify-between mb-1 text-sm"><span class="text-slate-600 font-medium">GST:</span><span class="font-bold" id="billPreviewTax">₹0.00</span></div><div class="flex justify-between mb-1 text-sm border-t border-blue-200 pt-1.5"><span class="text-slate-700 font-semibold">Bill Value (Gross):</span><span class="font-bold" id="billPreviewGross">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600 mt-1.5" id="rowRetention"><span>Less Retention:</span><span id="billPreviewRetention">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowAdvance"><span>Less Advance Recovery:</span><span id="billPreviewAdvance">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowLd"><span>Less LD / Penalty:</span><span id="billPreviewLd">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowTds"><span>Less TDS:</span><span id="billPreviewTds">₹0.00</span></div><div class="border-t border-blue-300 mt-2 pt-2 flex justify-between"><span class="font-bold text-blue-900">Net Payable:</span><span class="font-extrabold text-blue-700 text-lg" id="billPreviewNet">₹0.00</span></div><div class="flex justify-between text-[11px] text-slate-400 mt-1"><span>Invoice value (incl GST):</span><span id="billPreviewTotal">₹0.00</span></div><button onclick="generateFinalInvoice()" class="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700">Generate Final Invoice</button></div></div></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500 mb-8"><div class="flex flex-wrap justify-between items-center gap-3 mb-2"><div><h3 class="font-bold text-lg text-emerald-900">📜 Final Account Statement</h3><p class="text-xs text-slate-500 mt-0.5">Project closeout — all RA bills consolidated, retention held &amp; net position for the selected client.</p></div><div class="flex gap-2"><button onclick="renderFinalAccount()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 shadow-sm">Generate</button><button onclick="printFinalAccount()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-200">🖨️ Print</button></div></div><div id="finalAccountPanel" class="mt-4 text-sm text-slate-400">Select a client above and click <b>Generate</b> to build the final account.</div></div><h3 class="text-2xl font-extrabold text-slate-800 mb-4">Invoice Ledger</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="invoiceHistoryContainer"></div></div>
+        <div id="billingView" class="view-section hide"><h2 class="text-3xl font-extrabold text-slate-800 mb-6">Billing & Invoice Management</h2><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-blue-500 mb-8"><h3 class="font-bold text-lg mb-4 text-blue-900">Step 1: Select Client to Invoice</h3><select id="billingClientSelect" class="w-full md:w-1/3 p-3 bg-slate-50 border border-slate-300 rounded-lg font-semibold outline-none focus:border-blue-500" onchange="loadPendingAbstractsForBilling()"></select><div id="billingAbstractsContainer" class="mt-6 hide"><h4 class="font-bold mb-3 text-slate-700">Step 2: Select Pending Abstracts to include</h4><div class="border rounded-lg max-h-48 overflow-y-auto bg-slate-50" id="billingCheckboxesList"></div><div class="mt-6 border-t pt-6 grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="font-bold mb-3 text-slate-700">Step 3: Apply GST</h4><div class="flex gap-4 mb-3"><label class="flex items-center gap-2"><input type="radio" name="gstType" value="intra" checked onchange="toggleGstInputs()"> <span>Intra-State (CGST + SGST)</span></label><label class="flex items-center gap-2"><input type="radio" name="gstType" value="inter" onchange="toggleGstInputs()"> <span>Inter-State (IGST)</span></label></div><div class="flex gap-3" id="gstInputContainer"><div class="flex-1"><label class="text-xs font-bold text-slate-500">CGST %</label><input type="number" id="billCgst" value="9" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div class="flex-1"><label class="text-xs font-bold text-slate-500">SGST %</label><input type="number" id="billSgst" value="9" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div class="flex-1 hide" id="igstWrapper"><label class="text-xs font-bold text-slate-500">IGST %</label><input type="number" id="billIgst" value="18" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div></div><div class="mt-5"><h4 class="font-bold mb-3 text-slate-700">Step 4: Deductions &amp; Recovery</h4><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-bold text-slate-500">Retention %</label><input type="number" id="billRetention" value="0" class="w-full p-2 border rounded" oninput="this.dataset.touched=1;calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">TDS %</label><input type="number" id="billTds" value="0" class="w-full p-2 border rounded" oninput="this.dataset.touched=1;calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">Advance Recovery (₹)</label><input type="number" id="billAdvanceRec" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div><div><label class="text-xs font-bold text-slate-500">LD / Penalty (₹)</label><input type="number" id="billLD" value="0" class="w-full p-2 border rounded" oninput="calculateLiveBill()"></div></div><p class="text-[11px] text-slate-400 mt-2">Retention &amp; TDS are computed on work value (pre-GST).</p></div></div><div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h4 class="font-bold mb-2 text-blue-900">Bill Summary</h4><div class="flex justify-between mb-1 text-sm"><span class="text-slate-600 font-medium">Work Value:</span><span class="font-bold" id="billPreviewSub">₹0.00</span></div><div class="flex justify-between mb-1 text-sm"><span class="text-slate-600 font-medium">GST:</span><span class="font-bold" id="billPreviewTax">₹0.00</span></div><div class="flex justify-between mb-1 text-sm border-t border-blue-200 pt-1.5"><span class="text-slate-700 font-semibold">Bill Value (Gross):</span><span class="font-bold" id="billPreviewGross">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600 mt-1.5" id="rowRetention"><span>Less Retention:</span><span id="billPreviewRetention">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowAdvance"><span>Less Advance Recovery:</span><span id="billPreviewAdvance">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowLd"><span>Less LD / Penalty:</span><span id="billPreviewLd">₹0.00</span></div><div class="flex justify-between text-sm text-rose-600" id="rowTds"><span>Less TDS:</span><span id="billPreviewTds">₹0.00</span></div><div class="border-t border-blue-300 mt-2 pt-2 flex justify-between"><span class="font-bold text-blue-900">Net Payable:</span><span class="font-extrabold text-blue-700 text-lg" id="billPreviewNet">₹0.00</span></div><div class="flex justify-between text-[11px] text-slate-400 mt-1"><span>Invoice value (incl GST):</span><span id="billPreviewTotal">₹0.00</span></div><button onclick="generateFinalInvoice()" class="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700">Generate Final Invoice</button></div></div></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500 mb-8"><div class="flex flex-wrap justify-between items-center gap-3 mb-2"><div><h3 class="font-bold text-lg text-emerald-900">📜 Final Account Statement</h3><p class="text-xs text-slate-500 mt-0.5">Project closeout — all RA bills consolidated, retention held &amp; net position for the selected client.</p></div><div class="flex gap-2"><button onclick="renderFinalAccount()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 shadow-sm">Generate</button><button onclick="printFinalAccount()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-200">🖨️ Print</button></div></div><div id="finalAccountPanel" class="mt-4 text-sm text-slate-400">Select a client above and click <b>Generate</b> to build the final account.</div></div><h3 class="text-2xl font-extrabold text-slate-800 mb-4">Invoice Ledger</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="invoiceHistoryContainer"></div></div>
 
         <!-- ═══════ ACCOUNTS MANAGER ═══════ -->
         <div id="accountsManagerView" class="view-section hide">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-extrabold text-slate-800">Bank & Cash</h2>
-            <div class="flex gap-2">
-              <button onclick="_acctTransfer()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold text-sm transition">🔄 Transfer</button>
-              <button onclick="openAccountModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-bold text-sm transition">➕ Add Account</button>
-            </div>
-          </div>
-          <div class="flex flex-col md:flex-row gap-4" style="height:78vh;">
-            <!-- Left: account list -->
-            <div class="w-full md:w-96 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden flex-shrink-0">
-              <div class="p-3 border-b bg-slate-50"><input type="text" id="acctSearch" placeholder="🔍 Search account..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-blue-500" oninput="renderAccounts()"></div>
-              <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase px-4 py-2 border-b bg-slate-100"><span>Account Name</span><span>Balance</span></div>
-              <div id="accountsCardsContainer" class="flex-1 overflow-y-auto divide-y divide-slate-100"></div>
-            </div>
-            <!-- Right: transactions -->
-            <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden relative">
-              <div id="acctEmptyState" class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-10"><p class="text-4xl mb-3">🏦</p><h3 class="text-lg font-bold text-slate-700">Select an Account</h3><p class="text-slate-500 text-sm mt-1">Choose an account to view its ledger.</p></div>
-              <div class="p-4 border-b flex justify-between items-center">
-                <div><h3 class="font-extrabold text-lg text-slate-800" id="acctSelName">—</h3><span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200" id="acctSelType">TYPE</span></div>
-                <div class="flex gap-2 flex-wrap"><button onclick="_acctDeposit()" class="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold">+ Deposit</button><button onclick="_acctWithdraw()" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold">− Withdraw</button><button onclick="_editAccount(window._selAcct)" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold">Edit</button><button onclick="_deleteAccount(window._selAcct)" class="bg-slate-50 text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold">Delete</button></div>
-              </div>
-              <div class="flex-1 overflow-y-auto" id="acctTxnsContainer"></div>
-              <div class="bg-slate-800 text-white p-4 flex justify-between items-center text-sm font-bold"><span>Closing Balance:</span><span id="acctClosingBal" class="text-xl font-extrabold">₹0.00</span></div>
-            </div>
-          </div>
+          <div id="bankCashRoot"></div>
         </div>
 
         <!-- Payments hub removed -->
@@ -1524,7 +1501,7 @@
   </div>
 </div>
 
-<div id="salesLedgerView" class="view-section hide lx">
+<div id="salesLedgerView" class="view-section hide lx txv">
   <div class="lx-hero lx-anim">
     <div class="lx-hero-ic">🧾</div>
     <div class="lx-hero-txt">
@@ -1575,7 +1552,7 @@
 </div>
 
 <!-- ═══════ PROFORMA INVOICE ═══════ -->
-<div id="proformaInvoiceView" class="view-section hide">
+<div id="proformaInvoiceView" class="view-section hide txv">
   <div class="flex justify-between items-end mb-6">
     <div><h2>Proforma Invoices</h2><p class="text-slate-500 font-medium mt-1">Create and manage proforma invoices before final billing.</p></div>
     <button onclick="openProformaInvoiceForm()" class="bg-[#1e3a8a] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-900 transition">➕ Create Proforma Invoice</button>
@@ -1757,37 +1734,10 @@
 </div>
 
 <!-- ═══════ OTHER INCOME ═══════ -->
-<div id="otherIncomeView" class="view-section hide">
-  <div class="flex justify-between items-end mb-6">
-    <div><h2>Other Income</h2><p class="text-slate-500 font-medium mt-1">Track miscellaneous income sources like interest, rent, etc.</p></div>
-    <button onclick="openOtherIncomeForm()" class="bg-green-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-700 transition">➕ Add Other Income</button>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-center">
-    <input type="text" id="oiSearch" placeholder="Search source, category..." class="flex-1 min-w-48 p-2.5 border rounded-lg text-sm font-medium outline-none focus:border-green-400" oninput="renderOtherIncome()">
-    <select id="oiFilterCategory" class="p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-green-400 bg-white" onchange="renderOtherIncome()"><option value="">All Categories</option><option value="Interest">Interest</option><option value="Rent">Rent</option><option value="Commission">Commission</option><option value="Scrap Sale">Scrap Sale</option><option value="Other">Other</option></select>
-    <input type="date" id="oiFromDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderOtherIncome()">
-    <span class="text-slate-400 font-bold text-xs">TO</span>
-    <input type="date" id="oiToDate" class="p-2.5 border rounded-lg text-sm outline-none" onchange="renderOtherIncome()">
-    <button onclick="clearOIFilters()" class="text-xs font-bold text-slate-500 hover:text-red-500 px-3 py-2 border rounded-lg hover:border-red-300 transition">✕ Clear</button>
-  </div>
-  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-green-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Total Income</p><p class="text-2xl font-extrabold text-green-600" id="oiKpiTotal">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-blue-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">This Month</p><p class="text-2xl font-extrabold text-blue-700" id="oiKpiMonth">₹0</p></div>
-    <div class="bg-white rounded-xl border shadow-sm p-4 border-l-4 border-l-orange-500"><p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1">Entries</p><p class="text-2xl font-extrabold text-orange-600" id="oiKpiCount">0</p></div>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 bg-slate-800 flex justify-between items-center text-white rounded-t-xl"><h3 class="font-bold">Other Income Register</h3><button onclick="printReport('oiTableWrapper','Other Income')" class="bg-slate-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-500">Print</button></div>
-    <div class="overflow-x-auto" id="oiTableWrapper">
-      <table class="min-w-full text-sm divide-y">
-        <thead class="bg-slate-50"><tr class="text-left text-[10px] font-bold uppercase text-slate-500"><th class="px-4 py-3">Income No</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Source</th><th class="px-4 py-3">Category</th><th class="px-4 py-3">Payment Type</th><th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-center">Actions</th></tr></thead>
-        <tbody id="oiTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<div id="otherIncomeView" class="view-section hide"><div id="oiRoot"></div></div>
 
         <!-- ═══════ PURCHASE BILLS (was Purchase Ledger) ═══════ -->
-<div id="purchaseBillsView" class="view-section hide lx lx-purchase">
+<div id="purchaseBillsView" class="view-section hide lx lx-purchase txv">
   <div class="lx-hero lx-anim">
     <div class="lx-hero-ic">📦</div>
     <div class="lx-hero-txt">
@@ -1908,7 +1858,7 @@
 </div>
 
 <!-- ═══════ PURCHASE ORDER ═══════ -->
-<div id="purchaseOrderView" class="view-section hide">
+<div id="purchaseOrderView" class="view-section hide txv">
   <div class="flex justify-between items-center mb-5">
     <div><h2>Purchase Orders</h2><p class="text-slate-500 font-medium mt-1">Create and track purchase orders to vendors.</p></div>
     <button onclick="openPurchaseOrderForm()" class="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition flex items-center gap-2">➕ Create Purchase Order</button>
@@ -1936,7 +1886,7 @@
 </div>
 
 <!-- ═══════ PURCHASE RETURN / DEBIT NOTE ═══════ -->
-<div id="purchaseReturnView" class="view-section hide">
+<div id="purchaseReturnView" class="view-section hide txv">
   <div class="flex justify-between items-center mb-5">
     <div><h2>Purchase Return / Debit Note</h2><p class="text-slate-500 font-medium mt-1">Manage purchase returns and adjustment entries.</p></div>
     <button onclick="openPurchaseReturnForm()" class="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition flex items-center gap-2">➕ Create Purchase Return</button>
@@ -2042,15 +1992,7 @@
   </div>
 
   <!-- Section: Piece-Rate Work -->
-  <div id="labourSecPiecerate" class="labour-section hide">
-    <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl" style="max-width:fit-content;">
-      <button onclick="_prTab('rates',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-sm">📋 Rate Card</button>
-      <button onclick="_prTab('measure',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">📏 Log Work</button>
-      <button onclick="_prTab('approve',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">✓ Approvals</button>
-      <button onclick="_prTab('payout',this)" class="pr-tab px-4 py-2 rounded-lg text-xs font-bold text-slate-500">💰 Gang Payout</button>
-    </div>
-    <div id="prContent"></div>
-  </div>
+  <div id="labourSecPiecerate" class="labour-section hide"></div>
 </div>
 
         <!-- ═══════ EQUIPMENT & VEHICLES ═══════ -->
@@ -2302,7 +2244,7 @@
         </div>
     </div>
 
-    <div id="vendorModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-md p-6"><h3 class="text-xl font-bold mb-4">Add / Edit Vendor</h3><input type="text" id="modalVenName" placeholder="Vendor Name *" class="w-full mb-3 p-3 border rounded font-bold outline-none focus:border-blue-500"><input type="text" id="modalVenContact" placeholder="Contact Person & Phone" class="w-full mb-3 p-3 border rounded outline-none focus:border-blue-500"><input type="text" id="modalVenGST" placeholder="GST Number" class="w-full mb-3 p-3 border rounded font-mono uppercase outline-none focus:border-blue-500"><input type="number" id="modalVenTerms" placeholder="Payment terms — credit days (e.g. 30)" min="0" max="365" class="w-full mb-3 p-3 border rounded outline-none focus:border-blue-500"><textarea id="modalVenAddress" placeholder="Vendor Address" class="w-full mb-4 p-3 border rounded h-20 outline-none focus:border-blue-500"></textarea><div class="flex justify-end gap-2"><button onclick="document.getElementById('vendorModal').classList.add('hidden')" class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancel</button><button onclick="saveVendor()" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">Save Vendor</button></div></div></div>
+    <div id="vendorModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-md p-6"><h3 class="text-xl font-bold mb-4">Add / Edit Vendor</h3><input type="text" id="modalVenName" placeholder="Vendor Name *" class="w-full mb-3 p-3 border rounded font-bold outline-none focus:border-blue-500"><input type="text" id="modalVenContact" placeholder="Contact Person & Phone" class="w-full mb-3 p-3 border rounded outline-none focus:border-blue-500"><input type="text" id="modalVenGST" placeholder="GST Number" class="w-full mb-3 p-3 border rounded font-mono uppercase outline-none focus:border-blue-500"><input type="number" id="modalVenTerms" placeholder="Payment terms — credit days * (0 = immediate)" min="0" max="365" class="w-full mb-1 p-3 border rounded outline-none focus:border-blue-500"><div class="terms-chips" data-for="modalVenTerms"></div><select id="modalVenTermsBasis" class="w-full mb-3 p-3 border rounded outline-none focus:border-blue-500" aria-label="Payment terms start from"><option value="bill">Terms start from the bill / invoice date</option><option value="delivery">Terms start when material is received (GRN)</option><option value="weekly">Paid weekly, every Saturday</option></select><textarea id="modalVenAddress" placeholder="Vendor Address" class="w-full mb-4 p-3 border rounded h-20 outline-none focus:border-blue-500"></textarea><div class="flex justify-end gap-2"><button onclick="document.getElementById('vendorModal').classList.add('hidden')" class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancel</button><button onclick="saveVendor()" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">Save Vendor</button></div></div></div>
     <div id="abstractModal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-4xl p-6 shadow-2xl max-h-[90vh] flex flex-col"><div class="flex justify-between items-center border-b pb-3 mb-4"><h3 class="text-2xl font-extrabold text-blue-900">Abstract Preview</h3><button onclick="document.getElementById('abstractModal').classList.add('hidden')" class="text-red-500 font-bold text-xl">&times;</button></div><div class="grid grid-cols-2 gap-4 mb-4 bg-slate-50 p-4 rounded border"><div><p class="text-xs text-slate-500 uppercase font-bold">Client</p><p id="absModalClient" class="font-bold"></p></div><div><p class="text-xs text-slate-500 uppercase font-bold">Ref Sheet</p><p id="absModalRef" class="font-bold text-blue-700"></p></div></div><div class="overflow-y-auto flex-1 border rounded mb-4"><table class="min-w-full excel-table text-sm"><thead class="bg-slate-100 sticky top-0"><tr><th class="p-2">Code</th><th class="p-2">Desc</th><th class="p-2">Ref</th><th class="p-2 text-right">Qty</th><th class="p-2 text-right">Rate</th><th class="p-2 text-right">Amount</th></tr></thead><tbody id="absModalBody"></tbody></table></div><div class="flex justify-between items-center border-t pt-4"><div><p class="text-sm font-bold text-slate-500 uppercase">Total Billed</p><p class="text-3xl font-extrabold text-orange-600" id="absModalTotal">₹0</p></div><button onclick="confirmAndSaveAbstract()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 text-lg">💳 Save Abstract</button></div></div></div>
     <div id="abstractEditModal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-5xl p-6 shadow-2xl max-h-[92vh] flex flex-col"><div class="flex justify-between items-center border-b pb-3 mb-4"><div><h3 class="text-2xl font-extrabold text-blue-900">Edit Abstract <span id="absEditNum" class="text-blue-600"></span></h3><p class="text-xs text-slate-500 mt-1"><span id="absEditClient" class="font-semibold text-slate-700"></span> · Sheet <span id="absEditSheet" class="font-mono"></span></p></div><button onclick="closeAbstractEditor()" class="text-red-500 font-bold text-2xl">&times;</button></div><div class="flex flex-wrap gap-3 items-end mb-3"><div><label class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Date</label><input id="absEditDate" type="date" class="border rounded px-2 py-1 text-sm"></div><div class="flex-1 min-w-[200px]"><label class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Area / Location</label><input id="absEditArea" type="text" class="w-full border rounded px-2 py-1 text-sm" placeholder="Area / location"></div></div><div class="overflow-y-auto flex-1 border rounded mb-4"><table class="min-w-full excel-table text-sm"><thead class="bg-slate-100 sticky top-0 z-10"><tr><th class="p-2" style="width:36px;">#</th><th class="p-2 text-left" style="width:110px;">Code</th><th class="p-2 text-left">Description</th><th class="p-2" style="width:70px;">Unit</th><th class="p-2 text-right" style="width:100px;">Qty</th><th class="p-2 text-right" style="width:110px;">Rate</th><th class="p-2 text-right" style="width:130px;">Amount</th><th class="p-2" style="width:40px;"></th></tr></thead><tbody id="absEditBody"></tbody></table></div><div class="flex flex-wrap justify-between items-center border-t pt-4 gap-3"><button onclick="addAbstractEditRow()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 shadow-sm">+ Add Item</button><div class="flex items-center gap-6"><div class="text-right"><p class="text-xs font-bold text-slate-500 uppercase">Grand Total</p><p class="text-2xl font-extrabold text-orange-600" id="absEditTotal">₹0</p></div><button onclick="saveAbstractEdits()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700">💾 Save Abstract</button></div></div></div></div>
     <style>
@@ -2387,7 +2329,31 @@
       </div>
     </div>
     <div id="invoiceInfoModal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-md p-6"><div class="flex justify-between items-center border-b pb-2 mb-4"><h3 class="text-xl font-bold" id="invInfoTitle">Invoice Details</h3><button onclick="document.getElementById('invoiceInfoModal').classList.add('hidden')" class="text-red-500 font-bold text-lg">&times;</button></div><div id="invInfoContent" class="space-y-2 text-sm"></div><div class="mt-6 text-right"><button onclick="document.getElementById('invoiceInfoModal').classList.add('hidden')" class="bg-slate-200 px-4 py-2 rounded font-bold">Close</button></div></div></div>
-    <div id="clientModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-lg p-6"><h3 id="clientModalTitle" class="text-xl font-bold mb-4">Add Client</h3><input type="hidden" id="modalClientId"><div class="grid grid-cols-2 gap-3"><div class="col-span-2"><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Client / Company Name *</label><input type="text" id="modalClientName" placeholder="" class="w-full p-2.5 border rounded-lg font-medium"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Contact Person</label><input type="text" id="modalClientContact" placeholder="Contact person" class="w-full p-2.5 border rounded-lg"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Phone</label><input type="text" id="modalClientPhone" placeholder="Mobile / Phone" class="w-full p-2.5 border rounded-lg"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Email</label><input type="email" id="modalClientEmail" placeholder="client@email.com" class="w-full p-2.5 border rounded-lg"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">GSTIN</label><input type="text" id="modalClientGst" placeholder="22AAAAA0000A1Z5" maxlength="15" class="w-full p-2.5 border rounded-lg font-mono uppercase"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">PAN</label><input type="text" id="modalClientPan" placeholder="ABCDE1234F" maxlength="10" class="w-full p-2.5 border rounded-lg font-mono uppercase"></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Payment Terms — Credit Days</label><input type="number" id="modalClientTerms" placeholder="" min="0" max="365" class="w-full p-2.5 border rounded-lg"><p class="text-[9px] text-slate-400 mt-1">Days you give this client to pay. Drives the cash-flow forecast.</p></div><div><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Credit Limit (optional)</label><input type="number" id="modalClientCreditLimit" placeholder="Max outstanding" min="0" class="w-full p-2.5 border rounded-lg"></div><div class="col-span-2"><label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Billing Address</label><input type="text" id="modalClientAddr" placeholder="Full billing address" class="w-full p-2.5 border rounded-lg"></div></div><div class="flex justify-end gap-2 mt-5"><button onclick="document.getElementById('clientModal').classList.add('hidden')" class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancel</button><button onclick="saveClient()" class="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">Save Client</button></div></div></div>
+    <div id="clientModal" class="clf-bg hidden" onclick="if(event.target===this)window.closeClientModal()">
+      <section class="clf-sheet" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+        <header class="clf-h"><span class="clf-ic" aria-hidden="true">🏢</span><div><h3 id="clientModalTitle">Add Client</h3><small id="clientModalSub">Who you bill, and the rules every bill follows</small></div><button type="button" class="clf-x" aria-label="Close" onclick="window.closeClientModal()">✕</button></header>
+        <div class="clf-body">
+          <input type="hidden" id="modalClientId">
+          <section class="clf-card"><header><b>Business</b><small>As it should appear on bills</small></header>
+            <label class="clf-f">Client / company name *<input type="text" id="modalClientName" placeholder="e.g. Larsen &amp; Toubro Ltd" autocomplete="organization"></label>
+            <div class="clf-row2">
+              <label class="clf-f">GSTIN<input type="text" id="modalClientGst" placeholder="24AAAAA0000A1Z5" maxlength="15" class="clf-mono" oninput="window._cmGstPan&amp;&amp;window._cmGstPan()"></label>
+              <label class="clf-f">PAN<input type="text" id="modalClientPan" placeholder="ABCDE1234F" maxlength="10" class="clf-mono"></label>
+            </div>
+            <label class="clf-f">Billing address<textarea id="modalClientAddr" rows="2" placeholder="Full billing address"></textarea></label>
+          </section>
+          <section class="clf-card"><header><b>Contact</b><small>Who you deal with</small></header>
+            <label class="clf-f">Contact person<input type="text" id="modalClientContact" placeholder="Name" autocomplete="name"></label>
+            <div class="clf-row2">
+              <label class="clf-f">Phone<input type="tel" id="modalClientPhone" placeholder="Mobile / phone" inputmode="tel" autocomplete="tel"></label>
+              <label class="clf-f">Email<input type="email" id="modalClientEmail" placeholder="accounts@client.com" autocomplete="email"></label>
+            </div>
+          </section>
+          <div id="clientRulesSlot"></div>
+        </div>
+        <footer class="clf-foot"><button type="button" class="clf-btn ghost" onclick="window.closeClientModal()">Cancel</button><button type="button" class="clf-btn" id="clientModalSave" onclick="saveClient()">Save client</button></footer>
+      </section>
+    </div>
     <div id="itemModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999"><div class="bg-white rounded-xl w-full max-w-md p-6"><h3 class="text-xl font-bold mb-4">Add Execution Item</h3><input type="text" id="modalItemCode" placeholder="Item Code" class="w-full mb-3 p-3 border rounded font-mono uppercase font-bold"><input type="text" id="modalItemDesc" placeholder="Item Description" class="w-full mb-3 p-3 border rounded"><div class="flex gap-3 mb-4"><input type="text" id="modalItemUnit" placeholder="Unit (e.g. M3)" class="w-1/2 p-3 border rounded"><input type="number" id="modalItemRate" placeholder="Rate (₹)" class="w-1/2 p-3 border rounded font-bold"></div><div class="flex justify-end gap-2"><button onclick="document.getElementById('itemModal').classList.add('hidden')" class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancel</button><button onclick="saveItem()" class="px-4 py-2 bg-orange-500 text-white rounded font-bold">Save</button></div></div></div>
     <div id="locationModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center" style="z-index:199999">
         <div class="bg-white rounded-xl w-full max-w-sm p-6">
@@ -3142,6 +3108,13 @@
                   <span class="lbl">Grand Total</span>
                   <span class="val" id="siFormTotal">&#8377;0.00</span>
                 </div>
+                <div class="si-ded" id="siDedBox">
+                  <div class="si-ded-h"><b>Client deductions</b><small id="siDedSrc">set on the client / project</small></div>
+                  <div class="si-ded-r"><label for="siFormTdsPct">Less: TDS <span class="si-ded-in"><input id="siFormTdsPct" type="number" inputmode="decimal" min="0" max="20" step="0.5" value="0" oninput="this.dataset.touched=1;calcSIFormTotal()">%</span></label><b id="siFormTdsAmt">&minus;&#8377;0</b></div>
+                  <div class="si-ded-r"><label for="siFormRetPct">Less: Retention <span class="si-ded-in"><input id="siFormRetPct" type="number" inputmode="decimal" min="0" max="50" step="0.5" value="0" oninput="this.dataset.touched=1;calcSIFormTotal()">%</span></label><b id="siFormRetAmt">&minus;&#8377;0</b></div>
+                  <div class="si-ded-net"><span>Net receivable</span><b id="siFormNet">&#8377;0</b></div>
+                  <p class="si-ded-note">The invoice is billed in full. TDS and retention are worked out on the taxable value; the client keeps them and you claim them later.</p>
+                </div>
               </div>
             </div>
 
@@ -3334,7 +3307,7 @@
             <div class="bg-white rounded-xl border shadow-sm p-6 mb-5">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Income Source *</label><input type="text" id="oiFormSource" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500" placeholder=""></div>
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category *</label><select id="oiFormCategory" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Interest">Interest</option><option value="Rent">Rent</option><option value="Commission">Commission</option><option value="Scrap Sale">Scrap Sale</option><option value="Other">Other</option></select></div>
+                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category *</label><select id="oiFormCategory" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Equipment Rental">🚜 Equipment Rental</option><option value="Scrap Sale">♻️ Scrap Sale</option><option value="Consulting">📐 Consulting</option><option value="Miscellaneous">💼 Miscellaneous (interest, rent, other)</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date *</label><input type="date" id="oiFormDate" class="w-full p-2.5 border rounded-lg outline-none focus:border-green-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Type</label><select id="oiFormPayType" class="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-green-500"><option value="Cash">Cash</option><option value="Bank">Bank Transfer</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option></select></div>
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (&#8377;) *</label><input type="number" id="oiFormAmount" placeholder="0.00" class="w-full p-3 border rounded-lg font-extrabold text-2xl text-green-700 outline-none focus:border-green-500"></div>

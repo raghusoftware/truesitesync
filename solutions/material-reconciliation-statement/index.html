@@ -130,6 +130,6 @@
 <footer><div class="wrap">© <span id="yr"></span> True Site Sync · <a href="/">Home</a> · <a href="/solutions/">Solutions</a> · <a href="/#pricing">Pricing</a> · <a href="https://play.google.com/store/apps/details?id=com.truesitesync.app" rel="noopener">True Site Sync on Google Play</a></div></footer>
 <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
 <script>(function(){const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');const num=id=>parseFloat(document.getElementById(id).value)||0;const f=n=>n.toLocaleString('en-IN',{maximumFractionDigits:2});function c(){const u=document.getElementById('rU').value||'units';const act=num('rO')+num('rR')-num('rC'),th=num('rT'),tol=num('rTol')/100;const v=act-th,al=th*tol;const pct=th?v/th*100:0;let beyond=0;if(v>al)beyond=v-al;else if(v<-al)beyond=v+al;document.getElementById('rOut').innerHTML='Actual consumption: <b>'+f(act)+' '+u+'</b> · theoretical '+f(th)+' '+u+'<br>Variation: '+(v>=0?'+':'')+f(v)+' '+u+' ('+pct.toFixed(1)+'%) · allowed ±'+f(al)+'<br>'+(beyond>0?'Excess beyond limit: <b>'+f(beyond)+' '+u+'</b> · recovery <b>'+inr(beyond*num('rRate'))+'</b>':beyond<0?'Less than theoretical beyond limit: <b>'+f(-beyond)+' '+u+'</b>. Check measurements and specification.':'Within the permitted variation.');}['rU','rO','rR','rC','rT','rTol','rRate'].forEach(i=>document.getElementById(i).addEventListener('input',c));c();})();</script>
-<script src="/js/site-nav.js?v=4" defer></script>
+<script src="/js/site-nav.js?v=6" defer></script>
 </body>
 </html>

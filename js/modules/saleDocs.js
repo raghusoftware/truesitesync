@@ -12,21 +12,54 @@ import { state, saveAllData } from './state.js';
 import { deductionsBlockHTML, initDeductions, readDeductions, loadDeductions, refreshBills, clientBills } from './deductionsUI.js';
 import { settledAmount, deductionTotal } from './deductions.js';
 import { showToast, getCurrencySymbol } from './utils.js';
-import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm } from './formHelpers.js';
+import { _openFullScreenForm, _populateClientSelect, _populateAccountSelect, _addGenericFormRow, _calcGenericFormTotal, closeFullScreenForm, openFormModal, closeFormModal } from './formHelpers.js';
+import { renderStyledInvoice, resolveInvoiceDesign } from './invoiceTemplates.js?v=2.0.3';
+import { txCard, txMount } from './txList.js?v=1.0.0';
+import { donutSVG, legendHTML, areaSVG, lastMonths, shortMoney, SERIES, NEUTRAL } from './financeViz.js?v=1.0.1';
 
-export function openProformaInvoiceForm() {
+/** New pro forma, or edit an existing one (editId): the same form, filled in. */
+export function openProformaInvoiceForm(editId) {
+  if (typeof editId !== 'string') editId = '';   // called from a click handler (event) → new
+  const pi = editId ? (state.proformaInvoices || []).find(p => p.id === editId) : null;
+  if (editId && !pi) { showToast('Proforma invoice not found', 'error'); return; }
   _populateClientSelect('piFormClient');
-  document.getElementById('piFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('piFormNo').value = 'PI-' + (Date.now() % 100000);
-  document.getElementById('piFormTableBody').innerHTML = '';
-  addPIFormRow(3); calcPIFormTotal();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+  const panel = document.getElementById('proformaInvoiceFormPanel');
+  if (panel) panel.dataset.editId = pi ? pi.id : '';
+  const title = panel?.querySelector('h2'); if (title) title.textContent = pi ? `Edit Proforma Invoice ${pi.piNo || ''}` : 'Create Proforma Invoice';
+  const saveBtn = panel?.querySelector('button[onclick="saveProformaInvoiceForm()"]'); if (saveBtn) saveBtn.textContent = pi ? 'Save Changes' : 'Save Proforma Invoice';
+  set('piFormClient', pi ? pi.clientId : '');
+  set('piFormDate', pi ? pi.date : new Date().toISOString().split('T')[0]);
+  set('piFormNo', pi ? pi.piNo : _nextPiNo());
+  set('piFormValidUntil', pi ? pi.validUntil : '');
+  set('piFormNotes', pi ? pi.notes : '');
+  const tbody = document.getElementById('piFormTableBody');
+  tbody.innerHTML = '';
+  const items = pi ? (pi.items || []) : [];
+  addPIFormRow(Math.max(items.length, pi ? 1 : 3));
+  items.forEach((it, i) => {
+    const r = tbody.rows[i]; if (!r) return;
+    r.querySelector('input[type="text"]').value = it.desc || '';
+    const nums = r.querySelectorAll('input[type="number"]');
+    nums[0].value = it.qty; nums[1].value = it.rate;
+  });
+  calcPIFormTotal();
   _openFullScreenForm('proformaInvoiceFormPanel');
+}
+/** Next PI-#### number: one past the highest already used. */
+function _nextPiNo() {
+  const max = (state.proformaInvoices || []).reduce((m, p) => Math.max(m, parseInt(String(p.piNo || '').replace(/\D/g, ''), 10) || 0), 0);
+  return 'PI-' + String(max + 1).padStart(4, '0');
 }
 export function addPIFormRow(count = 1) { for (let i = 0; i < count; i++) _addGenericFormRow('piFormTableBody', 'calcPIFormTotal'); }
 export function calcPIFormTotal() { _calcGenericFormTotal('piFormTableBody', 'piFormSubtotal', 'piFormTotal'); }
 export function saveProformaInvoiceForm() {
+  const editId = document.getElementById('proformaInvoiceFormPanel')?.dataset.editId || '';
   const clientId = document.getElementById('piFormClient').value;
   if (!clientId) { showToast('Select a client', 'error'); return; }
+  const piNo = (document.getElementById('piFormNo').value || '').trim();
+  if (!piNo) { showToast('Enter the PI number', 'error'); return; }
+  if ((state.proformaInvoices || []).some(p => p.id !== editId && (p.piNo || '').trim().toLowerCase() === piNo.toLowerCase())) { showToast(`${piNo} is already used — pick another number`, 'error'); return; }
   const tbody = document.getElementById('piFormTableBody');
   let items = [], sub = 0;
   Array.from(tbody.rows).forEach(r => {
@@ -37,17 +70,25 @@ export function saveProformaInvoiceForm() {
     if (desc && qty > 0) { items.push({ desc, qty, rate, amount: qty * rate }); sub += qty * rate; }
   });
   if (!items.length) { showToast('Add at least one item', 'error'); return; }
-  const rec = {
-    id: 'pi_' + Date.now(), piNo: document.getElementById('piFormNo').value,
-    date: document.getElementById('piFormDate').value, clientId, items, total: sub,
+  const data = {
+    piNo, date: document.getElementById('piFormDate').value, clientId, items, total: sub,
     validUntil: document.getElementById('piFormValidUntil')?.value || '',
     notes: document.getElementById('piFormNotes')?.value || '',
-    status: 'Pending', convertedInvoice: ''
   };
   if (!state.proformaInvoices) state.proformaInvoices = [];
-  state.proformaInvoices.push(rec);
+  const existing = editId && state.proformaInvoices.find(p => p.id === editId);
+  if (existing) { Object.assign(existing, data, { updatedAt: new Date().toISOString() }); window.stampUpdate?.(existing); }
+  else state.proformaInvoices.push(window.stampCreate ? window.stampCreate({ id: 'pi_' + Date.now(), ...data, status: 'Pending', convertedInvoice: '' }) : { id: 'pi_' + Date.now(), ...data, status: 'Pending', convertedInvoice: '' });
   saveAllData(); closeFullScreenForm('proformaInvoiceFormPanel');
-  showToast('Proforma Invoice saved!'); renderProformaInvoices();
+  showToast(existing ? `${piNo} updated` : 'Proforma Invoice saved!', 'success'); renderProformaInvoices();
+}
+/** Pro forma PDF in the same design as the Tax Invoice (Settings → Print), titled "Proforma Invoice". */
+export function exportProformaPDF(id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id);
+  if (!p) { showToast('Proforma invoice not found', 'error'); return; }
+  const notes = [p.validUntil ? `Valid until ${p.validUntil}.` : '', p.notes || ''].filter(Boolean).join(' ');
+  return renderStyledInvoice({ invoiceNo: p.piNo, date: p.date, clientId: p.clientId, items: (p.items || []).map(it => ({ desc: it.desc, qty: it.qty, rate: it.rate, amount: it.amount })), total: p.total, notes },
+    resolveInvoiceDesign(state.printSettings?.invoiceTemplate), { title: 'Proforma Invoice', filePrefix: 'Proforma_Invoice_', hideReceived: true });
 }
 export function renderProformaInvoices() {
   const cfEl = document.getElementById('piFilterClient');
@@ -63,26 +104,53 @@ export function renderProformaInvoices() {
   });
   list.sort((a, b) => new Date(b.date) - new Date(a.date));
   const tbody = document.getElementById('piTableBody');
-  if (!tbody) return; tbody.innerHTML = '';
+  if (!tbody) return;
   let kPend = 0, kConv = 0, kTotal = 0;
-  list.forEach(p => {
+  const cur = getCurrencySymbol(), money = v => cur + (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const cards = list.map(p => {
     const c = state.clients.find(x => x.id === p.clientId);
+    const proj = p.projectId ? (state.projects || []).find(x => x.id === p.projectId) : null;
     kTotal += p.total; if (p.status === 'Converted') kConv += p.total; else kPend += p.total;
-    const sBadge = p.status === 'Converted' ? '<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold">Converted</span>' : '<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-1 rounded font-bold">Pending</span>';
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-blue-700">${p.piNo}</td><td class="px-4 py-3 text-slate-500">${p.date}</td><td class="px-4 py-3 font-bold">${c?.name || 'Unknown'}</td><td class="px-4 py-3 text-right font-bold">${getCurrencySymbol()}${p.total?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center">${sBadge}</td><td class="px-4 py-3 text-slate-500">${p.convertedInvoice || '-'}</td><td class="px-4 py-3 text-center"><button onclick="deleteProformaInvoice('${p.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
-  });
-  if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No proforma invoices found.</td></tr>';
+    return txCard({ id: p.id, no: p.piNo || 'Proforma', date: p.date, party: c?.name || 'Unknown client',
+      sub: [proj?.name, p.status === 'Converted' && p.convertedInvoiceNo ? 'Invoice ' + p.convertedInvoiceNo : ''].filter(Boolean).join(' · '),
+      amount: money(p.total), badge: p.status === 'Converted' ? 'Converted' : 'Pending',
+      tap: `window._piMenu('${p.id}')`, menu: `window._piMenu('${p.id}')` });
+  }).join('');
+  txMount(tbody, cards, { empty: (state.proformaInvoices || []).length ? 'No proforma invoices match your filters' : 'No proforma invoices yet',
+    summary: `<span>${list.length} proforma${list.length === 1 ? '' : 's'}</span><span>Pending <b>${money(kPend)}</b></span>` });
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   s('piKpiPending', getCurrencySymbol() + kPend.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   s('piKpiConverted', getCurrencySymbol() + kConv.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   s('piKpiTotal', getCurrencySymbol() + kTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
 }
 export function clearPIFilters() { ['piSearch','piFilterClient','piFilterStatus','piFromDate','piToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderProformaInvoices(); }
+/** Delete with a confirmation dialog (the record goes to the Recycle Bin). */
 export function deleteProformaInvoice(id) {
-  if (!confirm('Delete this Proforma Invoice?')) return;
-  window.recycleDelete && window.recycleDelete('proformaInvoices', id, 'Proforma Invoice');
-  saveAllData(); renderProformaInvoices(); showToast('Proforma Invoice Deleted', 'error');
+  const p = (state.proformaInvoices || []).find(x => x.id === id); if (!p) return;
+  const c = (state.clients || []).find(x => x.id === p.clientId);
+  openFormModal('Delete proforma invoice?', `<p style="margin:0;font-size:14px;color:#334155;line-height:1.5;">
+      <b>${p.piNo}</b> · ${c?.name || 'Unknown client'} · ${getCurrencySymbol()}${(p.total || 0).toLocaleString('en-IN')}<br>
+      It moves to the Recycle Bin (Setup → Recycle Bin), where you can restore it.${p.status === 'Converted' ? '<br><b>The tax invoice made from it is not affected.</b>' : ''}</p>`,
+    { grid: 1, width: 440, onSave: `window._piDeleteNow('${id}')`, saveLabel: 'Delete', danger: true });
 }
+window._piDeleteNow = function (id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id);
+  window.recycleDelete && window.recycleDelete('proformaInvoices', id, 'Proforma Invoice');
+  saveAllData(); closeFormModal(); renderProformaInvoices(); showToast(`${p?.piNo || 'Proforma invoice'} deleted`, 'success');
+};
+/** Row actions: View PDF · Edit · Delete. */
+window._piMenu = function (id) {
+  const p = (state.proformaInvoices || []).find(x => x.id === id); if (!p) return;
+  const c = (state.clients || []).find(x => x.id === p.clientId);
+  const acts = [
+    { icon: '📄', title: 'View PDF', desc: 'Same design as your tax invoice', run: () => exportProformaPDF(id) },
+    { icon: '✏️', title: 'Edit', desc: p.status === 'Converted' ? 'Already converted — changes don\'t touch the tax invoice' : 'Change items, rates, dates or notes', run: () => openProformaInvoiceForm(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => deleteProformaInvoice(id) },
+  ];
+  if (typeof window.shellSheet === 'function') window.shellSheet(`${p.piNo} · ${c?.name || ''}`, acts);
+  else openFormModal(`${p.piNo}`, acts.map((a, i) => `<button type="button" onclick="window.closeFormModal();window.__piActs[${i}]()" style="text-align:left;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-weight:700;cursor:pointer;color:${a.danger ? '#b91c1c' : '#0f172a'}">${a.icon} ${a.title}</button>`).join(''), { grid: 1, width: 380 }), window.__piActs = acts.map(a => a.run);
+};
+window.exportProformaPDF = exportProformaPDF;
 
 // ══════════════════════════════════
 // PAYMENT-IN
@@ -477,55 +545,139 @@ export function deleteSaleFixedAsset(id) {
 // ══════════════════════════════════
 // OTHER INCOME
 // ══════════════════════════════════
-export function openOtherIncomeForm() {
-  document.getElementById('oiFormDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('oiFormSource').value = '';
-  document.getElementById('oiFormAmount').value = '';
-  document.getElementById('oiFormRef').value = '';
-  document.getElementById('oiFormNotes').value = '';
+/** Income streams beyond RA bills. Older entries (Interest, Rent, Commission, Other) group under Miscellaneous. */
+export const OI_CATS = [
+  { key: 'Equipment Rental', icon: '🚜', color: SERIES[0], hint: 'Machines hired out to others' },
+  { key: 'Scrap Sale', icon: '♻️', color: SERIES[1], hint: 'Steel, shuttering, packaging' },
+  { key: 'Consulting', icon: '📐', color: SERIES[2], hint: 'Design, supervision, PMC fees' },
+  { key: 'Miscellaneous', icon: '💼', color: NEUTRAL, hint: 'Interest, rent, commission, other' },
+];
+const _oiCat = o => (OI_CATS.some(c => c.key === o.category) ? o.category : 'Miscellaneous');
+const _oiMeta = k => OI_CATS.find(c => c.key === k) || OI_CATS[3];
+const _oiF = { q: '', cat: '', from: '', to: '' };
+
+export function openOtherIncomeForm(editId) {
+  if (typeof editId !== 'string') editId = '';
+  const o = editId ? (state.otherIncome || []).find(x => x.id === editId) : null;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+  const panel = document.getElementById('otherIncomeFormPanel');
+  if (panel) {
+    panel.dataset.editId = o ? o.id : '';
+    const h = panel.querySelector('h2'); if (h) h.textContent = o ? `Edit ${o.incomeNo || 'income'}` : 'Add Other Income';
+  }
+  set('oiFormDate', o ? o.date : new Date().toISOString().split('T')[0]);
+  set('oiFormSource', o ? o.source : '');
+  set('oiFormCategory', o ? _oiCat(o) : (_oiF.cat || 'Equipment Rental'));
+  set('oiFormPayType', o ? o.payType : 'Bank');
+  set('oiFormAmount', o ? o.amount : '');
+  set('oiFormRef', o ? o.ref : '');
+  set('oiFormNotes', o ? o.notes : '');
   _openFullScreenForm('otherIncomeFormPanel');
 }
 export function saveOtherIncomeForm() {
-  const source = document.getElementById('oiFormSource').value;
+  const editId = document.getElementById('otherIncomeFormPanel')?.dataset.editId || '';
+  const source = (document.getElementById('oiFormSource').value || '').trim();
   const amount = parseFloat(document.getElementById('oiFormAmount').value);
-  if (!source || !amount) { showToast('Source and Amount required', 'error'); return; }
-  const rec = {
-    id: 'oi_' + Date.now(), incomeNo: 'OI-' + (Date.now() % 100000), source,
-    date: document.getElementById('oiFormDate').value,
-    category: document.getElementById('oiFormCategory')?.value || 'Other',
-    payType: document.getElementById('oiFormPayType')?.value || 'Cash',
+  if (!source || !(amount > 0)) { showToast('Enter where the money came from and the amount', 'error'); return; }
+  const data = {
+    source, date: document.getElementById('oiFormDate').value,
+    category: document.getElementById('oiFormCategory')?.value || 'Miscellaneous',
+    payType: document.getElementById('oiFormPayType')?.value || 'Bank',
     amount, ref: document.getElementById('oiFormRef')?.value || '',
     notes: document.getElementById('oiFormNotes')?.value || ''
   };
   if (!state.otherIncome) state.otherIncome = [];
-  state.otherIncome.push(rec);
+  const existing = editId && state.otherIncome.find(x => x.id === editId);
+  if (existing) { Object.assign(existing, data); window.stampUpdate?.(existing); }
+  else {
+    const n = state.otherIncome.reduce((m, x) => Math.max(m, parseInt(String(x.incomeNo || '').replace(/\D/g, ''), 10) || 0), 0) + 1;
+    const rec = { id: 'oi_' + Date.now(), incomeNo: 'OI-' + String(n).padStart(4, '0'), ...data };
+    state.otherIncome.push(window.stampCreate ? window.stampCreate(rec) : rec);
+  }
   saveAllData(); closeFullScreenForm('otherIncomeFormPanel');
-  showToast('Other Income recorded!'); renderOtherIncome();
+  showToast(existing ? `${existing.incomeNo} updated` : 'Income recorded', 'success'); renderOtherIncome();
 }
 export function renderOtherIncome() {
-  const search = (document.getElementById('oiSearch')?.value || '').toLowerCase();
-  const catFilter = document.getElementById('oiFilterCategory')?.value || '';
-  let list = [...(state.otherIncome || [])];
-  list = list.filter(o => (!search || o.source?.toLowerCase().includes(search) || o.incomeNo?.toLowerCase().includes(search)) && (!catFilter || o.category === catFilter));
-  list.sort((a, b) => new Date(b.date) - new Date(a.date));
-  const tbody = document.getElementById('oiTableBody');
-  if (!tbody) return; tbody.innerHTML = '';
-  let kTotal = 0, kMonth = 0;
-  const curMonth = new Date().toISOString().slice(0, 7);
-  list.forEach(o => {
-    kTotal += o.amount;
-    if (o.date?.startsWith(curMonth)) kMonth += o.amount;
-    tbody.innerHTML += `<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-mono font-bold text-green-700">${o.incomeNo}</td><td class="px-4 py-3 text-slate-500">${o.date}</td><td class="px-4 py-3 font-bold">${o.source}</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold">${o.category}</span></td><td class="px-4 py-3"><span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-1 rounded font-bold">${o.payType}</span></td><td class="px-4 py-3 text-right font-extrabold text-green-700">${getCurrencySymbol()}${o.amount?.toLocaleString('en-IN')}</td><td class="px-4 py-3 text-center"><button onclick="deleteOtherIncome('${o.id}')" class="text-red-500 bg-red-50 hover:bg-red-100 text-[10px] px-2 py-1 rounded font-bold">Del</button></td></tr>`;
-  });
-  if (!list.length) tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No other income entries found.</td></tr>';
-  const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  s('oiKpiTotal', getCurrencySymbol() + kTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  s('oiKpiMonth', getCurrencySymbol() + kMonth.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-  s('oiKpiCount', list.length);
+  const root = document.getElementById('oiRoot');
+  if (!root) return;
+  const cur = getCurrencySymbol();
+  const fmt = n => cur + Math.round(n || 0).toLocaleString('en-IN');
+  const sm = n => shortMoney(n, cur);
+  const all = state.otherIncome || [];
+  const f = _oiF;
+  const list = all.filter(o => (!f.q || [o.source, o.incomeNo, o.ref, o.category].some(v => String(v || '').toLowerCase().includes(f.q)))
+    && (!f.cat || _oiCat(o) === f.cat) && (!f.from || (o.date || '') >= f.from) && (!f.to || (o.date || '') <= f.to))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const total = list.reduce((t, o) => t + (parseFloat(o.amount) || 0), 0);
+  const month = new Date().toISOString().slice(0, 7);
+  const thisMonth = list.filter(o => (o.date || '').startsWith(month)).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0);
+  const slices = OI_CATS.map(c => ({ label: c.key, color: c.color, value: list.filter(o => _oiCat(o) === c.key).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0) }));
+  const trend = lastMonths(12).map(m => ({ label: m.label, value: list.filter(o => (o.date || '').startsWith(m.key)).reduce((t, o) => t + (parseFloat(o.amount) || 0), 0) }));
+  const top = slices.slice().sort((a, b) => b.value - a.value)[0];
+  const chartW = Math.max(300, Math.min(760, (root.clientWidth || 900) > 860 ? (root.clientWidth - 40) / 2 : (root.clientWidth || 360) - 32));
+  const chip = (k, l) => `<button type="button" class="fx-chip${f.cat === k ? ' on' : ''}" onclick="window._oiSet('cat','${k}')">${l}</button>`;
+  root.innerHTML = `<div class="fx">
+    <div class="fx-head"><div><h2>Other Income</h2><p>Money earned beyond RA bills — equipment hire, scrap, consulting and more.</p></div>
+      <button type="button" class="fx-cta" onclick="openOtherIncomeForm()">+ Add income</button></div>
+    <section class="fx-hero">
+      <div class="fx-hero-main">
+        <span class="fx-eyebrow">Other income${f.from || f.to ? ` · ${f.from || '…'} → ${f.to || 'today'}` : ' · all time'}${f.cat ? ' · ' + f.cat : ''}</span>
+        <b class="pos">${fmt(total)}</b>
+        <span class="fx-pill pos">${list.length} entr${list.length === 1 ? 'y' : 'ies'}</span>
+      </div>
+      <div class="fx-kpis">
+        <div><span>This month</span><b>${fmt(thisMonth)}</b><small>${new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</small></div>
+        <div><span>Biggest stream</span><b>${top && top.value ? top.label : '—'}</b><small>${top && top.value ? fmt(top.value) : 'no income yet'}</small></div>
+        <div><span>Average entry</span><b>${fmt(list.length ? total / list.length : 0)}</b><small>per receipt</small></div>
+      </div>
+    </section>
+    <div class="fx-grid2">
+      <section class="fx-card"><header><b>Income by stream</b><small>share of total</small></header>
+        <div class="fx-donut-wrap">${donutSVG(slices, { size: 190, thick: 28, money: sm, sub: 'total income', title: 'Other income by category' })}${legendHTML(slices, fmt)}</div></section>
+      <section class="fx-card"><header><b>Monthly income</b><small>last 12 months</small></header>
+        ${areaSVG(trend, { width: chartW, height: 220, money: sm, title: 'Other income per month, last 12 months' })}</section>
+    </div>
+    <div class="fx-filter">
+      <div class="fx-filter-row">
+        <input type="search" placeholder="Search source, number, reference…" value="${(f.q || '').replace(/"/g, '&quot;')}" oninput="window._oiSet('q', this.value)" aria-label="Search">
+        <span class="fx-dates"><input type="date" value="${f.from}" onchange="window._oiSet('from', this.value)" aria-label="From"><span>→</span><input type="date" value="${f.to}" onchange="window._oiSet('to', this.value)" aria-label="To"></span>
+        ${f.q || f.cat || f.from || f.to ? '<button type="button" class="fx-chip" onclick="clearOIFilters()">✕ Clear</button>' : ''}
+      </div>
+      <div class="fx-filter-row">${chip('', 'All')}${OI_CATS.map(c => chip(c.key, c.icon + ' ' + c.key)).join('')}</div>
+    </div>
+    <section class="fx-card flush">
+      <header><b>Income register</b><small>tap a row to edit or delete</small></header>
+      <div class="fx-list">${list.map(o => {
+        const k = _oiCat(o), m = _oiMeta(k);
+        return `<button type="button" class="fx-li" onclick="window._oiMenu('${o.id}')">
+          <span class="fx-li-ic" style="background:${m.color}1f">${m.icon}</span>
+          <span class="fx-li-main"><b>${o.source || '—'}</b><small>${o.incomeNo || ''} · ${o.date || ''} · <i class="fx-dot" style="background:${m.color}"></i>${o.category && o.category !== k ? o.category : k} · ${o.payType || ''}${o.ref ? ' · ' + o.ref : ''}</small></span>
+          <span class="fx-li-amt pos">+${fmt(o.amount)}</span><span class="fx-li-more" aria-hidden="true">⋯</span></button>`;
+      }).join('') || `<p class="fx-empty">${all.length ? 'No income matches these filters.' : 'No other income yet. Add equipment hire, scrap sales or consulting fees.'}</p>`}</div>
+    </section>
+  </div>`;
 }
-export function clearOIFilters() { ['oiSearch','oiFilterCategory','oiFromDate','oiToDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); renderOtherIncome(); }
+window._oiSet = (k, v) => {
+  _oiF[k] = k === 'q' ? String(v || '').toLowerCase() : (k === 'cat' && _oiF.cat === v ? '' : v || '');
+  renderOtherIncome();
+  if (k === 'q') { const el = document.querySelector('#oiRoot input[type=search]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+};
+window._oiMenu = function (id) {
+  const o = (state.otherIncome || []).find(x => x.id === id); if (!o) return;
+  const acts = [
+    { icon: '✏️', title: 'Edit', run: () => openOtherIncomeForm(id) },
+    { icon: '🗑', title: 'Delete', danger: true, run: () => deleteOtherIncome(id) },
+  ];
+  if (typeof window.shellSheet === 'function') window.shellSheet(`${o.incomeNo || 'Income'} · ${o.source || ''}`, acts);
+  else openOtherIncomeForm(id);
+};
+export function clearOIFilters() { Object.assign(_oiF, { q: '', cat: '', from: '', to: '' }); renderOtherIncome(); }
 export function deleteOtherIncome(id) {
-  if (!confirm('Delete this income entry?')) return;
-  window.recycleDelete && window.recycleDelete('otherIncome', id, 'Other Income');
-  saveAllData(); renderOtherIncome(); showToast('Income Entry Deleted', 'error');
+  const o = (state.otherIncome || []).find(x => x.id === id); if (!o) return;
+  openFormModal('Delete this income?', `<p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><b>${o.incomeNo || ''}</b> · ${o.source || ''} · ${getCurrencySymbol()}${(parseFloat(o.amount) || 0).toLocaleString('en-IN')}<br>It moves to the Recycle Bin, where you can restore it.</p>`,
+    { grid: 1, width: 420, onSave: `window._oiDeleteNow('${id}')`, saveLabel: 'Delete', danger: true });
 }
+window._oiDeleteNow = function (id) {
+  window.recycleDelete && window.recycleDelete('otherIncome', id, 'Other Income');
+  saveAllData(); closeFormModal(); renderOtherIncome(); showToast('Income deleted', 'success');
+};

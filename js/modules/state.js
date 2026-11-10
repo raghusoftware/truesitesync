@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   wpsRuns: 'mes_wps_runs',
   contractTerms: 'mes_contract_terms',
   retentionReleases: 'mes_retention_releases',
+  retentionBills: 'mes_retention_bills',
   guarantees: 'mes_guarantees',
   subcontracts: 'mes_subcontracts',
   subPayments: 'mes_sub_payments',
@@ -91,6 +92,7 @@ const STORAGE_KEYS = {
   labourPPE: 'mes_labour_ppe',
   workItemRates: 'mes_work_item_rates',
   workMeasurements: 'mes_work_measurements',
+  labourBills: 'mes_labour_bills',
   fuelStorages: 'mes_fuel_storages',
   fuelTxns: 'mes_fuel_txns',
   grnRecords: 'mes_grn_records',
@@ -216,6 +218,7 @@ export const state = {
   wpsRuns: load(STORAGE_KEYS.wpsRuns, []),
   contractTerms: load(STORAGE_KEYS.contractTerms, {}),
   retentionReleases: load(STORAGE_KEYS.retentionReleases, []),
+  retentionBills: load(STORAGE_KEYS.retentionBills, []),
   guarantees: load(STORAGE_KEYS.guarantees, []),
   subcontracts: load(STORAGE_KEYS.subcontracts, []),
   subPayments: load(STORAGE_KEYS.subPayments, []),
@@ -292,6 +295,7 @@ export const state = {
   labourPPE: load(STORAGE_KEYS.labourPPE, []),
   workItemRates: load(STORAGE_KEYS.workItemRates, []),
   workMeasurements: load(STORAGE_KEYS.workMeasurements, []),
+  labourBills: load(STORAGE_KEYS.labourBills, []),
   fuelStorages: load(STORAGE_KEYS.fuelStorages, []),
   fuelTxns: load(STORAGE_KEYS.fuelTxns, []),
   grnRecords: load(STORAGE_KEYS.grnRecords, []),
@@ -464,6 +468,15 @@ export function saveAllData() {
     // Always push to cloud regardless of local success.
     syncPush(key, state[key]);
   }
+  notifySaved();
+}
+
+/** Tell live views (e.g. the cash forecast) that the books changed. One event per task. */
+let _savedQueued = false;
+export function notifySaved() {
+  if (_savedQueued || typeof window === 'undefined') return;
+  _savedQueued = true;
+  queueMicrotask(() => { _savedQueued = false; try { window.dispatchEvent(new CustomEvent('tss:data-saved')); } catch {} });
 }
 
 /** Persist ONE key locally + normal (union-merge) cloud push. */
@@ -474,6 +487,7 @@ export function saveKey(key) {
   try { localStorage.setItem(STORAGE_KEYS[key], json); } catch { try { localStorage.removeItem(STORAGE_KEYS[key]); } catch {} idbSet(STORAGE_KEYS[key], json); }
   setLocalKeyTs(key, Date.now());
   syncPush(key, state[key]);
+  notifySaved();
 }
 
 /** Record permanent deletions ({key,id}[]) as lasting server-side tombstones so
@@ -621,6 +635,7 @@ export async function loadFromCloud() {
     // If login booted the app before this slow cloud pull finished, the current
     // view was rendered from empty state (the "Add Client" screen). Now that the
     // real data is in, refresh the view so it appears without the user navigating.
+    if (merged > 0) notifySaved();
     if (merged > 0 && typeof window !== 'undefined' && typeof window.refreshCurrentView === 'function') {
       try { window.refreshCurrentView(); } catch {}
     }
@@ -764,7 +779,8 @@ function _renderForKeys(keys) {
     changeOrders: ['renderRABilling'],
     guarantees: ['renderGuarantees'],
     subcontracts: ['renderSubcontractors'],
-    subPayments: ['renderSubcontractors'],
+    subPayments: ['renderSubcontractors', 'renderCashFlow'],
+    labourBills: ['renderCashFlow'],
     paymentsIn: ['renderPaymentInList', 'renderPartiesList', 'renderCashFlow'],
     vendors: ['renderVendorLedger', 'renderPartiesList'],
     vendorMaterials: ['renderVendorLedger', 'renderPartiesList', 'renderCashFlow'],
