@@ -2464,6 +2464,30 @@ function _billedValue(pid, range) {
   pid = pid || _pid();
   return (state.raBills || []).filter(b => b.projectId === pid && _inCostRange(b.date, range)).reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
 }
+/** ACTUAL material cost — goods received against this project (GRN qty × rate,
+ *  in the material's base unit). This is cash spent on materials, as opposed to
+ *  the recipe's theoretical consumption cost. Site-scoped by GRN `siteId`. */
+function _grnMaterialCost(pid, range) {
+  pid = pid || _pid();
+  return (state.grnRecords || [])
+    .filter(g => (g.siteId || g.projectId) === pid && _inCostRange(g.date || g.receivedAt, range))
+    .reduce((s, g) => s + (parseFloat(g.qty) || 0) * (parseFloat(g.rate) || 0), 0);
+}
+/** ACTUAL site cash spend — confirmed petty-cash EXPENSE transactions for this
+ *  project (TRANSFER/RETURN are float movements, not costs). */
+function _pettyCashCost(pid, range) {
+  pid = pid || _pid();
+  return (state.pettyCashTxns || [])
+    .filter(t => (t.projectId || null) === pid && t.type === 'EXPENSE' && _inCostRange(t.date, range))
+    .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+}
+/** ACTUAL equipment cost — repair / fuel / breakdown logs booked to this project. */
+function _equipmentCost(pid, range) {
+  pid = pid || _pid();
+  return (state.equipmentLogs || [])
+    .filter(e => e.projectId === pid && _inCostRange(e.date, range))
+    .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+}
 
 /**
  * Single source of truth for project profitability. Used by both the
@@ -2474,21 +2498,29 @@ function _billedValue(pid, range) {
  */
 export function computeProjectPnL(pid, range) {
   const proj = (state.projects || []).find(p => p.id === pid);
-  const empty = { projectId: pid, projectName: proj?.name || '', earned: 0, billed: 0, wip: 0, material: 0, labour: 0, other: 0, totalCost: 0, profit: 0, marginPct: 0, noRecipe: 0, byItem: [], leakage: {} };
+  const empty = { projectId: pid, projectName: proj?.name || '', earned: 0, billed: 0, wip: 0, material: 0, stdMaterial: 0, matPurchased: 0, labour: 0, pettyCash: 0, equipment: 0, other: 0, totalCost: 0, profit: 0, marginPct: 0, noRecipe: 0, byItem: [], leakage: {} };
   if (!proj) return empty;
   const meas = _measuredByCode(pid, range);
   const codes = Object.values(meas).filter(m => m.qty > 0);
-  let earned = 0, material = 0, noRecipe = 0;
+  // Earned value (Work Done) + per-item STANDARD margin. stdMaterial is the
+  // recipe's theoretical consumption cost — used only for item-level margin
+  // analysis, never for the headline cash P&L (that uses actual GRN spend).
+  let earned = 0, stdMaterial = 0, noRecipe = 0;
   const byItem = codes.map(m => {
     const value = m.qty * m.rate; earned += value;
     const unitCost = _recipeUnitCost(m.code, pid);
     const matCost = unitCost == null ? null : unitCost * m.qty;
-    if (matCost == null) noRecipe++; else material += matCost;
+    if (matCost == null) noRecipe++; else stdMaterial += matCost;
     const itemMargin = matCost == null ? null : value - matCost;
     const marginPct = (matCost == null || value === 0) ? null : (itemMargin / value) * 100;
     return { ...m, value, matCost, itemMargin, marginPct };
   }).sort((a, b) => b.value - a.value);
-  const labour = _projectLabourCost(pid, range);
+  // ── ACTUAL incurred cost (what the brief/owner means by "are we bleeding
+  //    money") — pulled from the source ledgers, not theory. ──
+  const matPurchased = Math.round(_grnMaterialCost(pid, range)); // Material ← GRN receipts
+  const labour = _projectLabourCost(pid, range);                 // Labour  ← attendance wages
+  const pettyCash = Math.round(_pettyCashCost(pid, range));      // Overhead ← petty cash
+  const equipment = Math.round(_equipmentCost(pid, range));      // Overhead ← equipment logs
   const other = (state.expenses || []).filter(e => e.projectId === pid && _inCostRange(e.date, range)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
   const billed = _billedValue(pid, range);
   const wip = Math.max(0, earned - billed);
@@ -2503,10 +2535,13 @@ export function computeProjectPnL(pid, range) {
     leakage[cat].count++; leakage[cat].cost += c;
   }));
   overhead = Math.round(overhead);
-  const totalCost = material + labour + other + overhead;
+  // Headline material = actual purchases (GRN). Fall back to recipe-standard only
+  // when nothing was received through a GRN, so recipe-only projects still cost.
+  const material = matPurchased > 0 ? matPurchased : stdMaterial;
+  const totalCost = material + labour + pettyCash + equipment + other + overhead;
   const profit = earned - totalCost;
   const marginPct = earned > 0 ? (profit / earned) * 100 : 0;
-  return { projectId: pid, projectName: proj.name, earned, billed, wip, material, labour, other, overhead, totalCost, profit, marginPct, noRecipe, byItem, leakage };
+  return { projectId: pid, projectName: proj.name, earned, billed, wip, material, stdMaterial, matPurchased, labour, pettyCash, equipment, other, overhead, totalCost, profit, marginPct, noRecipe, byItem, leakage };
 }
 window.computeProjectPnL = computeProjectPnL;
 
@@ -2581,10 +2616,10 @@ function _aggregatePnL(ids, range) {
   Object.values(itemMap).forEach(m => { if (m.matCost != null) { m.itemMargin = m.value - m.matCost; m.marginPct = m.value ? (m.itemMargin / m.value) * 100 : null; } });
   const leakage = {};
   parts.forEach(p => Object.entries(p.leakage || {}).forEach(([cat, v]) => { if (!leakage[cat]) leakage[cat] = { count: 0, cost: 0 }; leakage[cat].count += v.count || 0; leakage[cat].cost += v.cost || 0; }));
-  const earned = sum('earned'), billed = sum('billed'), material = sum('material'), labour = sum('labour'), other = sum('other'), overhead = sum('overhead');
-  const totalCost = material + labour + other + overhead;
+  const earned = sum('earned'), billed = sum('billed'), material = sum('material'), stdMaterial = sum('stdMaterial'), matPurchased = sum('matPurchased'), labour = sum('labour'), pettyCash = sum('pettyCash'), equipment = sum('equipment'), other = sum('other'), overhead = sum('overhead');
+  const totalCost = material + labour + pettyCash + equipment + other + overhead;
   const profit = earned - totalCost;
-  return { earned, billed, wip: Math.max(0, earned - billed), material, labour, other, overhead, totalCost, profit, marginPct: earned > 0 ? (profit / earned) * 100 : 0, noRecipe: sum('noRecipe'), byItem: Object.values(itemMap).sort((a, b) => b.value - a.value), leakage, _parts: parts };
+  return { earned, billed, wip: Math.max(0, earned - billed), material, stdMaterial, matPurchased, labour, pettyCash, equipment, other, overhead, totalCost, profit, marginPct: earned > 0 ? (profit / earned) * 100 : 0, noRecipe: sum('noRecipe'), byItem: Object.values(itemMap).sort((a, b) => b.value - a.value), leakage, _parts: parts };
 }
 
 /** Owner "work done per labour": days worked, wages (cost) and the work-done
@@ -2669,6 +2704,8 @@ export function renderCostLedger() {
   const rows = pnl.byItem;
   const income = pnl.earned, materialTotal = pnl.material, noRecipe = pnl.noRecipe;
   const labourCost = pnl.labour, otherExpenses = pnl.other, billed = pnl.billed, wip = pnl.wip;
+  const pettyCashCost = pnl.pettyCash || 0, equipmentCost = pnl.equipment || 0;
+  const matIsActual = (pnl.matPurchased || 0) > 0;
   const profit = pnl.profit, marginPct = pnl.marginPct, overheadCost = pnl.overhead || 0;
   const ohByCat = pnl.leakage; // { category: { count, cost } }
   const ohTotal = Object.values(ohByCat).reduce((a, b) => a + (b.count || 0), 0);
@@ -2676,9 +2713,9 @@ export function renderCostLedger() {
 
   // Where the money went — three slices (validated palette); overhead and other expenses fold together.
   const slices = [
-    { label: 'Material', value: materialTotal, color: SERIES[0] },
+    { label: matIsActual ? 'Material (GRN)' : 'Material', value: materialTotal, color: SERIES[0] },
     { label: 'Labour', value: labourCost, color: SERIES[1] },
-    { label: 'Overhead & other', value: overheadCost + otherExpenses, color: SERIES[2] },
+    { label: 'Overhead & other', value: overheadCost + otherExpenses + pettyCashCost + equipmentCost, color: SERIES[2] },
   ];
   // Profit trend — the last 6 calendar months, same engine and scope.
   const trend = lastMonths(6).map(m => {
@@ -2719,7 +2756,7 @@ export function renderCostLedger() {
       </div>
       <div class="fx-kpis">
         <div><span>Work done</span><b>${fmt(income)}</b><small>measured value</small></div>
-        <div><span>Total cost</span><b>${fmt(pnl.totalCost)}</b><small>material + labour + other</small></div>
+        <div><span>Total cost</span><b>${fmt(pnl.totalCost)}</b><small>${matIsActual ? 'GRN' : 'material'} + labour + site spend</small></div>
         <div><span>Billed</span><b>${fmt(billed)}</b><small>RA bills raised</small></div>
         <div><span>Not yet billed</span><b>${fmt(wip)}</b><small>work in progress</small></div>
       </div>
@@ -2736,7 +2773,7 @@ export function renderCostLedger() {
     </div>
     ${projTable}
     <section class="fx-card flush">
-      <header><b>Margin by BOQ item</b><small>value of work done vs material cost</small></header>
+      <header><b>Margin by BOQ item</b><small>work done vs standard (recipe) material</small></header>
       <div class="fx-scroll"><table class="fx-table"><thead><tr><th>BOQ item</th><th>Done</th><th>Value</th><th>Material</th><th>Margin</th><th>%</th></tr></thead>
         <tbody>${itemRows || '<tr><td colspan="6" class="fx-none">No measured work yet — record it in the Daily Progress Report.</td></tr>'}</tbody></table></div>
       ${noRecipe ? `<p class="fx-foot warn">${noRecipe} item${noRecipe === 1 ? '' : 's'} have no mix-design recipe — material cost shows "no recipe" and isn't in the totals.</p>` : ''}
@@ -2746,10 +2783,12 @@ export function renderCostLedger() {
         <header><b>Profit &amp; loss</b><small>${_esc(_costRangeLabel(range))}</small></header>
         <div class="fx-pl">
           ${line('Work done (earned)', fmt(income), 'in')}
-          ${line('Material (recipe)', '− ' + fmt(materialTotal))}
+          ${line(matIsActual ? 'Material purchased (GRN)' : 'Material (recipe est.)', '− ' + fmt(materialTotal))}
           ${line('Labour (attendance)', '− ' + fmt(labourCost))}
+          ${pettyCashCost ? line('Petty cash (site spend)', '− ' + fmt(pettyCashCost)) : ''}
+          ${equipmentCost ? line('Equipment (fuel / repair)', '− ' + fmt(equipmentCost)) : ''}
           ${line('Non-BOQ / overhead', '− ' + fmt(overheadCost))}
-          ${line('Other expenses', '− ' + fmt(otherExpenses))}
+          ${otherExpenses ? line('Other expenses', '− ' + fmt(otherExpenses)) : ''}
           ${line(profit >= 0 ? 'Gross profit' : 'Gross loss', `${fmt(profit)} <em>${marginPct.toFixed(1)}%</em>`, 'total ' + (profit >= 0 ? 'pos' : 'neg'))}
         </div>
       </section>
@@ -2761,7 +2800,7 @@ export function renderCostLedger() {
       </section>
     </div>
     ${single ? _labourOutputSection(scopeIds[0], range) : ''}
-    <p class="fx-foot">Material = mix-design recipe × latest purchase rate. Labour = attendance wages (present + ½ half-day + 1.5× OT). Work done = measured value (billed + work in progress).</p>
+    <p class="fx-foot">Work done = measured value from DPRs (billed + work in progress). Material = goods received (GRN) × rate, or mix-design recipe when nothing is received yet. Labour = attendance wages (present + ½ half-day + 1.5× OT). Site spend = petty cash + equipment fuel/repair. The item table's margin uses standard recipe cost.</p>
   </div>`;
 }
 window.renderCostLedger = renderCostLedger;
