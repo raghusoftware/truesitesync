@@ -12,6 +12,8 @@
  *   play_store_click   links to the Google Play listing
  *   app_download_click Windows / Android download buttons on the homepage
  *   calculator_use     first change to any calculator on a page
+ *   template_download  free Excel template / pack downloaded from /resources/templates/
+ *   template_to_trial  trial link clicked on a template page (also sends trial_click)
  */
 (function () {
   var GA4_ID = 'G-PJHSGJHVRQ';
@@ -50,6 +52,12 @@
     if (!a) return;
     var href = a.getAttribute('href') || '';
     var where = { page: location.pathname, link_text: label(a) };
+    var tpl = a.getAttribute('data-template');
+    if (href.indexOf('/resources/templates/') !== -1) {
+      window.tssTrack('template_download', Object.assign({ template: tpl || href.split('/').pop() }, where));
+      return;
+    }
+    if (tpl && /(^|\/)app\.html/.test(href)) window.tssTrack('template_to_trial', Object.assign({ template: tpl }, where));
     if (a.classList.contains('dl-btn')) {
       window.tssTrack('app_download_click', Object.assign({ platform: a.classList.contains('windows') ? 'windows' : 'other' }, where));
     } else if (href.indexOf('play.google.com') !== -1) {
