@@ -132,14 +132,43 @@ export function saveClient() {
   if (typeof window.renderPartiesList === 'function' && document.getElementById('partyRoot')) window.renderPartiesList();
 }
 
+/** Initials for a client avatar (first letters of up to two words). */
+function _ciInitials(name) {
+  const p = String(name || '').trim().split(/\s+/);
+  return (((p[0] || '')[0] || '') + ((p[1] || '')[0] || (p[0] || '')[1] || '')).toUpperCase() || '?';
+}
+function _ciEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
 export function renderClientTable() {
   const tbody = document.getElementById('clientTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '';
-  state.clients.forEach(c => {
+  const fmt = v => (v != null && v !== '' && !isNaN(v)) ? v : null;
+  tbody.innerHTML = (state.clients || []).map(c => {
     const projCount = (state.projects || []).filter(p => p.clientId === c.id).length;
-    tbody.innerHTML += `<tr><td class="px-4 py-3 font-bold">${c.name}${window.attributionHTML(c, 'Added')}</td><td class="px-4 py-3">${projCount} project${projCount === 1 ? '' : 's'}</td><td class="px-4 py-3 text-right"><button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded mr-1">Edit</button><button onclick="deleteClient('${c.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded">Del</button></td></tr>`;
-  });
+    const terms = c.paymentTermsDays != null ? `${c.paymentTermsDays}d` : '—';
+    const tds = fmt(c.defaultTdsRate) != null ? `${c.defaultTdsRate}%` : '—';
+    const ret = fmt(c.defaultRetentionRate) != null ? `${c.defaultRetentionRate}%` : '—';
+    return `<tr><td colspan="3" style="padding:6px 0;border:none;">
+      <div class="tsd-ccard">
+        <div class="tsd-avatar">${_ciInitials(c.name)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;color:#1f2937;font-size:14.5px;line-height:1.2;">${_ciEsc(c.name)}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${c.contact ? _ciEsc(c.contact) : 'No primary contact'}${projCount ? ` &middot; ${projCount} project${projCount === 1 ? '' : 's'}` : ''}</div>
+          <div class="tsd-cmeta">
+            <span class="tsd-stat"><span class="lbl">Terms</span><b>${terms}</b></span>
+            <span class="tsd-stat"><span class="lbl">TDS</span><b>${tds}</b></span>
+            <span class="tsd-stat"><span class="lbl">Retention</span><b>${ret}</b></span>
+          </div>
+        </div>
+        <div style="position:relative;align-self:flex-start;">
+          <button class="tsd-kebab" onclick="_tsKebab(this)" aria-label="Actions">&#8942;</button>
+          <div class="tsd-menu">
+            <button class="tsd-menu-item" onclick="_tsKebabClose();editClient('${c.id}')">&#9998; Edit</button>
+            <button class="tsd-menu-item danger" onclick="_tsKebabClose();deleteClient('${c.id}')">&#128465; Delete</button>
+          </div>
+        </div>
+      </div></td></tr>`;
+  }).join('') || `<tr><td colspan="3" class="p-8 text-center text-slate-400 text-sm">No clients yet. Click “+ Add Client” to start.</td></tr>`;
 }
 
 export function editClient(id) {

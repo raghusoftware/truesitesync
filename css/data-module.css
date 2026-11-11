@@ -183,3 +183,81 @@
   .att-save{position:static;background:none;backdrop-filter:none;border-top:none;box-shadow:none;padding:16px 0 0;justify-content:flex-end}
 }
 @media(max-width:360px){ .att-grid{gap:6px} .att-tile{padding:10px;min-height:86px} .att-sum{gap:6px} }
+
+/* ═══════════════════════════════════════════════════════════════
+   Admin directory + RBAC matrix (Teams & Roles, Clients setup)
+   Premium tokens: avatars, micro-badges, kebab menus, iOS toggles.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Avatar / initials circle ── */
+.tsd-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:#fff;letter-spacing:.02em;
+  background:linear-gradient(135deg,var(--brand-mid,#F0542B),var(--brand,#DD3B1B));
+  box-shadow:0 2px 6px -2px rgba(221,59,27,.45);}
+.tsd-avatar.sm{width:34px;height:34px;font-size:12.5px;border-radius:11px;}
+
+/* ── Micro-badges ── */
+.tsd-badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+  padding:3px 9px;border-radius:999px;line-height:1;white-space:nowrap;border:1px solid transparent;}
+.tsd-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.tsd-badge.ok{color:#15803d;background:#f0fdf4;border-color:#bbf7d0;}
+.tsd-badge.off{color:#94a3b8;background:#f8fafc;border-color:#e2e8f0;}
+.tsd-badge.role{color:var(--brand-ink,#AE2C11);background:var(--brand-50,#FDF1ED);border-color:var(--brand-100,#F6CFC2);}
+.tsd-badge.admin{color:#fff;background:linear-gradient(135deg,var(--brand-mid,#F0542B),var(--brand,#DD3B1B));border:none;}
+.tsd-badge.cloud{color:#0369a1;background:#f0f9ff;border-color:#bae6fd;}
+.tsd-badge.local{color:#b45309;background:#fffbeb;border-color:#fde68a;}
+
+/* ── Kebab menu ── */
+.tsd-kebab{width:32px;height:32px;border-radius:9px;border:none;background:transparent;color:#94a3b8;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;transition:.15s;}
+.tsd-kebab:hover{background:#f1f5f9;color:#334155;}
+.tsd-menu{position:absolute;right:0;top:38px;z-index:60;min-width:150px;background:#fff;border:1px solid #e9eef4;
+  border-radius:12px;box-shadow:0 14px 34px -14px rgba(15,23,42,.28);padding:6px;display:none;}
+.tsd-menu.open{display:block;}
+.tsd-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 11px;border:none;background:none;text-align:left;
+  font-size:13px;font-weight:600;color:#334155;border-radius:8px;cursor:pointer;}
+.tsd-menu-item:hover{background:#f6f8fb;}
+.tsd-menu-item.danger{color:#dc2626;}
+.tsd-menu-item.danger:hover{background:#fef2f2;}
+
+/* ── iOS-style toggle ── */
+.tsw{position:relative;display:inline-block;width:40px;height:23px;vertical-align:middle;}
+.tsw input{position:absolute;opacity:0;width:0;height:0;}
+.tsw .tsw-track{position:absolute;inset:0;background:#d7dde5;border-radius:999px;transition:background .18s;cursor:pointer;}
+.tsw .tsw-thumb{position:absolute;top:2.5px;left:2.5px;width:18px;height:18px;background:#fff;border-radius:50%;
+  box-shadow:0 1px 3px rgba(15,23,42,.3);transition:transform .18s;}
+.tsw input:checked + .tsw-track{background:var(--brand,#DD3B1B);}
+.tsw input:checked + .tsw-track .tsw-thumb{transform:translateX(17px);}
+.tsw input:disabled + .tsw-track{opacity:.4;cursor:not-allowed;}
+
+/* ── User directory rows ── */
+.tsd-list{display:flex;flex-direction:column;}
+.tsd-urow{display:flex;align-items:center;gap:14px;padding:12px 14px;border-bottom:1px solid #f1f5f9;position:relative;}
+.tsd-urow:last-child{border-bottom:none;}
+.tsd-urow:hover{background:#fbfcfe;}
+.tsd-uname{font-weight:700;color:#1f2937;font-size:14px;line-height:1.2;}
+.tsd-umail{font-size:12px;color:#94a3b8;margin-top:2px;}
+
+/* ── Client cards ── */
+.tsd-ccard{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#fff;border:1px solid #eef1f5;
+  border-radius:16px;box-shadow:0 1px 2px rgba(23,18,15,.04),0 10px 24px -18px rgba(23,18,15,.14);position:relative;transition:.15s;}
+.tsd-ccard:hover{border-color:var(--brand-100,#F6CFC2);}
+.tsd-cmeta{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:7px;}
+.tsd-stat{display:inline-flex;align-items:baseline;gap:4px;font-size:11px;font-weight:700;color:#475569;
+  background:#f6f8fb;border:1px solid #eef1f5;border-radius:8px;padding:3px 8px;}
+.tsd-stat b{font-size:12px;color:#1f2937;}
+.tsd-stat .lbl{font-size:9.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.03em;}
+
+/* ── RBAC master-detail / matrix ── */
+.rbac-role-tab{display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:12px;
+  background:none;cursor:pointer;text-align:left;transition:.14s;}
+.rbac-role-tab:hover{background:#f6f8fb;}
+.rbac-role-tab.active{background:var(--brand-50,#FDF1ED);border-color:var(--brand-100,#F6CFC2);}
+.rbac-grp-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#f8fafc;
+  font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #eef1f5;}
+.rbac-mrow{display:grid;grid-template-columns:1fr repeat(4,56px);align-items:center;gap:4px;padding:10px 14px;border-top:1px solid #f4f6f9;}
+.rbac-mrow:hover{background:#fbfcfe;}
+.rbac-mrow .mlabel{font-size:13.5px;font-weight:600;color:#334155;}
+.rbac-mhead{display:grid;grid-template-columns:1fr repeat(4,56px);gap:4px;padding:10px 14px;position:sticky;top:0;background:#fff;z-index:2;border-bottom:1px solid #eef1f5;}
+.rbac-mhead .ch{text-align:center;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.03em;}
+.rbac-cell{display:flex;align-items:center;justify-content:center;}

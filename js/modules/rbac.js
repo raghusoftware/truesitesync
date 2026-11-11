@@ -1297,6 +1297,28 @@ function _updateUserBadge() {
 //  USER & ROLE MANAGEMENT (Master Data)
 // ═══════════════════════════════════════════════
 
+// ── Shared directory / matrix primitives (avatar, escape, iOS switch, kebab) ──
+function _tsInitials(name) {
+  const p = String(name || '').trim().split(/\s+/);
+  return (((p[0] || '')[0] || '') + ((p[1] || '')[0] || (p[0] || '')[1] || '')).toUpperCase() || '?';
+}
+function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+/** iOS-style toggle markup. */
+function _sw(checked, disabled, onchange) {
+  return `<label class="tsw"><input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="${onchange}"><span class="tsw-track"><span class="tsw-thumb"></span></span></label>`;
+}
+// Kebab (⋮) action menus — one open at a time, closes on outside click.
+function _tsKebabDoc(e) { if (!e.target.closest('.tsd-menu') && !e.target.closest('.tsd-kebab')) window._tsKebabClose(); }
+window._tsKebab = function (btn) {
+  const menu = btn.nextElementSibling; const open = menu.classList.contains('open');
+  document.querySelectorAll('.tsd-menu.open').forEach(m => m.classList.remove('open'));
+  if (!open) { menu.classList.add('open'); setTimeout(() => document.addEventListener('mousedown', _tsKebabDoc, true), 0); }
+};
+window._tsKebabClose = function () {
+  document.querySelectorAll('.tsd-menu.open').forEach(m => m.classList.remove('open'));
+  document.removeEventListener('mousedown', _tsKebabDoc, true);
+};
+
 export function renderUsersRolesPanel() {
   const container = document.getElementById('usersRolesContent');
   if (!container) return;
@@ -1305,88 +1327,72 @@ export function renderUsersRolesPanel() {
   const roles = state.rbacRoles || {};
   const currentUser = getCurrentUser();
 
-  container.innerHTML = `
-    <!-- Users Section -->
-    <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-lg text-slate-800">Users</h3>
-        <button onclick="window._rbacOpenUserForm()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-blue-700 transition">+ Add User</button>
+  const _allMods = getAccessModules(); const _total = _allMods.length; const _allIds = new Set(_allMods.map(m => m.id));
+  const _rolesAcc = Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
+    const role = roles[roleName];
+    const viewN = (role.permissions || []).filter(p => _allIds.has(p)).length;
+    const sid = roleName.replace(/[^a-zA-Z0-9]/g, '_');
+    const summary = viewN === 0 ? 'No access' : (viewN === _total ? 'Full access' : `${viewN} of ${_total} modules`);
+    return `<div class="border border-slate-200 rounded-xl overflow-hidden">
+      <div class="rbac-role-tab" style="border-radius:0;" onclick="this.parentElement.querySelector('.rbac-body').classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
+        <span class="role-chev text-slate-300 text-[11px] transition-transform">&#9654;</span>
+        <span class="tsd-avatar sm">${roleName.slice(0, 2).toUpperCase()}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="font-bold text-sm text-slate-800 truncate">${_esc(roleName)}</div>
+          <div id="chipSum_${sid}" class="text-[11px] font-semibold text-slate-400 mt-0.5">${summary}</div>
+        </div>
       </div>
-      <div class="overflow-x-auto border rounded-lg">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-50">
-            <tr class="text-left text-[10px] font-bold text-slate-500 uppercase">
-              <th class="p-3">Name</th>
-              <th class="p-3">Email / Username</th>
-              <th class="p-3">Role</th>
-              <th class="p-3">Auth</th>
-              <th class="p-3">Status</th>
-              <th class="p-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${users.map(u => `<tr class="hover:bg-slate-50">
-              <td class="p-3 font-bold text-slate-700">${u.name}</td>
-              <td class="p-3 text-slate-500">${u.email || u.username}</td>
-              <td class="p-3"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${u.role === 'Admin' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}">${u.role}</span></td>
-              <td class="p-3"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${u.supabaseId ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">${u.supabaseId ? 'Cloud' : 'Local'}</span></td>
-              <td class="p-3"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${u.active ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}">${u.active ? 'Active' : 'Inactive'}</span></td>
-              <td class="p-3 text-right">
-                <button onclick="window._rbacOpenUserForm('${u.id}')" class="text-[10px] text-blue-500 font-bold hover:bg-blue-50 px-2 py-1 rounded transition">Edit</button>
-                ${u.id !== (currentUser ? currentUser.id : null) && u.id !== 'usr_admin' ? `<button onclick="window._rbacDeleteUser('${u.id}')" class="text-[10px] text-red-400 font-bold hover:bg-red-50 px-2 py-1 rounded transition">Delete</button>` : ''}
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
+      <div class="rbac-body hidden" id="matrix_${sid}">${_renderPermissionMatrix(roleName, role)}</div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <!-- Team directory -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+      <div class="flex justify-between items-center px-5 py-4">
+        <div>
+          <h3 class="font-extrabold text-lg text-slate-800">Team Members</h3>
+          <p class="text-[11px] text-slate-400 font-medium">${users.length} ${users.length === 1 ? 'person' : 'people'} with access</p>
+        </div>
+        <button onclick="window._rbacOpenUserForm()" class="px-3.5 py-2 rounded-xl font-bold text-xs text-white shadow-sm" style="background:var(--brand,#DD3B1B);">+ Add User</button>
+      </div>
+      <div class="tsd-list border-t border-slate-100">
+        ${users.map(u => { const canDel = u.id !== (currentUser ? currentUser.id : null) && u.id !== 'usr_admin'; const isAdmin = u.role === 'Admin'; return `
+          <div class="tsd-urow">
+            <div class="tsd-avatar">${_tsInitials(u.name)}</div>
+            <div style="flex:1 1 150px;min-width:0;">
+              <div class="tsd-uname">${_esc(u.name)}</div>
+              <div class="tsd-umail">${_esc(u.email || u.username || '')}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+              <span class="tsd-badge ${isAdmin ? 'admin' : 'role'}">${_esc(u.role)}</span>
+              <span class="tsd-badge ${u.supabaseId ? 'cloud' : 'local'}">${u.supabaseId ? 'Cloud' : 'Local'}</span>
+              <span class="tsd-badge ${u.active ? 'ok' : 'off'}"><span class="dot"></span>${u.active ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style="position:relative;">
+              <button class="tsd-kebab" onclick="_tsKebab(this)" aria-label="Actions">&#8942;</button>
+              <div class="tsd-menu">
+                <button class="tsd-menu-item" onclick="_tsKebabClose();window._rbacOpenUserForm('${u.id}')">&#9998; Edit</button>
+                ${canDel ? `<button class="tsd-menu-item danger" onclick="_tsKebabClose();window._rbacDeleteUser('${u.id}')">&#128465; Delete</button>` : ''}
+              </div>
+            </div>
+          </div>`; }).join('') || `<div class="p-6 text-center text-slate-400 text-sm">No team members yet.</div>`}
       </div>
     </div>
 
-    <!-- Role Permissions Section -->
-    <div class="bg-white rounded-xl shadow-sm border p-6">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 class="font-bold text-lg text-slate-800">Role &amp; Access Control</h3>
+    <!-- Role & Access Control -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-extrabold text-lg text-slate-800">Role &amp; Access Control</h3>
+          <p class="text-[11px] text-slate-400 font-medium">Exact <b>View</b> / <b>Create</b> / <b>Edit</b> / <b>Delete</b> per module. Admin always has full access.</p>
+        </div>
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-3 text-[11px] font-bold">
-            <span class="flex items-center gap-1.5 text-blue-600"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>View</span>
-            <span class="flex items-center gap-1.5 text-amber-600"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>Edit</span>
-            <span class="flex items-center gap-1.5 text-rose-600"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>Delete</span>
-          </div>
-          <span id="rbacDirtyNote" style="display:none;" class="text-[11px] font-bold text-amber-600">● Unsaved changes</span>
-          <button id="rbacSaveBtn" onclick="window._rbacSavePermissions()" disabled class="px-3.5 py-1.5 rounded-lg font-bold text-xs text-white bg-emerald-600 transition" style="opacity:.55;cursor:default;">✓ Saved</button>
+          <span id="rbacDirtyNote" style="display:none;color:var(--brand,#DD3B1B);" class="text-[11px] font-bold">&#9679; Unsaved changes</span>
+          <button id="rbacSaveBtn" onclick="window._rbacSavePermissions()" disabled class="px-4 py-2 rounded-xl font-bold text-xs text-white" style="background:var(--brand,#DD3B1B);opacity:.5;cursor:default;">&#10003; Saved</button>
         </div>
       </div>
-      <p class="text-xs text-slate-400 mb-4">Set exactly what each role can <b>view</b>, <b>edit</b> and <b>delete</b> per module. Edit &amp; Delete require View. Changes apply when you press <b>Save</b>. <b>Admin</b> always has full access and can't be limited.</p>
-      <div class="space-y-3">
-        ${(() => { const _allMods = getAccessModules(); const _allIds = new Set(_allMods.map(m => m.id)); const total = _allMods.length; return Object.keys(roles).filter(r => r !== 'Admin').map(roleName => {
-          const role = roles[roleName];
-          const perms = (role.permissions || []).filter(p => _allIds.has(p));
-          const caps = role.caps || {};
-          const viewN = perms.length;
-          const editN = perms.filter(id => (caps[id]?.edit) !== false).length;
-          const delN = perms.filter(id => (caps[id]?.delete) !== false).length;
-          const sid = roleName.replace(/[^a-zA-Z0-9]/g, '_');
-          return `<div class="border border-slate-200 rounded-xl overflow-hidden">
-            <div class="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-white cursor-pointer select-none" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.role-chev').classList.toggle('rotate-90')">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="role-chev text-slate-400 text-[10px] transition-transform">&#9654;</span>
-                <span class="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-extrabold flex-shrink-0">${roleName.slice(0,2).toUpperCase()}</span>
-                <div class="min-w-0"><div class="font-bold text-sm text-slate-800 truncate">${roleName}</div>
-                <div class="flex items-center gap-2 mt-0.5">
-                  <span id="chipV_${sid}" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">${viewN} view</span>
-                  <span id="chipE_${sid}" class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${editN} edit</span>
-                  <span id="chipD_${sid}" class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">${delN} delete</span>
-                </div></div>
-              </div>
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden hidden sm:block"><div id="prog_${sid}" class="h-full bg-blue-500 rounded-full" style="width:${total?Math.round((viewN/total)*100):0}%"></div></div>
-              </div>
-            </div>
-            <div class="hidden">
-              <div id="matrix_${sid}">${_renderPermissionMatrix(roleName, role)}</div>
-            </div>
-          </div>`;
-        }).join(''); })()}
-      </div>
+      <div class="p-4 space-y-2.5">${_rolesAcc}</div>
     </div>
   `;
 }
@@ -1400,42 +1406,39 @@ function _renderPermissionMatrix(roleName, role) {
   getAccessModules().forEach(m => { (groups[m.group] = groups[m.group] || []).push(m); });
   const allIds = getAccessModules().map(m => m.id);
   const rn = roleName.replace(/'/g, "\\'");
-  const colAllView = allIds.every(id => perms.has(id));
-  const colAllEdit = allIds.length && allIds.every(id => perms.has(id) && caps[id]?.edit !== false);
-  const colAllDel = allIds.length && allIds.every(id => perms.has(id) && caps[id]?.delete !== false);
-  const cbx = (checked, disabled, on, accent) => `<input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="${on}" style="width:16px;height:16px;accent-color:${accent};cursor:${disabled ? 'not-allowed' : 'pointer'};${disabled ? 'opacity:.35;' : ''}">`;
-  const th = 'padding:8px 10px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;';
+  const colAll = fn => allIds.length && allIds.every(fn);
+  const cView = colAll(id => perms.has(id));
+  const cCreate = colAll(id => perms.has(id) && caps[id]?.create !== false);
+  const cEdit = colAll(id => perms.has(id) && caps[id]?.edit !== false);
+  const cDel = colAll(id => perms.has(id) && caps[id]?.delete !== false);
   let body = '';
   Object.entries(groups).forEach(([group, modules]) => {
     const gAll = modules.every(m => perms.has(m.id));
     const gEsc = group.replace(/'/g, "\\'");
-    body += `<tr style="background:#f8fafc;">
-      <td style="padding:7px 12px;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">${group}</td>
-      <td style="text-align:center;">${cbx(gAll, false, `window._rbacToggleGroup('${rn}','${gEsc}',this.checked)`, '#2563eb')}</td>
-      <td colspan="2"></td>
-    </tr>`;
+    body += `<div class="rbac-grp-head"><span>${_esc(group)}</span>${_sw(gAll, false, `window._rbacToggleGroup('${rn}','${gEsc}',this.checked)`)}</div>`;
     modules.forEach(m => {
       const v = perms.has(m.id);
+      const cr = v && caps[m.id]?.create !== false;
       const e = v && caps[m.id]?.edit !== false;
       const d = v && caps[m.id]?.delete !== false;
-      body += `<tr style="border-top:1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-        <td style="padding:8px 12px;font-size:13px;color:#334155;font-weight:600;">${m.label}</td>
-        <td style="text-align:center;">${cbx(v, false, `window._rbacTogglePerm('${rn}','${m.id}',this.checked)`, '#2563eb')}</td>
-        <td style="text-align:center;">${cbx(e, !v, `window._rbacToggleCap('${rn}','${m.id}','edit',this.checked)`, '#f59e0b')}</td>
-        <td style="text-align:center;">${cbx(d, !v, `window._rbacToggleCap('${rn}','${m.id}','delete',this.checked)`, '#e11d48')}</td>
-      </tr>`;
+      body += `<div class="rbac-mrow">
+        <span class="mlabel">${_esc(m.label)}</span>
+        <span class="rbac-cell">${_sw(v, false, `window._rbacTogglePerm('${rn}','${m.id}',this.checked)`)}</span>
+        <span class="rbac-cell">${_sw(cr, !v, `window._rbacToggleCap('${rn}','${m.id}','create',this.checked)`)}</span>
+        <span class="rbac-cell">${_sw(e, !v, `window._rbacToggleCap('${rn}','${m.id}','edit',this.checked)`)}</span>
+        <span class="rbac-cell">${_sw(d, !v, `window._rbacToggleCap('${rn}','${m.id}','delete',this.checked)`)}</span>
+      </div>`;
     });
   });
-  return `<div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;min-width:420px;">
-      <thead><tr style="background:#0f172a;color:#fff;position:sticky;top:0;">
-        <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">Module</th>
-        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#93c5fd;">View</span>${cbx(colAllView, false, `window._rbacToggleColumn('${rn}','view',this.checked)`, '#2563eb')}</div></th>
-        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#fcd34d;">Edit</span>${cbx(colAllEdit, false, `window._rbacToggleColumn('${rn}','edit',this.checked)`, '#f59e0b')}</div></th>
-        <th style="${th}"><div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><span style="color:#fda4af;">Delete</span>${cbx(colAllDel, false, `window._rbacToggleColumn('${rn}','delete',this.checked)`, '#e11d48')}</div></th>
-      </tr></thead>
-      <tbody>${body}</tbody>
-    </table>
+  const colNames = ['View', 'Create', 'Edit', 'Delete'];
+  const colKeys = ['view', 'create', 'edit', 'delete'];
+  const colState = [cView, cCreate, cEdit, cDel];
+  return `<div style="max-height:440px;overflow-y:auto;">
+    <div class="rbac-mhead">
+      <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide" style="align-self:center;">Module</span>
+      ${colKeys.map((k, i) => `<div class="ch"><div>${colNames[i]}</div><div style="margin-top:5px;display:flex;justify-content:center;">${_sw(colState[i], false, `window._rbacToggleColumn('${rn}','${k}',this.checked)`)}</div></div>`).join('')}
+    </div>
+    ${body}
   </div>`;
 }
 
@@ -1627,14 +1630,10 @@ function _rbacRerenderRole(roleName) {
   const mx = document.getElementById('matrix_' + sid);
   if (mx) mx.innerHTML = _renderPermissionMatrix(roleName, role);
   const allIds = new Set(getAccessModules().map(m => m.id));
-  const perms = (role.permissions || []).filter(p => allIds.has(p));
-  const caps = role.caps || {};
-  const viewN = perms.length;
-  const editN = perms.filter(id => caps[id]?.edit !== false).length;
-  const delN = perms.filter(id => caps[id]?.delete !== false).length;
-  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-  set('chipV_' + sid, viewN + ' view'); set('chipE_' + sid, editN + ' edit'); set('chipD_' + sid, delN + ' delete');
-  const pr = document.getElementById('prog_' + sid); if (pr) pr.style.width = (allIds.size ? Math.round(viewN / allIds.size * 100) : 0) + '%';
+  const viewN = (role.permissions || []).filter(p => allIds.has(p)).length;
+  const total = allIds.size;
+  const summary = viewN === 0 ? 'No access' : (viewN === total ? 'Full access' : `${viewN} of ${total} modules`);
+  const el = document.getElementById('chipSum_' + sid); if (el) el.textContent = summary;
 }
 window._rbacSavePermissions = function () {
   saveAllData();
